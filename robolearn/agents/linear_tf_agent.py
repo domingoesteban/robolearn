@@ -10,7 +10,7 @@ class LinearTFAgent(TFAgent):
 
         self.policy = tf.add(tf.matmul(self.state, self.weights), self.biases)
 
-        self.init = tf.global_variables_initializer()
+        self.init = tf.initialize_all_variables()
 
         self.sess.run(self.init)
 
@@ -18,3 +18,6 @@ class LinearTFAgent(TFAgent):
     def act(self, obs):
         # TODO: Check obs type and shape before
         return self.sess.run(self.policy, feed_dict={self.state: obs})
+
+    def train(self, rollout_size,  n_times, tstep, method='gd'):
+        pass

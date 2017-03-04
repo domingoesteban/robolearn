@@ -11,7 +11,6 @@ from gazebo_msgs.msg import ModelStates
 from gazebo_msgs.srv import *
 
 from std_msgs.msg import Float64 as Float64Msg
-from sensor_msgs.msg import JointState as JointStateMsg
 from sensor_msgs.msg import Imu as ImuMsg
 from gazebo_msgs.msg import ContactState as ContactStateMsg
 from geometry_msgs.msg import WrenchStamped as WrenchStampedMsg
@@ -43,12 +42,13 @@ class ROSEnvInterface(EnvInterface):
         self.set_config_srv = rospy.ServiceProxy('/gazebo/set_model_configuration', SetModelConfiguration)
 
         self.last_obs = None
+        self.topic_obs_info = []
         self.last_act = None
         self.init_act = 0
         self.init_acts = None
 
-        self.init_joint1 = 0
-        self.init_joint2 = 0
+        self.obs_dim = 0
+        self.act_dim = 0
 
         self.initial_config = None
 
@@ -58,14 +58,63 @@ class ROSEnvInterface(EnvInterface):
         self.last_acts = []
 
         # ROS Subscribers
-        self.mutex_joint_state = Lock()
-        self.subs_joint_state = rospy.Subscriber("/acrobot/joint_states", JointStateMsg, self.callback_joint_state)
+        self.observation_subs = []
+        self.last_obs = []
 
         # Last sensor data
         self.last_joint_state = None
 
-        self.resetting = False
+        self.publish_action = False
 
+    def get_observation(self):
+        """
+        Return defined observations as an array
+        :return:
+        """
+        raise NotImplementedError
+
+    def get_reward(self):
+        """
+        Return defined observations as an array
+        :return:
+        """
+        raise NotImplementedError
+
+    def set_observation_topic(self, topic_name, topic_type):
+        """
+
+        :param topic_name:
+        :param topic_type:
+        :return:
+        """
+        obs_id = len(self.observation_subs)
+        self.observation_subs.append(rospy.Subscriber(topic_name, topic_type, self.callback_observation, obs_id))
+        self.last_obs.append(None)
+        return obs_id
+
+    def callback_observation(self, msg, obs_id):
+        """
+
+        :param msg:
+        :param obs_id:
+        :return:
+        """
+        if not len(self.last_obs):
+            raise AttributeError("last_obs has not been configured")
+        #print(msg)
+        self.last_obs[obs_id] = msg
+
+    def get_obs_dim(self):
+        """
+        :return:
+        """
+        raise NotImplementedError
+
+    def get_action_dim(self):
+        """
+        :return:
+        """
+        raise NotImplementedError
 
     def set_action_topic(self, topic_name, topic_type, topic_freq):
         """
@@ -75,8 +124,9 @@ class ROSEnvInterface(EnvInterface):
         :param topic_freq:
         :return:
         """
+        action_id = len(self.action_pubs)
         self.action_pubs.append((rospy.Publisher(topic_name, topic_type, queue_size=10), topic_freq))
-        return len(self.action_pubs)-1 #TODO: Find a nicer way to return the element number
+        return action_id
 
     def run(self):
         """
@@ -103,12 +153,13 @@ class ROSEnvInterface(EnvInterface):
         :param action_id:
         :return:
         """
-        pub_rate = rospy.Rate(rate)
+        # pub_rate = rospy.Rate(rate)  # TODO Deactivating constant publishing
         while not rospy.is_shutdown():
-            if self.last_acts and not self.resetting:
+            if self.last_acts and self.publish_action:
                 #print("Sending to ROS %f" % self.last_acts[action_id])
                 publisher.publish(self.last_acts[action_id])
-                pub_rate.sleep()
+                self.publish_action = False
+                #pub_rate.sleep()
             #else:
             #    print("Not sending anything to ROS !!!")
 
@@ -119,7 +170,7 @@ class ROSEnvInterface(EnvInterface):
         """
         raise NotImplementedError
 
-    def set_action(self, action):
+    def send_action(self, action):
         """
         Responsible to convert action array to array of ROS publish types
         :param self:
@@ -135,29 +186,12 @@ class ROSEnvInterface(EnvInterface):
         """
         self.last_acts = action_array
 
-
-    def callback_joint_state(self, msg):
-        self.last_joint_state = msg
-        #print("Receiving joint state")
-
-    def get_joint_state(self):
-        return self.last_joint_state
-
-
-
-    # def ros_service_proxy(self, srv_name=None, srv_type=None):
-    #     if srv_name is None:
-    #         raise ValueError("No service name has been specified.")
-    #     if srv_type is None:
-    #         raise ValueError("No service type has been specified.")
-    #
-    #     print("Waiting for service '%s'..." % srv_name)
-    #     rospy.wait_for_service(srv_name)
-    #     return rospy.ServiceProxy(srv_name, srv_type)
-
     def reset_config(self):
+        """
+
+        :return:
+        """
         # Set Model Config
-        #print("Setting model config in Gazebo...")
         try:
             self.set_config_srv(self.initial_config)
             #self.set_config_srv(model_name=self.initial_config.model_name,
@@ -168,12 +202,7 @@ class ROSEnvInterface(EnvInterface):
 
 
     def reset(self):
-        #self.resetting = True
-        # Check
-        #rospy.wait_for_service('/gazebo/reset_world')
         rospy.wait_for_service('/gazebo/reset_simulation')
-        #rospy.wait_for_service('/gazebo/pause_physics')
-        #rospy.wait_for_service('/gazebo/unpause_physics')
 
         if self.initial_config is None:
             raise AttributeError("Robot initial configuration not defined!")
@@ -181,119 +210,53 @@ class ROSEnvInterface(EnvInterface):
         if self.init_acts is None:
             raise AttributeError("Robot initial actions not defined!")
 
-        self.last_acts = self.init_acts
+        # Return commands to initial actions (because the ROS controllers)
+        for ii in xrange(10):  # Instead time, this should be checked with sensor data
+            self.last_acts = self.init_acts
+            self.publish_action = True
+            rospy.sleep(0.05)
 
-        ## Stop Controller
-        #print("Stopping controller...")
-        #self.switch_controller_srv(start_controllers=[],
-        #                           stop_controllers=['joint2_effort_controller'],
-        #                           strictness=2)
+        #try:
+        #    self.pause_srv()  # It does not response anything
+        #except rospy.ServiceException as exc:
+        #    print("/gazebo/pause_physics service call failed: %s" % str(exc))
 
-        ## Unload Controller
-        #print("Unloading controller...")
-        #self.unload_controller_srv(name='joint2_effort_controller')
-
-        #self.last_act = None
-
-        # Pause physics
-        #print("Pausing Gazebo...")
+        #print("Reset gazebo!")
         try:
-            self.pause_srv() # It does not response anything
+            self.reset_srv()
         except rospy.ServiceException as exc:
-            print("/gazebo/pause_physics service call failed: %s" % str(exc))
+            print("/gazebo/reset_world service call failed: %s" % str(exc))
+        rospy.sleep(0.5)
 
+        #print("Reset config!")
         self.reset_config()
+        #print("SLeeping 2 seconds")
+        #rospy.sleep(2)
 
-        # Unpause physics
-        #print("Unpausing Gazebo...")
-        try:
-            self.unpause_srv() # It does not response anything
-        except rospy.ServiceException as exc:
-            print("/gazebo/unpause_physics service call failed: %s" % str(exc))
+        #print("Reset gazebo!")
+        #try:
+        #    self.reset_srv()
+        #except rospy.ServiceException as exc:
+        #    print("/gazebo/reset_world service call failed: %s" % str(exc))
 
+        #print("SLeeping 2 seconds")
+        #rospy.sleep(2)
 
-            #print("Reset physics!!!")
-            #self.physics_properties.gravity.z = 0
-            #try:
-            #    print(self.set_physics_srv(time_step=self.physics_properties.time_step,
-            #                               max_update_rate=self.physics_properties.max_update_rate,
-            #                               gravity=self.physics_properties.gravity,
-            #                               ode_config=self.physics_properties.ode_config))
-            #except rospy.ServiceException as exc:
-            #    print("/gazebo/set_physics_properties service call failed: %s" % str(exc))
+        #print("Reset config!")
+        #self.reset_config()
+        #print("SLeeping 2 MORE seconds")
+        #rospy.sleep(2)
 
-            ## Load Controller
-            #print("Loading controller...")
-            #self.load_controller_srv(name='joint2_effort_controller')
+        #print("Reset gazebo!")
+        #try:
+        #    self.reset_srv()
+        #except rospy.ServiceException as exc:
+        #    print("/gazebo/reset_world service call failed: %s" % str(exc))
 
-            #print("Pausing 2 sec...")
-            #rospy.sleep(duration=2)
-            #print("Unpaused!!!")
+        #try:
+        #    self.unpause_srv()  # It does not response anything
+        #except rospy.ServiceException as exc:
+        #    print("/gazebo/unpause_physics service call failed: %s" % str(exc))
 
-            ## Start Controller
-            #print("Starting controller...")
-            #self.switch_controller_srv(start_controllers=['joint2_effort_controller'],
-            #                           stop_controllers=[],
-            #                           strictness=2)
-
-            #self.resetting = False
-
-            #print("Pausing 2 sec...")
-            #rospy.sleep(duration=2)
-            #print("Unpaused!!!")
-
-
-            ## Pause physics
-            #print("Pausing Gazebo...")
-            #try:
-            #    self.pause_srv() # It does not response anything
-            #except rospy.ServiceException as exc:
-            #    print("/gazebo/pause_physics service call failed: %s" % str(exc))
-
-            ## Reset states with gazebo reset simulation
-            #print("Resetting Gazebo...")
-            #try:
-            #    self.reset_srv() # It does not response anything
-            #except rospy.ServiceException as exc:
-            #    print("/gazebo/reset_simulation service call failed: %s" % str(exc))
-
-            ## Unpause physics
-            #print("Unpausing Gazebo...")
-            #try:
-            #    self.unpause_srv() # It does not response anything
-            #except rospy.ServiceException as exc:
-            #    print("/gazebo/unpause_physics service call failed: %s" % str(exc))
-
-
-            # Pause some time so the controller can go to init_act
-            #print("Pausing 2 sec...")
-            #rospy.sleep(duration=2)
-            #print("Unpaused!!!")
-
-            #print("Reset physics!!!")
-            #self.physics_properties.gravity.z = -9.8
-            #try:
-            #    print(self.set_physics_srv(time_step=self.physics_properties.time_step,
-            #                               max_update_rate=self.physics_properties.max_update_rate,
-            #                               gravity=self.physics_properties.gravity,
-            #                               ode_config=self.physics_properties.ode_config))
-            #except rospy.ServiceException as exc:
-            #    print("/gazebo/set_physics_properties service call failed: %s" % str(exc))
-
-            #print("Pausing 2 sec...")
-            #rospy.sleep(duration=2)
-            #print("Unpaused!!!")
-
-    def get_observation(self, option=[]):
-        """
-        :param option:
-        :return: observations as numpy vector
-        """
-
-        if len(option) == 0:
-            #print('return all')
-            pass
-
-        return self.last_obs
 
 
