@@ -17,6 +17,7 @@ class BigmanEnv(Env):
         else:
             raise NotImplementedError("Only ROS interface has been implemented")
 
+
     def send_action(self, action):
         self.interface.send_action(action=action)
 
@@ -27,7 +28,20 @@ class BigmanEnv(Env):
         self.interface.reset()
 
     def get_reward(self):
-        return np.random.uniform(0, 2)
+        #desired_configuration = [0, 0, 0, 0, 0, 0,
+        #                              0, 0, 0, 0, 0, 0,
+        #                              0, 0, 0,
+        #                              0, 1.57079630, 0, 0, 0, 0, 0,
+        #                              0, 0,
+        #                              0, -1.5707963, 0, 0, 0, 0, 0]
+        desired_config = np.zeros(31)
+        desired_config[8] = 1.57079630
+        desired_config[19] = -1.57079630
+
+        # Get current obs
+        current_config = self.interface.last_obs[0].position
+        r1 = -sum(np.power(np.abs((desired_config + np.pi - current_config) % (2*np.pi) - np.pi), 2))
+        return r1
 
     def get_action_dim(self):
         return self.interface.get_action_dim()

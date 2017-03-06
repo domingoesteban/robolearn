@@ -8,9 +8,22 @@ class Agent(object):
         self.obs_dim = obs_dim
 
     def act(self, obs):
-        raise NotImplementedError
+        """
+        Return the action given the current policy
+        :param obs: Environment observations
+        :return:
+        """
+        return self.policy(obs)
 
-    def train(self):
+    def policy(self, state):
+        """
+        Function that maps state to action
+        :param state:
+        :return:
+        """
+        NotImplementedError
+
+    def train(self, history):
         raise NotImplementedError
 
 
