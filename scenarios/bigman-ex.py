@@ -48,7 +48,7 @@ ros_rate = rospy.Rate(1/Ts)  # hz
 
 counter = 0
 R = 0  # Finite horizon return
-T = int(EndTime/Ts)
+T = int(EndTime/Ts)  # Horizon
 try:
     episode = 0
     history = [None] * total_episodes * T
