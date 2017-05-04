@@ -12,9 +12,6 @@ class RLAlgorithm(Algorithm):
     def __init__(self, default_hyperparams, hyperparams):
         super(RLAlgorithm, self).__init__(default_hyperparams, hyperparams)
 
-    def explore(self):
-        raise NotImplementedError
-
     def optimize(self):
         raise NotImplementedError
 

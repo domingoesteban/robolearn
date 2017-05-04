@@ -11,7 +11,8 @@ from custom_effort_controllers.msg import Command
 
 
 class BigmanROSEnvInterface(ROSEnvInterface):
-    def __init__(self, mode='simulation', joints_active='left_arm', command_type='torque'):
+    def __init__(self, mode='simulation', joints_active='left_arm', command_type='torque',
+                 state_vars=[]):
         super(BigmanROSEnvInterface, self).__init__(mode=mode)
 
         # ############ #
@@ -29,7 +30,18 @@ class BigmanROSEnvInterface(ROSEnvInterface):
         #Observation 3: IMU2
         self.set_observation_topic("/bigman/sensor/IMU2", ImuMsg)
         self.topic_obs_info.append((10, 'imu'))  # orientation(4) + ang.vel(3) + lin.acc(3)
-        self.obs_dim = sum(i for i,_ in self.topic_obs_info)
+        self.obs_dim = sum(i for i, _ in self.topic_obs_info)
+
+        # ##### #
+        # STATE #
+        # ##### #
+        # State from state_vars
+        if not state_vars:  # Fully observed
+            self.state_dim = self.obs_dim
+        else:
+            for var in state_vars:
+                # TODO: Create something for this
+                pass
 
         # ####### #
         # ACTIONS #
@@ -239,5 +251,11 @@ class BigmanROSEnvInterface(ROSEnvInterface):
     def get_action_dim(self):
         return self.act_dim
 
+    def get_state_dim(self):
+        return self.state_dim
+
     def get_obs_dim(self):
         return self.obs_dim
+
+    def get_x0(self):
+        return self.x0

@@ -48,3 +48,6 @@ class BigmanEnv(Environment):
 
     def get_obs_dim(self):
         return self.interface.get_obs_dim()
+
+    def get_state_dim(self):
+        return self.interface.get_state_dim()

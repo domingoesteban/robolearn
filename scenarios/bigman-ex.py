@@ -6,6 +6,7 @@ from robolearn.envs import BigmanEnv
 from robolearn.agents import LinearTFAgent
 from robolearn.agents import MlpTFAgent
 from robolearn.agents import SplineTFAgent
+from robolearn.agents import GPSAgent
 from robolearn.algos.gps import GPS
 
 import rospy
@@ -30,6 +31,7 @@ file_save_restore = "models/bigman_agent_vars.ckpt"
 bigman_env = BigmanEnv(interface=interface, mode='simulation', joints_active=joints_active, command_type=command_type)
 
 action_dim = bigman_env.get_action_dim()
+state_dim = bigman_env.get_state_dim()
 observation_dim = bigman_env.get_obs_dim()
 
 print("\nBigman joints_active:%s (action_dim=%d). Command_type:%s" % (joints_active, action_dim, command_type))
@@ -37,8 +39,10 @@ print("\nBigman joints_active:%s (action_dim=%d). Command_type:%s" % (joints_act
 # Create an Agent
 #bigman_agent = LinearTFAgent(act_dim=action_dim, obs_dim=observation_dim)
 #bigman_agent = MlpTFAgent(act_dim=action_dim, obs_dim=observation_dim, hidden_units=[250, 250])
-bigman_agent = SplineTFAgent(act_dim=action_dim, obs_dim=observation_dim, init_act=np.zeros(action_dim),
-                             n_via_points=2, total_points=EndTime/Ts)
+#bigman_agent = SplineTFAgent(act_dim=action_dim, obs_dim=observation_dim, init_act=np.zeros(action_dim),
+#                             n_via_points=2, total_points=EndTime/Ts)
+bigman_agent = GPSAgent(act_dim=action_dim, obs_dim=observation_dim, state_dim=state_dim)
+
 
 # Load previous learned variables
 #bigman_agent.load(file_save_restore)
@@ -55,7 +59,11 @@ print("Bigman agent OK\n")
 total_episodes = 10
 num_samples = 5  # Samples for exploration trajs
 resume_training_itr = None  # Resume from previous training iteration
-learn_algo = GPS(agent=bigman_agent, env=bigman_env, iterations=total_episodes, num_samples=num_samples)
+conditions = 1  # Number of initial conditions
+T = EndTime/Ts  # Total points
+learn_algo = GPS(agent=bigman_agent, env=bigman_env, iterations=total_episodes, num_samples=num_samples,
+                 T=T,
+                 conditions=conditions)
 
 # Learn using learning algorithm
 learn_algo.run(resume_training_itr)
