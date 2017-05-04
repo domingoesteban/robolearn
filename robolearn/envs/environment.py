@@ -1,4 +1,4 @@
-class Env(object):
+class Environment(object):
     def send_action(self):
         NotImplementedError
 

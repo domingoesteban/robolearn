@@ -2,12 +2,12 @@ from __future__ import print_function
 
 import numpy as np
 
-from robolearn.envs.base import Env
+from robolearn.envs.environment import Environment
 from bigman_ros_env_interface import BigmanROSEnvInterface
 
 
-class BigmanEnv(Env):
-    # TODO BigmanEnv is generic. Check if it is better to crete one Env for each task
+class BigmanEnv(Environment):
+    # TODO BigmanEnv is generic. Check if it is better to crete one Environment for each task
     # TODO Check if the evaluation of the commands should be done here!
 
     def __init__(self, interface='ros', mode='simulation', joints_active='left_arm', command_type='torque'):

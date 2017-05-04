@@ -1,5 +1,5 @@
 from __future__ import print_function
-from robolearn.envs.base import EnvInterface
+from robolearn.envs.environment import EnvInterface
 
 # Useful packages
 from threading import Thread, Lock

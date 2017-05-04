@@ -14,6 +14,10 @@ class MlpTFAgent(TFAgent):
                              tf.Variable(tf.random_normal([hidden_units[-1], self.act_dim]), name='h_out')),
                              tf.Variable(tf.random_normal([self.act_dim]), name='b_out'))
 
+        # Required to save/restore
+        #self.saver = tf.train.Saver({save_dict})
+        self.saver = tf.train.Saver()  # Save/Restore all variables
+
         # Required for training
         # TODO
 
