@@ -23,6 +23,7 @@ imu_sensor_fields = ['orientation',  # x, y, z, w
                      'linear_acceleration']  # x, y, z
 
 
+
 # ###### #
 # BIGMAN #
 # ###### #
@@ -63,16 +64,16 @@ bigman_params['joints_names'] = ['LHipLat',  # Joint 0
                                  'RWrj1',  # Joint 29
                                  'RWrj2']  # Joint 30
 
-bigman_params['body_parts'] = {'LA': range(15, 22),
-                               'RA': range(24, 31),
-                               'BA': range(15, 22) + range(24, 31),
-                               'TO': range(12, 15),
-                               'HE': range(22, 24),
-                               'UB': range(12, 15) + range(15, 22) + range(24, 31) + range(22, 24),
-                               'LL': range(0, 6),
-                               'RL': range(6, 12),
-                               'LB': range(0, 12),
-                               'WB': range(0, 31)}
+bigman_params['joint_ids'] = {'LA': range(15, 22),
+                              'RA': range(24, 31),
+                              'BA': range(15, 22) + range(24, 31),
+                              'TO': range(12, 15),
+                              'HE': range(22, 24),
+                              'UB': range(12, 15) + range(15, 22) + range(24, 31) + range(22, 24),
+                              'LL': range(0, 6),
+                              'RL': range(6, 12),
+                              'LB': range(0, 12),
+                              'WB': range(0, 31)}
 
 
 # ######## #
@@ -111,15 +112,44 @@ centauro_params['joints_names'] = ['hip_yaw_1',     # Joint 0
                                    'j_arm2_6',      # Joint 25
                                    'j_arm2_7']      # Joint 26
 
-centauro_params['body_parts'] = {'LA': range(13, 20),
-                                 'RA': range(20, 27),
-                                 'BA': range(13, 27),
-                                 'TO': [12],
-                                 'UB': range(12, 27),
-                                 'L1': range(0, 3),
-                                 'L2': range(3, 6),
-                                 'L3': range(6, 9),
-                                 'L4': range(9, 12),
-                                 'LEGS': range(0, 12),
-                                 'WB': range(0, 27)}
+centauro_params['joint_ids'] = {'LA': range(13, 20),
+                                'RA': range(20, 27),
+                                'BA': range(13, 27),
+                                'TO': [12],
+                                'UB': range(12, 27),
+                                'L1': range(0, 3),
+                                'L2': range(3, 6),
+                                'L3': range(6, 9),
+                                'L4': range(9, 12),
+                                'LEGS': range(0, 12),
+                                'WB': range(0, 27)}
+
+centauro_params['q0'] = []   # A list of initial configurations
+centauro_params['q0'].append([0,  # 'hip_yaw_1',     # Joint 0
+                              0,  # 'hip_pitch_1',   # Joint 1
+                              0,  # 'knee_pitch_1',  # Joint 2
+                              0,  # 'hip_yaw_2',     # Joint 3
+                              0,  # 'hip_pitch_2',   # Joint 4
+                              0,  # 'knee_pitch_2',  # Joint 5
+                              0,  # 'hip_yaw_3',     # Joint 6
+                              0,  # 'hip_pitch_3',   # Joint 7
+                              0,  # 'knee_pitch_3',  # Joint 8
+                              0,  # 'hip_yaw_4',     # Joint 9
+                              0,  # 'hip_pitch_4',   # Joint 10
+                              0,  # 'knee_pitch_4',  # Joint 11
+                              0,  # 'torso_yaw',     # Joint 12
+                              0,  # 'j_arm1_1',      # Joint 13
+                              0,  # 'j_arm1_2',      # Joint 14
+                              0,  # 'j_arm1_3',      # Joint 15
+                              0,  # 'j_arm1_4',      # Joint 16
+                              0,  # 'j_arm1_5',      # Joint 17
+                              0,  # 'j_arm1_6',      # Joint 18
+                              0,  # 'j_arm1_7',      # Joint 19
+                              0,  # 'j_arm2_1',      # Joint 20
+                              0,  # 'j_arm2_2',      # Joint 21
+                              0,  # 'j_arm2_3',      # Joint 22
+                              0,  # 'j_arm2_4',      # Joint 23
+                              0,  # 'j_arm2_5',      # Joint 24
+                              0,  # 'j_arm2_6',      # Joint 25
+                              0])  # 'j_arm2_7']      # Joint 26
 

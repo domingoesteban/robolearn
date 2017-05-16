@@ -3,20 +3,22 @@ from __future__ import print_function
 import numpy as np
 
 from robolearn.envs.environment import Environment
-from bigman_ros_env_interface import BigmanROSEnvInterface
+from centauro_ros_env_interface import CentauroROSEnvInterface
+from robolearn.utils.iit_robots_params import centauro_params
 
 
-class BigmanEnv(Environment):
-    # TODO BigmanEnv is generic. Check if it is better to crete one Environment for each task
+class CentauroEnv(Environment):
+    # TODO CentauroEnv is generic. Check if it is better to crete one Environment for each task
     # TODO Check if the evaluation of the commands should be done here!
 
-    def __init__(self, interface='ros', mode='simulation', joints_active='left_arm', command_type='torque'):
+    def __init__(self, interface='ros', mode='simulation', body_part_active='LA', command_type='torque'):
+
 
         if interface == 'ros':
-            self.interface = BigmanROSEnvInterface(mode=mode, joints_active=joints_active, command_type=command_type)
+            self.interface = CentauroROSEnvInterface(mode=mode, body_part_active=body_part_active,
+                                                     cmd_type=command_type)
         else:
             raise NotImplementedError("Only ROS interface has been implemented")
-
 
     def send_action(self, action):
         self.interface.send_action(action=action)
@@ -57,3 +59,4 @@ class BigmanEnv(Environment):
 
     def set_x0(self, x0):
         self.interface.set_x0(x0)
+

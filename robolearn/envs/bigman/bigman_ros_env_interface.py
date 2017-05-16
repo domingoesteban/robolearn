@@ -182,6 +182,8 @@ class BigmanROSEnvInterface(ROSEnvInterface):
 
         self.set_initial_acts(initial_acts=[init_bigman_cmd])
 
+        self.set_x0(np.zeros(31))
+
         self.act_dim = len(self.act_joints_id)
 
         self.run()
@@ -259,3 +261,6 @@ class BigmanROSEnvInterface(ROSEnvInterface):
 
     def get_x0(self):
         return self.x0
+
+    def set_x0(self, x0):
+        self.x0 = x0
