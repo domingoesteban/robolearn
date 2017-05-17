@@ -174,7 +174,7 @@ class ROSEnvInterface(EnvInterface):
         self.last_acts.append(cmd_msg)  # last_acts would be used for the ROS publisher
         return action_id
 
-    def set_state_type(self, obs_type_id, state_type, state_idx):
+    def set_state_type(self, state_name, obs_type_id, state_type, state_idx):
         state_id = len(self.state_types)
 
         obs_msg = self.obs_types[obs_type_id]['ros_msg']
@@ -184,7 +184,7 @@ class ROSEnvInterface(EnvInterface):
 
         state_msg = obs_msg  # TODO: Doing this until we find a better solution to get a 'pointer' to a dict key
 
-        self.state_types.append({'ros_msg': state_msg, 'type': state_type, 'state_idx': state_idx})
+        self.state_types.append({'name': state_name, 'ros_msg': state_msg, 'type': state_type, 'state_idx': state_idx})
         return state_id
 
 

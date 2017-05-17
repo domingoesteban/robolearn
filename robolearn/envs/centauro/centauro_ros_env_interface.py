@@ -20,7 +20,7 @@ from robolearn.utils.iit_robots_ros import *
 
 class CentauroROSEnvInterface(ROSEnvInterface):
     def __init__(self, mode='simulation', body_part_active='LA', cmd_type='position',
-                 observation_active=None, state_vars=[]):
+                 observation_active=None, state_active=None):
         super(CentauroROSEnvInterface, self).__init__(mode=mode)
 
         # Centauro fields
@@ -39,7 +39,6 @@ class CentauroROSEnvInterface(ROSEnvInterface):
         # ############ #
         # OBSERVATIONS #
         # ############ #
-
         if observation_active is None:
             observation_active = self.robot_params['observation_active']
 
@@ -71,69 +70,40 @@ class CentauroROSEnvInterface(ROSEnvInterface):
             obs_idx = range(len(obs_idx), len(obs_idx) + obs_dof)
 
             print("Waiting to receive %s message in %s ..." % (obs_to_activate['type'], obs_to_activate['ros_topic']))
-            print(obs_msg_id)
             while self.last_obs[obs_msg_id] is None:
                 pass
                 #print("Waiting to receive joint_state message...")
 
-            joint_state_obs_id = self.set_observation_type(obs_to_activate['name'], obs_msg_id,
-                                                           obs_to_activate['type'], obs_idx)
+            obs_id = self.set_observation_type(obs_to_activate['name'], obs_msg_id,
+                                               obs_to_activate['type'], obs_idx)
             print("Receiving %s observation!!" % obs_to_activate['type'])
 
         self.obs_dim = self.get_total_obs_dof()
-
-        ## Observation 1: Joint state
-        #obs_msg_id = self.set_observation_topic("/xbotcore/centauro/joint_states", JointStateAdvr,
-        #                                        self.robot_params['joint_state_fields']+['name'])
-        ##self.topic_obs_info.append((self.dof*len(self.joint_state_elements), "joint_state"))
-        ## TODO: Temporally, assuming that actuated joints are the only joints who are part of the observation. Solved with class parameter
-        #self.obs_joint_names = self.get_joints_names('UB')  # TODO: As it was said before, or from the joint state message??
-        #obs_idx = range(len(obs_idx), len(self.robot_params['joint_state_fields'])*len(self.obs_joint_names))
-
-        #print("Waiting to receive joint_state message...")
-        #while self.last_obs[obs_msg_id] is None:
-        #    pass
-        #    #print("Waiting to receive joint_state message...")
-        #joint_state_obs_id = self.set_observation_type(obs_msg_id, 'joint_state', obs_idx)
-        ##joint_state_obs_id = self.set_observation_type(self.last_obs[obs_msg_id], 'joint_state', obs_idx)
-        #print("Receiving Joint_state observation!!")
-
-        ## Observation 2: FT Sensor Arm2
-        #obs_msg_id = self.set_observation_topic("/xbotcore/centauro/ft/ft_arm2", WrenchStamped,
-        #                                        self.robot_params['ft_sensor_fields'])
-        #obs_idx = range(len(obs_idx), len(obs_idx)+sum(ft_sensor_dof[x] for x in self.robot_params['ft_sensor_fields']))
-        #print("Waiting to receive ft_sensor_arm2 message...")
-        #while self.last_obs[obs_msg_id] is None:
-        #    pass
-        #ft_sensor_arm2_obs_id = self.set_observation_type(obs_msg_id, 'ft_sensor', obs_idx)
-        #print("Receiving ft_sensor_arm2 observation!!")
-        #self.obs_dim = self.get_total_obs_dof()
-
 
 
         # ##### #
         # STATE #
         # ##### #
-        #self.joint_state_elements = ['motor_position', 'motor_velocity']
-        self.joint_state_elements = ['link_position', 'link_velocity']
-        # TODO: Temporally, assuming that actuated joints are the only joints who are part of the state. Solved with class parameter
-        self.state_joint_names = self.act_joint_names
-        total_q_idx = range(len(self.joint_state_elements)*len(self.state_joint_names))
-        #joint_state_dof = len(total_q_idx)
-        for ii, state_element in enumerate(self.joint_state_elements):
-            state_idx = total_q_idx[len(self.state_joint_names)*ii:len(self.state_joint_names)*(ii+1)]
-            state_id = self.set_state_type(self.get_obs_id('joint_state'), state_element, state_idx)
+        if state_active is None:
+            state_active = self.robot_params['state_active']
+
+        state_idx = []
+        for state_to_activate in state_active:
+            if state_to_activate['type'] == 'joint_state':
+                self.state_joint_names = [self.joint_names[id] for id in state_to_activate['joints']]
+                for ii, state_element in enumerate(state_to_activate['fields']):
+                    # Check if state field is observed
+                    if not state_element in self.obs_joint_fields:
+                        raise AttributeError("Joint state type %s is not being observed. Current observations are %s" %
+                                             (state_element, self.obs_joint_fields))
+                    state_dof = len(state_to_activate['joints'])
+                    state_idx = range(len(state_idx), len(state_idx) + state_dof)
+                    state_id = self.set_state_type(state_element, self.get_obs_id('joint_state'), state_element, state_idx)
+            else:
+                raise NotImplementedError("state %s is not supported!!" % state_to_activate['type'])
 
         self.state_dim = self.get_total_state_dof()
 
-        #self.set_x0(np.zeros(31))  # TODO: Check if this is useful
-        ## State from state_vars
-        #if not state_vars:  # Fully observed
-        #    self.state_dim = self.obs_dim
-        #else:
-        #    for var in state_vars:
-        #        # TODO: Create something for this
-        #        pass
 
         # ####### #
         # ACTIONS #
@@ -271,6 +241,7 @@ class CentauroROSEnvInterface(ROSEnvInterface):
             state[x['state_idx'], -1] = get_advr_sensor_data(x['ros_msg'], x['type'])[get_indeces_from_list(x['ros_msg'].name,
                                                                                                         self.state_joint_names)]
 
+        #print(state)
         return state
 
     def get_obs_id(self, name):
@@ -278,3 +249,9 @@ class CentauroROSEnvInterface(ROSEnvInterface):
             if obs['name'] == name:
                 return ii
         raise ValueError("There is not observation with name %s" % name)
+
+    def get_obs_names(self):
+        return [obs['name'] for obs in self.obs_types]
+
+    def get_state_names(self):
+        return [state['name'] for state in self.state_types]

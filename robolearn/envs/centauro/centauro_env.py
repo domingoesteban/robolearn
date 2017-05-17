@@ -12,11 +12,13 @@ class CentauroEnv(Environment):
     # TODO Check if the evaluation of the commands should be done here!
 
     def __init__(self, interface='ros', mode='simulation', body_part_active='LA', command_type='torque',
-                 observation_active=None):
+                 observation_active=None, state_active=None):
 
         if interface == 'ros':
-            self.interface = CentauroROSEnvInterface(mode=mode, body_part_active=body_part_active,
-                                                     cmd_type=command_type, observation_active=observation_active)
+            self.interface = CentauroROSEnvInterface(mode=mode,
+                                                     body_part_active=body_part_active, cmd_type=command_type,
+                                                     observation_active=observation_active,
+                                                     state_active=state_active)
         else:
             raise NotImplementedError("Only ROS interface has been implemented")
 
@@ -65,3 +67,9 @@ class CentauroEnv(Environment):
 
     def get_state(self):
         return self.interface.get_state()
+
+    def get_obs_names(self):
+        return self.interface.get_obs_names()
+
+    def get_state_names(self):
+        return self.interface.get_state_names()
