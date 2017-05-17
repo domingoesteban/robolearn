@@ -20,6 +20,7 @@ from controller_manager_msgs.srv import *
 from std_srvs.srv import Empty
 
 
+
 class ROSEnvInterface(EnvInterface):
     """
     ROSEnvInterface
@@ -87,7 +88,7 @@ class ROSEnvInterface(EnvInterface):
         """
         raise NotImplementedError
 
-    def set_observation_topic(self, topic_name, topic_type):
+    def set_observation_topic(self, topic_name, topic_type, attribute_names):
         """
 
         :param topic_name:
@@ -95,33 +96,44 @@ class ROSEnvInterface(EnvInterface):
         :return:
         """
         obs_id = len(self.observation_subs)
-        self.observation_subs.append(rospy.Subscriber(topic_name, topic_type, self.callback_observation, obs_id))
+        self.observation_subs.append(rospy.Subscriber(topic_name, topic_type, self.callback_observation, (obs_id, attribute_names)))
         self.last_obs.append(None)
         return obs_id
 
-    def callback_observation(self, msg, obs_id):
+    def callback_observation(self, msg, params):
+        #TODO: Check if it is better to get attribute_names from the obs_types
         """
 
         :param msg:
         :param obs_id:
         :return:
         """
+        obs_id = params[0]
+        attribute_names = params[1]
         if not len(self.last_obs):
             raise AttributeError("last_obs has not been configured")
-        #print(msg)
-        self.last_obs[obs_id] = msg
+        #if isinstance(msg, WrenchStamped):
+        #    print(msg)
+        #print(msg.link_position)
+        if self.last_obs[obs_id] is None:
+            self.last_obs[obs_id] = msg
+        else:
+            copy_class_attr(msg, self.last_obs[obs_id], attribute_names)
 
-    def set_observation_type(self, obs_msg, obs_type, obs_idx):
 
-        obs_id = len(self.obs_types)
+    def set_observation_type(self, obs_name, obs_id, obs_type, obs_idx):
+
+        obs_type_id = len(self.obs_types)
 
         #if obs_type in ['joint_state']:
         #    obs_msg = config_advr_command(act_joint_names, obs_type, init_cmd_vals)
         #else:
         #    raise NotImplementedError("Only ADVR joint_state observations has been implemented!")
 
-        self.obs_types.append({'ros_msg': obs_msg, 'type': obs_type, 'obs_idx': obs_idx})
-        return obs_id
+        obs_msg = self.last_obs[obs_id]
+        self.obs_types.append({'name': obs_name, 'ros_msg': obs_msg, 'type': obs_type, 'obs_idx': obs_idx})
+        #self.obs_types.append([obs_type, obs_msg, obs_idx])
+        return obs_type_id
 
     def get_obs_dim(self):
         """
@@ -162,11 +174,15 @@ class ROSEnvInterface(EnvInterface):
         self.last_acts.append(cmd_msg)  # last_acts would be used for the ROS publisher
         return action_id
 
-    def set_state_type(self, obs_type, state_type, state_idx):
-
+    def set_state_type(self, obs_type_id, state_type, state_idx):
         state_id = len(self.state_types)
 
-        state_msg = get_advr_sensor_data(obs_type, state_type)
+        obs_msg = self.obs_types[obs_type_id]['ros_msg']
+
+        if not hasattr(obs_msg, state_type):
+            raise ValueError("Wrong ADVR field type option")
+
+        state_msg = obs_msg  # TODO: Doing this until we find a better solution to get a 'pointer' to a dict key
 
         self.state_types.append({'ros_msg': state_msg, 'type': state_type, 'state_idx': state_idx})
         return state_id
@@ -319,4 +335,6 @@ class ROSEnvInterface(EnvInterface):
         #    self.unpause_srv()  # It does not response anything
         #except rospy.ServiceException as exc:
         #    print("/gazebo/unpause_physics service call failed: %s" % str(exc))
+
+
 

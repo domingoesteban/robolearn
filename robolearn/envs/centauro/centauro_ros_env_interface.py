@@ -5,6 +5,7 @@ import copy
 
 from XCM.msg import JointStateAdvr
 from XCM.msg import CommandAdvr
+from geometry_msgs.msg import WrenchStamped
 from sensor_msgs.msg import JointState as JointStateMsg
 from sensor_msgs.msg import Imu as ImuMsg
 
@@ -12,13 +13,14 @@ from custom_effort_controllers.msg import CommandArrayStamped
 from custom_effort_controllers.msg import Command
 
 from robolearn.utils.iit_robots_params import centauro_params
+
 from robolearn.utils.iit_robots_ros import *
 
 
 
 class CentauroROSEnvInterface(ROSEnvInterface):
     def __init__(self, mode='simulation', body_part_active='LA', cmd_type='position',
-                 state_vars=[]):
+                 observation_active=None, state_vars=[]):
         super(CentauroROSEnvInterface, self).__init__(mode=mode)
 
         # Centauro fields
@@ -38,33 +40,89 @@ class CentauroROSEnvInterface(ROSEnvInterface):
         # OBSERVATIONS #
         # ############ #
 
-        # Observation 1: Joint state
-        obs_msg_id = self.set_observation_topic("/xbotcore/centauro/joint_states", JointStateAdvr)
-        #self.topic_obs_info.append((self.dof*len(self.joint_state_elements), "joint_state"))
-        obs_idx = range(14)  # TODO: THIS IS A DUMMY VALUE!!!
+        if observation_active is None:
+            observation_active = self.robot_params['observation_active']
 
-        print("Waiting to receive joint_state message...")
-        while self.last_obs[obs_msg_id] is None:
-            pass
-            #print("Waiting to receive joint_state message...")
-        joint_state_obs_id = self.set_observation_type(self.last_obs[obs_msg_id], 'joint_state', obs_idx)
-        print("Receiving Joint_state observation!!")
+        obs_idx = []
+        for obs_to_activate in observation_active:
+            if obs_to_activate['type'] == 'joint_state':
+                ros_topic_type = JointStateAdvr
+                self.obs_joint_fields = list(obs_to_activate['fields'])  # Used in get_obs
+                self.obs_joint_names = [self.joint_names[id] for id in obs_to_activate['joints']]
+                obs_dof = len(obs_to_activate['fields'])*len(self.obs_joint_names)
+
+            elif obs_to_activate['type'] == 'ft_sensor':
+                ros_topic_type = WrenchStamped
+                self.ft_sensor_fields = list(obs_to_activate['fields'])  # Used in get_obs
+                obs_dof = sum([ft_sensor_dof[x] for x in obs_to_activate['fields']])
+
+            else:
+                raise NotImplementedError("observation %s is not supported!!" % obs_to_activate['type'])
+
+
+            if obs_to_activate['type'] == 'joint_state':
+                obs_msg_id = self.set_observation_topic(obs_to_activate['ros_topic'], ros_topic_type,
+                                                        obs_to_activate['fields']+['name'])
+            else:
+                obs_msg_id = self.set_observation_topic(obs_to_activate['ros_topic'], ros_topic_type,
+                                                        obs_to_activate['fields'])
+
+
+            obs_idx = range(len(obs_idx), len(obs_idx) + obs_dof)
+
+            print("Waiting to receive %s message in %s ..." % (obs_to_activate['type'], obs_to_activate['ros_topic']))
+            print(obs_msg_id)
+            while self.last_obs[obs_msg_id] is None:
+                pass
+                #print("Waiting to receive joint_state message...")
+
+            joint_state_obs_id = self.set_observation_type(obs_to_activate['name'], obs_msg_id,
+                                                           obs_to_activate['type'], obs_idx)
+            print("Receiving %s observation!!" % obs_to_activate['type'])
 
         self.obs_dim = self.get_total_obs_dof()
+
+        ## Observation 1: Joint state
+        #obs_msg_id = self.set_observation_topic("/xbotcore/centauro/joint_states", JointStateAdvr,
+        #                                        self.robot_params['joint_state_fields']+['name'])
+        ##self.topic_obs_info.append((self.dof*len(self.joint_state_elements), "joint_state"))
+        ## TODO: Temporally, assuming that actuated joints are the only joints who are part of the observation. Solved with class parameter
+        #self.obs_joint_names = self.get_joints_names('UB')  # TODO: As it was said before, or from the joint state message??
+        #obs_idx = range(len(obs_idx), len(self.robot_params['joint_state_fields'])*len(self.obs_joint_names))
+
+        #print("Waiting to receive joint_state message...")
+        #while self.last_obs[obs_msg_id] is None:
+        #    pass
+        #    #print("Waiting to receive joint_state message...")
+        #joint_state_obs_id = self.set_observation_type(obs_msg_id, 'joint_state', obs_idx)
+        ##joint_state_obs_id = self.set_observation_type(self.last_obs[obs_msg_id], 'joint_state', obs_idx)
+        #print("Receiving Joint_state observation!!")
+
+        ## Observation 2: FT Sensor Arm2
+        #obs_msg_id = self.set_observation_topic("/xbotcore/centauro/ft/ft_arm2", WrenchStamped,
+        #                                        self.robot_params['ft_sensor_fields'])
+        #obs_idx = range(len(obs_idx), len(obs_idx)+sum(ft_sensor_dof[x] for x in self.robot_params['ft_sensor_fields']))
+        #print("Waiting to receive ft_sensor_arm2 message...")
+        #while self.last_obs[obs_msg_id] is None:
+        #    pass
+        #ft_sensor_arm2_obs_id = self.set_observation_type(obs_msg_id, 'ft_sensor', obs_idx)
+        #print("Receiving ft_sensor_arm2 observation!!")
+        #self.obs_dim = self.get_total_obs_dof()
 
 
 
         # ##### #
         # STATE #
         # ##### #
-        self.joint_state_elements = ['motor_position', 'motor_velocity']
-        # TODO: Temporally, assuming that actuated joints are the only joints who are part of the state. Solved with parameter in class
+        #self.joint_state_elements = ['motor_position', 'motor_velocity']
+        self.joint_state_elements = ['link_position', 'link_velocity']
+        # TODO: Temporally, assuming that actuated joints are the only joints who are part of the state. Solved with class parameter
         self.state_joint_names = self.act_joint_names
         total_q_idx = range(len(self.joint_state_elements)*len(self.state_joint_names))
         #joint_state_dof = len(total_q_idx)
         for ii, state_element in enumerate(self.joint_state_elements):
             state_idx = total_q_idx[len(self.state_joint_names)*ii:len(self.state_joint_names)*(ii+1)]
-            state_id = self.set_state_type(self.obs_types[joint_state_obs_id], state_element, state_idx)
+            state_id = self.set_state_type(self.get_obs_id('joint_state'), state_element, state_idx)
 
         self.state_dim = self.get_total_state_dof()
 
@@ -183,10 +241,40 @@ class CentauroROSEnvInterface(ROSEnvInterface):
 
     def get_joints_indeces(self, joint_names):
         if isinstance(joint_names, list):  # Assuming is a list of joint_names
-            return [self.joint_names.index(a) for a in joint_names]
+            return get_indeces_from_list(self.joint_names, joint_names)
         else:  # Assuming is a body_part string
             if joint_names not in self.joint_ids:
                 raise ValueError("wrong body part option")
             return self.joint_ids[joint_names]
 
+    def get_observation(self):
+        observation = np.empty([self.obs_dim, 1])
 
+        for obs in self.obs_types:
+            if obs['type'] == 'joint_state':
+                observation[obs['obs_idx']] = obs_vector_joint_state(self.obs_joint_fields,
+                                                                     self.obs_joint_names,
+                                                                     obs['ros_msg'])
+
+            elif obs['type'] == 'ft_sensor':
+                observation[obs['obs_idx']] = obs_vector_ft_sensor(self.ft_sensor_fields,
+                                                                   obs['ros_msg'])
+            else:
+                raise NotImplementedError("Only joint_state type in observation has been implemented")
+
+        return observation
+
+    def get_state(self):
+        state = np.empty([self.state_dim, 1])
+
+        for x in self.state_types:
+            state[x['state_idx'], -1] = get_advr_sensor_data(x['ros_msg'], x['type'])[get_indeces_from_list(x['ros_msg'].name,
+                                                                                                        self.state_joint_names)]
+
+        return state
+
+    def get_obs_id(self, name):
+        for ii, obs in enumerate(self.obs_types):
+            if obs['name'] == name:
+                return ii
+        raise ValueError("There is not observation with name %s" % name)

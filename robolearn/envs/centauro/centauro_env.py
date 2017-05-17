@@ -11,12 +11,12 @@ class CentauroEnv(Environment):
     # TODO CentauroEnv is generic. Check if it is better to crete one Environment for each task
     # TODO Check if the evaluation of the commands should be done here!
 
-    def __init__(self, interface='ros', mode='simulation', body_part_active='LA', command_type='torque'):
-
+    def __init__(self, interface='ros', mode='simulation', body_part_active='LA', command_type='torque',
+                 observation_active=None):
 
         if interface == 'ros':
             self.interface = CentauroROSEnvInterface(mode=mode, body_part_active=body_part_active,
-                                                     cmd_type=command_type)
+                                                     cmd_type=command_type, observation_active=observation_active)
         else:
             raise NotImplementedError("Only ROS interface has been implemented")
 
@@ -60,3 +60,8 @@ class CentauroEnv(Environment):
     def set_x0(self, x0):
         self.interface.set_x0(x0)
 
+    def get_observation(self):
+        return self.interface.get_observation()
+
+    def get_state(self):
+        return self.interface.get_state()
