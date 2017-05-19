@@ -1,7 +1,7 @@
 
 import numpy as np
 
-from gps.proto.gps_pb2 import ACTION
+#from gps.proto.gps_pb2 import ACTION
 
 
 class Sample(object):
@@ -10,96 +10,103 @@ class Sample(object):
     single trajectory.
     Inspired by code in github.com:cbfinn/gps.git
     """
-    def __init__(self):
+    def __init__(self, env, T):
         #self.agent = agent
 
-        self.T = agent.T
-        self.dX = agent.dX  # State
-        self.dU = agent.dU  # Action
-        self.dO = agent.dO  # Observation
-        self.dM = agent.dM  # Meta data?
+        self.T = T
+        self.dX = env.get_state_dim()  # State
+        self.dU = env.get_action_dim() # Action
+        self.dO = env.get_obs_dim()    # Observation
+        #self.dM = env.get_env_info  # Meta data?
 
-
-        # Dictionary containing the sample data from various sensors.
-        self._data = {}
 
         self._X = np.empty((self.T, self.dX))
         self._X.fill(np.nan)
         self._obs = np.empty((self.T, self.dO))
         self._obs.fill(np.nan)
-        self._meta = np.empty(self.dM)
-        self._meta.fill(np.nan)
+        self._act = np.empty((self.T, self.dU))
+        self._act.fill(np.nan)
+        #self._meta = np.empty(self.dM)
+        #self._meta.fill(np.nan)
 
-    def set(self, sensor_name, sensor_data, t=None):
-        """ Set trajectory data for a particular sensor. """
+        self._info = env.get_env_info()
+
+    def set_acts(self, act_data, t=None):
+        #TODO: Check the len of act_data
         if t is None:
-            self._data[sensor_name] = sensor_data
-            self._X.fill(np.nan)  # Invalidate existing X.
-            self._obs.fill(np.nan)  # Invalidate existing obs.
-            self._meta.fill(np.nan)  # Invalidate existing meta data.
+            self._act = act_data
         else:
-            if sensor_name not in self._data:
-                self._data[sensor_name] = np.empty((self.T,) + sensor_data.shape)
-                self._data[sensor_name].fill(np.nan)
-            self._data[sensor_name][t, :] = sensor_data
-            self._X[t, :].fill(np.nan)
-            self._obs[t, :].fill(np.nan)
+            self._act[t, :] = act_data
 
-    def get(self, sensor_name, t=None):
-        """ Get trajectory data for a particular sensor. """
-        return (self._data[sensor_name] if t is None
-                else self._data[sensor_name][t, :])
+    def set_obs(self, obs_data, obs_name=None, t=None):
+        #TODO: Check the len of obs_data
+        if obs_name is None:
+            obs_idx = range(self.dO)
+        else:
+            if obs_name not in self._info['obs']['names']:
+                raise AttributeError("There is not any observation with name %s in sample." % obs_name)
 
-    def get_X(self, t=None):
-        """ Get the state. Put it together if not precomputed. """
-        X = self._X if t is None else self._X[t, :]
-        if np.any(np.isnan(X)):
-            for data_type in self._data:
-                if data_type not in self.agent.x_data_types:
-                    continue
-                data = (self._data[data_type] if t is None
-                        else self._data[data_type][t, :])
-                self.agent.pack_data_x(X, data, data_types=[data_type])
-        return X
+            obs_idx = self._info['obs']['idx'][self._info['obs']['names'].index(obs_name)]
 
-    def get_U(self, t=None):
-        """ Get the action. """
-        return self._data[ACTION] if t is None else self._data[ACTION][t, :]
+        if t is None:
+            self._obs[:, obs_idx] = obs_data
+        else:
+            self._obs[t, obs_idx] = obs_data
 
-    def get_obs(self, t=None):
+    def set_states(self, state_data, state_name=None, t=None):
+        #TODO: Check the len of state_data
+        if state_name is None:
+            state_idx = range(self.dX)
+        else:
+            if state_name not in self._info['state']['names']:
+                raise AttributeError("There is not any state with name %s in sample." % state_name)
+
+            state_idx = self._info['state']['idx'][self._info['state']['names'].index(state_name)]
+
+        if t is None:
+            self._X[:, state_idx] = state_data
+        else:
+            self._X[t, state_idx] = state_data
+
+    def set(self, act_data=None, obs_data=None, state_data=None, t=None):
+        """ Set trajectory data for a particular sensor. """
+        if act_data is not None:
+            self.set_acts(act_data, t=t)
+        if obs_data is not None:
+            self.set_obs(obs_data, t=t)
+        if state_data is not None:
+            self.set_states(state_data, t=t)
+
+
+    def get_acts(self, t=None):
+        """ Get the action(s). """
+        return self._act if t is None else self._act[t, :]
+
+    def get_states(self, state_name=None, t=None):
+        """ Get the observation. Put it together if not precomputed. """
+        state = self._X if t is None else self._X[t, :]
+        if state_name is not None:
+            if state_name not in self._info['state']['names']:
+                raise AttributeError("There is not state with name %s in sample." % state_name)
+
+            state_idx = self._info['state']['idx'][self._info['state']['names'].index(state_name)]
+            print(state_idx)
+            state = state[:, state_idx]
+        return state
+
+    def get_obs(self, obs_name=None, t=None):
         """ Get the observation. Put it together if not precomputed. """
         obs = self._obs if t is None else self._obs[t, :]
-        if np.any(np.isnan(obs)):
-            for data_type in self._data:
-                if data_type not in self.agent.obs_data_types:
-                    continue
-                if data_type in self.agent.meta_data_types:
-                    continue
-                data = (self._data[data_type] if t is None
-                        else self._data[data_type][t, :])
-                self.agent.pack_data_obs(obs, data, data_types=[data_type])
+        if obs_name is not None:
+            if obs_name not in self._info['obs']['names']:
+                raise AttributeError("There is not observation with name %s in sample." % obs_name)
+
+            obs_idx = self._info['obs']['idx'][self._info['obs']['names'].index(obs_name)]
+            obs = obs[:, obs_idx]
+
         return obs
 
-    def get_meta(self):
-        """ Get the meta data. Put it together if not precomputed. """
-        meta = self._meta
-        if np.any(np.isnan(meta)):
-            for data_type in self._data:
-                if data_type not in self.agent.meta_data_types:
-                    continue
-                data = self._data[data_type]
-                self.agent.pack_data_meta(meta, data, data_types=[data_type])
-        return meta
+    def get_info(self):
+        """ Get info data."""
+        return self._info()
 
-
-    ## TODO: I think this is not necessary because the class wont include agent
-    ## For pickling.
-    #def __getstate__(self):
-    #    state = self.__dict__.copy()
-    #    state.pop('agent')
-    #    return state
-
-    ## For unpickling.
-    #def __setstate__(self, state):
-    #    self.__dict__ = state
-    #    self.__dict__['agent'] = None

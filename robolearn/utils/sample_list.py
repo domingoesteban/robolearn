@@ -1,26 +1,28 @@
-import cPickle
+import pickle
 import logging
 
 import numpy as np
 
-LOGGER = logging.getLogger(__name__)
+#LOGGER = logging.getLogger(__name__)
 
 
 class SampleList(object):
     """
     Class that handles writes and reads to sample data.
-    Author: C.Finn et al. in github.com:cbfinn/gps.git
+    Inspired by C. Finn code in github.com:cbfinn/gps.git
     """
-    def __init__(self, samples):
-        self._samples = samples
+    def __init__(self):
+        self._samples = []
 
-    def get_X(self, idx=None):
+
+
+    def get_states(self, idx=None):
         """ Returns N x T x dX numpy array of states. """
         if idx is None:
             idx = range(len(self._samples))
-        return np.asarray([self._samples[i].get_X() for i in idx])
+        return np.asarray([self._samples[i].get_states() for i in idx])
 
-    def get_U(self, idx=None):
+    def get_actions(self, idx=None):
         """ Returns N x T x dU numpy array of actions. """
         if idx is None:
             idx = range(len(self._samples))
@@ -67,17 +69,17 @@ class PickleSampleWriter(object):
     def write(self, samples):
         """ Write samples to data file. """
         with open(self._data_file, 'wb') as data_file:
-            cPickle.dump(data_file, samples)
+            pickle.dump(data_file, samples)
 
 
-class SysOutWriter(object):
-    """
-    Writes notifications to sysout on sample writes.
-    Author: C.Finn et al. in github.com:cbfinn/gps.git
-    """
-    def __init__(self):
-        pass
-
-    def write(self, samples):
-        """ Write number of samples to sysout. """
-        LOGGER.debug('Collected %d samples', len(samples))
+#class SysOutWriter(object):
+#    """
+#    Writes notifications to sysout on sample writes.
+#    Author: C.Finn et al. in github.com:cbfinn/gps.git
+#    """
+#    def __init__(self):
+#        pass
+#
+#    def write(self, samples):
+#        """ Write number of samples to sysout. """
+#        LOGGER.debug('Collected %d samples', len(samples))

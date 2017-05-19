@@ -3,24 +3,20 @@ from __future__ import print_function
 import numpy as np
 
 from robolearn.envs.environment import Environment
-from robolearn.envs.robot_ros_env_interface import RobotROSEnvInterface
+from bigman_ros_env_interface import BigmanROSEnvInterface
 
 
 class BigmanEnv(Environment):
     # TODO BigmanEnv is generic. Check if it is better to crete one Environment for each task
     # TODO Check if the evaluation of the commands should be done here!
 
-    def __init__(self, interface='ros', mode='simulation', body_part_active='LA', command_type='torque',
-                 observation_active=None, state_active=None):
+    def __init__(self, interface='ros', mode='simulation', joints_active='left_arm', command_type='torque'):
 
         if interface == 'ros':
-            self.interface = RobotROSEnvInterface(robot_name='bigman',
-                                                  mode=mode,
-                                                  body_part_active=body_part_active, cmd_type=command_type,
-                                                  observation_active=observation_active,
-                                                  state_active=state_active)
+            self.interface = BigmanROSEnvInterface(mode=mode, joints_active=joints_active, command_type=command_type)
         else:
             raise NotImplementedError("Only ROS interface has been implemented")
+
 
     def send_action(self, action):
         self.interface.send_action(action=action)
@@ -61,18 +57,3 @@ class BigmanEnv(Environment):
 
     def set_x0(self, x0):
         self.interface.set_x0(x0)
-
-    def get_observation(self):
-        return self.interface.get_observation()
-
-    def get_state(self):
-        return self.interface.get_state()
-
-    def get_obs_info(self):
-        return self.interface.get_obs_info()
-
-    def get_state_info(self):
-        return self.interface.get_state_info()
-
-    def get_env_info(self):
-        return self.interface.get_env_info()

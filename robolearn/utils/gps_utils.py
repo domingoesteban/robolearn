@@ -1,4 +1,4 @@
-# Original code from Finn et al in github.com/cfinn/gps
+# Original code from Finn et al in github.com/cbfinn/gps
 """ This file defines utility classes and functions for algorithms. """
 import numpy as np
 

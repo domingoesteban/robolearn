@@ -4,6 +4,7 @@ import numpy as np
 
 from robolearn.envs.environment import Environment
 from centauro_ros_env_interface import CentauroROSEnvInterface
+from robolearn.envs.robot_ros_env_interface import RobotROSEnvInterface
 from robolearn.utils.iit_robots_params import centauro_params
 
 
@@ -15,10 +16,15 @@ class CentauroEnv(Environment):
                  observation_active=None, state_active=None):
 
         if interface == 'ros':
-            self.interface = CentauroROSEnvInterface(mode=mode,
-                                                     body_part_active=body_part_active, cmd_type=command_type,
-                                                     observation_active=observation_active,
-                                                     state_active=state_active)
+            #self.interface = CentauroROSEnvInterface(mode=mode,
+            #                                         body_part_active=body_part_active, cmd_type=command_type,
+            #                                         observation_active=observation_active,
+            #                                         state_active=state_active)
+            self.interface = RobotROSEnvInterface(robot_name='centauro',
+                                                  mode=mode,
+                                                  body_part_active=body_part_active, cmd_type=command_type,
+                                                  observation_active=observation_active,
+                                                  state_active=state_active)
         else:
             raise NotImplementedError("Only ROS interface has been implemented")
 
@@ -68,8 +74,12 @@ class CentauroEnv(Environment):
     def get_state(self):
         return self.interface.get_state()
 
-    def get_obs_names(self):
-        return self.interface.get_obs_names()
+    def get_obs_info(self):
+        return self.interface.get_obs_info()
 
-    def get_state_names(self):
-        return self.interface.get_state_names()
+    def get_state_info(self):
+        return self.interface.get_state_info()
+
+    def get_env_info(self):
+        return self.interface.get_env_info()
+

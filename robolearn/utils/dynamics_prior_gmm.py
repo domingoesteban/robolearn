@@ -4,7 +4,7 @@ import logging
 
 import numpy as np
 
-from gps.utility.gmm import GMM
+from robolearn.utils.gmm import GMM
 
 
 # DynamicsPriorGMM
