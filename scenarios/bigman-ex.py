@@ -18,7 +18,7 @@ import time
 agent_behavior = 'learner'  # 'learner', 'actor'
 update_frequency = 5
 Ts = 0.05
-EndTime = 10  # Using final time to define the horizon
+EndTime = 5  # Using final time to define the horizon
 
 
 
@@ -100,7 +100,7 @@ print("Bigman agent OK\n")
 
 
 # Learning params
-total_episodes = 10
+total_episodes = 4
 num_samples = 5  # Samples for exploration trajs
 resume_training_itr = None  # Resume from previous training iteration
 conditions = 1  # Number of initial conditions
@@ -125,7 +125,7 @@ try:
 
     print("Starting Training...")
     # Learn First
-    while episode < total_episodes:
+    for episode in range(total_episodes):
         print("Episode %d/%d" % (episode+1, total_episodes))
         i = 0
 
@@ -140,7 +140,7 @@ try:
             action = np.zeros(bigman_agent.act_dim)#.reshape([-1, 1])
             action[0] = 0.5 * np.sin(rospy.Time.now().to_sec())
             bigman_env.send_action(action)
-            print("i=%d/%d" % (i, T))
+            print("Episode %d/%d | t=%d/%d" % (episode+1, total_episodes, i+1, T))
             obs = bigman_env.get_observation()
             state = bigman_env.get_state()
             history[i] = (obs, action)
@@ -148,14 +148,15 @@ try:
             #print(obs)
             #print("..")
             #print(state)
-            print("--")
-            print("obs_shape:(%s)" % obs.shape)
-            print("state_shape:(%s)" % state.shape)
-            print("obs active names: %s" % bigman_env.get_obs_info()['names'])
-            print("obs active dims: %s" % bigman_env.get_obs_info()['dimensions'])
-            print("state active names: %s" % bigman_env.get_state_info()['names'])
-            print("state active dims: %s" % bigman_env.get_state_info()['dimensions'])
-            print("")
+            #print("--")
+            #print("obs_shape:(%s)" % obs.shape)
+            #print("state_shape:(%s)" % state.shape)
+            #print("obs active names: %s" % bigman_env.get_obs_info()['names'])
+            #print("obs active dims: %s" % bigman_env.get_obs_info()['dimensions'])
+            #print("state active names: %s" % bigman_env.get_state_info()['names'])
+            #print("state active dims: %s" % bigman_env.get_state_info()['dimensions'])
+            #print("")
+
             #sample.set_acts(action, t=i)  # Set action One by one
             #sample.set_obs(obs[:42], obs_name='joint_state', t=i)  # Set action One by one
             #sample.set_states(state[:7], state_name='link_position', t=i)  # Set action One by one
@@ -168,13 +169,11 @@ try:
         all_obs = np.array([hist[0] for hist in history])
         all_states = np.array([hist for hist in state_hist])
         sample.set_acts(all_actions)  # Set all actions at the same time
-        sample.set_obs(all_obs)  # Set all obs at the same time
-        sample.set_states(all_states)  # Set all states at the same time
+        sample.set_obs(all_obs)       # Set all obs at the same time
+        sample.set_states(all_states) # Set all states at the same time
 
-        #plt.plot(sample.get_acts()[:, 0], 'k')
-        #plt.plot(sample.get_obs('joint_state')[:, 0], 'b')
-        #plt.plot(sample.get_states('link_position')[:, 0], 'r')
-        #plt.show()
+        # Add sample to sample list
+        sample_list.add_sample(sample)
 
         print("Training the agent...")
         #bigman_agent.train(history=history)
@@ -185,7 +184,17 @@ try:
         #bigman_env.reset()
         #rospy.sleep(5)  # Because I need to find a good way to reset
 
-        episode += 1
+    print("Exploration finished. %d samples were generated" % sample_list.num_samples())
+    #all_samples_obs = sample_list.get_obs(idx=range(2, 4), obs_name='joint_state')
+    #print(all_samples_obs.shape)
+
+    #for samp in all_samples_obs:
+    #    plt.plot(samp[:, 0])
+    #plt.show()
+    #plt.plot(sample.get_acts()[:, 0], 'k')
+    #plt.plot(sample.get_obs('joint_state')[:, 0], 'b')
+    #plt.plot(sample.get_states('link_position')[:, 0], 'r')
+    #plt.show()
 
     print("Training finished!")
 

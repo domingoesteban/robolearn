@@ -14,31 +14,35 @@ class SampleList(object):
     def __init__(self):
         self._samples = []
 
+    def add_sample(self, sample):
+        self._samples.append(sample)
 
+    def remove_sample(self, idx):
+        self._samples.pop(idx)
 
-    def get_states(self, idx=None):
+    def get_obs(self, idx=None, obs_name=None, t=None):
         """ Returns N x T x dX numpy array of states. """
         if idx is None:
             idx = range(len(self._samples))
-        return np.asarray([self._samples[i].get_states() for i in idx])
+        return np.asarray([self._samples[i].get_obs(obs_name=obs_name, t=t) for i in idx])
 
-    def get_actions(self, idx=None):
+    def get_states(self, idx=None, state_name=None, t=None):
+        """ Returns N x T x dX numpy array of states. """
+        if idx is None:
+            idx = range(len(self._samples))
+        return np.asarray([self._samples[i].get_states(state_name=state_name, t=t) for i in idx])
+
+    def get_actions(self, idx=None, t=None):
         """ Returns N x T x dU numpy array of actions. """
         if idx is None:
             idx = range(len(self._samples))
-        return np.asarray([self._samples[i].get_U() for i in idx])
+        return np.asarray([self._samples[i].get_U(t=t) for i in idx])
 
-    def get_noise(self, idx=None):
-        """ Returns N x T x dU numpy array of noise generated during rollouts. """
-        if idx is None:
-            idx = range(len(self._samples))
-        return np.asarray([self._samples[i].get(NOISE) for i in idx])
-
-    def get_obs(self, idx=None):
-        """ Returns N x T x dO numpy array of features. """
-        if idx is None:
-            idx = range(len(self._samples))
-        return np.asarray([self._samples[i].get_obs() for i in idx])
+    #def get_noise(self, idx=None):
+    #    """ Returns N x T x dU numpy array of noise generated during rollouts. """
+    #    if idx is None:
+    #        idx = range(len(self._samples))
+    #    return np.asarray([self._samples[i].get(NOISE) for i in idx])
 
     def get_samples(self, idx=None):
         """ Returns N sample objects. """
