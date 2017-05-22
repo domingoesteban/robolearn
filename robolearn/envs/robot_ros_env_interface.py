@@ -109,7 +109,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
                                              (state_element, self.obs_joint_fields))
                     state_dof = len(state_to_activate['joints'])
                     state_idx = range(len(state_idx), len(state_idx) + state_dof)
-                    state_id = self.set_state_type(state_element, self.get_obs_id('joint_state'), state_element, state_idx)
+                    state_id = self.set_state_type(state_element, self.get_obs_idx('joint_state'), state_element, state_idx)
             else:
                 raise NotImplementedError("state %s is not supported!!" % state_to_activate['type'])
 
@@ -136,7 +136,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
         self.run()
 
-        print("Centauro ROS-environment ready!\n")
+        print("%s ROS-environment ready!" % self.robot_name.upper())
 
     def send_action(self, action):
         """
@@ -260,22 +260,40 @@ class RobotROSEnvInterface(ROSEnvInterface):
         #print(state)
         return state
 
-    def get_obs_id(self, name):
+    def get_obs_idx(self, name):
         for ii, obs in enumerate(self.obs_types):
             if obs['name'] == name:
                 return ii
         raise ValueError("There is not observation with name %s" % name)
 
-    def get_obs_info(self):
-        obs_info = {'names': [obs['name'] for obs in self.obs_types],
-                    'dimensions': [len(obs['obs_idx']) for obs in self.obs_types],
-                    'idx': [obs['obs_idx'] for obs in self.obs_types]}
+    def get_state_idx(self, name):
+        for ii, state in enumerate(self.state_types):
+            if state['name'] == name:
+                return ii
+        raise ValueError("There is not state with name %s" % name)
+
+    def get_obs_info(self, name=None):
+        if name is None:
+            obs_info = {'names': [obs['name'] for obs in self.obs_types],
+                        'dimensions': [len(obs['obs_idx']) for obs in self.obs_types],
+                        'idx': [obs['obs_idx'] for obs in self.obs_types]}
+        else:
+            obs_idx = self.get_obs_idx(name)
+            obs_info = {'names': self.obs_types[obs_idx]['name'],
+                        'dimensions': len(self.obs_types[obs_idx]['obs_idx']),
+                        'idx': self.obs_types[obs_idx]['obs_idx']}
         return obs_info
 
-    def get_state_info(self):
-        state_info = {'names': [state['name'] for state in self.state_types],
-                      'dimensions': [len(state['state_idx']) for state in self.state_types],
-                      'idx': [state['state_idx'] for state in self.state_types]}
+    def get_state_info(self, name=None):
+        if name is None:
+            state_info = {'names': [state['name'] for state in self.state_types],
+                          'dimensions': [len(state['state_idx']) for state in self.state_types],
+                          'idx': [state['state_idx'] for state in self.state_types]}
+        else:
+            state_idx = self.get_state_idx(name)
+            state_info = {'names': self.state_types[state_idx]['name'],
+                          'dimensions': len(self.state_types[state_idx]['state_idx']),
+                          'idx': self.state_types[state_idx]['state_idx']}
         return state_info
 
     def get_env_info(self):

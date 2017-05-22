@@ -68,11 +68,12 @@ class BigmanEnv(Environment):
     def get_state(self):
         return self.interface.get_state()
 
-    def get_obs_info(self):
-        return self.interface.get_obs_info()
+    def get_obs_info(self, **kwargs):
+        return self.interface.get_obs_info(**kwargs)
 
-    def get_state_info(self):
-        return self.interface.get_state_info()
+    def get_state_info(self, **kwargs):
+        return self.interface.get_state_info(**kwargs)
 
     def get_env_info(self):
         return self.interface.get_env_info()
+

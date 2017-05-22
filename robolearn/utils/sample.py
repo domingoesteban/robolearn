@@ -90,7 +90,6 @@ class Sample(object):
                 raise AttributeError("There is not state with name %s in sample." % state_name)
 
             state_idx = self._info['state']['idx'][self._info['state']['names'].index(state_name)]
-            print(state_idx)
             state = state[:, state_idx]
         return state
 
