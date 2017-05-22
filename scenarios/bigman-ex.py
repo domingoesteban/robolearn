@@ -31,7 +31,7 @@ import time
 # ################## #
 # ################## #
 # Task parameters
-update_frequency = 5
+#update_frequency = 5
 Ts = 0.05
 EndTime = 2  # Using final time to define the horizon
 
@@ -222,25 +222,19 @@ try:
             # Create a sample class
             sample = Sample(bigman_env, T)
             history = [None] * T
-            state_hist = [None] * T
+            obs_hist = [None] * T
 
             # Collect history
             for i in range(T):
-                #action = bigman_agent.act(obs=obs).reshape([-1, 1])
-                action = np.zeros(bigman_agent.act_dim)#.reshape([-1, 1])
-                #action[0] = 0.5 * np.sin(rospy.Time.now().to_sec())
-                action[0] = np.random.rand()
-                action[1] = np.random.rand()
-                action[2] = np.random.rand()
-                action[3] = np.random.rand()
+                obs = bigman_env.get_observation()
+                state = bigman_env.get_state()
+                action = bigman_agent.act(obs=obs)
                 bigman_env.send_action(action)
                 print("Episode %d/%d | Sample:%d/%d | t=%d/%d" % (episode+1, total_episodes,
                                                                   n_sample+1, num_samples,
                                                                   i+1, T))
-                obs = bigman_env.get_observation()
-                state = bigman_env.get_state()
-                history[i] = (obs, action)
-                state_hist[i] = state
+                obs_hist[i] = (obs, action)
+                history[i] = (state, action)
                 #print(obs)
                 #print("..")
                 #print(state)
@@ -260,13 +254,14 @@ try:
                 ros_rate.sleep()
 
             all_actions = np.array([hist[1] for hist in history])
-            all_obs = np.array([hist[0] for hist in history])
-            all_states = np.array([hist for hist in state_hist])
+            all_states = np.array([hist[0] for hist in history])
+            all_obs = np.array([hist[0] for hist in obs_hist])
             sample.set_acts(all_actions)  # Set all actions at the same time
             sample.set_obs(all_obs)  # Set all obs at the same time
             sample.set_states(all_states)  # Set all states at the same time
 
             # Add sample to sample list
+            print("Sample added to sample_list!")
             sample_list.add_sample(sample)
 
             print("Resetting environment!")

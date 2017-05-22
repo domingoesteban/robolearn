@@ -16,7 +16,8 @@ class Agent(object):
         :param obs: Environment observations
         :return:
         """
-        return self.policy(kwargs)
+        #return self.policy(kwargs)
+        return self.policy.eval(**kwargs)
 
     def policy(self, **kwargs):
         """
@@ -36,5 +37,6 @@ class Agent(object):
         :return: 
         """
         raise NotImplementedError
+
 
 
