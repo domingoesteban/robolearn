@@ -2,6 +2,7 @@ import numpy as np
 
 from XCM.msg import JointStateAdvr
 from XCM.msg import CommandAdvr
+from std_srvs.srv import SetBool
 from geometry_msgs.msg import WrenchStamped
 from sensor_msgs.msg import Imu
 

@@ -280,61 +280,63 @@ class ROSEnvInterface(EnvInterface):
                 print("/gazebo/set_model_configuration service call failed: %s" % str(exc))
 
     def reset(self):
-        if self.initial_config is None:
-            raise AttributeError("Robot initial configuration not defined!")
+        NotImplementedError
 
-        if self.init_acts is None:
-            raise AttributeError("Robot initial actions not defined!")
+        #if self.initial_config is None:
+        #    raise AttributeError("Robot initial configuration not defined!")
 
-        # Return commands to initial actions (because the ROS controllers)
-        for ii in range(10):  # Instead time, this should be checked with sensor data
-            self.last_acts = self.init_acts
-            self.publish_action = True
-            rospy.sleep(0.05)
+        #if self.init_acts is None:
+        #    raise AttributeError("Robot initial actions not defined!")
 
-        if self.mode == 'simulation':
-            rospy.wait_for_service('/gazebo/reset_simulation')
-            #try:
-            #    self.pause_srv()  # It does not response anything
-            #except rospy.ServiceException as exc:
-            #    print("/gazebo/pause_physics service call failed: %s" % str(exc))
+        ## Return commands to initial actions (because the ROS controllers)
+        #for ii in range(10):  # Instead time, this should be checked with sensor data
+        #    self.last_acts = self.init_acts
+        #    self.publish_action = True
+        #    rospy.sleep(0.05)
 
-            #print("Reset gazebo!")
-            try:
-                self.reset_srv()
-            except rospy.ServiceException as exc:
-                print("/gazebo/reset_world service call failed: %s" % str(exc))
-            rospy.sleep(0.5)
+        #if self.mode == 'simulation':
+        #    rospy.wait_for_service('/gazebo/reset_simulation')
+        #    #try:
+        #    #    self.pause_srv()  # It does not response anything
+        #    #except rospy.ServiceException as exc:
+        #    #    print("/gazebo/pause_physics service call failed: %s" % str(exc))
 
-        #print("Reset config!")
-        self.reset_config()
-        #print("SLeeping 2 seconds")
-        #rospy.sleep(2)
+        #    #print("Reset gazebo!")
+        #    try:
+        #        self.reset_srv()
+        #    except rospy.ServiceException as exc:
+        #        print("/gazebo/reset_world service call failed: %s" % str(exc))
+        #    rospy.sleep(0.5)
 
-        #print("Reset gazebo!")
-        #try:
-        #    self.reset_srv()
-        #except rospy.ServiceException as exc:
-        #    print("/gazebo/reset_world service call failed: %s" % str(exc))
-
-        #print("SLeeping 2 seconds")
-        #rospy.sleep(2)
-
-        #print("Reset config!")
+        ##print("Reset config!")
         #self.reset_config()
-        #print("SLeeping 2 MORE seconds")
-        #rospy.sleep(2)
+        ##print("SLeeping 2 seconds")
+        ##rospy.sleep(2)
 
-        #print("Reset gazebo!")
-        #try:
-        #    self.reset_srv()
-        #except rospy.ServiceException as exc:
-        #    print("/gazebo/reset_world service call failed: %s" % str(exc))
+        ##print("Reset gazebo!")
+        ##try:
+        ##    self.reset_srv()
+        ##except rospy.ServiceException as exc:
+        ##    print("/gazebo/reset_world service call failed: %s" % str(exc))
 
-        #try:
-        #    self.unpause_srv()  # It does not response anything
-        #except rospy.ServiceException as exc:
-        #    print("/gazebo/unpause_physics service call failed: %s" % str(exc))
+        ##print("SLeeping 2 seconds")
+        ##rospy.sleep(2)
+
+        ##print("Reset config!")
+        ##self.reset_config()
+        ##print("SLeeping 2 MORE seconds")
+        ##rospy.sleep(2)
+
+        ##print("Reset gazebo!")
+        ##try:
+        ##    self.reset_srv()
+        ##except rospy.ServiceException as exc:
+        ##    print("/gazebo/reset_world service call failed: %s" % str(exc))
+
+        ##try:
+        ##    self.unpause_srv()  # It does not response anything
+        ##except rospy.ServiceException as exc:
+        ##    print("/gazebo/unpause_physics service call failed: %s" % str(exc))
 
 
 

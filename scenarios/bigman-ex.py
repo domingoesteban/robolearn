@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -33,7 +34,7 @@ observation_active = [{'name': 'joint_state',
                        'type': 'joint_state',
                        'ros_topic': '/xbotcore/bigman/joint_states',
                        'fields': ['link_position', 'link_velocity', 'effort'],
-                       'joints': range(15, 22) + range(24, 31)},  # Value that can be gotten from robot_params['joints_names']['UB']
+                       'joints': bigman_params['joint_ids']['UB']},  # Value that can be gotten from robot_params['joints_names']['UB']
 
                       {'name': 'ft_left_arm',
                        'type': 'ft_sensor',
@@ -68,7 +69,7 @@ observation_active = [{'name': 'joint_state',
 state_active = [{'name': 'joint_state',
                  'type': 'joint_state',
                  'fields': ['link_position', 'link_velocity'],
-                 'joints': range(15, 22)}]  # Value that can be gotten from robot_params['joints_names']['LA']
+                 'joints': bigman_params['joint_ids']['LA']}]  # Value that can be gotten from robot_params['joints_ids']['LA']
 
 
 # Create a Bigman robot ROS EnvInterface
@@ -100,7 +101,7 @@ print("Bigman agent OK\n")
 
 
 # Learning params
-total_episodes = 4
+total_episodes = 2
 num_samples = 5  # Samples for exploration trajs
 resume_training_itr = None  # Resume from previous training iteration
 conditions = 1  # Number of initial conditions
@@ -138,7 +139,11 @@ try:
         for i in range(T):
             #action = bigman_agent.act(obs=obs).reshape([-1, 1])
             action = np.zeros(bigman_agent.act_dim)#.reshape([-1, 1])
-            action[0] = 0.5 * np.sin(rospy.Time.now().to_sec())
+            #action[0] = 0.5 * np.sin(rospy.Time.now().to_sec())
+            action[0] = np.random.rand()
+            action[1] = np.random.rand()
+            action[2] = np.random.rand()
+            action[3] = np.random.rand()
             bigman_env.send_action(action)
             print("Episode %d/%d | t=%d/%d" % (episode+1, total_episodes, i+1, T))
             obs = bigman_env.get_observation()
@@ -168,9 +173,9 @@ try:
         all_actions = np.array([hist[1] for hist in history])
         all_obs = np.array([hist[0] for hist in history])
         all_states = np.array([hist for hist in state_hist])
-        sample.set_acts(all_actions)  # Set all actions at the same time
-        sample.set_obs(all_obs)       # Set all obs at the same time
-        sample.set_states(all_states) # Set all states at the same time
+        sample.set_acts(all_actions)   # Set all actions at the same time
+        sample.set_obs(all_obs)        # Set all obs at the same time
+        sample.set_states(all_states)  # Set all states at the same time
 
         # Add sample to sample list
         sample_list.add_sample(sample)
@@ -181,7 +186,7 @@ try:
         print("Training ready!")
 
         print("Resetting environment!")
-        #bigman_env.reset()
+        bigman_env.reset(time=5)
         #rospy.sleep(5)  # Because I need to find a good way to reset
 
     print("Exploration finished. %d samples were generated" % sample_list.num_samples())
@@ -197,6 +202,7 @@ try:
     #plt.show()
 
     print("Training finished!")
+    sys.exit()
 
     while True:
         if agent_behavior == 'actor':

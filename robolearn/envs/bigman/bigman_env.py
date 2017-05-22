@@ -28,8 +28,8 @@ class BigmanEnv(Environment):
     def read_observation(self):
         return self.interface.read_observation(option=['all'])
 
-    def reset(self):
-        self.interface.reset()
+    def reset(self, **kwargs):
+        self.interface.reset(**kwargs)
 
     def get_reward(self):
         #desired_configuration = [0, 0, 0, 0, 0, 0,

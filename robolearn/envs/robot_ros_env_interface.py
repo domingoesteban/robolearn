@@ -4,6 +4,7 @@ import numpy as np
 import copy
 
 from robolearn.utils.iit_robots_ros import *
+from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 
 
 class RobotROSEnvInterface(ROSEnvInterface):
@@ -33,6 +34,14 @@ class RobotROSEnvInterface(ROSEnvInterface):
         # Configure actuated joints
         self.act_joint_names = self.get_joints_names(body_part_active)
         self.act_dof = len(self.act_joint_names)
+
+        # ##### #
+        # RESET #
+        # ##### #
+        # TODO: Find a better way to reset the robot
+        self.srv_xbot_comm_plugin = rospy.ServiceProxy('/XBotCommunicationPlugin_switch', SetBool)
+        self.srv_homing_ex_plugin = rospy.ServiceProxy('/HomingExample_switch', SetBool)
+
 
         # ############ #
         # OBSERVATIONS #
@@ -274,3 +283,39 @@ class RobotROSEnvInterface(ROSEnvInterface):
                     'state': self.get_state_info()}
         return env_info
 
+    def reset(self, time=None, freq=None):
+
+        if freq is None:
+            freq = 100
+
+        if time is None:
+            time = 5
+
+        N = int(np.ceil(time*freq))
+        pub_rate = rospy.Rate(freq)
+        reset_cmd = CommandAdvr()
+
+        # Wait for getting zero velocity and acceleration
+        rospy.sleep(1)  # Because I need to find a good way to reset
+
+        # TODO: Check if this option is correct
+        # All the joints that are in the joint state will be interpolated
+        obs_names = [obs['name'] for obs in self.obs_types]
+        if 'joint_state' not in obs_names:
+            raise AttributeError("There is not joint_state observation, required for environment reset.")
+        joint_state_idx = obs_names.index('joint_state')
+        joint_names = self.obs_types[joint_state_idx]['ros_msg'].name
+        joint_positions = self.obs_types[joint_state_idx]['ros_msg'].link_position
+        joint_ids = [self.joint_names.index(joint_name) for joint_name in joint_names]
+        final_positions = [self.q0[0][joint_id] for joint_id in joint_ids]
+        joint_trajectory = polynomial5_interpolation(N, final_positions, joint_positions)[0]
+
+        reset_cmd.name = joint_names
+        reset_publisher = rospy.Publisher("/xbotcore/"+self.robot_name+"/command", CommandAdvr, queue_size=10)
+        for ii in range(joint_trajectory.shape[0]):
+            reset_cmd.position = joint_trajectory[ii, :]
+            reset_publisher.publish(reset_cmd)
+            pub_rate.sleep()
+
+        # Interpolate from current position
+        rospy.sleep(1)  # Because I need to find a good way to reset
