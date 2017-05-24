@@ -11,8 +11,14 @@ class SampleList(object):
     Class that handles writes and reads to sample data.
     Inspired by C. Finn code in github.com:cbfinn/gps.git
     """
-    def __init__(self):
-        self._samples = []
+    def __init__(self, sample_list=None):
+        if sample_list is None:
+            self._samples = []
+        else:
+            self._samples = sample_list
+
+    def set_sample_list(self, sample_list):
+        self._samples = sample_list
 
     def add_sample(self, sample):
         self._samples.append(sample)
@@ -36,7 +42,7 @@ class SampleList(object):
         """ Returns N x T x dU numpy array of actions. """
         if idx is None:
             idx = range(len(self._samples))
-        return np.asarray([self._samples[i].get_U(t=t) for i in idx])
+        return np.asarray([self._samples[i].get_acts(t=t) for i in idx])
 
     #def get_noise(self, idx=None):
     #    """ Returns N x T x dU numpy array of noise generated during rollouts. """

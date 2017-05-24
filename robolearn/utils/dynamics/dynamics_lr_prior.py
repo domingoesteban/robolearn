@@ -1,7 +1,7 @@
 """ This file defines linear regression with an arbitrary prior. """
 import numpy as np
 
-from robolearn.utils.dynamics import Dynamics
+from robolearn.utils.dynamics.dynamics import Dynamics
 from robolearn.utils.gps_utils import gauss_fit_joint_prior
 
 
@@ -17,8 +17,8 @@ class DynamicsLRPrior(Dynamics):
 
     def update_prior(self, samples):
         """ Update dynamics prior. """
-        X = samples.get_X()
-        U = samples.get_U()
+        X = samples.get_states()
+        U = samples.get_actions()
         self.prior.update(X, U)
 
     def get_prior(self):

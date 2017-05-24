@@ -1,4 +1,5 @@
 class Policy(object):
+
     def eval(self, x, obs, t, noise=None):
         """
         Return an action for a state.

@@ -1,0 +1,156 @@
+S: [
+  {joint_id: 6,   # LHipLat
+   position: 0,
+   velocity: 0
+  },
+
+  {joint_id: 7,   # LHipYaw
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 8,  # LHipSag
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 9,  # LKneeSag
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 10,   # LAnkSag
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 11,   # LAnkLat
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 12,   # RHipLat
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 13,   # RHipYaw
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 14,   # RHipSag
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 15,   # RKneeSag
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 16,   # RAnkSag
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 17,   # RAnkLat
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 18,   # WaistLat
+    position: -30,
+    velocity: 0
+  },
+
+  {joint_id: 19,   # WaistSag
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 20,   # WaistYaw,
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 21,   # LShSag
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 22,   # LShLat
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 23,   # LShYaw
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 24,   # LElbj
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 25,   # LForearmPlate
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 26,   # LWrj1
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 27,   # LWrj2
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 28,   # NeckYawj
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 29,   # NeckPitchj
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 30,   # RShSag
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 31,   # RSHLat
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 32,   # RShYaw
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 33,   # RElbj
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 34,   # RForearmPlate
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 35,   # RWrj1
+    position: 0,
+    velocity: 0
+  },
+
+  {joint_id: 36,   # RWrj2
+    position: 0,
+    velocity: 0
+  }
+]

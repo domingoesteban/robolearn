@@ -114,6 +114,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 raise NotImplementedError("state %s is not supported!!" % state_to_activate['type'])
 
         self.state_dim = self.get_total_state_dof()
+        self.x0 = self.get_state()
 
 
         # ####### #
@@ -337,3 +338,4 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
         # Interpolate from current position
         rospy.sleep(1)  # Because I need to find a good way to reset
+

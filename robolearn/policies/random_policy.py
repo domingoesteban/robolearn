@@ -24,7 +24,7 @@ class RandomPolicy(Policy):
         else:
             self.cov = action_cov
 
-    def eval(self, **kwargs):
+    def act(self, x, obs, t, noise):
         u = np.random.multivariate_normal(self.mean, self.cov)
         return u
 
@@ -37,3 +37,4 @@ class RandomPolicy(Policy):
         :return: A dictionary with parameters
         """
         return {'mean': self.mean, 'cov': self.cov}
+

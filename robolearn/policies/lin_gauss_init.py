@@ -4,7 +4,7 @@ import copy
 import numpy as np
 import scipy as sp
 
-from robolearn.utils.dynamics_utils import guess_dynamics
+from robolearn.utils.dynamics.dynamics_utils import guess_dynamics
 from robolearn.policies.lin_gauss_policy import LinearGaussianPolicy
 
 

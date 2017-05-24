@@ -8,6 +8,9 @@ from robolearn.utils.iit_robots_params import *
 from robolearn.envs import BigmanEnv
 from robolearn.agents import GPSAgent
 
+from robolearn.policies.policy_opt.policy_opt_tf import PolicyOptTf
+from robolearn.policies.policy_opt.tf_model_example import tf_network
+
 from robolearn.utils.sample import Sample
 from robolearn.utils.sample_list import SampleList
 
@@ -18,7 +21,7 @@ from robolearn.costs.cost_utils import RAMP_QUADRATIC
 
 from robolearn.utils.algos_utils import IterationData
 from robolearn.utils.algos_utils import TrajectoryInfo
-from robolearn.algos.gps import GPS
+from robolearn.algos.gps.gps import GPS
 
 import rospy
 
@@ -117,8 +120,38 @@ print("\nCreating Bigman Agent...")
 
 # Create an Agent
 # Agent option
-agent_behavior = 'learner'  # 'learner', 'actor'
-bigman_agent = GPSAgent(act_dim=action_dim, obs_dim=observation_dim, state_dim=state_dim)
+#policy_params = {
+#    'network_params': {
+#        'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES],
+#        'obs_vector_data': [JOINT_ANGLES, JOINT_VELOCITIES],
+#        'sensor_dims': SENSOR_DIMS,
+#    },
+#    'network_model': tf_network,
+#    'iterations': 1000,
+#    'weights_file_prefix': EXP_DIR + 'policy',
+#}
+policy_params = {
+    'network_model': tf_network,  # tf_network, multi_modal_network, multi_modal_network_fp
+    'network_params': {
+        'n_layers': 1,  # Hidden layers??
+        'dim_hidden': [40],  # Dictionary of size per n_layers
+        'obs_names': bigman_env.get_obs_info()['names'],
+        'obs_dof': bigman_env.get_obs_info()['dimensions'],  # DoF for observation data tensor
+        'batch_size': 15,  # TODO: Check if this value is OK (same than name_samples)
+        'iterations': 1000,  # Inner iteration
+        #'num_filters': [5, 10],
+        #'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, RGB_IMAGE],  # Deprecated from original GPS code
+        #'obs_vector_data': [JOINT_ANGLES, JOINT_VELOCITIES],  # Deprecated from original GPS code
+        #'obs_image_data': [RGB_IMAGE],  # Deprecated from original GPS code
+        #'sensor_dims': SENSOR_DIMS,  # Deprecated from original GPS code
+        #'image_width': IMAGE_WIDTH (80),  # For multi_modal_network
+        #'image_height': IMAGE_HEIGHT (64),  # For multi_modal_network
+        #'image_channels': IMAGE_CHANNELS (3),  # For multi_modal_network
+    }
+}
+policy = PolicyOptTf(policy_params, observation_dim, action_dim)
+#policy = None
+bigman_agent = GPSAgent(act_dim=action_dim, obs_dim=observation_dim, state_dim=state_dim, policy=policy)
 # Load previous learned variables
 #bigman_agent.load(file_save_restore)
 print("Bigman Agent:%s OK\n" % type(bigman_agent))
@@ -142,7 +175,8 @@ act_cost = {
 # State Cost
 target_pos = np.zeros(len(state_active[0]['joints']))
 target_vel = np.zeros(len(state_active[0]['joints']))
-target_pos[0] = 0.7854
+# 'B' pose
+target_pos[:] = [np.deg2rad(0), np.deg2rad(90), np.deg2rad(0), np.deg2rad(-90), np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
 state_cost = {
     'type': CostState,
     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
@@ -165,6 +199,7 @@ state_cost = {
     },
 }
 
+# Sum of costs
 cost_sum = {
     'type': CostSum,
     'costs': [act_cost, state_cost],
@@ -172,36 +207,51 @@ cost_sum = {
 }
 
 
-
-
-# Reset to initial position
-print("Resetting Bigman...")
-bigman_env.reset(time=1)
-#time.sleep(5)  # TODO: This is temporal, because after reset the robot usually moves
-##bigman_ros_interface.reset()
-print("Bigman reset OK\n")
-
+# ######################## #
+# ######################## #
+# ## LEARNING ALGORITHM ## #
+# ######################## #
+# ######################## #
 
 # Learning params
-total_episodes = 1
-num_samples = 2  # Samples for exploration trajs
+#gps_algo = 'pigps'
+gps_algo = 'mdgps'
+total_episodes = 5
+num_samples = 15  # Samples for exploration trajs
 resume_training_itr = None  # Resume from previous training iteration
 conditions = 1  # Number of initial conditions
 T = int(EndTime/Ts)  # Total points
-#learn_algo = GPS(agent=bigman_agent, env=bigman_env, iterations=total_episodes, num_samples=num_samples,
-#                 T=T,
-#                 conditions=conditions)
-#
+sample_on_policy = False
+learn_algo = GPS(agent=bigman_agent, env=bigman_env,
+                 iterations=total_episodes, num_samples=num_samples,
+                 T=T, dt=Ts,
+                 cost=cost_sum,
+                 conditions=conditions,
+                 gps_algo=gps_algo,
+                 sample_on_policy=sample_on_policy
+                 )
+print("Learning algorithm: %s OK\n" % type(learn_algo))
+
+
+## TODO: Check if this reset should be done inside learn_algo
+## Reset to initial position
+#print("Resetting Bigman...")
+#bigman_env.reset(time=1)
+##time.sleep(5)  # TODO: This is temporal, because after reset the robot usually moves
+###bigman_ros_interface.reset()
+#print("Bigman reset OK\n")
 ## Learn using learning algorithm
-#learn_algo.run(resume_training_itr)
+print("Running Learning Algorithm!!!")
+learn_algo.run(resume_training_itr)
 
 
+print("GPS has finished!")
+sys.exit()
 
-# ROS
+# ######################### #
+# EXAMPLE OF AN EXPLORATION #
+# ######################### #
 ros_rate = rospy.Rate(int(1/Ts))  # hz
-
-counter = 0
-
 try:
     episode = 0
     sample_list = SampleList()
@@ -345,46 +395,6 @@ try:
 
     print("Training finished!")
     sys.exit()
-
-    while True:
-        if agent_behavior == 'actor':
-            obs = bigman_env.read_observation()
-            obs = np.reshape(obs, [1, -1])
-            action = bigman_agent.act(obs=obs)
-            action = np.reshape(action, [-1, 1])
-            bigman_env.send_action(action)
-            ros_rate.sleep()
-
-        else:
-            # Old training example
-            if counter == 0:
-                print("Starting new rollout...")
-
-            obs = bigman_env.read_observation()
-            #R = R + bigman_ros_interface.get_reward()  # Accumulating reward
-            if command_type == 'torque':
-                action = np.random.normal(scale=80, size=action_dim)  # It should be a function of state
-            else:
-                action = np.random.normal(scale=0.4, size=action_dim)  # It should be a function of state
-            bigman_env.send_action(action)
-            #print("observation: %s , then action: %f" % (obs.transpose(), action))
-            counter += 1
-            #time.sleep(Ts)
-            ros_rate.sleep()
-
-            if counter % (T/Ts) == 0:
-                print("The rollout has finished!")
-                print("Accumulated Reward is: %f\n" % R)
-                print("Training the agent...")
-                bigman_agent.train(history=history)
-                print("Training ready!")
-
-                print("Resetting environment!")
-                bigman_env.reset()
-                #time.sleep(5)  # Because I need to find a good way to reset
-                rospy.sleep(5)  # Because I need to find a good way to reset
-                R = 0
-                counter = 0
 
 except KeyboardInterrupt:
     print('Training interrupted!')
