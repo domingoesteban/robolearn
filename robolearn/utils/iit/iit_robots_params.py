@@ -133,6 +133,14 @@ bigman_params['q0'].append([0,  # 'LHipLat'
                             0,  # 'RWrj1'
                             0])  # 'RWrj2'
 
+# 'B' pose
+bigman_params['q0'].append([0, 0, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0,
+                            0, 0, 0,
+                            0, 1.5708, 0, -1.5708, 0, 0, 0,
+                            0, 0,
+                            0, -1.5708, 0, -1.5708, 0, 0, 0])
+
 bigman_params['observation_active'] = [{'name': 'joint_state',
                                         'type': 'joint_state',
                                         'ros_topic': '/xbotcore/centauro/joint_states',
@@ -245,6 +253,7 @@ centauro_params['q0'].append([0,  # 'hip_yaw_1',     # Joint 0
                               0,  # 'j_arm2_5',      # Joint 24
                               0,  # 'j_arm2_6',      # Joint 25
                               0])  # 'j_arm2_7']      # Joint 26
+
 
 centauro_params['observation_active'] = [{'name': 'joint_state',
                        'type': 'joint_state',

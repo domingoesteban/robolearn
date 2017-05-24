@@ -2,7 +2,7 @@
 import numpy as np
 
 from robolearn.utils.dynamics.dynamics import Dynamics
-from robolearn.utils.gps_utils import gauss_fit_joint_prior
+from robolearn.algos.gps.gps_utils import gauss_fit_joint_prior
 
 
 class DynamicsLRPrior(Dynamics):

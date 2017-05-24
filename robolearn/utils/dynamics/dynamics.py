@@ -1,4 +1,7 @@
-""" This file defines the base class for dynamics estimation. """
+"""
+This file defines the base class for dynamics estimation.
+Author: C.Finn et al
+"""
 import abc
 
 import numpy as np

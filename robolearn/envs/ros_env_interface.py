@@ -1,6 +1,6 @@
 from __future__ import print_function
 from robolearn.envs.environment import EnvInterface
-from robolearn.utils.iit_robots_ros import *
+from robolearn.utils.iit.iit_robots_ros import *
 
 # Useful packages
 from threading import Thread, Lock
@@ -11,6 +11,8 @@ import abc
 import rospy
 from gazebo_msgs.msg import ModelStates
 from gazebo_msgs.srv import *
+
+from gazebo_robolearn.srv import ResetPhysicsStatesModel
 
 from std_msgs.msg import Float64 as Float64Msg
 from sensor_msgs.msg import Imu as ImuMsg
@@ -41,6 +43,7 @@ class ROSEnvInterface(EnvInterface):
 
         if mode == 'simulation':
             self.reset_srv = rospy.ServiceProxy('/gazebo/reset_world', Empty)
+            self.reset_model_physics_srv = rospy.ServiceProxy('/gazebo/reset_physics_states_model', ResetPhysicsStatesModel)
             #self.reset_srv = rospy.ServiceProxy('/gazebo/reset_simulation', Empty)
             self.unpause_srv = rospy.ServiceProxy('/gazebo/unpause_physics', Empty)
             self.pause_srv = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
@@ -279,8 +282,8 @@ class ROSEnvInterface(EnvInterface):
             except rospy.ServiceException as exc:
                 print("/gazebo/set_model_configuration service call failed: %s" % str(exc))
 
-    def reset(self):
-        NotImplementedError
+    def reset(self, model_name=None):
+        #NotImplementedError
 
         #if self.initial_config is None:
         #    raise AttributeError("Robot initial configuration not defined!")
@@ -294,19 +297,31 @@ class ROSEnvInterface(EnvInterface):
         #    self.publish_action = True
         #    rospy.sleep(0.05)
 
-        #if self.mode == 'simulation':
-        #    rospy.wait_for_service('/gazebo/reset_simulation')
-        #    #try:
-        #    #    self.pause_srv()  # It does not response anything
-        #    #except rospy.ServiceException as exc:
-        #    #    print("/gazebo/pause_physics service call failed: %s" % str(exc))
+        if self.mode == 'simulation':
+            print("Resetting in gazebo!")
+            rospy.wait_for_service('/gazebo/reset_simulation')
+            #try:
+            #    self.pause_srv()  # It does not response anything
+            #except rospy.ServiceException as exc:
+            #    print("/gazebo/pause_physics service call failed: %s" % str(exc))
 
-        #    #print("Reset gazebo!")
-        #    try:
-        #        self.reset_srv()
-        #    except rospy.ServiceException as exc:
-        #        print("/gazebo/reset_world service call failed: %s" % str(exc))
-        #    rospy.sleep(0.5)
+            try:
+                self.reset_srv()
+            except rospy.ServiceException as exc:
+                print("/gazebo/reset_world service call failed: %s" % str(exc))
+
+            if model_name is not None:
+
+                rospy.wait_for_service('/gazebo/reset_physics_states_model')
+
+                try:
+                    self.reset_model_physics_srv(model_name)
+                except rospy.ServiceException as exc:
+                    print("/gazebo/reset_physics_states_model service call failed: %s" % str(exc))
+
+
+
+            #rospy.sleep(0.5)
 
         ##print("Reset config!")
         #self.reset_config()

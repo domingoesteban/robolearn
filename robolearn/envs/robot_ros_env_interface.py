@@ -3,7 +3,7 @@ from robolearn.envs.ros_env_interface import *
 import numpy as np
 import copy
 
-from robolearn.utils.iit_robots_ros import *
+from robolearn.utils.iit.iit_robots_ros import *
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 
 
@@ -34,13 +34,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
         # Configure actuated joints
         self.act_joint_names = self.get_joints_names(body_part_active)
         self.act_dof = len(self.act_joint_names)
-
-        # ##### #
-        # RESET #
-        # ##### #
-        # TODO: Find a better way to reset the robot
-        self.srv_xbot_comm_plugin = rospy.ServiceProxy('/XBotCommunicationPlugin_switch', SetBool)
-        self.srv_homing_ex_plugin = rospy.ServiceProxy('/HomingExample_switch', SetBool)
 
 
         # ############ #
@@ -114,7 +107,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 raise NotImplementedError("state %s is not supported!!" % state_to_activate['type'])
 
         self.state_dim = self.get_total_state_dof()
-        self.x0 = self.get_state()
 
 
         # ####### #
@@ -134,6 +126,19 @@ class RobotROSEnvInterface(ROSEnvInterface):
         # After all actions have been configured
         self.set_initial_acts(initial_acts=[action_type['ros_msg'] for action_type in self.action_types])  # TODO: Check if it is useful or not
         self.act_dim = self.get_total_action_dof()
+
+
+        ## ##### #
+        ## RESET #
+        ## ##### #
+        ## TODO: Find a better way to reset the robot
+        #self.srv_xbot_comm_plugin = rospy.ServiceProxy('/XBotCommunicationPlugin_switch', SetBool)
+        #self.srv_homing_ex_plugin = rospy.ServiceProxy('/HomingExample_switch', SetBool)
+
+        # Resetting before get initial state
+        print("Resetting %s robot to initial q0[0]..." % self.robot_name)
+        self.reset(time=2, conf=0)
+        self.x0 = self.get_state()
 
         self.run()
 
@@ -302,13 +307,16 @@ class RobotROSEnvInterface(ROSEnvInterface):
                     'state': self.get_state_info()}
         return env_info
 
-    def reset(self, time=None, freq=None):
+    def reset(self, time=None, freq=None, conf=0):
 
         if freq is None:
             freq = 100
 
         if time is None:
             time = 5
+
+        if conf > len(self.q0)-1:
+            raise AttributeError("Desired configuration not available. %d > %d" % (conf, len(self.q0)-1))
 
         N = int(np.ceil(time*freq))
         pub_rate = rospy.Rate(freq)
@@ -326,7 +334,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         joint_names = self.obs_types[joint_state_idx]['ros_msg'].name
         joint_positions = self.obs_types[joint_state_idx]['ros_msg'].link_position
         joint_ids = [self.joint_names.index(joint_name) for joint_name in joint_names]
-        final_positions = [self.q0[0][joint_id] for joint_id in joint_ids]
+        final_positions = [self.q0[conf][joint_id] for joint_id in joint_ids]
         joint_trajectory = polynomial5_interpolation(N, final_positions, joint_positions)[0]
 
         reset_cmd.name = joint_names
@@ -338,4 +346,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
         # Interpolate from current position
         rospy.sleep(1)  # Because I need to find a good way to reset
+
+        # Resetting gazebo also
+        super(RobotROSEnvInterface, self).reset(model_name=self.robot_name)
 

@@ -12,9 +12,7 @@ from sensor_msgs.msg import Imu as ImuMsg
 from custom_effort_controllers.msg import CommandArrayStamped
 from custom_effort_controllers.msg import Command
 
-from robolearn.utils.iit_robots_params import centauro_params
-
-from robolearn.utils.iit_robots_ros import *
+from robolearn.utils.iit.iit_robots_ros import *
 
 
 

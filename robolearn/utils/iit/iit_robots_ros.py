@@ -6,7 +6,7 @@ from std_srvs.srv import SetBool
 from geometry_msgs.msg import WrenchStamped
 from sensor_msgs.msg import Imu
 
-from robolearn.utils.iit_robots_params import *
+from robolearn.utils.iit.iit_robots_params import *
 
 def config_advr_command(joint_names, cmd_type, init_cmd_vals):
     advr_cmd_msg = CommandAdvr()

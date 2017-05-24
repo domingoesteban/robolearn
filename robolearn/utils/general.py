@@ -13,3 +13,6 @@ def check_shape(value, expected_shape, name=''):
     if value.shape != tuple(expected_shape):
         raise ValueError('Shape mismatch %s: Expected %s, got %s' %
                          (name, str(expected_shape), str(value.shape)))
+
+
+

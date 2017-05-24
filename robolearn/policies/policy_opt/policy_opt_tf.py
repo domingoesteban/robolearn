@@ -19,9 +19,13 @@ from robolearn.policies.policy_opt.tf_utils import TfSolver
 
 
 LOGGER = logging.getLogger(__name__)
+# Logging into console AND file
 LOGGER.setLevel(logging.DEBUG)
 ch = logging.StreamHandler(sys.stdout)
 ch.setLevel(logging.DEBUG)
+LOGGER.addHandler(ch)
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 class PolicyOptTf(PolicyOpt):
@@ -80,7 +84,8 @@ class PolicyOptTf(PolicyOpt):
                 self.x_idx = self.x_idx + list(range(i, i+dim))
             i += dim
 
-        init_op = tf.initialize_all_variables()
+        #init_op = tf.initialize_all_variables()
+        init_op = tf.global_variables_initializer()
 
         self.sess.run(init_op)
 
@@ -274,7 +279,7 @@ class PolicyOptTf(PolicyOpt):
     # For pickling.
     def __getstate__(self):
         with tempfile.NamedTemporaryFile('w+b', delete=True) as f:
-            self.save_model(f.name) # TODO - is this implemented.
+            self.save_model(f.name)  # TODO - is this implemented.
             f.seek(0)
             with open(f.name, 'r') as f2:
                 wts = f2.read()

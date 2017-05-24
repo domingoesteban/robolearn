@@ -1,0 +1,25 @@
+
+def print_skull():
+    #print("   _                   _ ")
+    #print(" _( )                 ( )_ ")
+    #print("(_, |      __ __      | ,_) ")
+    #print("   \'\    /  ^  \    /'/ ")
+    #print("    '\'\,/\      \,/'/' ")
+    #print("      '\| []   [] |/' ")
+    #print("        (_  /^\  _) ")
+    #print("          \  ~  / ")
+    #print("          /HHHHH\ ")
+    #print("        /'/{^^^}\'\ ")
+    #print("    _,/'/'  ^^^  '\'\,_ ")
+    #print("   (_, |           | ,_) ")
+    #print("     (_)           (_) ")
+
+    print("  {}          {} ")
+    print("   \  _---_  / ")
+    print("    \/     \/ ")
+    print("     |() ()| ")
+    print("      \ + / ")
+    print("     / HHH  \ ")
+    print("    /  \_/   \ ")
+    print("  {}          {} ")
+

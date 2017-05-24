@@ -5,7 +5,7 @@ import numpy as np
 from robolearn.envs.environment import Environment
 from centauro_ros_env_interface import CentauroROSEnvInterface
 from robolearn.envs.robot_ros_env_interface import RobotROSEnvInterface
-from robolearn.utils.iit_robots_params import centauro_params
+from robolearn.utils.iit.iit_robots_params import centauro_params
 
 
 class CentauroEnv(Environment):

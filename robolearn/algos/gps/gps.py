@@ -14,17 +14,23 @@ import copy
 from robolearn.algos.rl_algorithm import RLAlgorithm
 
 from robolearn.algos.gps.gps_config import *
-from robolearn.utils.gps_utils import PolicyInfo
-from robolearn.utils.gps_utils import IterationData, TrajectoryInfo, extract_condition
+from robolearn.algos.gps.gps_utils import PolicyInfo
+from robolearn.algos.gps.gps_utils import IterationData, TrajectoryInfo, extract_condition
 
 from robolearn.utils.sample import Sample
 from robolearn.utils.sample_list import SampleList
 
 from robolearn.agents.agent_utils import generate_noise
 from robolearn.utils.data_logger import DataLogger
+from robolearn.utils.print_utils import *
 
 import logging
 LOGGER = logging.getLogger(__name__)
+# Logging into console AND file
+LOGGER.setLevel(logging.DEBUG)
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.DEBUG)
+LOGGER.addHandler(ch)
 
 
 class GPS(RLAlgorithm):
@@ -38,29 +44,28 @@ class GPS(RLAlgorithm):
             self._train_idx = self._hyperparams['train_conditions']
             self._test_idx = self._hyperparams['test_conditions']
         else:
-            self._train_idx = range(self._conditions)
+            self._train_idx = self._test_idx = range(self._conditions)
             self._hyperparams['train_conditions'] = self._train_idx
-            self._test_idx = self._train_idx
+            self._hyperparams['test_conditions'] = self._test_idx
 
         self.data_logger = DataLogger()
         self._data_files_dir = "gps_data_files"
 
-        if 'train_conditions' in self._hyperparams:
-            self._cond_idx = self._hyperparams['train_conditions']
-            self.M = len(self._cond_idx)
-        else:
-            self.M = self._hyperparams['conditions']
-            self._cond_idx = range(self.M)
-            self._hyperparams['train_conditions'] = self._cond_idx
-            self._hyperparams['test_conditions'] = self._cond_idx
+        # ############################### #
+        # Code used in original Algorithm #
+        # ############################### #
+        self.M = self._conditions  # TODO: Review code so only one is used
+        self._cond_idx = self._train_idx  # TODO: Review code so only one is used
+
         self.iteration_count = 0
 
-        # Grab a few values from the agent.
-        self.dU = self._hyperparams['dU'] = agent.act_dim
-        self.dX = self._hyperparams['dX'] = agent.state_dim
-        self.dO = self._hyperparams['dO'] = agent.obs_dim
+        # Get some values from the environment.
+        self.dU = self._hyperparams['dU'] = env.get_action_dim()
+        self.dX = self._hyperparams['dX'] = env.get_state_dim()
+        self.dO = self._hyperparams['dO'] = env.get_obs_dim()
 
-        self.T = self._hyperparams['T']  # Instead agent.T
+        # Get time values from the 'hyperparams'
+        self.T = self._hyperparams['T']
         self.dt = self._hyperparams['dt']
 
         init_traj_distr = self._hyperparams['init_traj_distr']
@@ -69,6 +74,8 @@ class GPS(RLAlgorithm):
         init_traj_distr['dU'] = self.dU
         init_traj_distr['dt'] = self.dt
         init_traj_distr['T'] = self.T
+        #TODO:Temporal for testing init_pd
+        init_traj_distr['dQ'] = self.dU
 
 
         # IterationData objects for each condition.
@@ -98,12 +105,16 @@ class GPS(RLAlgorithm):
         )
 
         # Cost
-        if type(self._hyperparams['cost']) == list:
+        if self._hyperparams['cost'] is None:
+            raise AttributeError("Cost function has not been defined")
+
+        if isinstance(type(self._hyperparams['cost']), list):
             self.cost = [
                 self._hyperparams['cost'][i]['type'](self._hyperparams['cost'][i])
                 for i in range(self.M)
             ]
         else:
+            # Same cost function for all conditions
             self.cost = [
                 self._hyperparams['cost']['type'](self._hyperparams['cost'])
                 for _ in range(self.M)
@@ -114,6 +125,7 @@ class GPS(RLAlgorithm):
 
         # ############# #
         # GPS Algorithm #
+        # ############# #
         self.gps_algo = self._hyperparams['gps_algo']
 
         if self.gps_algo == 'pigps':
@@ -133,8 +145,6 @@ class GPS(RLAlgorithm):
             #)
             self.policy_opt = self.agent.policy
 
-
-
     def run(self, itr_load=None):
         """
         Run GPS.
@@ -143,44 +153,54 @@ class GPS(RLAlgorithm):
         :param itr_load: desired iteration to load algorithm from
         :return: 
         """
-        itr_start = self._initialize(itr_load)
+        try:
+            itr_start = self._initialize(itr_load)
 
-        for itr in range(itr_start, self._hyperparams['iterations']):
-            # Collect samples
-            for cond in self._train_idx:
-                for i in range(self._hyperparams['num_samples']):
-                    print("")
-                    print("#"*40)
-                    print("Sample itr:%d/%d, cond:%d/%d, i:%d/%d" % (itr+1, self._hyperparams['iterations'],
-                                                                     cond+1, len(self._train_idx),
-                                                                     i+1, self._hyperparams['num_samples']))
-                    print("#"*40)
-                    self._take_sample(itr, cond, i)
+            for itr in range(itr_start, self._hyperparams['iterations']):
+                # Collect samples
+                for cond in self._train_idx:
+                    for i in range(self._hyperparams['num_samples']):
+                        print("")
+                        print("#"*40)
+                        print("Sample itr:%d/%d, cond:%d/%d, i:%d/%d" % (itr+1, self._hyperparams['iterations'],
+                                                                         cond+1, len(self._train_idx),
+                                                                         i+1, self._hyperparams['num_samples']))
+                        print("#"*40)
+                        self._take_sample(itr, cond, i)
 
-            traj_sample_lists = [
-                self.agent.get_samples(cond, -self._hyperparams['num_samples'])
-                for cond in self._train_idx
-            ]
+                traj_sample_lists = [
+                    self.agent.get_samples(cond, -self._hyperparams['num_samples'])
+                    for cond in self._train_idx
+                ]
 
-            # Clear agent samples.
-            self.agent.clear_samples()
+                # Clear agent samples.
+                self.agent.clear_samples()
 
-            self._take_iteration(itr, traj_sample_lists)
+                self._take_iteration(itr, traj_sample_lists)
 
-            pol_sample_lists = self._take_policy_samples()
+                if self._hyperparams['test_after_iter']:
+                    pol_sample_lists = self._take_policy_samples()
 
-            # Log data
-            #self._log_data(itr, traj_sample_lists, pol_sample_lists)
+                # Log data
+                #self._log_data(itr, traj_sample_lists, pol_sample_lists)
 
-        self._end()
-        #finally:
-        #    self._end()
+        except Exception as e:
+            traceback.print_exception(*sys.exc_info())
+            print("#"*30)
+            print("#"*30)
+            print_skull()
+            print("Panic: ERROR IN GPS!!!!")
+            print("#"*30)
+            print("#"*30)
+        finally:
+            self._end()
 
-    @staticmethod
-    def _end():
+    def _end(self):
         """ Finish running and exit. """
         print("")
-        print("Training complete.")
+        print("GPS has finished!")
+        # TODO: Check how to also stop/abort the environment in case of error
+        self.env.reset(time=2, conf=0)
 
     def _initialize(self, itr_load):
         """
@@ -311,7 +331,7 @@ class GPS(RLAlgorithm):
 
     def _take_iteration(self, itr, sample_lists):
         print("")
-        print("GPS iteration %d | Using %d samples" % (itr, len(sample_lists)))
+        print("GPS iteration %d | Using %d samples" % (itr+1, len(sample_lists)))
 
         if self.gps_algo == 'pigps':
             self.iteration_pigps(sample_lists)

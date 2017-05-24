@@ -4,7 +4,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
-from robolearn.utils.iit_robots_params import *
+from robolearn.utils.iit.iit_robots_params import *
 from robolearn.envs import BigmanEnv
 from robolearn.agents import GPSAgent
 
@@ -22,6 +22,7 @@ from robolearn.costs.cost_utils import RAMP_QUADRATIC
 from robolearn.utils.algos_utils import IterationData
 from robolearn.utils.algos_utils import TrajectoryInfo
 from robolearn.algos.gps.gps import GPS
+from robolearn.policies.lin_gauss_init import init_lqr, init_pd
 
 import rospy
 
@@ -36,7 +37,7 @@ import time
 # Task parameters
 #update_frequency = 5
 Ts = 0.05
-EndTime = 2  # Using final time to define the horizon
+EndTime = 5  # Using final time to define the horizon
 
 
 # ################### #
@@ -132,13 +133,13 @@ print("\nCreating Bigman Agent...")
 #}
 policy_params = {
     'network_model': tf_network,  # tf_network, multi_modal_network, multi_modal_network_fp
+    'iterations': 500,  # Inner iteration (Default:5000). Reccomended: 1000?
     'network_params': {
         'n_layers': 1,  # Hidden layers??
         'dim_hidden': [40],  # Dictionary of size per n_layers
         'obs_names': bigman_env.get_obs_info()['names'],
         'obs_dof': bigman_env.get_obs_info()['dimensions'],  # DoF for observation data tensor
         'batch_size': 15,  # TODO: Check if this value is OK (same than name_samples)
-        'iterations': 1000,  # Inner iteration
         #'num_filters': [5, 10],
         #'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, RGB_IMAGE],  # Deprecated from original GPS code
         #'obs_vector_data': [JOINT_ANGLES, JOINT_VELOCITIES],  # Deprecated from original GPS code
@@ -217,35 +218,43 @@ cost_sum = {
 #gps_algo = 'pigps'
 gps_algo = 'mdgps'
 total_episodes = 5
-num_samples = 15  # Samples for exploration trajs
+num_samples = 5  # Samples for exploration trajs
 resume_training_itr = None  # Resume from previous training iteration
 conditions = 1  # Number of initial conditions
 T = int(EndTime/Ts)  # Total points
 sample_on_policy = False
+#init_traj_distr = {'type': init_lqr,  # init_lqr, init_pd
+#                   'init_var': 1.0,
+#                   'stiffness': 1.0,
+#                   'stiffness_vel': 0.5,
+#                   'final_weight': 1.0,
+#                   # Parameters for guessing dynamics
+#                   'init_acc': [],  # dU vector of accelerations, default zeros.
+#                   'init_gains': [],  # dU vector of gains, default ones.
+#                   }
+init_traj_distr = {'type': init_pd,
+                   'init_var': 0.00001,  # initial variance (Default:10)
+                   'pos_gains': 0.001,  # position gains (Default:10)
+                   'vel_gains_mult': 0.01,  # velocity gains multiplier on pos_gains
+                   'init_action_offset': None,
+                   }
+test_policy_after_iter = False
 learn_algo = GPS(agent=bigman_agent, env=bigman_env,
                  iterations=total_episodes, num_samples=num_samples,
                  T=T, dt=Ts,
                  cost=cost_sum,
                  conditions=conditions,
                  gps_algo=gps_algo,
-                 sample_on_policy=sample_on_policy
+                 sample_on_policy=sample_on_policy,
+                 test_after_iter=test_policy_after_iter,
+                 init_traj_distr=init_traj_distr
                  )
 print("Learning algorithm: %s OK\n" % type(learn_algo))
 
-
-## TODO: Check if this reset should be done inside learn_algo
-## Reset to initial position
-#print("Resetting Bigman...")
-#bigman_env.reset(time=1)
-##time.sleep(5)  # TODO: This is temporal, because after reset the robot usually moves
-###bigman_ros_interface.reset()
-#print("Bigman reset OK\n")
-## Learn using learning algorithm
+# Learn using learning algorithm
 print("Running Learning Algorithm!!!")
 learn_algo.run(resume_training_itr)
-
-
-print("GPS has finished!")
+print("Learning Algorithm has finished!")
 sys.exit()
 
 # ######################### #
