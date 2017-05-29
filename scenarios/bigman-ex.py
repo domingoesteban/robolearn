@@ -25,6 +25,7 @@ from robolearn.algos.gps.gps import GPS
 from robolearn.policies.lin_gauss_init import init_lqr, init_pd
 
 import rospy
+from robolearn.utils.print_utils import *
 
 import time
 
@@ -36,7 +37,7 @@ import time
 # ################## #
 # Task parameters
 #update_frequency = 5
-Ts = 0.05
+Ts = 0.01
 EndTime = 5  # Using final time to define the horizon
 
 
@@ -51,7 +52,7 @@ print("\nCreating Bigman environment...")
 # Robot configuration
 interface = 'ros'
 body_part_active = 'LA'
-command_type = 'position'
+command_type = 'velocity'
 file_save_restore = "models/bigman_agent_vars.ckpt"
 
 
@@ -84,17 +85,30 @@ observation_active = [{'name': 'joint_state',
                       {'name': 'imu1',
                        'type': 'imu',
                        'ros_topic': '/xbotcore/bigman/imu/imu_link',
-                       'fields': ['orientation', 'angular_velocity', 'linear_acceleration']}]
+                       'fields': ['orientation', 'angular_velocity', 'linear_acceleration']},
+
+                      {'name': 'optitrack',
+                       'type': 'optitrack',
+                       'ros_topic': '/optitrack/relative_poses',
+                       'fields': ['position', 'orientation'],
+                       'bodies': ['LSoftHand', 'RSoftHand', 'cardboard_cube_box']},
+
+                      ]
 
 #observation_active = [{'name': 'imu1',
 #                       'type': 'imu',
 #                       'ros_topic': '/xbotcore/bigman/imu/imu_link',
 #                       'fields': ['orientation', 'angular_velocity', 'linear_acceleration']}]
 
-state_active = [{'name': 'joint_state',
-                 'type': 'joint_state',
-                 'fields': ['link_position', 'link_velocity'],
-                 'joints': bigman_params['joint_ids']['LA']}]  # Value that can be gotten from robot_params['joints_ids']['LA']
+#state_active = [{'name': 'joint_state',
+#                 'type': 'joint_state',
+#                 'fields': ['link_position', 'link_velocity'],
+#                 'joints': bigman_params['joint_ids']['LA']}]  # Value that can be gotten from robot_params['joints_ids']['LA']
+
+state_active = [{'name': 'optitrack',
+                 'type': 'optitrack',
+                 'fields': ['position'],
+                 'bodies': ['LSoftHand', 'cardboard_cube_box']}]  # Value that can be gotten from robot_params['joints_ids']['LA']
 
 
 
@@ -103,7 +117,8 @@ state_active = [{'name': 'joint_state',
 bigman_env = BigmanEnv(interface=interface, mode='simulation',
                        body_part_active=body_part_active, command_type=command_type,
                        observation_active=observation_active,
-                       state_active=state_active)
+                       state_active=state_active,
+                       cmd_freq=int(1/Ts))
 
 action_dim = bigman_env.get_action_dim()
 state_dim = bigman_env.get_state_dim()
@@ -151,7 +166,7 @@ policy_params = {
     }
 }
 policy = PolicyOptTf(policy_params, observation_dim, action_dim)
-#policy = None
+policy = None
 bigman_agent = GPSAgent(act_dim=action_dim, obs_dim=observation_dim, state_dim=state_dim, policy=policy)
 # Load previous learned variables
 #bigman_agent.load(file_save_restore)
@@ -174,31 +189,57 @@ act_cost = {
 }
 
 # State Cost
-target_pos = np.zeros(len(state_active[0]['joints']))
-target_vel = np.zeros(len(state_active[0]['joints']))
+box_pose = [-0.7500,  # pos x
+            0.0000,   # pos y
+            0.0184,   # pos z
+            0.0000,   # orient x
+            0.0000,   # orient y
+            0.0000,   # orient z
+            1.0000]   # orient w
+
+box_size = [0.4, 0.5, 0.3]
+
+left_ee_pose = box_pose
+left_ee_pose[0] += box_size[0]/2
+
+target_state = left_ee_pose + box_pose
 # 'B' pose
-target_pos[:] = [np.deg2rad(0), np.deg2rad(90), np.deg2rad(0), np.deg2rad(-90), np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
 state_cost = {
     'type': CostState,
     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
     'l1': 0.0,
     'l2': 1.0,
-    'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
+    'wp_final_multiplier': 5.0,  # Weight multiplier on final time step.
     'data_types': {
-        'link_position': {
-            'wp': np.ones_like(target_pos),  # State weights - must be set.
-            'target_state': target_pos,  # Target state - must be set.
+        'optitrack': {
+            'wp': np.ones_like(target_state),  # State weights - must be set.
+            'target_state': target_state,  # Target state - must be set.
             'average': None,  #(12, 3),
-            'data_idx': bigman_env.get_state_info(name='link_position')['idx']
-        },
-        'link_velocity': {
-            'wp': np.ones_like(target_vel),  # State weights - must be set.
-            'target_state': target_vel,  # Target state - must be set.
-            'average': None,  #(12, 3),
-            'data_idx': bigman_env.get_state_info(name='link_velocity')['idx']
-        },
+            'data_idx': bigman_env.get_state_info(name='optitrack')['idx']
+        }
     },
 }
+#state_cost = {
+#    'type': CostState,
+#    'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
+#    'l1': 0.0,
+#    'l2': 1.0,
+#    'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
+#    'data_types': {
+#        'link_position': {
+#            'wp': np.ones_like(target_pos),  # State weights - must be set.
+#            'target_state': target_pos,  # Target state - must be set.
+#            'average': None,  #(12, 3),
+#            'data_idx': bigman_env.get_state_info(name='link_position')['idx']
+#        },
+#        'link_velocity': {
+#            'wp': np.ones_like(target_vel),  # State weights - must be set.
+#            'target_state': target_vel,  # Target state - must be set.
+#            'average': None,  #(12, 3),
+#            'data_idx': bigman_env.get_state_info(name='link_velocity')['idx']
+#        },
+#    },
+#}
 
 # Sum of costs
 cost_sum = {

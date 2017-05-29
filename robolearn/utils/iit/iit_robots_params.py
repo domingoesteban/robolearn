@@ -32,6 +32,12 @@ imu_sensor_dof = {'orientation': 4,  # x, y, z, w
                   'angular_velocity': 3,  # x, y, z
                   'linear_acceleration': 3}  # x, y, z
 
+# ROS OPTITRACK (robolearn_gazebo_envs PACKAGE)
+optitrack_fields = ['position', 'orientation']
+
+optitrack_dof = {'position': 3,  # x, y, z
+                 'orientation': 4}  # x, y, z, w
+
 # Observation example
 #observation_active = [{'name': 'joint_state',
 #                       'type': 'joint_state',

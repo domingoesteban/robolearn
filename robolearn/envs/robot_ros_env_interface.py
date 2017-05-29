@@ -9,7 +9,7 @@ from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 
 class RobotROSEnvInterface(ROSEnvInterface):
     def __init__(self, robot_name=None, mode='simulation', body_part_active='LA', cmd_type='position',
-                 observation_active=None, state_active=None):
+                 observation_active=None, state_active=None, cmd_freq=100):
         super(RobotROSEnvInterface, self).__init__(mode=mode)
 
         if robot_name is None:
@@ -60,11 +60,17 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 self.imu_sensor_fields = list(obs_to_activate['fields'])  # Used in get_obs
                 obs_dof = sum([imu_sensor_dof[x] for x in obs_to_activate['fields']])
 
+            elif obs_to_activate['type'] == 'optitrack':
+                ros_topic_type = RelativePose
+                self.obs_optitrack_fields = list(obs_to_activate['fields'])  # Used in get_obs
+                self.obs_optitrack_bodies = obs_to_activate['bodies']
+                obs_dof = sum([optitrack_dof[x]*len(self.obs_optitrack_bodies) for x in obs_to_activate['fields']])
+
             else:
                 raise NotImplementedError("observation %s is not supported!!" % obs_to_activate['type'])
 
 
-            if obs_to_activate['type'] == 'joint_state':
+            if obs_to_activate['type'] in ['joint_state', 'optitrack']:
                 obs_msg_id = self.set_observation_topic(obs_to_activate['ros_topic'], ros_topic_type,
                                                         obs_to_activate['fields']+['name'])
             else:
@@ -103,6 +109,21 @@ class RobotROSEnvInterface(ROSEnvInterface):
                     state_dof = len(state_to_activate['joints'])
                     state_idx = range(len(state_idx), len(state_idx) + state_dof)
                     state_id = self.set_state_type(state_element, self.get_obs_idx('joint_state'), state_element, state_idx)
+
+            elif state_to_activate['type'] == 'optitrack':
+                self.state_optitrack_bodies = state_to_activate['bodies']
+                self.state_optitrack_fields = state_to_activate['fields']
+                #for hh, body_name in enumerate(self.state_optitrack_bodies):
+                    #for ii, state_element in enumerate(self.state_optitrack_fields):
+                    #    if not state_element in self.obs_optitrack_fields:
+                    #        raise AttributeError("Joint state type %s is not being observed. Current observations are %s" %
+                    #                             (state_element, self.obs_joint_fields))
+                state_dof = len(self.state_optitrack_bodies)*sum([optitrack_dof[x] for x in self.state_optitrack_fields])
+                state_idx = range(len(state_idx), len(state_idx) + state_dof)
+                state_id = self.set_state_type('optitrack',
+                                               self.get_obs_idx('optitrack'),
+                                               'optitrack', state_idx)
+
             else:
                 raise NotImplementedError("state %s is not supported!!" % state_to_activate['type'])
 
@@ -114,9 +135,15 @@ class RobotROSEnvInterface(ROSEnvInterface):
         # ####### #
 
         #Action 1: Joint1:JointN, 100Hz
-        self.set_action_topic("/xbotcore/"+self.robot_name+"/command", CommandAdvr, 100)  # TODO: Check if 100 is OK
+        self.cmd_freq = cmd_freq
+        self.set_action_topic("/xbotcore/"+self.robot_name+"/command", CommandAdvr, self.cmd_freq)  # TODO: Check if 100 is OK
         if cmd_type == 'position':
             init_cmd_vals = self.initial_config[0][self.get_joints_indeces(body_part_active)]  # TODO: TEMPORAL SOLUTION
+            self.cmd_type = cmd_type
+        elif cmd_type == 'velocity':
+            init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indeces(body_part_active)])
+            self.cmd_type = cmd_type
+            cmd_type = 'position'  # TEMPORAL
         else:
             raise NotImplementedError("Only position command has been implemented!")
 
@@ -136,8 +163,9 @@ class RobotROSEnvInterface(ROSEnvInterface):
         #self.srv_homing_ex_plugin = rospy.ServiceProxy('/HomingExample_switch', SetBool)
 
         # Resetting before get initial state
-        print("Resetting %s robot to initial q0[0]..." % self.robot_name)
-        self.reset(time=2, conf=0)
+        #print("Resetting %s robot to initial q0[0]..." % self.robot_name)
+        print("NO RESETTING BEFORE PUBLISHING!!")
+        #self.reset(time=2, conf=0)
         self.x0 = self.get_state()
 
         self.run()
@@ -153,6 +181,9 @@ class RobotROSEnvInterface(ROSEnvInterface):
         """
         for ii, des_action in enumerate(self.action_types):
             if des_action['type'] in ['position', 'velocity', 'effort']:
+                if self.cmd_type == 'velocity':  #TODO: TEMPORAL
+                    current_pos = self.action_types[ii]['ros_msg']
+                    action = action*self.cmd_freq+current_pos
                 self.action_types[ii]['ros_msg'] = update_advr_command(des_action['ros_msg'],
                                                                        des_action['type'],
                                                                        action[des_action['act_idx']])
@@ -250,6 +281,11 @@ class RobotROSEnvInterface(ROSEnvInterface):
             elif obs['type'] == 'imu':
                 observation[obs['obs_idx']] = obs_vector_imu(self.imu_sensor_fields,
                                                              obs['ros_msg'])
+
+            elif obs['type'] == 'optitrack':
+                observation[obs['obs_idx']] = obs_vector_optitrack(self.optitrack_fields,
+                                                                   self.optitrack_bodies,
+                                                                   obs['ros_msg'])
             else:
                 raise NotImplementedError("Observation type %s has not been implemented in get_observation()" %
                                           obs['type'])
@@ -260,8 +296,17 @@ class RobotROSEnvInterface(ROSEnvInterface):
         state = np.empty(self.state_dim)
 
         for x in self.state_types:
-            state[x['state_idx']] = get_advr_sensor_data(x['ros_msg'], x['type'])[get_indeces_from_list(x['ros_msg'].name,
-                                                                                                        self.state_joint_names)]
+            if x['type'] == 'joint_state':
+                state[x['state_idx']] = get_advr_sensor_data(x['ros_msg'], x['type'])[get_indeces_from_list(x['ros_msg'].name,
+                                                                                                            self.state_joint_names)]
+
+            elif x['type'] == 'optitrack':
+                state[x['state_idx']] = obs_vector_optitrack(self.state_optitrack_fields,
+                                                             self.state_optitrack_bodies, x['ros_msg'])
+
+            else:
+                raise NotImplementedError("State type %s has not been implemented in get_state()" %
+                                          x['type'])
 
         #print(state)
         return state

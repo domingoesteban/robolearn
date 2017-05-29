@@ -23,6 +23,7 @@ from robolearn.utils.sample_list import SampleList
 from robolearn.agents.agent_utils import generate_noise
 from robolearn.utils.data_logger import DataLogger
 from robolearn.utils.print_utils import *
+from robolearn.utils.plot_utils import *
 
 import logging
 LOGGER = logging.getLogger(__name__)
@@ -326,6 +327,10 @@ class GPS(RLAlgorithm):
 
         if save:  # Save sample in agent
             self.agent._samples[cond].append(sample)  # TODO: Do this with a method
+
+        print("Plotting sample %d" % (i+1))
+        plot_sample(sample, data_to_plot='actions', block=False)
+        plot_sample(sample, data_to_plot='states', block=True)
 
         return sample
 

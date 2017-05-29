@@ -5,6 +5,7 @@ from XCM.msg import CommandAdvr
 from std_srvs.srv import SetBool
 from geometry_msgs.msg import WrenchStamped
 from sensor_msgs.msg import Imu
+from robolearn_gazebo_env.msg import RelativePose
 
 from robolearn.utils.iit.iit_robots_params import *
 
@@ -44,7 +45,14 @@ def copy_class_attr(objfrom, objto, names):
         #    setattr(objto, n, v)
         #else:
         #    raise ValueError("Wrong ADVR attribute")
-        if isinstance(objfrom, WrenchStamped):
+        if isinstance(objfrom, RelativePose):
+            if hasattr(objfrom, 'pose'):
+                new_pose = getattr(objfrom, 'pose')
+                if hasattr(new_pose, n):
+                    v = getattr(new_pose, n)
+                    setattr(objto.pose, n, v)
+                    #setattr(objto, 'wrench', wrench)
+        elif isinstance(objfrom, WrenchStamped):
             if hasattr(objfrom, 'wrench'):
                 new_wrench = getattr(objfrom, 'wrench')
                 if hasattr(new_wrench, n):
@@ -113,3 +121,36 @@ def obs_vector_imu(imu_sensor_fields, ros_imu_msg):
         prev_idx += imu_sensor_dof[obs_field]
 
     return observation
+
+def obs_vector_optitrack(optitrack_fields, body_names, ros_optitrack_msg):
+    observation = np.empty((len(body_names)*sum([optitrack_dof[x] for x in optitrack_fields]), 1))
+    #print (observation.shape)
+    #print(optitrack_fields)
+    #print(body_names)
+    #print(ros_optitrack_msg)
+
+    prev_idx = 0
+    bodies_idx = get_indeces_from_list(ros_optitrack_msg.name, body_names)
+    for hh, body_names in enumerate(body_names):
+        for ii, obs_field in enumerate(optitrack_fields):
+
+            pose_data = get_advr_sensor_data(ros_optitrack_msg.pose[bodies_idx[hh]], obs_field).item()
+            if obs_field == 'position':
+                observation[prev_idx] = pose_data.x
+                observation[prev_idx+1] = pose_data.y
+                observation[prev_idx+2] = pose_data.z
+
+            elif obs_field == 'orientation':
+                observation[prev_idx] = pose_data.x
+                observation[prev_idx+1] = pose_data.y
+                observation[prev_idx+2] = pose_data.z
+                observation[prev_idx+3] = pose_data.w
+            else:
+                raise ValueError("Wrong optitrack field")
+
+            prev_idx += optitrack_dof[obs_field]
+
+    print(observation)
+    #raw_input("AA")
+    return observation
+

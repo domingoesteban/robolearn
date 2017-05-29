@@ -182,8 +182,9 @@ class ROSEnvInterface(EnvInterface):
 
         obs_msg = self.obs_types[obs_type_id]['ros_msg']
 
-        if not hasattr(obs_msg, state_type):
-            raise ValueError("Wrong ADVR field type option")
+        # TODO: Temporal removing obs_msg existence because there is a problem in "optitrack" state
+        #if not hasattr(obs_msg, state_type):
+        #    raise ValueError("Wrong ADVR field type option")
 
         state_msg = obs_msg  # TODO: Doing this until we find a better solution to get a 'pointer' to a dict key
 
