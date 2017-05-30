@@ -32,7 +32,7 @@ def get_advr_sensor_data(obs_msg, state_type):
     if hasattr(obs_msg, state_type):
         data_field = getattr(obs_msg, state_type)
     else:
-        raise ValueError("Wrong ADVR field type option")
+        raise ValueError("Wrong ADVR field type option. | type:%s | obs_msg_type:%s" % (state_type, type(obs_msg)))
 
     return np.asarray(data_field)
 
@@ -81,14 +81,6 @@ def obs_vector_joint_state(joint_state_fields, joint_names, ros_joint_state_msg)
                 get_advr_sensor_data(ros_joint_state_msg, obs_field)[get_indeces_from_list(ros_joint_state_msg.name,
                                                                                            joint_names)]
     return observation
-
-def state_vector_joint_state(joint_state_fields, joint_names, ros_joint_state_msg):
-    state = np.empty((len(joint_names)*len(joint_state_fields), 1))
-    for ii, obs_field in enumerate(joint_state_fields):
-        state[len(joint_names)*ii:len(joint_names)*(ii+1), -1] = \
-            get_advr_sensor_data(ros_joint_state_msg, obs_field)[get_indeces_from_list(ros_joint_state_msg.name,
-                                                                                       joint_names)]
-    return state
 
 
 def obs_vector_ft_sensor(ft_sensor_fields, ros_ft_sensor_msg):
@@ -150,7 +142,23 @@ def obs_vector_optitrack(optitrack_fields, body_names, ros_optitrack_msg):
 
             prev_idx += optitrack_dof[obs_field]
 
-    print(observation)
+    #print(observation)
     #raw_input("AA")
     return observation
 
+
+def state_vector_joint_state(joint_state_fields, joint_names, ros_joint_state_msg):
+    """
+    Return a vector filled with data from a XCM/JointStateAdvr message for some specific state filds and joint names
+    :param joint_state_fields: List of joint state fields. E.g. [link_position, link_velocity]
+    :param joint_names: List of joint names. E.g ['jointName1', 'jointName2'] 
+    :param ros_joint_state_msg: ROS XCM/JointStateAdvr message from which the date will be obtained 
+    :return: Array for the requested data
+    :rtype: numpy.ndarray
+    """
+    state = np.empty((len(joint_names)*len(joint_state_fields), 1))
+    for ii, obs_field in enumerate(joint_state_fields):
+        state[len(joint_names)*ii:len(joint_names)*(ii+1), -1] = \
+            get_advr_sensor_data(ros_joint_state_msg, obs_field)[get_indeces_from_list(ros_joint_state_msg.name,
+                                                                                       joint_names)]
+    return state

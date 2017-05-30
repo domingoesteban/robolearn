@@ -27,6 +27,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.joint_names = self.robot_params['joints_names']
         self.joint_ids = self.robot_params['joint_ids']
         self.q0 = self.robot_params['q0']
+        self.initial_conditions = []  # Necessary for GPS
 
         # Set initial configuration using first configuration loaded from default params
         self.set_init_config(self.q0)
@@ -36,13 +37,14 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.act_dof = len(self.act_joint_names)
 
 
+
         # ############ #
         # OBSERVATIONS #
         # ############ #
         if observation_active is None:
             observation_active = self.robot_params['observation_active']
 
-        obs_idx = []
+        obs_idx = [-1]
         for obs_to_activate in observation_active:
             if obs_to_activate['type'] == 'joint_state':
                 ros_topic_type = JointStateAdvr
@@ -52,12 +54,12 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
             elif obs_to_activate['type'] == 'ft_sensor':
                 ros_topic_type = WrenchStamped
-                self.ft_sensor_fields = list(obs_to_activate['fields'])  # Used in get_obs
+                self.obs_ft_sensor_fields = list(obs_to_activate['fields'])  # Used in get_obs
                 obs_dof = sum([ft_sensor_dof[x] for x in obs_to_activate['fields']])
 
             elif obs_to_activate['type'] == 'imu':
                 ros_topic_type = Imu
-                self.imu_sensor_fields = list(obs_to_activate['fields'])  # Used in get_obs
+                self.obs_imu_sensor_fields = list(obs_to_activate['fields'])  # Used in get_obs
                 obs_dof = sum([imu_sensor_dof[x] for x in obs_to_activate['fields']])
 
             elif obs_to_activate['type'] == 'optitrack':
@@ -77,7 +79,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 obs_msg_id = self.set_observation_topic(obs_to_activate['ros_topic'], ros_topic_type,
                                                         obs_to_activate['fields'])
 
-            obs_idx = range(len(obs_idx), len(obs_idx) + obs_dof)
+            obs_idx = range(obs_idx[-1] + 1, obs_idx[-1] + 1 + obs_dof)
 
             print("Waiting to receive %s message in %s ..." % (obs_to_activate['type'], obs_to_activate['ros_topic']))
             while self.last_obs[obs_msg_id] is None:
@@ -97,18 +99,21 @@ class RobotROSEnvInterface(ROSEnvInterface):
         if state_active is None:
             state_active = self.robot_params['state_active']
 
-        state_idx = []
+        state_idx = [-1]
         for state_to_activate in state_active:
             if state_to_activate['type'] == 'joint_state':
                 self.state_joint_names = [self.joint_names[id] for id in state_to_activate['joints']]
                 for ii, state_element in enumerate(state_to_activate['fields']):
                     # Check if state field is observed
-                    if not state_element in self.obs_joint_fields:
+                    if state_element not in self.obs_joint_fields:
                         raise AttributeError("Joint state type %s is not being observed. Current observations are %s" %
                                              (state_element, self.obs_joint_fields))
                     state_dof = len(state_to_activate['joints'])
-                    state_idx = range(len(state_idx), len(state_idx) + state_dof)
-                    state_id = self.set_state_type(state_element, self.get_obs_idx('joint_state'), state_element, state_idx)
+                    state_idx = range(state_idx[-1]+1, state_idx[-1] + 1 + state_dof)
+                    state_id = self.set_state_type(state_element,  # State name
+                                                   self.get_obs_idx(name='joint_state'),  # Obs_type ID
+                                                   state_element,  # State type
+                                                   state_idx)  # State indexes
 
             elif state_to_activate['type'] == 'optitrack':
                 self.state_optitrack_bodies = state_to_activate['bodies']
@@ -119,10 +124,11 @@ class RobotROSEnvInterface(ROSEnvInterface):
                     #        raise AttributeError("Joint state type %s is not being observed. Current observations are %s" %
                     #                             (state_element, self.obs_joint_fields))
                 state_dof = len(self.state_optitrack_bodies)*sum([optitrack_dof[x] for x in self.state_optitrack_fields])
-                state_idx = range(len(state_idx), len(state_idx) + state_dof)
-                state_id = self.set_state_type('optitrack',
-                                               self.get_obs_idx('optitrack'),
-                                               'optitrack', state_idx)
+                state_idx = range(state_idx[-1] + 1, state_idx[-1] + 1 + state_dof)
+                state_id = self.set_state_type('optitrack',  # State name
+                                               self.get_obs_idx(name='optitrack'),  # Obs_type ID
+                                               'optitrack',  # State type
+                                               state_idx)  # State indexes
 
             else:
                 raise NotImplementedError("state %s is not supported!!" % state_to_activate['type'])
@@ -181,9 +187,13 @@ class RobotROSEnvInterface(ROSEnvInterface):
         """
         for ii, des_action in enumerate(self.action_types):
             if des_action['type'] in ['position', 'velocity', 'effort']:
-                if self.cmd_type == 'velocity':  #TODO: TEMPORAL
-                    current_pos = self.action_types[ii]['ros_msg']
-                    action = action*self.cmd_freq+current_pos
+                if self.cmd_type == 'velocity':  #TODO: TEMPORAL HACK
+                    #current_pos = state_vector_joint_state(['link_position'], self.act_joint_names, self.get_obs_ros_msg(name='joint_state')).ravel()
+                    current_pos = state_vector_joint_state(['position'], self.act_joint_names, self.get_action_ros_msg(action_type='position')).ravel()
+                    vel = action[des_action['act_idx']]*1./self.cmd_freq
+                    now = rospy.get_rostime()
+                    action[des_action['act_idx']] = vel + current_pos
+
                 self.action_types[ii]['ros_msg'] = update_advr_command(des_action['ros_msg'],
                                                                        des_action['type'],
                                                                        action[des_action['act_idx']])
@@ -252,12 +262,25 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.x0 = x0
 
     def get_joints_names(self, body_part):
+        """
+        Get the joint names from Robot body part.
+        :param body_part: Name of the body part. E.g. LA, RA, WB, etc.
+        :type body_part: str
+        :return: 
+        """
         if body_part not in self.joint_ids:
             raise ValueError("wrong body part option")
 
         return [self.joint_names[joint_id] for joint_id in self.joint_ids[body_part]]
 
     def get_joints_indeces(self, joint_names):
+        """
+        Get the joint indexes from a list of joint names
+        :param joint_names: 
+        :type joint_names: list
+        :return: List of joint indeces (ids)
+        :rtype: list
+        """
         if isinstance(joint_names, list):  # Assuming is a list of joint_names
             return get_indeces_from_list(self.joint_names, joint_names)
         else:  # Assuming is a body_part string
@@ -275,16 +298,16 @@ class RobotROSEnvInterface(ROSEnvInterface):
                                                                      obs['ros_msg'])
 
             elif obs['type'] == 'ft_sensor':
-                observation[obs['obs_idx']] = obs_vector_ft_sensor(self.ft_sensor_fields,
+                observation[obs['obs_idx']] = obs_vector_ft_sensor(self.obs_ft_sensor_fields,
                                                                    obs['ros_msg'])
 
             elif obs['type'] == 'imu':
-                observation[obs['obs_idx']] = obs_vector_imu(self.imu_sensor_fields,
+                observation[obs['obs_idx']] = obs_vector_imu(self.obs_imu_sensor_fields,
                                                              obs['ros_msg'])
 
             elif obs['type'] == 'optitrack':
-                observation[obs['obs_idx']] = obs_vector_optitrack(self.optitrack_fields,
-                                                                   self.optitrack_bodies,
+                observation[obs['obs_idx']] = obs_vector_optitrack(self.obs_optitrack_fields,
+                                                                   self.obs_optitrack_bodies,
                                                                    obs['ros_msg'])
             else:
                 raise NotImplementedError("Observation type %s has not been implemented in get_observation()" %
@@ -296,7 +319,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         state = np.empty(self.state_dim)
 
         for x in self.state_types:
-            if x['type'] == 'joint_state':
+            if x['type'] in joint_state_fields:
                 state[x['state_idx']] = get_advr_sensor_data(x['ros_msg'], x['type'])[get_indeces_from_list(x['ros_msg'].name,
                                                                                                             self.state_joint_names)]
 
@@ -311,17 +334,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
         #print(state)
         return state
 
-    def get_obs_idx(self, name):
-        for ii, obs in enumerate(self.obs_types):
-            if obs['name'] == name:
-                return ii
-        raise ValueError("There is not observation with name %s" % name)
-
-    def get_state_idx(self, name):
-        for ii, state in enumerate(self.state_types):
-            if state['name'] == name:
-                return ii
-        raise ValueError("There is not state with name %s" % name)
 
     def get_obs_info(self, name=None):
         if name is None:
@@ -329,7 +341,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
                         'dimensions': [len(obs['obs_idx']) for obs in self.obs_types],
                         'idx': [obs['obs_idx'] for obs in self.obs_types]}
         else:
-            obs_idx = self.get_obs_idx(name)
+            obs_idx = self.get_obs_idx(name=name)
             obs_info = {'names': self.obs_types[obs_idx]['name'],
                         'dimensions': len(self.obs_types[obs_idx]['obs_idx']),
                         'idx': self.obs_types[obs_idx]['obs_idx']}
@@ -394,4 +406,10 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
         # Resetting gazebo also
         super(RobotROSEnvInterface, self).reset(model_name=self.robot_name)
+
+    def set_initial_conditions(self, conditions):
+        self.initial_conditions = conditions
+
+    def get_initial_conditions(self):
+        return self.initial_conditions
 

@@ -23,6 +23,7 @@ from robolearn.utils.algos_utils import IterationData
 from robolearn.utils.algos_utils import TrajectoryInfo
 from robolearn.algos.gps.gps import GPS
 from robolearn.policies.lin_gauss_init import init_lqr, init_pd
+from robolearn.policies.policy_prior import PolicyPrior  # For MDGPS
 
 import rospy
 from robolearn.utils.print_utils import *
@@ -92,7 +93,6 @@ observation_active = [{'name': 'joint_state',
                        'ros_topic': '/optitrack/relative_poses',
                        'fields': ['position', 'orientation'],
                        'bodies': ['LSoftHand', 'RSoftHand', 'cardboard_cube_box']},
-
                       ]
 
 #observation_active = [{'name': 'imu1',
@@ -105,10 +105,15 @@ observation_active = [{'name': 'joint_state',
 #                 'fields': ['link_position', 'link_velocity'],
 #                 'joints': bigman_params['joint_ids']['LA']}]  # Value that can be gotten from robot_params['joints_ids']['LA']
 
-state_active = [{'name': 'optitrack',
+state_active = [{'name': 'joint_state',
+                 'type': 'joint_state',
+                 'fields': ['link_position', 'link_velocity'],
+                 'joints': bigman_params['joint_ids']['LA']},
+
+                {'name': 'optitrack',
                  'type': 'optitrack',
                  'fields': ['position'],
-                 'bodies': ['LSoftHand', 'cardboard_cube_box']}]  # Value that can be gotten from robot_params['joints_ids']['LA']
+                 'bodies': ['cardboard_cube_box']}]  # check if it is better relative position with EE(EEs)
 
 
 
@@ -119,6 +124,11 @@ bigman_env = BigmanEnv(interface=interface, mode='simulation',
                        observation_active=observation_active,
                        state_active=state_active,
                        cmd_freq=int(1/Ts))
+
+# TODO: DOMINGOOOO
+# TODO: Temporally using current state to set one initial condition
+current_state = bigman_env.get_state()
+bigman_env.set_initial_conditions([current_state])
 
 action_dim = bigman_env.get_action_dim()
 state_dim = bigman_env.get_state_dim()
@@ -166,7 +176,7 @@ policy_params = {
     }
 }
 policy = PolicyOptTf(policy_params, observation_dim, action_dim)
-policy = None
+#policy = None
 bigman_agent = GPSAgent(act_dim=action_dim, obs_dim=observation_dim, state_dim=state_dim, policy=policy)
 # Load previous learned variables
 #bigman_agent.load(file_save_restore)
@@ -183,8 +193,8 @@ print("Bigman Agent:%s OK\n" % type(bigman_agent))
 act_cost = {
     'type': CostAction,
     'wu': np.ones(action_dim) * 1e-4,
-    'l1': 1e-3,
-    'alpha': 1e-2,
+    #'l1': 1e-3,
+    #'alpha': 1e-2,
     'target': None,   # Target action value
 }
 
@@ -200,7 +210,7 @@ box_pose = [-0.7500,  # pos x
 box_size = [0.4, 0.5, 0.3]
 
 left_ee_pose = box_pose
-left_ee_pose[0] += box_size[0]/2
+left_ee_pose[0] += box_size[0]/2 - 0.05 #
 
 target_state = left_ee_pose + box_pose
 # 'B' pose
@@ -256,39 +266,55 @@ cost_sum = {
 # ######################## #
 
 # Learning params
-#gps_algo = 'pigps'
-gps_algo = 'mdgps'
 total_episodes = 5
 num_samples = 5  # Samples for exploration trajs
 resume_training_itr = None  # Resume from previous training iteration
-conditions = 1  # Number of initial conditions
 T = int(EndTime/Ts)  # Total points
+conditions = 1  # Number of initial conditions
 sample_on_policy = False
-#init_traj_distr = {'type': init_lqr,  # init_lqr, init_pd
-#                   'init_var': 1.0,
-#                   'stiffness': 1.0,
-#                   'stiffness_vel': 0.5,
-#                   'final_weight': 1.0,
-#                   # Parameters for guessing dynamics
-#                   'init_acc': [],  # dU vector of accelerations, default zeros.
-#                   'init_gains': [],  # dU vector of gains, default ones.
-#                   }
-init_traj_distr = {'type': init_pd,
-                   'init_var': 0.00001,  # initial variance (Default:10)
-                   'pos_gains': 0.001,  # position gains (Default:10)
-                   'vel_gains_mult': 0.01,  # velocity gains multiplier on pos_gains
-                   'init_action_offset': None,
-                   }
 test_policy_after_iter = False
+kl_step = 0.2
+# init_traj_distr is a list of dict
+init_traj_distr = {'type': init_lqr,
+                    'init_var': 1.0,
+                    'stiffness': 1.0,
+                    'stiffness_vel': 0.5,
+                    'final_weight': 1.0,
+                    # Parameters for guessing dynamics
+                    'init_acc': np.zeros(action_dim),  # dU vector(np.array) of accelerations, default zeros.
+                    'init_gains': 1*np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
+                   }
+#init_traj_distr = [{'type': init_pd,
+#                    'init_var': 0.00001,  # initial variance (Default:10)
+#                    'pos_gains': 0.001,  # position gains (Default:10)
+#                    'vel_gains_mult': 0.01,  # velocity gains multiplier on pos_gains
+#                    'init_action_offset': None,
+#                   }]
+
+#gps_algo = 'pigps'
+## PIGPS hyperparams
+#gps_algo_hyperparams = {'init_pol_wt': 0.01,
+#                        'policy_sample_mode': 'add'
+#                        }
+gps_algo = 'mdgps'
+# MDGPS hyperparams
+gps_algo_hyperparams = {'init_pol_wt': 0.01,
+                        'policy_sample_mode': 'add',
+                        # Whether to use 'laplace' or 'mc' cost in step adjusment
+                        'step_rule': 'laplace',
+                        'policy_prior': {'type': PolicyPrior},
+                        }
 learn_algo = GPS(agent=bigman_agent, env=bigman_env,
                  iterations=total_episodes, num_samples=num_samples,
                  T=T, dt=Ts,
                  cost=cost_sum,
                  conditions=conditions,
-                 gps_algo=gps_algo,
                  sample_on_policy=sample_on_policy,
                  test_after_iter=test_policy_after_iter,
-                 init_traj_distr=init_traj_distr
+                 init_traj_distr=init_traj_distr,
+                 kl_step=kl_step,
+                 gps_algo=gps_algo,
+                 gps_algo_hyperparams=gps_algo_hyperparams
                  )
 print("Learning algorithm: %s OK\n" % type(learn_algo))
 

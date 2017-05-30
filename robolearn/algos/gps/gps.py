@@ -69,8 +69,9 @@ class GPS(RLAlgorithm):
         self.T = self._hyperparams['T']
         self.dt = self._hyperparams['dt']
 
+        # Initial trajectory hyperparams
         init_traj_distr = self._hyperparams['init_traj_distr']
-        init_traj_distr['x0'] = env.get_x0()  # TODO: Check if it is better get_x0() or get_state()
+        init_traj_distr['x0'] = env.get_initial_conditions()  # TODO: Check if it is better get_x0() or get_state()
         init_traj_distr['dX'] = self.dX
         init_traj_distr['dU'] = self.dU
         init_traj_distr['dt'] = self.dt
@@ -78,50 +79,48 @@ class GPS(RLAlgorithm):
         #TODO:Temporal for testing init_pd
         init_traj_distr['dQ'] = self.dU
 
-
         # IterationData objects for each condition.
         self.cur = [IterationData() for _ in range(self.M)]
         self.prev = [IterationData() for _ in range(self.M)]
 
-        # Add dynamics if the algorithm requires fit_dynamics
+        # Trajectory Info #
+        # --------------- #
+        # Add dynamics if the algorithm requires fit_dynamics (Same for all the conditions)
         if self._hyperparams['fit_dynamics']:
             dynamics = self._hyperparams['dynamics']
-
         for m in range(self.M):
             self.cur[m].traj_info = TrajectoryInfo()
 
             if self._hyperparams['fit_dynamics']:
                 self.cur[m].traj_info.dynamics = dynamics['type'](dynamics)
 
-            init_traj_distr = extract_condition(
-                self._hyperparams['init_traj_distr'], self._cond_idx[m]
-            )
+            # Get the initial trajectory distribution hyperparams
+            #print(type(self._hyperparams['init_traj_distr']['x0']))
+            init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'], self._cond_idx[m])
 
-            # Trajectory Distribution: init_lqr or init_pd
+            # Instantiate Trajectory Distribution: init_lqr or init_pd
             self.cur[m].traj_distr = init_traj_distr['type'](init_traj_distr)
 
-        # Trajectory Optimization: LQR, PI2
-        self.traj_opt = self._hyperparams['traj_opt']['type'](
-            self._hyperparams['traj_opt']
-        )
+        # Traj Opt method #
+        # --------------- #
+        # LQR, PI2
+        self.traj_opt = self._hyperparams['traj_opt']['type'](self._hyperparams['traj_opt'])
 
-        # Cost
+        # Cost function #
+        # ------------- #
         if self._hyperparams['cost'] is None:
             raise AttributeError("Cost function has not been defined")
-
         if isinstance(type(self._hyperparams['cost']), list):
-            self.cost = [
-                self._hyperparams['cost'][i]['type'](self._hyperparams['cost'][i])
-                for i in range(self.M)
-            ]
+            # One cost function for each condition
+            self.cost = [self._hyperparams['cost'][i]['type'](self._hyperparams['cost'][i])
+                         for i in range(self.M)]
         else:
             # Same cost function for all conditions
-            self.cost = [
-                self._hyperparams['cost']['type'](self._hyperparams['cost'])
-                for _ in range(self.M)
-            ]
+            self.cost = [self._hyperparams['cost']['type'](self._hyperparams['cost'])
+                         for _ in range(self.M)]
 
-        # KL step
+        # KL step #
+        # ------- #
         self.base_kl_step = self._hyperparams['kl_step']
 
         # ############# #
@@ -130,17 +129,25 @@ class GPS(RLAlgorithm):
         self.gps_algo = self._hyperparams['gps_algo']
 
         if self.gps_algo == 'pigps':
-            self._hyperparams.update(default_pigps_hyperparams)
+            gps_algo_hyperparams = default_pigps_hyperparams.copy()
+            gps_algo_hyperparams.update(self._hyperparams['gps_algo_hyperparams'])
+            self._hyperparams.update(gps_algo_hyperparams)
 
         if self.gps_algo in ['pigps', 'mdgps']:
-            self._hyperparams.update(default_mdgps_hyperparams)
-            policy_prior = self._hyperparams['policy_prior']
+            gps_algo_hyperparams = default_mdgps_hyperparams.copy()
+            gps_algo_hyperparams.update(self._hyperparams['gps_algo_hyperparams'])
+            self._hyperparams.update(gps_algo_hyperparams)
 
+            # Policy Prior #
+            # ------------ #
+            policy_prior = self._hyperparams['policy_prior']
             for m in range(self.M):
                 self.cur[m].pol_info = PolicyInfo(self._hyperparams)
                 self.cur[m].pol_info.policy_prior = \
                     policy_prior['type'](policy_prior)
 
+            # Global Policy #
+            # ------------- #
             #self.policy_opt = self._hyperparams['policy_opt']['type'](
             #    self._hyperparams['policy_opt'], self.dO, self.dU
             #)
@@ -265,7 +272,6 @@ class GPS(RLAlgorithm):
 
         #sample(self, policy, condition, verbose=True, save=True, noisy=True)
 
-
         if noisy:
             noise = generate_noise(self.T, self.dU, self._hyperparams)
         else:
@@ -294,6 +300,8 @@ class GPS(RLAlgorithm):
             #action = self.agent.act(obs=obs)
             #action = policy.act(state, obs, t, noise[t, :])
             action = policy.eval(state, obs, t, noise[t, :])
+            #action = np.zeros_like(action)
+            #action[3] = -0.15707963267948966
             self.env.send_action(action)
             #print("Episode %d/%d | Sample:%d/%d | t=%d/%d" % (episode+1, total_episodes,
             #                                                  n_sample+1, num_samples,
@@ -335,6 +343,13 @@ class GPS(RLAlgorithm):
         return sample
 
     def _take_iteration(self, itr, sample_lists):
+        """
+        One iteration of the RL algorithm.
+        Args:
+            itr : Iteration to start from
+            sample_lists : A list of samples collected from exploration
+        Returns: None
+        """
         print("")
         print("GPS iteration %d | Using %d samples" % (itr+1, len(sample_lists)))
 
@@ -346,7 +361,6 @@ class GPS(RLAlgorithm):
 
         else:
             raise NotImplementedError("GPS algorithm:%s NOT IMPLEMENTED!" % self.gps_algo)
-
 
     def _take_policy_samples(self, N=None, verbose=True):
         """
@@ -598,11 +612,11 @@ class GPS(RLAlgorithm):
     # ###### PIGPS ###### #
     # ################### #
     # ################### #
-    """ This file defines the PIGPS algorithm. 
-    Author: C.Finn et al
-    Reference:
-    Y. Chebotar, M. Kalakrishnan, A. Yahya, A. Li, S. Schaal, S. Levine. 
-    Path Integral Guided Policy Search. 2016. https://arxiv.org/abs/1610.00529.
+    """ PIGPS algorithm. 
+        Author: C.Finn et al
+        Reference:
+        Y. Chebotar, M. Kalakrishnan, A. Yahya, A. Li, S. Schaal, S. Levine. 
+        Path Integral Guided Policy Search. 2016. https://arxiv.org/abs/1610.00529.
     """
 
     def iteration_pigps(self, sample_lists):
@@ -619,9 +633,7 @@ class GPS(RLAlgorithm):
 
         # On the first iteration, need to catch policy up to init_traj_distr.
         if self.iteration_count == 0:
-            self.new_traj_distr = [
-                self.cur[cond].traj_distr for cond in range(self.M)
-            ]
+            self.new_traj_distr = [self.cur[cond].traj_distr for cond in range(self.M)]
             self._update_policy_mdgps()
 
         # Update policy linearizations.
@@ -641,9 +653,15 @@ class GPS(RLAlgorithm):
 
     # ################### #
     # ################### #
-    # ###### MSGPS ###### #
+    # ###### MDGPS ###### #
     # ################### #
     # ################### #
+    """ MDGPS algorithm. 
+        Author: C.Finn et al
+        Reference:
+        W. Montgomery, S. Levine
+        Guided Policy Search as Approximate Mirror Descent. 2016. https://arxiv.org/abs/1607.04614
+    """
     def iteration_mdgps(self, sample_lists):
         """
         Run iteration of MDGPS-based guided policy search.

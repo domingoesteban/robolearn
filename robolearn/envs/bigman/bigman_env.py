@@ -78,3 +78,9 @@ class BigmanEnv(Environment):
     def get_env_info(self):
         return self.interface.get_env_info()
 
+    def set_initial_conditions(self, conditions):
+        self.interface.set_initial_conditions(conditions)
+
+    def get_initial_conditions(self):
+        return self.interface.get_initial_conditions()
+

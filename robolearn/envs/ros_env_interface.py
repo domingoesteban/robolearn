@@ -123,31 +123,13 @@ class ROSEnvInterface(EnvInterface):
         else:
             copy_class_attr(msg, self.last_obs[obs_id], attribute_names)
 
-
-    def set_observation_type(self, obs_name, obs_id, obs_type, obs_idx):
-
-        obs_type_id = len(self.obs_types)
-
-        #if obs_type in ['joint_state']:
-        #    obs_msg = config_advr_command(act_joint_names, obs_type, init_cmd_vals)
-        #else:
-        #    raise NotImplementedError("Only ADVR joint_state observations has been implemented!")
-
-        obs_msg = self.last_obs[obs_id]
-        self.obs_types.append({'name': obs_name, 'ros_msg': obs_msg, 'type': obs_type, 'obs_idx': obs_idx})
-        #self.obs_types.append([obs_type, obs_msg, obs_idx])
-        return obs_type_id
-
-    def get_obs_dim(self):
-        """
-        :return:
-        """
+    def get_action_dim(self):
         raise NotImplementedError
 
-    def get_action_dim(self):
-        """
-        :return:
-        """
+    def get_obs_dim(self):
+        raise NotImplementedError
+
+    def get_state_dim(self):
         raise NotImplementedError
 
     def set_action_topic(self, topic_name, topic_type, topic_freq):
@@ -176,6 +158,20 @@ class ROSEnvInterface(EnvInterface):
         self.action_types.append({'ros_msg': cmd_msg, 'type': cmd_type, 'act_idx': act_idx})
         self.last_acts.append(cmd_msg)  # last_acts would be used for the ROS publisher
         return action_id
+
+    def set_observation_type(self, obs_name, obs_id, obs_type, obs_idx):
+
+        obs_type_id = len(self.obs_types)
+
+        #if obs_type in ['joint_state']:
+        #    obs_msg = config_advr_command(act_joint_names, obs_type, init_cmd_vals)
+        #else:
+        #    raise NotImplementedError("Only ADVR joint_state observations has been implemented!")
+
+        obs_msg = self.last_obs[obs_id]
+        self.obs_types.append({'name': obs_name, 'ros_msg': obs_msg, 'type': obs_type, 'obs_idx': obs_idx})
+        #self.obs_types.append([obs_type, obs_msg, obs_idx])
+        return obs_type_id
 
     def set_state_type(self, state_name, obs_type_id, state_type, state_idx):
         state_id = len(self.state_types)
@@ -354,5 +350,111 @@ class ROSEnvInterface(EnvInterface):
         ##except rospy.ServiceException as exc:
         ##    print("/gazebo/unpause_physics service call failed: %s" % str(exc))
 
+    def get_action_idx(self, name=None, action_type=None):
+        """
+        Return the index of the action that match the specified name or action_type
+        :param name:
+        :type name: str
+        :param action_type: 
+        :type action_type: str
+        :return: Index of the observation
+        :rtype: int
+        """
+        if name is not None:
+            for ii, action in enumerate(self.action_types):
+                if action['name'] == name:
+                    return ii
+            raise ValueError("There is not action with name %s" % name)
 
+        if action_type is not None:
+            for ii, action in enumerate(self.action_types):
+                if action['type'] == action_type:
+                    return ii
+            raise ValueError("There is not action with type %s" % action_type)
+
+        if name is None and action_type is None:
+            raise AttributeError("No name or action_type specified")
+
+    def get_obs_idx(self, name=None, obs_type=None):
+        """
+        Return the index of the observation that match the specified name or obs_type
+        :param name:
+        :type name: str
+        :param obs_type: 
+        :type obs_type: str
+        :return: Index of the observation
+        :rtype: int
+        """
+        if name is not None:
+            for ii, obs in enumerate(self.obs_types):
+                if obs['name'] == name:
+                    return ii
+            raise ValueError("There is not observation with name %s" % name)
+
+        if obs_type is not None:
+            for ii, obs in enumerate(self.obs_types):
+                if obs['type'] == obs_type:
+                    return ii
+            raise ValueError("There is not observation with type %s" % obs_type)
+
+        if name is None and obs_type is None:
+            raise AttributeError("No name or obs_type specified")
+
+    def get_state_idx(self, name=None, state_type=None):
+        """
+        Return the index of the state that match the specified name or state_type
+        :param name:
+        :type name: str
+        :param state_type: 
+        :type state_type: str
+        :return: Index of the observation
+        :rtype: int
+        """
+        if name is not None:
+            for ii, state in enumerate(self.state_types):
+                if state['name'] == name:
+                    return ii
+            raise ValueError("There is not state with name %s" % name)
+
+        if state_type is not None:
+            for ii, state in enumerate(self.state_types):
+                if state['type'] == state_type:
+                    return ii
+            raise ValueError("There is not state with type %s" % state_type)
+
+        if name is None and state_type is None:
+            raise AttributeError("No name or state_type specified")
+
+    def get_action_ros_msg(self, name=None, action_type=None):
+        """
+        Return the ROS msg corresponding to the name or action type
+        :param name:
+        :type name: str
+        :param action_type:
+        :type action_type: str
+        :return: ROS message
+        """
+        return self.action_types[self.get_action_idx(name, action_type)]['ros_msg']
+
+    def get_obs_ros_msg(self, name=None, obs_type=None):
+        """
+        Return the ROS msg corresponding to the name or observation type
+        :param name:
+        :type name: str
+        :param obs_type:
+        :type obs_type: str
+        :return: ROS message
+        """
+        return self.obs_types[self.get_obs_idx(name, obs_type)]['ros_msg']
+
+    def get_state_ros_msg(self, name=None, state_type=None):
+        """
+        Return the ROS msg corresponding to the name or state type
+        :param name:
+        :type name: str
+        :param state_type:
+        :type state_type: str
+        :return: ROS message
+        """
+        return self.state_types[self.get_state_idx(name, state_type)]['ros_msg']
 
