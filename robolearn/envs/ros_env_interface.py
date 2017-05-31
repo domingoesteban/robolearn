@@ -14,11 +14,6 @@ from gazebo_msgs.srv import *
 
 from gazebo_robolearn.srv import ResetPhysicsStatesModel
 
-from std_msgs.msg import Float64 as Float64Msg
-from sensor_msgs.msg import Imu as ImuMsg
-from gazebo_msgs.msg import ContactState as ContactStateMsg
-from geometry_msgs.msg import WrenchStamped as WrenchStampedMsg
-from controller_manager_msgs.srv import *
 from std_srvs.srv import Empty
 
 

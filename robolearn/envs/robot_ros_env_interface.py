@@ -180,7 +180,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
     def send_action(self, action):
         """
-        Responsible to convert action array to array of ROS publish types
+        Update the ROS messages that will be published from an action vector.
         :param self:
         :param action:
         :return:
@@ -198,43 +198,9 @@ class RobotROSEnvInterface(ROSEnvInterface):
                                                                        des_action['type'],
                                                                        action[des_action['act_idx']])
             else:
-                raise NotImplementedError("Only advr commands available!")
+                raise NotImplementedError("Only Advr commands: position, velocity or effort available!")
 
         self.publish_action = True  # TODO Deactivating constant publishing of publish threads
-
-    def read_observation(self, option=["all"]):
-        observation = np.zeros((self.get_obs_dim(), 1))
-        count_obs = 0
-
-        if "all" or "state":
-            for ii, obs_element in enumerate(self.last_obs):
-                if obs_element is None:
-                    raise ValueError("obs_element %d is None!!!" % ii)
-                if self.topic_obs_info[ii][1] == "joint_state":
-                    for jj in range(len(self.joint_state_elements)):
-                        state_element = getattr(obs_element, self.joint_state_elements[jj])
-                        for hh in range(self.dof):
-                            observation[hh+jj*self.dof+count_obs] = state_element[hh]
-                elif self.topic_obs_info[ii][1] == "imu":
-                    observation[count_obs] = obs_element.orientation.x
-                    observation[count_obs+1] = obs_element.orientation.y
-                    observation[count_obs+2] = obs_element.orientation.z
-                    observation[count_obs+3] = obs_element.orientation.w
-                    observation[count_obs+4] = obs_element.angular_velocity.x
-                    observation[count_obs+5] = obs_element.angular_velocity.y
-                    observation[count_obs+6] = obs_element.angular_velocity.z
-                    observation[count_obs+7] = obs_element.linear_acceleration.x
-                    observation[count_obs+8] = obs_element.linear_acceleration.y
-                    observation[count_obs+9] = obs_element.linear_acceleration.z
-                else:
-                    raise ValueError("wrong topic_obs_info element %d is None!!!" % ii)
-
-                count_obs = count_obs + self.topic_obs_info[ii][0]
-
-        else:
-            raise NotImplementedError("Only 'all' option is available")
-
-        return observation
 
     def set_initial_acts(self, initial_acts):
         self.init_acts = initial_acts
