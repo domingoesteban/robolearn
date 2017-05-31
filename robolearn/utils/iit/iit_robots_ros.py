@@ -1,11 +1,13 @@
 import numpy as np
 
+# ROS package
 from XCM.msg import JointStateAdvr
 from XCM.msg import CommandAdvr
 from geometry_msgs.msg import WrenchStamped
 from sensor_msgs.msg import Imu
 from robolearn_gazebo_env.msg import RelativePose
 
+# Robolearn package
 from robolearn.utils.iit.iit_robots_params import *
 
 
@@ -94,7 +96,7 @@ def copy_class_attr(objfrom, objto, attribute_names):
             raise TypeError("ROS sensor not supported %s" % type(objfrom))
 
 
-def get_indeces_from_list(list_to_check, values):
+def get_indexes_from_list(list_to_check, values):
     """
     Get the indexes of matching values 
     :param list: List whose values we want to look at.
@@ -111,7 +113,7 @@ def obs_vector_joint_state(obs_fields, joint_names, ros_joint_state_msg):
 
     for ii, obs_field in enumerate(obs_fields):
         observation[len(joint_names)*ii:len(joint_names)*(ii+1), -1] = \
-                get_advr_sensor_data(ros_joint_state_msg, obs_field)[get_indeces_from_list(ros_joint_state_msg.name,
+                get_advr_sensor_data(ros_joint_state_msg, obs_field)[get_indexes_from_list(ros_joint_state_msg.name,
                                                                                            joint_names)]
     return observation
 
@@ -157,7 +159,7 @@ def obs_vector_optitrack(obs_fields, body_names, ros_optitrack_msg):
     #print(ros_optitrack_msg)
 
     prev_idx = 0
-    bodies_idx = get_indeces_from_list(ros_optitrack_msg.name, body_names)
+    bodies_idx = get_indexes_from_list(ros_optitrack_msg.name, body_names)
     for hh, body_names in enumerate(body_names):
         for ii, obs_field in enumerate(obs_fields):
 
@@ -194,6 +196,6 @@ def state_vector_joint_state(state_fields, joint_names, ros_joint_state_msg):
     state = np.empty((len(joint_names)*len(state_fields), 1))
     for ii, obs_field in enumerate(state_fields):
         state[len(joint_names)*ii:len(joint_names)*(ii+1), -1] = \
-            get_advr_sensor_data(ros_joint_state_msg, obs_field)[get_indeces_from_list(ros_joint_state_msg.name,
+            get_advr_sensor_data(ros_joint_state_msg, obs_field)[get_indexes_from_list(ros_joint_state_msg.name,
                                                                                        joint_names)]
     return state

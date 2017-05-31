@@ -144,10 +144,10 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.cmd_freq = cmd_freq
         self.set_action_topic("/xbotcore/"+self.robot_name+"/command", CommandAdvr, self.cmd_freq)  # TODO: Check if 100 is OK
         if cmd_type == 'position':
-            init_cmd_vals = self.initial_config[0][self.get_joints_indeces(body_part_active)]  # TODO: TEMPORAL SOLUTION
+            init_cmd_vals = self.initial_config[0][self.get_joints_indexes(body_part_active)]  # TODO: TEMPORAL SOLUTION
             self.cmd_type = cmd_type
         elif cmd_type == 'velocity':
-            init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indeces(body_part_active)])
+            init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indexes(body_part_active)])
             self.cmd_type = cmd_type
             cmd_type = 'position'  # TEMPORAL
         else:
@@ -177,6 +177,30 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.run()
 
         print("%s ROS-environment ready!" % self.robot_name.upper())
+
+    def get_action_dim(self):
+        """
+        Return the environment's action dimension.
+        :return: Action dimension
+        :rtype: int
+        """
+        return self.act_dim
+
+    def get_obs_dim(self):
+        """
+        Return the environment's observation dimension.
+        :return: Observation dimension
+        :rtype: int
+        """
+        return self.obs_dim
+
+    def get_state_dim(self):
+        """
+        Return the environment's state dimension.
+        :return: State dimension
+        :rtype: int
+        """
+        return self.state_dim
 
     def send_action(self, action):
         """
@@ -212,15 +236,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
         for config in init_config:
             self.initial_config.append(np.array(config))
 
-    def get_action_dim(self):
-        return self.act_dim
-
-    def get_state_dim(self):
-        return self.state_dim
-
-    def get_obs_dim(self):
-        return self.obs_dim
-
     def get_x0(self):
         return self.x0
 
@@ -235,20 +250,20 @@ class RobotROSEnvInterface(ROSEnvInterface):
         :return: 
         """
         if body_part not in self.joint_ids:
-            raise ValueError("wrong body part option")
+            raise ValueError("Wrong body part option")
 
         return [self.joint_names[joint_id] for joint_id in self.joint_ids[body_part]]
 
-    def get_joints_indeces(self, joint_names):
+    def get_joints_indexes(self, joint_names):
         """
         Get the joint indexes from a list of joint names
         :param joint_names: 
         :type joint_names: list
-        :return: List of joint indeces (ids)
+        :return: List of joint indexes (ids)
         :rtype: list
         """
         if isinstance(joint_names, list):  # Assuming is a list of joint_names
-            return get_indeces_from_list(self.joint_names, joint_names)
+            return get_indexes_from_list(self.joint_names, joint_names)
         else:  # Assuming is a body_part string
             if joint_names not in self.joint_ids:
                 raise ValueError("wrong body part option")
@@ -286,7 +301,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
         for x in self.state_types:
             if x['type'] in joint_state_fields:
-                state[x['state_idx']] = get_advr_sensor_data(x['ros_msg'], x['type'])[get_indeces_from_list(x['ros_msg'].name,
+                state[x['state_idx']] = get_advr_sensor_data(x['ros_msg'], x['type'])[get_indexes_from_list(x['ros_msg'].name,
                                                                                                             self.state_joint_names)]
 
             elif x['type'] == 'optitrack':

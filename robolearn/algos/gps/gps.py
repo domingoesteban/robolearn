@@ -300,8 +300,8 @@ class GPS(RLAlgorithm):
             #action = self.agent.act(obs=obs)
             #action = policy.act(state, obs, t, noise[t, :])
             action = policy.eval(state, obs, t, noise[t, :])
-            action = np.zeros_like(action)
-            action[3] = -0.15707963267948966
+            #action = np.zeros_like(action)
+            #action[3] = -0.15707963267948966
             self.env.send_action(action)
             #print("Episode %d/%d | Sample:%d/%d | t=%d/%d" % (episode+1, total_episodes,
             #                                                  n_sample+1, num_samples,

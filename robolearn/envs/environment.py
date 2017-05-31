@@ -25,8 +25,8 @@ class RewardManager(object):
 
 
 class EnvInterface(object):
-    def send_action(self):
+    def send_action(self, *args):
         NotImplementedError
 
-    def read_observation(self):
+    def read_observation(self, *args):
         NotImplementedError

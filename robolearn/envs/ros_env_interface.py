@@ -11,11 +11,8 @@ import abc
 import rospy
 from gazebo_msgs.msg import ModelStates
 from gazebo_msgs.srv import *
-
-from gazebo_robolearn.srv import ResetPhysicsStatesModel
-
 from std_srvs.srv import Empty
-
+from gazebo_robolearn.srv import ResetPhysicsStatesModel
 
 
 class ROSEnvInterface(EnvInterface):
@@ -182,7 +179,6 @@ class ROSEnvInterface(EnvInterface):
         self.state_types.append({'name': state_name, 'ros_msg': state_msg, 'type': state_type, 'state_idx': state_idx})
         return state_id
 
-
     def get_total_state_dof(self):
         total_dof = 0
         for state_type in self.state_types:
@@ -236,7 +232,7 @@ class ROSEnvInterface(EnvInterface):
             #else:
             #    print("Not sending anything to ROS !!!")
 
-    def set_initial_acts(self):
+    def set_initial_acts(self, *args):
         """
         :param init_acts:
         :return:
