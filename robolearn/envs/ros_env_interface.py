@@ -43,7 +43,6 @@ class ROSEnvInterface(EnvInterface):
 
         self.last_obs = None
         self.topic_obs_info = []
-        self.last_act = None
         self.init_act = 0
         self.init_acts = None
 
@@ -56,7 +55,6 @@ class ROSEnvInterface(EnvInterface):
         self.action_pubs = []
         self.pub_threads = []
         self.action_types = []  # Array of dict = {type, cmd_msg, idx from action array)}
-        self.last_acts = []  # last_acts should disappear and be integrated with action_types['cmd_msg']
 
         # ROS Subscribers
         self.observation_subs = []
@@ -148,7 +146,6 @@ class ROSEnvInterface(EnvInterface):
             raise NotImplementedError("Only ADVR command has been implemented!")
 
         self.action_types.append({'ros_msg': cmd_msg, 'type': cmd_type, 'act_idx': act_idx})
-        self.last_acts.append(cmd_msg)  # last_acts would be used for the ROS publisher
         return action_id
 
     def set_observation_type(self, obs_name, obs_id, obs_type, obs_idx):
@@ -224,9 +221,8 @@ class ROSEnvInterface(EnvInterface):
         """
         pub_rate = rospy.Rate(rate)  # TODO Deactivating constant publishing
         while not rospy.is_shutdown():
-            if self.last_acts and self.publish_action:
-                #print("Sending to ROS %f" % self.last_acts[action_id])
-                publisher.publish(self.last_acts[action_id])
+            if self.publish_action:
+                publisher.publish(self.action_types[action_id]['ros_msg'])
                 self.publish_action = False
                 pub_rate.sleep()
             #else:
@@ -247,13 +243,6 @@ class ROSEnvInterface(EnvInterface):
         :return:
         """
         raise NotImplementedError
-
-    def set_acts(self, action_array):
-        """
-        :param action_array: is an array
-        :return:
-        """
-        self.last_acts = action_array
 
     def reset_config(self):
         """
@@ -278,12 +267,6 @@ class ROSEnvInterface(EnvInterface):
 
         #if self.init_acts is None:
         #    raise AttributeError("Robot initial actions not defined!")
-
-        ## Return commands to initial actions (because the ROS controllers)
-        #for ii in range(10):  # Instead time, this should be checked with sensor data
-        #    self.last_acts = self.init_acts
-        #    self.publish_action = True
-        #    rospy.sleep(0.05)
 
         if self.mode == 'simulation':
             print("Resetting in gazebo!")
