@@ -9,3 +9,4 @@
         - [x] Policy-based
         - [ ] Actor-Critic
 - [ ] Robot Inverse Reinforcement Learning
+- [ ] Robot Imitation Learning
