@@ -71,7 +71,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
             else:
                 raise NotImplementedError("observation %s is not supported!!" % obs_to_activate['type'])
 
-
             if obs_to_activate['type'] in ['joint_state', 'optitrack']:
                 obs_msg_id = self.set_observation_topic(obs_to_activate['ros_topic'], ros_topic_type,
                                                         obs_to_activate['fields']+['name'])

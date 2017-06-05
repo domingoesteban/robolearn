@@ -1,9 +1,9 @@
 import numpy as np
-
+from scipy import interpolate
+from pyquaternion import Quaternion
 
 def polynomial5_interpolation(N, xf, x0=None, dxf=None, dx0=None, ddxf=None, ddx0=None):
     # Polynomial Hermite 5th order interpolation
-
 
     n_array = np.array(range(N+1))
     x_n = np.array([[n**5, n**4, n**3, n**2, n, 1] for n in n_array])
@@ -56,3 +56,45 @@ def polynomial5_interpolation(N, xf, x0=None, dxf=None, dx0=None, ddxf=None, ddx
 
     return x, dx, ddx
 
+
+def spline_interpolation(N, time_points, via_points):
+    n_points = via_points.shape[0]
+    dim = via_points.shape[0]
+
+    if n_points != len(time_points):
+        raise ValueError("Via points and time_points do not have the same size!")
+
+    #total_points = int(np.ceil(time_points[-1]-time_points[0])/N)
+    #tcks = [None for _ in range(n_points)]
+
+    x = np.empty([N, dim])
+
+    time_new = np.linspace(time_points[0], time_points[-1], N)
+
+    spline_degree = min(n_points-1, 3)
+
+    for ii in range(dim):
+        tck = interpolate.splrep(time_points, via_points[:, ii], s=0, k=spline_degree)
+
+        x[:, ii] = interpolate.splev(time_new, tck, der=0)
+
+    return x
+
+
+def quaternion_interpolation(N, q_end, q_init=None):
+    if q_init is None:
+        q_init = np.array([0, 0, 0, 1])
+
+    #q_end = Quaternion(q_end[3], q_end[0], q_end[1], q_end[2])
+    q_end = Quaternion(q_end[[3, 0, 1, 2]])
+    #q_init = Quaternion(q_init[3], q_init[0], q_init[1], q_init[2])
+    q_init = Quaternion(q_init[[3, 0, 1, 2]])
+
+    quat_traj = np.empty([N+1, 4])
+
+    for ii in range(N+1):
+        temp_quat = Quaternion.slerp(q_init, q_end, amount=float(ii)/N)
+        quat_traj[ii, 3] = temp_quat.scalar
+        quat_traj[ii, :3] = temp_quat.vector
+
+    return quat_traj

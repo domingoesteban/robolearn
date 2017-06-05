@@ -95,6 +95,38 @@ bigman_params['joints_names'] = ['LHipLat',        # Joint 0
                                  'RWrj1',          # Joint 29
                                  'RWrj2']          # Joint 30
 
+bigman_params['joints_limits'] = [(-0.697778, 0.87222),               # 'LHipLat'         # Joint 0
+                                  (-0.872222, 1.57),                  # 'LHipYaw',        # Joint 1
+                                  (-2.09333, 1.046667),               # 'LHipSag',        # Joint 2
+                                  (0.0, 2.442222),                    # 'LKneeSag',       # Joint 3
+                                  (-1.39556, 0.697778),               # 'LAnkSag',        # Joint 4
+                                  (-0.785, 0.785),                    # 'LAnkLat',        # Joint 5
+                                  (-0.87222, 0.697778),               # 'RHipLat',        # Joint 6
+                                  (-1.57, 0.872222),                  # 'RHipYaw',        # Joint 7
+                                  (-2.09333, 1.046667),               # 'RHipSag',        # Joint 8
+                                  (0.0, 2.442222),                    # 'RKneeSag',       # Joint 9
+                                  (-1.39556, 0.697778),               # 'RAnkSag',        # Joint 10
+                                  (-0.785, 0.785),                    # 'RAnkLat',        # Joint 11
+                                  (-0.610865238198, 0.610865238198),  # 'WaistLat',       # Joint 12
+                                  (-0.349065850399, 1.3962634016),    # 'WaistSag',       # Joint 13
+                                  (-2.84488668075, 2.84488668075),    # 'WaistYaw',       # Joint 14
+                                  (-2.87979326579,2.79252680319),     # 'LShSag',         # Joint 15
+                                  (0.0872664625997, 3.85717764691),   # 'LShLat',         # Joint 16
+                                  (-2.84488668075, 2.84488668075),    # 'LShYaw',         # Joint 17
+                                  (-2.96705972839, 0.593411945678),   # 'LElbj',          # Joint 18
+                                  (-2.529, 2.529),                    # 'LForearmPlate',  # Joint 19
+                                  (-1.48, 1.48),                      # 'LWrj1',          # Joint 20
+                                  (-1.48, 1.48),                      # 'LWrj2',          # Joint 21
+                                  (-0.610865238198, 0.610865238198),  # 'NeckYawj',       # Joint 22
+                                  (-0.261799387799, 1.0471975512),    # 'NeckPitchj',     # Joint 23
+                                  (-2.84488668075, 2.80998009571),    # 'RShSag',         # Joint 24
+                                  (-3.85717764691, -0.12217304764),   # 'RShLat',         # Joint 25
+                                  (-2.86233997327, 2.82743338823),    # 'RShYaw',         # Joint 26
+                                  (-2.96705972839, 0.593411945678),   # 'RElbj',          # Joint 27
+                                  (-2.529, 2.529),                    # 'RForearmPlate',  # Joint 28
+                                  (-1.48, 1.48),                      # 'RWrj1',          # Joint 29
+                                  (-1.48, 1.48)]                      # 'RWrj2']          # Joint 30
+
 bigman_params['joint_ids'] = {'LA': range(15, 22),
                               'RA': range(24, 31),
                               'BA': range(15, 22) + range(24, 31),
@@ -105,6 +137,41 @@ bigman_params['joint_ids'] = {'LA': range(15, 22),
                               'RL': range(6, 12),
                               'LB': range(0, 12),
                               'WB': range(0, 31)}
+
+
+bigman_params['bodies_names'] = ['ROOT',
+                                 'LHipMot',
+                                 'LThighUpLeg',
+                                 'LThighLowLeg',
+                                 'LLowLeg',
+                                 'LFootmot',
+                                 'LFoot',
+                                 'RHipMot',
+                                 'RThighUpLeg',
+                                 'RThighLowLeg',
+                                 'RLowLeg',
+                                 'RFootmot',
+                                 'RFoot',
+                                 'DWL',
+                                 'DWS',
+                                 'DWYTorso',
+                                 'LShp',
+                                 'LShr',
+                                 'LShy',
+                                 'LElb',
+                                 'LForearm',
+                                 'LWrMot2',
+                                 'LWrMot3',
+                                 'NeckYaw',
+                                 'NeckPitch',
+                                 'RShp',
+                                 'RShr',
+                                 'RShy',
+                                 'RElb',
+                                 'RForearm',
+                                 'RWrMot2',
+                                 'RWrMot3']
+
 
 bigman_params['q0'] = []   # A list of initial configurations
 bigman_params['q0'].append([0,  # 'LHipLat'
