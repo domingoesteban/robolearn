@@ -25,13 +25,21 @@ box_position = np.array([0.75,
                          0.0184])
 #box_position = [0.75, 0.2, 0.0184]
 box_size = [0.4, 0.5, 0.3]
+box_yaw = -15  # Degrees
 #box_orient = tf.transformations.rotation_matrix(np.deg2rad(15), [1, 0, 0])  # For the EEs is rotation in X
-box_orient = tf.transformations.rotation_matrix(np.deg2rad(-15), [0, 0, 1])
+box_orient = tf.transformations.rotation_matrix(np.deg2rad(box_yaw), [0, 0, 1])
 box_matrix = homogeneous_matrix(rot=box_orient, pos=box_position)
 freq = 100
 T_init = 1
 T_reach = 2
 T_lift = 2
+
+# Save/Load file name
+file_name = 'trajectories/traj1'+str(box_yaw)
+load_reach_traj = False
+load_lift_traj = False
+save_reach_traj = False
+save_lift_traj = False
 
 remove_spawn_new_box = False
 
@@ -69,213 +77,148 @@ right_sign = np.array([1, -1, -1, 1, -1, 1, -1])
 # ###########
 # REACH BOX #
 # ###########
-print("\033[5mGenerating reaching trajectory...")
-## Orientation
-##des_orient = homogeneous_matrix(rot=rot)
-#des_orient = tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0])
-###des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(-5), [1, 0, 0]))
-##des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(-3), [1, 0, 0]))
-##des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(5), [0, 0, 1]))
-##des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(10), [0, 1, 0]))
-#des_orient = des_orient.dot(box_orient)
-box_LH_position = np.array([-0.00,
-                            box_size[1]/2. - 0.00,
-                            -0.05])
-box_LH_matrix = homogeneous_matrix(pos=box_LH_position)
-LH_reach_matrix = box_matrix.dot(box_LH_matrix)
-LH_reach_matrix = LH_reach_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0]))
-LH_reach_pose = np.zeros(7)
-LH_reach_pose[4:] = tf.transformations.translation_from_matrix(LH_reach_matrix)
-LH_reach_pose[:4] = tf.transformations.quaternion_from_matrix(LH_reach_matrix)
+if not load_reach_traj:
+    print("\033[5mGenerating reaching trajectory...")
+    ## Orientation
+    ##des_orient = homogeneous_matrix(rot=rot)
+    #des_orient = tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0])
+    ###des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(-5), [1, 0, 0]))
+    ##des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(-3), [1, 0, 0]))
+    ##des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(5), [0, 0, 1]))
+    ##des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(10), [0, 1, 0]))
+    #des_orient = des_orient.dot(box_orient)
+    box_LH_position = np.array([-0.00,
+                                box_size[1]/2. - 0.00,
+                                -0.05])
+    box_LH_matrix = homogeneous_matrix(pos=box_LH_position)
+    LH_reach_matrix = box_matrix.dot(box_LH_matrix)
+    LH_reach_matrix = LH_reach_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0]))
+    LH_reach_pose = np.zeros(7)
+    LH_reach_pose[4:] = tf.transformations.translation_from_matrix(LH_reach_matrix)
+    LH_reach_pose[:4] = tf.transformations.quaternion_from_matrix(LH_reach_matrix)
 
-box_RH_position = np.array([-0.00,
-                            -box_size[1]/2. + 0.00,
-                            -0.05])
-box_RH_matrix = homogeneous_matrix(pos=box_RH_position)
-RH_reach_matrix = box_matrix.dot(box_RH_matrix)
-RH_reach_matrix = RH_reach_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0]))
-RH_reach_pose = np.zeros(7)
-RH_reach_pose[4:] = tf.transformations.translation_from_matrix(RH_reach_matrix)
-RH_reach_pose[:4] = tf.transformations.quaternion_from_matrix(RH_reach_matrix)
+    box_RH_position = np.array([-0.00,
+                                -box_size[1]/2. + 0.00,
+                                -0.05])
+    box_RH_matrix = homogeneous_matrix(pos=box_RH_position)
+    RH_reach_matrix = box_matrix.dot(box_RH_matrix)
+    RH_reach_matrix = RH_reach_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0]))
+    RH_reach_pose = np.zeros(7)
+    RH_reach_pose[4:] = tf.transformations.translation_from_matrix(RH_reach_matrix)
+    RH_reach_pose[:4] = tf.transformations.quaternion_from_matrix(RH_reach_matrix)
 
-N = int(np.ceil(T_reach*freq))
-torso_joints = bigman_params['joint_ids']['TO']
+    N = int(np.ceil(T_reach*freq))
+    torso_joints = bigman_params['joint_ids']['TO']
 
-if reach_option == 0:
-    q_reach = robot_model.ik(LH_name, LH_reach_pose, body_offset=l_soft_hand_offset,
-                             mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
-                             method='optimization')
-    q_reach2 = robot_model.ik(RH_name, RH_reach_pose, body_offset=r_soft_hand_offset,
-                              mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
-                              method='optimization')
+    if reach_option == 0:
+        q_reach = robot_model.ik(LH_name, LH_reach_pose, body_offset=l_soft_hand_offset,
+                                 mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
+                                 method='optimization')
+        q_reach2 = robot_model.ik(RH_name, RH_reach_pose, body_offset=r_soft_hand_offset,
+                                  mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
+                                  method='optimization')
 
-    q_reach[bigman_params['joint_ids']['RA']] = q_reach2[bigman_params['joint_ids']['RA']]
-
-    # Trajectory
-    joint_reach_trajectory = polynomial5_interpolation(N, q_reach, q_init)[0]
-
-elif reach_option == 1:
-    q = q_init.copy()
-    actual_LH_pose = robot_model.fk(LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
-    actual_RH_pose = robot_model.fk(RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
-    desired_LH_reach_pose = polynomial5_interpolation(N, LH_reach_pose, actual_LH_pose)[0]
-    desired_RH_reach_pose = polynomial5_interpolation(N, RH_reach_pose, actual_RH_pose)[0]
-
-    viapoint_LH_reach = np.empty(3)
-
-    quatLH_interpolation = quaternion_interpolation(N, LH_reach_pose[:4], actual_LH_pose[:4])
-    quatRH_interpolation = quaternion_interpolation(N, RH_reach_pose[:4], actual_RH_pose[:4])
-    desired_LH_reach_pose[:, :4] = quatLH_interpolation
-    desired_RH_reach_pose[:, :4] = quatRH_interpolation
-
-    joint_reach_trajectory = np.zeros((desired_LH_reach_pose.shape[0], robot_model.q_size))
-    joint_reach_trajectory[0, :] = q
-
-    q_reach = np.empty(robot_model.q_size)
-    q_reach2 = np.empty(robot_model.q_size)
-    for ii in range(desired_LH_reach_pose.shape[0]-1):
-        print("%d/%d " % (ii+1, N))
-        #print("%d/%d " % (ii+1, N))
-        q_reach[:] = robot_model.ik(LH_name, desired_LH_reach_pose[ii+1, :], body_offset=l_soft_hand_offset,
-                                 q_init=joint_reach_trajectory[ii, :], joints_limits=bigman_params['joints_limits'],
-                                 mask_joints=torso_joints, method='optimization',
-                                 regularization_parameter=regularization_parameter)
-        q_reach2[:] = robot_model.ik(RH_name, desired_RH_reach_pose[ii+1, :], body_offset=r_soft_hand_offset,
-                                  q_init=joint_reach_trajectory[ii, :], joints_limits=bigman_params['joints_limits'],
-                                  mask_joints=torso_joints, method='optimization',
-                                  regularization_parameter=regularization_parameter)
         q_reach[bigman_params['joint_ids']['RA']] = q_reach2[bigman_params['joint_ids']['RA']]
-        joint_reach_trajectory[ii+1, :] = q_reach
-        #print(joint_reach_trajectory[ii+1, :]-joint_reach_trajectory[ii, :])
-        print(sum(joint_reach_trajectory[ii+1, :]-joint_reach_trajectory[ii, :]))
 
-elif lift_option == 2:
-    q = q_init.copy()
-    actual_LH_pose = robot_model.fk(LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
-    actual_RH_pose = robot_model.fk(RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
-    desired_LH_reach_pose = polynomial5_interpolation(N, LH_reach_pose, actual_LH_pose)[0]
-    desired_RH_reach_pose = polynomial5_interpolation(N, RH_reach_pose, actual_RH_pose)[0]
+        # Trajectory
+        joint_reach_trajectory = polynomial5_interpolation(N, q_reach, q_init)[0]
 
-    quatLH_interpolation = quaternion_interpolation(N, LH_reach_pose[:4], actual_LH_pose[:4])
-    quatRH_interpolation = quaternion_interpolation(N, RH_reach_pose[:4], actual_RH_pose[:4])
-    desired_LH_reach_pose[:, :4] = quatLH_interpolation
-    desired_RH_reach_pose[:, :4] = quatRH_interpolation
+        if save_reach_traj:
+            np.save(file_name+'_reach.npy', joint_reach_trajectory)
 
-    for ii in range(desired_LH_reach_pose.shape[0]):
-        print(desired_LH_reach_pose[ii, 4])
-    raw_input("CUCU")
+    elif reach_option == 1:
+        q = q_init.copy()
+        actual_LH_pose = robot_model.fk(LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
+        actual_RH_pose = robot_model.fk(RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
+        desired_LH_reach_pose = polynomial5_interpolation(N, LH_reach_pose, actual_LH_pose)[0]
+        desired_RH_reach_pose = polynomial5_interpolation(N, RH_reach_pose, actual_RH_pose)[0]
 
-    q_reach = robot_model.ik(LH_name, LH_reach_pose, body_offset=l_soft_hand_offset,
-                             mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
-                             method='optimization')
-    q_reach2 = robot_model.ik(RH_name, RH_reach_pose, body_offset=r_soft_hand_offset,
-                              mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
-                              method='optimization')
-    q_reach[bigman_params['joint_ids']['RA']] = q_reach2[bigman_params['joint_ids']['RA']]
+        viapoint_LH_reach = np.empty(3)
 
-    J1 = np.zeros((6, robot_model.qdot_size))
-    J2 = np.zeros((6, robot_model.qdot_size))
-    K = 500
-    pose1_log = np.zeros_like(desired_LH_reach_pose)
+        quatLH_interpolation = quaternion_interpolation(N, LH_reach_pose[:4], actual_LH_pose[:4])
+        quatRH_interpolation = quaternion_interpolation(N, RH_reach_pose[:4], actual_RH_pose[:4])
+        desired_LH_reach_pose[:, :4] = quatLH_interpolation
+        desired_RH_reach_pose[:, :4] = quatRH_interpolation
+
+        joint_reach_trajectory = np.zeros((desired_LH_reach_pose.shape[0], robot_model.q_size))
+        joint_reach_trajectory[0, :] = q
+
+        q_reach = np.empty(robot_model.q_size)
+        q_reach2 = np.empty(robot_model.q_size)
+        for ii in range(desired_LH_reach_pose.shape[0]-1):
+            print("%d/%d " % (ii+1, N))
+            #print("%d/%d " % (ii+1, N))
+            q_reach[:] = robot_model.ik(LH_name, desired_LH_reach_pose[ii+1, :], body_offset=l_soft_hand_offset,
+                                     q_init=joint_reach_trajectory[ii, :], joints_limits=bigman_params['joints_limits'],
+                                     mask_joints=torso_joints, method='optimization',
+                                     regularization_parameter=regularization_parameter)
+            q_reach2[:] = robot_model.ik(RH_name, desired_RH_reach_pose[ii+1, :], body_offset=r_soft_hand_offset,
+                                      q_init=joint_reach_trajectory[ii, :], joints_limits=bigman_params['joints_limits'],
+                                      mask_joints=torso_joints, method='optimization',
+                                      regularization_parameter=regularization_parameter)
+            q_reach[bigman_params['joint_ids']['RA']] = q_reach2[bigman_params['joint_ids']['RA']]
+            joint_reach_trajectory[ii+1, :] = q_reach
+            #print(joint_reach_trajectory[ii+1, :]-joint_reach_trajectory[ii, :])
+            print(sum(joint_reach_trajectory[ii+1, :]-joint_reach_trajectory[ii, :]))
+
+        if save_reach_traj:
+            np.save(file_name+'_reach.npy', joint_reach_trajectory)
+
+    elif reach_option == 2:
+        q = q_init.copy()
+        actual_LH_pose = robot_model.fk(LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
+        actual_RH_pose = robot_model.fk(RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
+        desired_LH_reach_pose = polynomial5_interpolation(N, LH_reach_pose, actual_LH_pose)[0]
+        desired_RH_reach_pose = polynomial5_interpolation(N, RH_reach_pose, actual_RH_pose)[0]
+
+        quatLH_interpolation = quaternion_interpolation(N, LH_reach_pose[:4], actual_LH_pose[:4])
+        quatRH_interpolation = quaternion_interpolation(N, RH_reach_pose[:4], actual_RH_pose[:4])
+        desired_LH_reach_pose[:, :4] = quatLH_interpolation
+        desired_RH_reach_pose[:, :4] = quatRH_interpolation
+
+        for ii in range(desired_LH_reach_pose.shape[0]):
+            print(desired_LH_reach_pose[ii, 4])
+        raw_input("CUCU")
+
+        q_reach = robot_model.ik(LH_name, LH_reach_pose, body_offset=l_soft_hand_offset,
+                                 mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
+                                 method='optimization')
+        q_reach2 = robot_model.ik(RH_name, RH_reach_pose, body_offset=r_soft_hand_offset,
+                                  mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
+                                  method='optimization')
+        q_reach[bigman_params['joint_ids']['RA']] = q_reach2[bigman_params['joint_ids']['RA']]
+
+        J1 = np.zeros((6, robot_model.qdot_size))
+        J2 = np.zeros((6, robot_model.qdot_size))
+        K = 500
+        pose1_log = np.zeros_like(desired_LH_reach_pose)
+    else:
+        raise ValueError("Wrong reach_option %d" % reach_option)
+    print("\n\033[31mDONE!! \033[0m")
+
+    #RH_reach_pose = robot_model.fk(RH_name, q=np.zeros(robot_model.q_size), body_offset=r_soft_hand_offset)
+    #RH_reach_pose[4:] = LH_reach_pose[4:]
+    #RH_reach_pose[5] = box_position[1] - box_size[1]/2. + 0.02
+    #des_orient = tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0])
+    #des_orient = des_orient.dot(box_orient)
+    #RH_reach_pose[:4] = tf.transformations.quaternion_from_matrix(des_orient)
+
 else:
-    raise ValueError("Wrong reach_option %d" % reach_option)
-print("\n\033[31mDONE!! \033[0m")
-
-#RH_reach_pose = robot_model.fk(RH_name, q=np.zeros(robot_model.q_size), body_offset=r_soft_hand_offset)
-#RH_reach_pose[4:] = LH_reach_pose[4:]
-#RH_reach_pose[5] = box_position[1] - box_size[1]/2. + 0.02
-#des_orient = tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0])
-#des_orient = des_orient.dot(box_orient)
-#RH_reach_pose[:4] = tf.transformations.quaternion_from_matrix(des_orient)
-
-#touch_box_config = np.zeros(31)
-#value = [-0.2012,  0.3449,  0.0322, -1.2512,  0.3493, -0.1403, -0.0041]
-#value = [-0.1863,  0.2369,  0.0785, -1.3491,  0.2317, -0.0590,  0.2067]
-#value = [-0.8231,  0.3653,  0.5669,  0.4708,  0.2643, -1.2564, -0.1862]
-#value = [-0.1858,  0.256 ,  0.0451, -1.3449,  0.256 , -0.0691,  0.2332]
-#touch_box_config[bigman_params['joint_ids']['LA']] = np.array(value)*left_sign
-#touch_box_config[bigman_params['joint_ids']['RA']] = np.array(value)*right_sign
+    joint_reach_trajectory = np.load(file_name+'_reach.npy')
 
 
 # ######## #
 # LIFT BOX #
 # ######## #
-print("\033[5mGenerating lifting trajectory...")
-LH_lift_pose = LH_reach_pose.copy()
-LH_lift_pose[6] += 0.3
-RH_lift_pose = RH_reach_pose.copy()
-RH_lift_pose[6] += 0.3
+if not load_lift_traj:
+    print("\033[5mGenerating lifting trajectory...")
+    LH_lift_pose = LH_reach_pose.copy()
+    LH_lift_pose[6] += 0.3
+    RH_lift_pose = RH_reach_pose.copy()
+    RH_lift_pose[6] += 0.3
 
-N = int(np.ceil(T_lift*freq))
-
-#touch_box_config2 = np.zeros(31)
-#value = [-0.2667,  0.7553,  0.2147, -2.2467,  1.0785,  0.7784,  0.6438]
-##value = [-0.2415,  0.8826,  0.1322, -2.13  ,  1.1034,  0.5955,  0.4187]
-#value = [-0.2977,  0.7481,  0.2303, -2.1807,  1.0348,  0.7787,  0.409 ]
-#value = [-0.3273,  0.6331,  0.2859, -2.2889,  1.0105,  0.9335,  0.6309]
-#value = [-0.4197,  0.4232,  0.3913, -2.3891,  0.8323,  1.1791,  0.6345]
-#value = [-0.1824,  0.3191,  0.0436, -1.2965,  0.3199, -0.1114,  0.0821]
-#value = [-0.1858,  0.2728,  0.0394, -1.3338,  0.2737, -0.0796,  0.1972]
-#value = [-0.1954,  0.2272,  0.0702, -1.3471,  0.2236, -0.0572,  0.2222]
-#value = [-0.1863,  0.2369,  0.0785, -1.3491,  0.2317, -0.059 ,  0.2067]
-#value = [-0.3588,  0.4676,  0.4345, -2.4124,  0.9076,  1.1661,  0.743 ]
-#value = [-0.3032,  0.3346,  0.3683, -2.2122,  1.2712,  0.4626,  0.8989]
-#value = [-0.3346,  0.4591,  0.4138, -2.3467,  1.0315,  0.9819,  0.8274]
-#value = [-0.3435,  0.4731,  0.4162, -2.3735,  0.9848,  1.0613,  0.8017]
-#touch_box_config2[bigman_params['joint_ids']['LA']] = np.array(value)*left_sign
-#touch_box_config2[bigman_params['joint_ids']['RA']] = np.array(value)*right_sign
-#q_end2 = touch_box_config2
-#T = 4
-#N = int(np.ceil(T*freq))
-#joint_trajectory2 = polynomial5_interpolation(N, q_end2, q_end)[0]
-#for ii in range(joint_trajectory2.shape[0]):
-#    print("Sending cmd...")
-#    des_cmd.position = joint_trajectory2[ii, :]
-#    publisher.publish(des_cmd)
-#    pub_rate.sleep()
-
-if lift_option == 0:
-    q_lift = robot_model.ik(LH_name, LH_lift_pose, body_offset=l_soft_hand_offset,
-                             mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
-                             method='optimization')
-    q_lift2 = robot_model.ik(RH_name, RH_lift_pose, body_offset=r_soft_hand_offset,
-                              mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
-                              method='optimization')
-    q_lift[bigman_params['joint_ids']['RA']] = q_lift2[bigman_params['joint_ids']['RA']]
-    joint_lift_trajectory = polynomial5_interpolation(N, q_lift, q_reach)[0]
-
-elif lift_option == 1:
-    q = q_reach.copy()
-    actual_LH_pose = robot_model.fk(LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
-    actual_RH_pose = robot_model.fk(RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
-    desired_LH_lift_pose = polynomial5_interpolation(N, LH_lift_pose, actual_LH_pose)[0]
-    desired_RH_lift_pose = polynomial5_interpolation(N, RH_lift_pose, actual_RH_pose)[0]
-
-    joint_lift_trajectory = np.zeros((N, robot_model.q_size))
-    joint_lift_trajectory[0, :] = q
-    q_lift = np.empty(robot_model.q_size)
-    q_lift2 = np.empty(robot_model.q_size)
-    for ii in range(N-1):
-        print("%d/%d " % (ii+1, N))
-        #print("%d/%d " % (ii+1, N))
-        q_lift[:] = robot_model.ik(LH_name, desired_LH_lift_pose[ii+1, :], body_offset=l_soft_hand_offset,
-                                   q_init=joint_lift_trajectory[ii, :], joints_limits=bigman_params['joints_limits'],
-                                   mask_joints=torso_joints, method='optimization',
-                                   regularization_parameter=regularization_parameter)
-        q_lift2[:] = robot_model.ik(RH_name, desired_RH_lift_pose[ii+1, :], body_offset=r_soft_hand_offset,
-                                    q_init=joint_lift_trajectory[ii, :], joints_limits=bigman_params['joints_limits'],
-                                    mask_joints=torso_joints, method='optimization',
-                                    regularization_parameter=regularization_parameter)
-        q_lift[bigman_params['joint_ids']['RA']] = q_lift2[bigman_params['joint_ids']['RA']]
-        joint_lift_trajectory[ii+1, :] = q_lift
-
-elif lift_option == 2:
-    T_lift = 2
     N = int(np.ceil(T_lift*freq))
 
-    q = q_reach.copy()
-    actual_LH_pose = robot_model.fk(LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
-    actual_RH_pose = robot_model.fk(RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
     #final_LH_lift_pose = actual_LH_lift_pose.copy()
     #final_LH_lift_pose[-1] += 0.3
     #final_LH_lift_pose[-2] -= 0.005
@@ -285,17 +228,68 @@ elif lift_option == 2:
     #des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(-9), [1, 0, 0]))
     #des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(-3), [0, 0, 1]))
     #final_LH_lift_pose[:4] = tf.transformations.quaternion_from_matrix(des_orient)
-    desired_LH_lift_pose = polynomial5_interpolation(N, LH_lift_pose, actual_LH_pose)[0]
-    desired_RH_lift_pose = polynomial5_interpolation(N, RH_lift_pose, actual_RH_pose)[0]
 
-    J1 = np.zeros((6, robot_model.qdot_size))
-    J2 = np.zeros((6, robot_model.qdot_size))
-    K = 500
-    pose1_log = np.zeros_like(desired_LH_lift_pose)
+    if lift_option == 0:
+        q_lift = robot_model.ik(LH_name, LH_lift_pose, body_offset=l_soft_hand_offset,
+                                 mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
+                                 method='optimization')
+        q_lift2 = robot_model.ik(RH_name, RH_lift_pose, body_offset=r_soft_hand_offset,
+                                  mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
+                                  method='optimization')
+        q_lift[bigman_params['joint_ids']['RA']] = q_lift2[bigman_params['joint_ids']['RA']]
+        joint_lift_trajectory = polynomial5_interpolation(N, q_lift, q_reach)[0]
+
+        if save_lift_traj:
+            np.save(file_name+'_lift.npy', joint_lift_trajectory)
+
+    elif lift_option == 1:
+        q = q_reach.copy()
+        actual_LH_pose = robot_model.fk(LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
+        actual_RH_pose = robot_model.fk(RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
+        desired_LH_lift_pose = polynomial5_interpolation(N, LH_lift_pose, actual_LH_pose)[0]
+        desired_RH_lift_pose = polynomial5_interpolation(N, RH_lift_pose, actual_RH_pose)[0]
+
+        joint_lift_trajectory = np.zeros((N, robot_model.q_size))
+        joint_lift_trajectory[0, :] = q
+        q_lift = np.empty(robot_model.q_size)
+        q_lift2 = np.empty(robot_model.q_size)
+        for ii in range(N-1):
+            print("%d/%d " % (ii+1, N))
+            #print("%d/%d " % (ii+1, N))
+            q_lift[:] = robot_model.ik(LH_name, desired_LH_lift_pose[ii+1, :], body_offset=l_soft_hand_offset,
+                                       q_init=joint_lift_trajectory[ii, :], joints_limits=bigman_params['joints_limits'],
+                                       mask_joints=torso_joints, method='optimization',
+                                       regularization_parameter=regularization_parameter)
+            q_lift2[:] = robot_model.ik(RH_name, desired_RH_lift_pose[ii+1, :], body_offset=r_soft_hand_offset,
+                                        q_init=joint_lift_trajectory[ii, :], joints_limits=bigman_params['joints_limits'],
+                                        mask_joints=torso_joints, method='optimization',
+                                        regularization_parameter=regularization_parameter)
+            q_lift[bigman_params['joint_ids']['RA']] = q_lift2[bigman_params['joint_ids']['RA']]
+            joint_lift_trajectory[ii+1, :] = q_lift
+
+        if save_lift_traj:
+            np.save(file_name+'_lift.npy', joint_lift_trajectory)
+
+    elif lift_option == 2:
+        T_lift = 2
+        N = int(np.ceil(T_lift*freq))
+
+        q = q_reach.copy()
+        actual_LH_pose = robot_model.fk(LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
+        actual_RH_pose = robot_model.fk(RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
+        desired_LH_lift_pose = polynomial5_interpolation(N, LH_lift_pose, actual_LH_pose)[0]
+        desired_RH_lift_pose = polynomial5_interpolation(N, RH_lift_pose, actual_RH_pose)[0]
+
+        J1 = np.zeros((6, robot_model.qdot_size))
+        J2 = np.zeros((6, robot_model.qdot_size))
+        K = 500
+        pose1_log = np.zeros_like(desired_LH_lift_pose)
+    else:
+        raise ValueError("Wrong lift_option %d" % lift_option)
+    print("\n\033[31mDONE!! \033[0m")
+
 else:
-    raise ValueError("Wrong lift_option %d" % lift_option)
-print("\n\033[31mDONE!! \033[0m")
-
+    joint_lift_trajectory = np.load(file_name+'_lift.npy')
 
 
 print("Waiting for ROS..."),
