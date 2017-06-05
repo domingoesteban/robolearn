@@ -25,7 +25,7 @@ box_position = np.array([0.75,
                          0.0184])
 #box_position = [0.75, 0.2, 0.0184]
 box_size = [0.4, 0.5, 0.3]
-box_yaw = -15  # Degrees
+box_yaw = 0  # Degrees
 #box_orient = tf.transformations.rotation_matrix(np.deg2rad(15), [1, 0, 0])  # For the EEs is rotation in X
 box_orient = tf.transformations.rotation_matrix(np.deg2rad(box_yaw), [0, 0, 1])
 box_matrix = homogeneous_matrix(rot=box_orient, pos=box_position)
@@ -43,7 +43,7 @@ load_lift_traj = False
 save_reach_traj = True
 save_lift_traj = True
 
-remove_spawn_new_box = False
+remove_spawn_new_box = True
 
 reach_option = 0
 #reach_option 0: IK desired final pose, interpolate in joint space
@@ -126,6 +126,10 @@ if not load_reach_traj:
         # Trajectory
         joint_reach_trajectory = polynomial5_interpolation(N, q_reach, q_init)[0]
 
+        save_reach_traj = raw_input("Save reach trajectory before visualize? (y/yes): ")
+        if save_reach_traj.lower() in ['y', 'yes']:
+            np.save(file_name + '_m' + str(reach_option) + '_reach.npy', joint_reach_trajectory)
+
     elif reach_option == 1:
         q = q_init.copy()
         actual_LH_pose = robot_model.fk(LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
@@ -160,6 +164,10 @@ if not load_reach_traj:
             joint_reach_trajectory[ii+1, :] = q_reach
             #print(joint_reach_trajectory[ii+1, :]-joint_reach_trajectory[ii, :])
             print(sum(joint_reach_trajectory[ii+1, :]-joint_reach_trajectory[ii, :]))
+
+        save_reach_traj = raw_input("Save reach trajectory before visualize? (y/yes): ")
+        if save_reach_traj.lower() in ['y', 'yes']:
+            np.save(file_name + '_m' + str(reach_option) + '_reach.npy', joint_reach_trajectory)
 
     elif reach_option == 2:
         q = q_init.copy()
@@ -209,6 +217,7 @@ else:
         desired_RH_reach_pose = np.load(file_name+'_reach_RH_EE.npy')
 
 
+
 # ######## #
 # LIFT BOX #
 # ######## #
@@ -243,6 +252,9 @@ if not load_lift_traj:
 
         #if save_lift_traj:
         #    np.save(file_name+'_lift.npy', joint_lift_trajectory)
+        save_lift_traj = raw_input("Save lift trajectory before visualize? (y/yes): ")
+        if save_lift_traj.lower() in ['y', 'yes']:
+            np.save(file_name + '_m' + str(lift_option) + '_lift.npy', joint_lift_trajectory)
 
     elif lift_option == 1:
         q = q_reach.copy()
@@ -271,6 +283,9 @@ if not load_lift_traj:
 
         #if save_lift_traj:
         #    np.save(file_name+'_lift.npy', joint_lift_trajectory)
+        save_lift_traj = raw_input("Save lift trajectory before visualize? (y/yes): ")
+        if save_lift_traj.lower() in ['y', 'yes']:
+            np.save(file_name + '_m' + str(lift_option) + '_lift.npy', joint_lift_trajectory)
 
     elif lift_option == 2:
         T_lift = 2
