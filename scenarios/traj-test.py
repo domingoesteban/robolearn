@@ -35,7 +35,7 @@ T_reach = 2
 T_lift = 2
 
 # Save/Load file name
-file_name = 'trajectories/traj1_'+str(box_yaw)
+file_name = 'trajectories/traj1'+'_x'+str(box_position[0]+'_y'+str(box_position[1]))+'_Y'+str(box_yaw)
 load_reach_traj = False
 load_lift_traj = False
 #load_reach_traj = True
