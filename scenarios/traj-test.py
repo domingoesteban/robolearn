@@ -35,17 +35,20 @@ T_reach = 2
 T_lift = 2
 
 # Save/Load file name
-file_name = 'trajectories/traj1'+str(box_yaw)
+file_name = 'trajectories/traj1_'+str(box_yaw)
 load_reach_traj = False
 load_lift_traj = False
-save_reach_traj = False
-save_lift_traj = False
+#load_reach_traj = True
+#load_lift_traj = True
+save_reach_traj = True
+save_lift_traj = True
 
 remove_spawn_new_box = False
 
 reach_option = 0
 #reach_option 0: IK desired final pose, interpolate in joint space
 #reach_option 1: Trajectory in EEs, then IK whole trajectory
+#reach_option 2: Trajectory in EEs, IK with Jacobians
 
 lift_option = 1
 #lift_option 0: IK desired final pose, interpolate the others
@@ -123,9 +126,6 @@ if not load_reach_traj:
         # Trajectory
         joint_reach_trajectory = polynomial5_interpolation(N, q_reach, q_init)[0]
 
-        if save_reach_traj:
-            np.save(file_name+'_reach.npy', joint_reach_trajectory)
-
     elif reach_option == 1:
         q = q_init.copy()
         actual_LH_pose = robot_model.fk(LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
@@ -161,9 +161,6 @@ if not load_reach_traj:
             #print(joint_reach_trajectory[ii+1, :]-joint_reach_trajectory[ii, :])
             print(sum(joint_reach_trajectory[ii+1, :]-joint_reach_trajectory[ii, :]))
 
-        if save_reach_traj:
-            np.save(file_name+'_reach.npy', joint_reach_trajectory)
-
     elif reach_option == 2:
         q = q_init.copy()
         actual_LH_pose = robot_model.fk(LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
@@ -176,9 +173,9 @@ if not load_reach_traj:
         desired_LH_reach_pose[:, :4] = quatLH_interpolation
         desired_RH_reach_pose[:, :4] = quatRH_interpolation
 
-        for ii in range(desired_LH_reach_pose.shape[0]):
-            print(desired_LH_reach_pose[ii, 4])
-        raw_input("CUCU")
+        #for ii in range(desired_LH_reach_pose.shape[0]):
+        #    print(desired_LH_reach_pose[ii, 4])
+        #raw_input("CUCU")
 
         q_reach = robot_model.ik(LH_name, LH_reach_pose, body_offset=l_soft_hand_offset,
                                  mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
@@ -191,7 +188,6 @@ if not load_reach_traj:
         J1 = np.zeros((6, robot_model.qdot_size))
         J2 = np.zeros((6, robot_model.qdot_size))
         K = 500
-        pose1_log = np.zeros_like(desired_LH_reach_pose)
     else:
         raise ValueError("Wrong reach_option %d" % reach_option)
     print("\n\033[31mDONE!! \033[0m")
@@ -204,7 +200,13 @@ if not load_reach_traj:
     #RH_reach_pose[:4] = tf.transformations.quaternion_from_matrix(des_orient)
 
 else:
-    joint_reach_trajectory = np.load(file_name+'_reach.npy')
+    joint_reach_trajectory = np.load(file_name + '_m' + str(reach_option) + '_reach.npy')
+    if reach_option == 2:
+        q_reach = joint_reach_trajectory[-1, :]
+        J1 = np.zeros((6, robot_model.qdot_size))
+        J2 = np.zeros((6, robot_model.qdot_size))
+        desired_LH_reach_pose = np.load(file_name+'_reach_LH_EE.npy')
+        desired_RH_reach_pose = np.load(file_name+'_reach_RH_EE.npy')
 
 
 # ######## #
@@ -239,8 +241,8 @@ if not load_lift_traj:
         q_lift[bigman_params['joint_ids']['RA']] = q_lift2[bigman_params['joint_ids']['RA']]
         joint_lift_trajectory = polynomial5_interpolation(N, q_lift, q_reach)[0]
 
-        if save_lift_traj:
-            np.save(file_name+'_lift.npy', joint_lift_trajectory)
+        #if save_lift_traj:
+        #    np.save(file_name+'_lift.npy', joint_lift_trajectory)
 
     elif lift_option == 1:
         q = q_reach.copy()
@@ -267,8 +269,8 @@ if not load_lift_traj:
             q_lift[bigman_params['joint_ids']['RA']] = q_lift2[bigman_params['joint_ids']['RA']]
             joint_lift_trajectory[ii+1, :] = q_lift
 
-        if save_lift_traj:
-            np.save(file_name+'_lift.npy', joint_lift_trajectory)
+        #if save_lift_traj:
+        #    np.save(file_name+'_lift.npy', joint_lift_trajectory)
 
     elif lift_option == 2:
         T_lift = 2
@@ -283,13 +285,17 @@ if not load_lift_traj:
         J1 = np.zeros((6, robot_model.qdot_size))
         J2 = np.zeros((6, robot_model.qdot_size))
         K = 500
-        pose1_log = np.zeros_like(desired_LH_lift_pose)
     else:
         raise ValueError("Wrong lift_option %d" % lift_option)
     print("\n\033[31mDONE!! \033[0m")
 
 else:
-    joint_lift_trajectory = np.load(file_name+'_lift.npy')
+    joint_lift_trajectory = np.load(file_name + '_m' + str(lift_option) + '_lift.npy')
+    if lift_option == 2:
+        J1 = np.zeros((6, robot_model.qdot_size))
+        J2 = np.zeros((6, robot_model.qdot_size))
+        desired_LH_lift_pose = np.load(file_name+'_lift_LH_EE.npy')
+        desired_RH_lift_pose = np.load(file_name+'_lift_RH_EE.npy')
 
 
 print("Waiting for ROS..."),
@@ -396,10 +402,11 @@ if reach_option == 0 or reach_option == 1:
         pub_rate.sleep()
 
 elif reach_option == 2:
+    joint_reach_trajectory = np.empty((desired_LH_reach_pose.shape[0], robot_model.q_size))
     q = q_init.copy()
+    joint_reach_trajectory[0, :] = q[:]
     for ii in range(desired_LH_reach_pose.shape[0]-1):
         #for ii in range(N-1):
-        pose1_log[ii, :] = actual_LH_pose
         print("Sending LIFTING cmd...")
         #error1 = compute_cartesian_error(desired_LH_lift_pose[ii, :], actual_LH_lift_pose, rotation_rep='quat')
         #error2 = compute_cartesian_error(desired_RH_lift_pose[ii, :], actual_RH_lift_pose, rotation_rep='quat')
@@ -428,6 +435,9 @@ elif reach_option == 2:
 
         des_cmd.position = q
         publisher.publish(des_cmd)
+
+        joint_reach_trajectory[ii+1, :] = q[:]
+
         pub_rate.sleep()
 
 raw_input("Press key for LIFTING")
@@ -442,10 +452,11 @@ if lift_option == 0 or lift_option == 1:
         pub_rate.sleep()
 
 elif lift_option == 2:
+    joint_lift_trajectory = np.empty((desired_LH_lift_pose.shape[0], robot_model.q_size))
     q = q_reach.copy()
+    joint_lift_trajectory[0, :] = q[:]
     for ii in range(desired_LH_lift_pose.shape[0]-1):
     #for ii in range(N-1):
-        pose1_log[ii, :] = actual_LH_pose
         print("Sending LIFTING cmd...")
         #error1 = compute_cartesian_error(desired_LH_lift_pose[ii, :], actual_LH_lift_pose, rotation_rep='quat')
         #error2 = compute_cartesian_error(desired_RH_lift_pose[ii, :], actual_RH_lift_pose, rotation_rep='quat')
@@ -474,11 +485,26 @@ elif lift_option == 2:
 
         des_cmd.position = q
         publisher.publish(des_cmd)
+
+        joint_lift_trajectory[ii+1, :] = q[:]
         pub_rate.sleep()
 
 
+save_reach_traj = raw_input("Save reach trajectory? (y/yes): ")
+if save_reach_traj.lower() in ['y', 'yes']:
+    np.save(file_name + '_m' + str(reach_option) + '_reach.npy', joint_reach_trajectory)
+    if reach_option == 2:
+        np.save(file_name+'_reach_LH_EE.npy', desired_LH_reach_pose)
+        np.save(file_name+'_reach_RH_EE.npy', desired_RH_reach_pose)
 
+
+
+save_lift_traj = raw_input("Save lift trajectory? (y/yes): ")
+if save_lift_traj.lower() in ['y', 'yes']:
+    np.save(file_name + '_m' + str(lift_option) + '_lift.npy', joint_lift_trajectory)
+    if lift_option == 2:
+        np.save(file_name+'_lift_LH_EE.npy', desired_LH_lift_pose)
+        np.save(file_name+'_lift_RH_EE.npy', desired_RH_lift_pose)
 
 #plt.plot(desired_LH_lift_pose[:, -1], 'r')
-#plt.plot(pose1_log[:, -1], 'b')
 #plt.show()
