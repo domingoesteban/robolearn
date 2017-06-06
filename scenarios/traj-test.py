@@ -20,10 +20,9 @@ np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 
 # Script parameters
 #box_position = np.array([0.75, 0.0, 0.0184])
-box_position = np.array([0.75,
-                         0.0,
+box_position = np.array([0.75-0.05,
+                         0.00,
                          0.0184])
-#box_position = [0.75, 0.2, 0.0184]
 box_size = [0.4, 0.5, 0.3]
 box_yaw = 0  # Degrees
 #box_orient = tf.transformations.rotation_matrix(np.deg2rad(15), [1, 0, 0])  # For the EEs is rotation in X
@@ -35,7 +34,7 @@ T_reach = 2
 T_lift = 2
 
 # Save/Load file name
-file_name = 'trajectories/traj1'+'_x'+str(box_position[0]+'_y'+str(box_position[1]))+'_Y'+str(box_yaw)
+file_name = 'trajectories/traj1'+'_x'+str(box_position[0])+'_y'+str(box_position[1])+'_Y'+str(box_yaw)
 load_reach_traj = False
 load_lift_traj = False
 #load_reach_traj = True
@@ -90,7 +89,7 @@ if not load_reach_traj:
     ##des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(5), [0, 0, 1]))
     ##des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(10), [0, 1, 0]))
     #des_orient = des_orient.dot(box_orient)
-    box_LH_position = np.array([-0.00,
+    box_LH_position = np.array([0.05,
                                 box_size[1]/2. - 0.00,
                                 -0.05])
     box_LH_matrix = homogeneous_matrix(pos=box_LH_position)
@@ -100,7 +99,7 @@ if not load_reach_traj:
     LH_reach_pose[4:] = tf.transformations.translation_from_matrix(LH_reach_matrix)
     LH_reach_pose[:4] = tf.transformations.quaternion_from_matrix(LH_reach_matrix)
 
-    box_RH_position = np.array([-0.00,
+    box_RH_position = np.array([0.05,
                                 -box_size[1]/2. + 0.00,
                                 -0.05])
     box_RH_matrix = homogeneous_matrix(pos=box_RH_position)
@@ -198,7 +197,7 @@ if not load_reach_traj:
         K = 500
     else:
         raise ValueError("Wrong reach_option %d" % reach_option)
-    print("\n\033[31mDONE!! \033[0m")
+    print("\033[31mDONE!! \033[0m")
 
     #RH_reach_pose = robot_model.fk(RH_name, q=np.zeros(robot_model.q_size), body_offset=r_soft_hand_offset)
     #RH_reach_pose[4:] = LH_reach_pose[4:]
@@ -208,6 +207,7 @@ if not load_reach_traj:
     #RH_reach_pose[:4] = tf.transformations.quaternion_from_matrix(des_orient)
 
 else:
+    print("\n\033[5mLoading reaching trajectory...")
     joint_reach_trajectory = np.load(file_name + '_m' + str(reach_option) + '_reach.npy')
     if reach_option == 2:
         q_reach = joint_reach_trajectory[-1, :]
@@ -215,6 +215,7 @@ else:
         J2 = np.zeros((6, robot_model.qdot_size))
         desired_LH_reach_pose = np.load(file_name+'_reach_LH_EE.npy')
         desired_RH_reach_pose = np.load(file_name+'_reach_RH_EE.npy')
+    print("\033[31mDONE!! \033[0m")
 
 
 
@@ -305,12 +306,14 @@ if not load_lift_traj:
     print("\n\033[31mDONE!! \033[0m")
 
 else:
+    print("\n\033[5mLoading lifting trajectory...")
     joint_lift_trajectory = np.load(file_name + '_m' + str(lift_option) + '_lift.npy')
     if lift_option == 2:
         J1 = np.zeros((6, robot_model.qdot_size))
         J2 = np.zeros((6, robot_model.qdot_size))
         desired_LH_lift_pose = np.load(file_name+'_lift_LH_EE.npy')
         desired_RH_lift_pose = np.load(file_name+'_lift_RH_EE.npy')
+    print("\033[31mDONE!! \033[0m")
 
 
 print("Waiting for ROS..."),
