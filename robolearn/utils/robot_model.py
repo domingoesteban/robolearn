@@ -7,6 +7,7 @@ from time import sleep
 from urdf_parser_py.urdf import URDF
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 from robolearn.utils.iit.iit_robots_params import *
+from robolearn.utils.transformations import *
 import rospy
 
 
@@ -228,11 +229,6 @@ class BodyState:
         self.J = self.temp[:6, :model.dof_count]
 
 
-def homogeneous_matrix(rot=np.identity(3), pos=np.zeros(3)):
-    transform_matrix = np.identity(4)
-    transform_matrix[:3, :3] = rot[:3, :3]
-    transform_matrix[:3, -1] = pos[:3]
-    return transform_matrix
 
 
 def compute_cartesian_error(ref, actual, rotation_rep='quat'):
