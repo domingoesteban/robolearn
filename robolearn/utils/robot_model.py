@@ -5,10 +5,8 @@ import scipy.optimize
 import time
 from time import sleep
 from urdf_parser_py.urdf import URDF
-from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 from robolearn.utils.iit.iit_robots_params import *
 from robolearn.utils.transformations import *
-import rospy
 
 
 class RobotModel(object):

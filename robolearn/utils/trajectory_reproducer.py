@@ -20,9 +20,7 @@ class TrajectoryReproducer(object):
 
             self.trajs.append(traj.copy())
 
-
         self.data_points = self.traj.shape[0]
-
 
     def get_data(self, n):
         if n > self.data_points:
