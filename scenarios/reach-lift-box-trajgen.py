@@ -7,6 +7,7 @@ from robolearn.utils.trajectory_interpolators import quaternion_interpolation
 from robolearn.utils.robot_model import *
 from robolearn.utils.iit.robot_poses.bigman.poses import *
 from robolearn.utils.transformations import *
+from robolearn.utils.plot_utils import *
 import tf
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
@@ -36,6 +37,7 @@ save_reach_traj = True
 save_lift_traj = True
 
 remove_spawn_new_box = True
+plot_at_the_end = True
 
 reach_option = 0
 #reach_option 0: IK desired final pose, interpolate in joint space
@@ -363,3 +365,18 @@ if save_lift_traj:
 
 #plt.plot(desired_LH_lift_pose[:, -1], 'r')
 #plt.show()
+if plot_at_the_end:
+    joints_to_plot = bigman_params['joint_ids']['LA']
+    cols = 3
+    joint_names = [bigman_params['joints_names'][idx] for idx in joints_to_plot]
+    plot_joint_info(joints_to_plot, joint_reach_trajectory, joint_names, data='position', block=False)
+    qdots_reach = np.vstack((np.diff(joint_reach_trajectory, axis=0), np.zeros((1, robot_model.qdot_size))))
+    plot_joint_info(joints_to_plot, qdots_reach*freq, joint_names, data='velocity', block=False)
+    qddots_reach = np.vstack((np.diff(qdots_reach, axis=0), np.zeros((1, robot_model.qdot_size))))
+    plot_joint_info(joints_to_plot, qddots_reach*freq*freq, joint_names, data='acceleration', block=False)
+
+    plot_joint_info(joints_to_plot, joint_lift_trajectory, joint_names, data='position', block=False)
+    qdots_lift = np.vstack((np.diff(joint_lift_trajectory, axis=0), np.zeros((1, robot_model.qdot_size))))
+    plot_joint_info(joints_to_plot, qdots_lift*freq, joint_names, data='velocity', block=False)
+    qddots_lift = np.vstack((np.diff(qdots_lift, axis=0), np.zeros((1, robot_model.qdot_size))))
+    plot_joint_info(joints_to_plot, qddots_lift*freq*freq, joint_names, data='acceleration', block=False)
