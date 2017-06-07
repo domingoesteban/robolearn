@@ -1,6 +1,7 @@
 # ########## #
 # ALL ROBOTS #
 # ########## #
+import numpy as np
 
 # XBOT Joint state fields
 joint_state_fields = ['link_position',
@@ -174,6 +175,7 @@ bigman_params['bodies_names'] = ['ROOT',
 
 
 bigman_params['q0'] = []   # A list of initial configurations
+# Config 0
 bigman_params['q0'].append([0,  # 'LHipLat'
                             0,  # 'LHipYaw'
                             0,  # 'LHipSag'
@@ -206,7 +208,40 @@ bigman_params['q0'].append([0,  # 'LHipLat'
                             0,  # 'RWrj1'
                             0])  # 'RWrj2'
 
-# 'B' pose
+# Conf1
+bigman_params['q0'].append([0,  # 'LHipLat'       #0
+                            0,  # 'LHipYaw'       #1
+                            0,  # 'LHipSag'       #2
+                            0,  # 'LKneeSag'      #3
+                            0,  # 'LAnkSag'       #4
+                            0,  # 'LAnkLat'       #5
+                            0,  # 'RHipLat'       #6
+                            0,  # 'RHipYaw'       #7
+                            0,  # 'RHipSag'       #8
+                            0,  # 'RKneeSag'      #9
+                            0,  # 'RAnkSag'       #10
+                            0,  # 'RAnkLat'       #11
+                            0,  # 'WaistLat'      #12
+                            0,  # 'WaistSag'      #13
+                            0,  # 'WaistYaw'      #14
+                            0,  # 'LShSag'        #15
+                            np.array(50),  # 'LShLat'        #16
+                            0,  # 'LShYaw'        #17
+                            0,  # 'LElbj'         #18
+                            0,  # 'LForearmPlate' #19
+                            0,  # 'LWrj1'         #20
+                            0,  # 'LWrj2'         #21
+                            0,  # 'NeckYawj'      #22
+                            0,  # 'NeckPitchj'    #23
+                            0,  # 'RShSag'        #24
+                            np.array(-50),  # 'RShLat'        #25
+                            0,  # 'RShYaw'        #26
+                            0,  # 'RElbj'         #27
+                            0,  # 'RForearmPlate' #28
+                            0,  # 'RWrj1'         #29
+                            0])  # 'RWrj2'        #30
+
+# Conf3: 'B' pose
 bigman_params['q0'].append([0, 0, 0, 0, 0, 0,
                             0, 0, 0, 0, 0, 0,
                             0, 0, 0,
@@ -249,6 +284,7 @@ bigman_params['state_active'] = [{'name': 'joint_state',
                                   'type': 'joint_state',
                                   'fields': ['link_position', 'link_velocity'],
                                   'joints': range(0, 31)}]  # Value that can be gotten from robot_params['joints_names']['UB']
+
 # ######## #
 # CENTAURO #
 # ######## #

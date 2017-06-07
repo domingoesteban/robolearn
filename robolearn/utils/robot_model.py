@@ -205,6 +205,35 @@ class RobotModel(object):
 
         rbdl.CalcPointJacobian6D(self.model, q, body_id, body_offset, J, update_kinematics)
 
+    def update_torque(self, tau, q=None, qdot=None, qddot=None):
+        if q is None:
+            q = self.q
+        if qdot is None:
+            qdot = self.qdot
+        if qddot is None:
+            qddot = self.qddot
+
+        #print(qdot)
+        #print(qddot)
+        #print(tau)
+        #rbdl.InverseDynamics(self.model, q, qdot/100., qddot/10000., tau)
+        #print(tau)
+        rbdl.InverseDynamics(self.model, q, qdot, qddot, tau)
+        #print(tau)
+        #raw_input("w")
+
+    def id(self, q=None, qdot=None, qddot=None):
+        tau = np.zeros(self.model.qdot_size)
+        if q is None:
+            q = self.q
+        if qdot is None:
+            qdot = self.qdot
+        if qddot is None:
+            qddot = self.qddot
+
+        rbdl.InverseDynamics(self.model, q, qdot, qddot, tau)
+        return tau
+
 
 class BodyState:
     def __init__(self, model, q, qd, body_id, body_point_position, update_kinematics=True):
