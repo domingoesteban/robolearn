@@ -111,3 +111,43 @@ def plot_real_sensed_torque_position(joints_to_plot, taus, sensed_taus, qs, sens
     plt.show(block=block)
 
     return fig, axs
+
+
+def plot_joint_info(joints_to_plot, data_to_plot,  joint_names, data='position', block=True, cols=3):
+    # TODO: Check sizes
+    dU = len(joints_to_plot)
+    fig, axs = plt.subplots(int(math.ceil(float(dU)/cols)), cols)
+    if data == 'position':
+        fig.canvas.set_window_title("Joint Positions")
+    elif data == 'velocity':
+        fig.canvas.set_window_title("Joint Velocities")
+    elif data == 'acceleration':
+        fig.canvas.set_window_title("Joint Accelerations")
+    elif data == 'torque':
+        fig.canvas.set_window_title("Joint Torque")
+    else:
+        raise ValueError("Wrong plot option")
+
+    fig.set_facecolor((1, 1, 1))
+    for ii in range(axs.size):
+        ax1 = axs[ii/cols, ii % cols]
+        if ii < dU:
+            ax1.set_title("Joint %d: %s" % (ii+1, joint_names[ii]))
+            ax1.plot(data_to_plot[:, joints_to_plot[ii]], 'b')
+            if data == 'position':
+                ax1.set_ylabel('Position (rad)', color='k')
+            elif data == 'velocity':
+                ax1.set_ylabel('Velocity (rad/s)', color='k')
+            elif data == 'acceleration':
+                ax1.set_ylabel('Acceleration (rad/s2)', color='k')
+            elif data == 'torque':
+                ax1.set_ylabel('Torque (Nm)', color='k')
+            ax1.tick_params('y', colors='k')
+            ax1.tick_params(direction='in')
+        else:
+            plt.setp(ax1, visible=False)
+
+    fig.subplots_adjust(hspace=0)
+    plt.show(block=block)
+
+    return fig, axs
