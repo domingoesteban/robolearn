@@ -25,6 +25,12 @@ from robolearn.algos.gps.gps import GPS
 from robolearn.policies.lin_gauss_init import init_lqr, init_pd
 from robolearn.policies.policy_prior import PolicyPrior  # For MDGPS
 
+from robolearn.utils.sampler import Sampler
+from robolearn.policies.traj_reprod_policy import TrajectoryReproducerPolicy
+
+import tf
+from robolearn.utils.transformations import homogeneous_matrix
+
 import rospy
 from robolearn.utils.print_utils import *
 
@@ -39,7 +45,16 @@ import time
 # Task parameters
 #update_frequency = 5
 Ts = 0.01
-EndTime = 5  # Using final time to define the horizon
+EndTime = 4  # Using final time to define the horizon
+
+# BOX
+box_position = np.array([0.75-0.05,
+                         0.00,
+                         0.0184])
+box_size = [0.4, 0.5, 0.3]
+box_yaw = 0  # Degrees
+box_orient = tf.transformations.rotation_matrix(np.deg2rad(box_yaw), [0, 0, 1])
+box_matrix = homogeneous_matrix(rot=box_orient, pos=box_position)
 
 
 # ################### #
@@ -52,8 +67,8 @@ print("\nCreating Bigman environment...")
 
 # Robot configuration
 interface = 'ros'
-body_part_active = 'LA'
-command_type = 'velocity'
+body_part_active = 'UB'
+command_type = 'position'
 file_save_restore = "models/bigman_agent_vars.ckpt"
 
 
@@ -92,7 +107,7 @@ observation_active = [{'name': 'joint_state',
                        'type': 'optitrack',
                        'ros_topic': '/optitrack/relative_poses',
                        'fields': ['position', 'orientation'],
-                       'bodies': ['LSoftHand', 'RSoftHand', 'cardboard_cube_box']},
+                       'bodies': ['LSoftHand', 'RSoftHand', 'box']},
                       ]
 
 #observation_active = [{'name': 'imu1',
@@ -108,12 +123,12 @@ observation_active = [{'name': 'joint_state',
 state_active = [{'name': 'joint_state',
                  'type': 'joint_state',
                  'fields': ['link_position', 'link_velocity'],
-                 'joints': bigman_params['joint_ids']['LA']},
+                 'joints': bigman_params['joint_ids']['BA']},
 
                 {'name': 'optitrack',
                  'type': 'optitrack',
-                 'fields': ['position'],
-                 'bodies': ['cardboard_cube_box']}]  # check if it is better relative position with EE(EEs)
+                 'fields': ['position', 'orientation'],
+                 'bodies': ['box']}]  # check if it is better relative position with EE(EEs)
 
 
 
@@ -257,6 +272,30 @@ cost_sum = {
     'costs': [act_cost, state_cost],
     'weights': [0.1, 5.0],
 }
+
+# ################################ #
+# ################################ #
+# ## SAMPLE FROM DEMONSTRATIONS ## #
+# ################################ #
+# ################################ #
+n_samples = 5
+noisy = True
+sampler_hyperparams = {
+    'noisy': noisy,
+    'noise_var_scale': 0.0001,  # It can be a np.array() with dim=dU
+    'smooth_noise': False,
+    'smooth_noise_var': 0.01,#01
+    'smooth_noise_renormalize': False,
+    'T': int(EndTime/Ts),  # Total points
+    'dt': Ts
+    }
+traj_files = ['trajectories/traj1'+'_x'+str(box_position[0])+'_y'+str(box_position[1])+'_Y'+str(box_yaw)+'_m0_reach.npy',
+              'trajectories/traj1'+'_x'+str(box_position[0])+'_y'+str(box_position[1])+'_Y'+str(box_yaw)+'_m1_lift.npy']
+traj_rep_policy = TrajectoryReproducerPolicy(traj_files, act_idx=bigman_params['joint_ids']['UB'])
+sampler = Sampler(traj_rep_policy, bigman_env, **sampler_hyperparams)
+cond = bigman_env.add_q0(traj_rep_policy.traj_rep.get_data(0))
+#raw_input("Press a key for sampling from Sampler")
+sampler.take_samples(n_samples, cond=cond, noisy=noisy)
 
 
 # ######################## #
