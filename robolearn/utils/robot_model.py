@@ -173,7 +173,7 @@ class RobotModel(object):
             nm = np.inf
             q = q_init
             qdot = np.zeros(self.model.qdot_size)
-            actual_pose = self.fk(body_name, q=self.q, body_offset=l_soft_hand_offset, update_kinematics=True)
+            actual_pose = self.fk(body_name, q=self.q, body_offset=body_offset, update_kinematics=True)
             while nm > stol:
                 xdot = compute_cartesian_error(desired_pose, actual_pose, rotation_rep='quat')
                 nm = np.linalg.norm(xdot)
@@ -188,7 +188,7 @@ class RobotModel(object):
 
                 # Integrate the computed velocities
                 q[:] += qdot * gamma
-                actual_pose = fk(model, body_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=False)
+                actual_pose = fk(model, body_name, q=q, body_offset=body_offset, update_kinematics=False)
 
             return q
         else:
