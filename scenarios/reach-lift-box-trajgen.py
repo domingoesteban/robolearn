@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from robolearn.utils.iit.iit_robots_params import *
@@ -44,13 +45,13 @@ reach_option = 0
 #reach_option 1: Trajectory in EEs, then IK whole trajectory
 #reach_option 2: Trajectory in EEs, IK with Jacobians
 
-lift_option = 1
+lift_option = 2
 #lift_option 0: IK desired final pose, interpolate the others
 #lift_option 1: Trajectory in EEs, then IK whole trajectory
 #lift_option 2: Trajectory in EEs, IK with Jacobians
 
-regularization_parameter = 0.01  # For IK optimization algorithm
-
+regularization_parameter = 0.02  # For IK optimization algorithm
+ik_method = 'iterative' #iterative / optimization
 
 q_init = np.zeros(31)
 q_init[16] = np.deg2rad(50)
@@ -60,7 +61,7 @@ q_init[25] = np.deg2rad(-50)
 #q_init = np.deg2rad(np.array(bigman_Tpose))
 
 # Robot Model
-robot_urdf = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
+robot_urdf = '/home/'+os.environ["USER"]+'/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
 robot_model = RobotModel(robot_urdf)
 LH_name = 'LWrMot3'
 RH_name = 'RWrMot3'
@@ -107,10 +108,10 @@ if not load_reach_traj:
     if reach_option == 0:
         q_reach = robot_model.ik(LH_name, LH_reach_pose, body_offset=l_soft_hand_offset,
                                  mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
-                                 method='optimization')
+                                 method=ik_method)
         q_reach2 = robot_model.ik(RH_name, RH_reach_pose, body_offset=r_soft_hand_offset,
                                   mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
-                                  method='optimization')
+                                  method=ik_method)
 
         q_reach[bigman_params['joint_ids']['RA']] = q_reach2[bigman_params['joint_ids']['RA']]
 
@@ -141,11 +142,11 @@ if not load_reach_traj:
             #print("%d/%d " % (ii+1, N))
             q_reach[:] = robot_model.ik(LH_name, desired_LH_reach_pose[ii+1, :], body_offset=l_soft_hand_offset,
                                      q_init=joint_reach_trajectory[ii, :], joints_limits=bigman_params['joints_limits'],
-                                     mask_joints=torso_joints, method='optimization',
+                                     mask_joints=torso_joints, method=ik_method,
                                      regularization_parameter=regularization_parameter)
             q_reach2[:] = robot_model.ik(RH_name, desired_RH_reach_pose[ii+1, :], body_offset=r_soft_hand_offset,
                                       q_init=joint_reach_trajectory[ii, :], joints_limits=bigman_params['joints_limits'],
-                                      mask_joints=torso_joints, method='optimization',
+                                      mask_joints=torso_joints, method=ik_method,
                                       regularization_parameter=regularization_parameter)
             q_reach[bigman_params['joint_ids']['RA']] = q_reach2[bigman_params['joint_ids']['RA']]
             joint_reach_trajectory[ii+1, :] = q_reach
@@ -166,10 +167,10 @@ if not load_reach_traj:
 
         q_reach = robot_model.ik(LH_name, LH_reach_pose, body_offset=l_soft_hand_offset,
                                  mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
-                                 method='optimization')
+                                 method=ik_method)
         q_reach2 = robot_model.ik(RH_name, RH_reach_pose, body_offset=r_soft_hand_offset,
                                   mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
-                                  method='optimization')
+                                  method=ik_method)
         q_reach[bigman_params['joint_ids']['RA']] = q_reach2[bigman_params['joint_ids']['RA']]
 
         J1 = np.zeros((6, robot_model.qdot_size))
@@ -224,10 +225,10 @@ if not load_lift_traj:
     if lift_option == 0:
         q_lift = robot_model.ik(LH_name, LH_lift_pose, body_offset=l_soft_hand_offset,
                                  mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
-                                 method='optimization')
+                                 method=ik_method)
         q_lift2 = robot_model.ik(RH_name, RH_lift_pose, body_offset=r_soft_hand_offset,
                                   mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
-                                  method='optimization')
+                                  method=ik_method)
         q_lift[bigman_params['joint_ids']['RA']] = q_lift2[bigman_params['joint_ids']['RA']]
         joint_lift_trajectory = polynomial5_interpolation(N, q_lift, q_reach)[0]
 
@@ -247,11 +248,11 @@ if not load_lift_traj:
             #print("%d/%d " % (ii+1, N))
             q_lift[:] = robot_model.ik(LH_name, desired_LH_lift_pose[ii+1, :], body_offset=l_soft_hand_offset,
                                        q_init=joint_lift_trajectory[ii, :], joints_limits=bigman_params['joints_limits'],
-                                       mask_joints=torso_joints, method='optimization',
+                                       mask_joints=torso_joints, method=ik_method,
                                        regularization_parameter=regularization_parameter)
             q_lift2[:] = robot_model.ik(RH_name, desired_RH_lift_pose[ii+1, :], body_offset=r_soft_hand_offset,
                                         q_init=joint_lift_trajectory[ii, :], joints_limits=bigman_params['joints_limits'],
-                                        mask_joints=torso_joints, method='optimization',
+                                        mask_joints=torso_joints, method=ik_method,
                                         regularization_parameter=regularization_parameter)
             q_lift[bigman_params['joint_ids']['RA']] = q_lift2[bigman_params['joint_ids']['RA']]
             joint_lift_trajectory[ii+1, :] = q_lift
@@ -369,14 +370,16 @@ if plot_at_the_end:
     joints_to_plot = bigman_params['joint_ids']['LA']
     cols = 3
     joint_names = [bigman_params['joints_names'][idx] for idx in joints_to_plot]
-    plot_joint_info(joints_to_plot, joint_reach_trajectory, joint_names, data='position', block=False)
-    qdots_reach = np.vstack((np.diff(joint_reach_trajectory, axis=0), np.zeros((1, robot_model.qdot_size))))
-    plot_joint_info(joints_to_plot, qdots_reach*freq, joint_names, data='velocity', block=False)
-    qddots_reach = np.vstack((np.diff(qdots_reach, axis=0), np.zeros((1, robot_model.qdot_size))))
-    plot_joint_info(joints_to_plot, qddots_reach*freq*freq, joint_names, data='acceleration', block=False)
+    #plot_joint_info(joints_to_plot, joint_reach_trajectory, joint_names, data='position', block=False)
+    #qdots_reach = np.vstack((np.diff(joint_reach_trajectory, axis=0), np.zeros((1, robot_model.qdot_size))))
+    #plot_joint_info(joints_to_plot, qdots_reach*freq, joint_names, data='velocity', block=False)
+    #qddots_reach = np.vstack((np.diff(qdots_reach, axis=0), np.zeros((1, robot_model.qdot_size))))
+    #plot_joint_info(joints_to_plot, qddots_reach*freq*freq, joint_names, data='acceleration', block=False)
 
     plot_joint_info(joints_to_plot, joint_lift_trajectory, joint_names, data='position', block=False)
     qdots_lift = np.vstack((np.diff(joint_lift_trajectory, axis=0), np.zeros((1, robot_model.qdot_size))))
     plot_joint_info(joints_to_plot, qdots_lift*freq, joint_names, data='velocity', block=False)
     qddots_lift = np.vstack((np.diff(qdots_lift, axis=0), np.zeros((1, robot_model.qdot_size))))
     plot_joint_info(joints_to_plot, qddots_lift*freq*freq, joint_names, data='acceleration', block=False)
+
+    raw_input("Press a key to close the script")
