@@ -17,9 +17,12 @@ from gazebo_robolearn.srv import ResetPhysicsStatesModel
 
 class ROSEnvInterface(EnvInterface):
     """
-    ROSEnvInterface
+    ROSEnvInterface class.
+    Responsible to send and receive information from ROS.
     """
     def __init__(self, mode='simulation'):
+        super(ROSEnvInterface, self).__init__()
+
         mode = mode.lower()
         if mode != 'simulation' and mode != 'real':
             raise ValueError("Wrong ROSEnvInterface mode. Options: 'simulation' or 'real'.")
@@ -31,30 +34,25 @@ class ROSEnvInterface(EnvInterface):
 
         print("ROSEnvInterface mode: '%s'." % self.mode)
 
-        rospy.init_node('ROSEnvInterface')
+        rospy.init_node('RoboLearnEnvInterface')
 
         if mode == 'simulation':
+            # Create some service proxies to interact with Gazebo simulator
             self.reset_srv = rospy.ServiceProxy('/gazebo/reset_world', Empty)
-            self.reset_model_physics_srv = rospy.ServiceProxy('/gazebo/reset_physics_states_model', ResetPhysicsStatesModel)
-            #self.reset_srv = rospy.ServiceProxy('/gazebo/reset_simulation', Empty)
             self.unpause_srv = rospy.ServiceProxy('/gazebo/unpause_physics', Empty)
             self.pause_srv = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
             self.set_config_srv = rospy.ServiceProxy('/gazebo/set_model_configuration', SetModelConfiguration)
+            self.reset_model_physics_srv = rospy.ServiceProxy('/gazebo/reset_physics_states_model', ResetPhysicsStatesModel)
 
-        self.last_obs = None
-        self.topic_obs_info = []
         self.init_act = 0
         self.init_acts = None
-
-        self.obs_dim = 0
-        self.act_dim = 0
-
         self.initial_config = None
 
         # ROS Actions
         self.action_pubs = []
         self.pub_threads = []
         self.action_types = []  # Array of dict = {type, cmd_msg, idx from action array)}
+        self.publish_action = False  # Flag that indicates if the action loop will publish the actions in ROS
 
         # ROS Subscribers
         self.observation_subs = []
@@ -62,31 +60,25 @@ class ROSEnvInterface(EnvInterface):
         self.last_obs = []
         self.state_types = []  # Array of dict = {type, obs_msg, idx from state array)}
 
-        # Last sensor data
-        self.last_joint_state = None
-
-        self.publish_action = False
-
-    def get_observation(self):
+    def set_action_topic(self, topic_name, topic_type, topic_freq):
         """
-        Return defined observations as an array
-        :return:
+        Append an action topic to the action_pubs list.
+        :param topic_name: Name of the ROS topic to publish.
+        :param topic_type: Type of the ROS topic to publish.
+        :param topic_freq: Frequency in which the ROS message will be published.
+        :return: Index of the action topic in the action_pubs list.
         """
-        raise NotImplementedError
-
-    def get_reward(self):
-        """
-        Return defined observations as an array
-        :return:
-        """
-        raise NotImplementedError
+        action_id = len(self.action_pubs)
+        self.action_pubs.append((rospy.Publisher(topic_name, topic_type, queue_size=10), topic_freq))
+        return action_id
 
     def set_observation_topic(self, topic_name, topic_type, attribute_names):
         """
-
-        :param topic_name:
-        :param topic_type:
-        :return:
+        Append an observation topic to the observation_subs list and a None observation to the last_obs list.
+        :param topic_name: Name of the ROS topic to subscribe.
+        :param topic_type: Type of the ROS topic to subscribe.
+        :param attribute_names: Desired ROS message's fields that will be updated.
+        :return: Index of the observation topic in the observation_subs list.
         """
         obs_id = len(self.observation_subs)
         self.observation_subs.append(rospy.Subscriber(topic_name, topic_type, self.callback_observation, (obs_id, attribute_names)))
@@ -113,6 +105,13 @@ class ROSEnvInterface(EnvInterface):
         else:
             copy_class_attr(msg, self.last_obs[obs_id], attribute_names)
 
+    def get_observation(self):
+        """
+        Return defined observations as an array.
+        :return:
+        """
+        raise NotImplementedError
+
     def get_action_dim(self):
         raise NotImplementedError
 
@@ -121,18 +120,6 @@ class ROSEnvInterface(EnvInterface):
 
     def get_state_dim(self):
         raise NotImplementedError
-
-    def set_action_topic(self, topic_name, topic_type, topic_freq):
-        """
-
-        :param topic_name:
-        :param topic_type:
-        :param topic_freq:
-        :return:
-        """
-        action_id = len(self.action_pubs)
-        self.action_pubs.append((rospy.Publisher(topic_name, topic_type, queue_size=10), topic_freq))
-        return action_id
 
     def set_action_type(self, init_cmd_vals, cmd_type, act_idx, **kwargs):
 
@@ -196,11 +183,10 @@ class ROSEnvInterface(EnvInterface):
 
     def run(self):
         """
-
-        :return:
+        Run each ROS publisher in the action_pubs list in a thread, and append them into pub_threads list.
+        :return: None
         """
         print("ROSEnvInterface: Start to send commands to Gazebo... ", end='')
-        #self.pub_thread.start()
 
         for action_id, (publisher, rate) in enumerate(self.action_pubs):
             self.pub_threads.append(Thread(target=self.publish, args=[publisher, rate, action_id]))
@@ -211,36 +197,29 @@ class ROSEnvInterface(EnvInterface):
         else:
             print("DONE!")
 
-    def publish(self, publisher, rate, action_id):
+    def publish(self, publisher, rate, action_idx):
         """
-
-        :param publisher:
-        :param rate:
-        :param action_id:
-        :return:
+        Function run by each thread in pub_threads list.
+        :param publisher: ROS publisher already configured.
+        :param rate: Rate in which the ROS message will be published.
+        :param action_idx: Index of the ROS message in the action_types list.
+        :return: None
         """
-        pub_rate = rospy.Rate(rate)  # TODO Deactivating constant publishing
+        pub_rate = rospy.Rate(rate)
         while not rospy.is_shutdown():
-            if self.publish_action:
-                publisher.publish(self.action_types[action_id]['ros_msg'])
+            if self.publish_action:  # Publish only when some send_action was alredy set.
+                publisher.publish(self.action_types[action_idx]['ros_msg'])
                 self.publish_action = False
                 pub_rate.sleep()
             #else:
             #    print("Not sending anything to ROS !!!")
 
-    def set_initial_acts(self, *args):
-        """
-        :param init_acts:
-        :return:
-        """
-        raise NotImplementedError
-
     def send_action(self, action):
         """
-        Responsible to convert action array to array of ROS publish types
-        :param self:
-        :param action:
-        :return:
+        Update, from a desired action vector, the ROS messages that will be published,
+        and set publish_action flag to True
+        :param action: Desired action vector.
+        :return: None
         """
         raise NotImplementedError
 
@@ -282,9 +261,7 @@ class ROSEnvInterface(EnvInterface):
                 print("/gazebo/reset_world service call failed: %s" % str(exc))
 
             if model_name is not None:
-
                 rospy.wait_for_service('/gazebo/reset_physics_states_model')
-
                 try:
                     self.reset_model_physics_srv(model_name)
                 except rospy.ServiceException as exc:
@@ -412,7 +389,7 @@ class ROSEnvInterface(EnvInterface):
 
     def get_obs_ros_msg(self, name=None, obs_type=None):
         """
-        Return the ROS msg corresponding to the name or observation type
+        Return the ROS msg corresponding to the name or observation type.
         :param name:
         :type name: str
         :param obs_type:
@@ -423,7 +400,7 @@ class ROSEnvInterface(EnvInterface):
 
     def get_state_ros_msg(self, name=None, state_type=None):
         """
-        Return the ROS msg corresponding to the name or state type
+        Return the ROS msg corresponding to the name or state type.
         :param name:
         :type name: str
         :param state_type:

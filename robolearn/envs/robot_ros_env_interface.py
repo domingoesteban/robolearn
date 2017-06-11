@@ -9,7 +9,7 @@ from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 
 class RobotROSEnvInterface(ROSEnvInterface):
     def __init__(self, robot_name=None, mode='simulation', body_part_active='LA', cmd_type='position',
-                 observation_active=None, state_active=None, cmd_freq=100):
+                 observation_active=None, state_active=None, cmd_freq=100, reset_simulation_fcn=None):
         super(RobotROSEnvInterface, self).__init__(mode=mode)
 
         if robot_name is None:
@@ -27,7 +27,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.joint_names = self.robot_params['joints_names']
         self.joint_ids = self.robot_params['joint_ids']
         self.q0 = self.robot_params['q0']
-        self.initial_conditions = []  # Necessary for GPS
+        self.conditions = []  # Necessary for GPS
 
         # Set initial configuration using first configuration loaded from default params
         self.set_init_config(self.q0)
@@ -35,7 +35,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
         # Configure actuated joints
         self.act_joint_names = self.get_joints_names(body_part_active)
         self.act_dof = len(self.act_joint_names)
-
 
 
         # ############ #
@@ -166,6 +165,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         ## TODO: Find a better way to reset the robot
         #self.srv_xbot_comm_plugin = rospy.ServiceProxy('/XBotCommunicationPlugin_switch', SetBool)
         #self.srv_homing_ex_plugin = rospy.ServiceProxy('/HomingExample_switch', SetBool)
+        self.reset_simulation_fcn = reset_simulation_fcn
 
         # Resetting before get initial state
         #print("Resetting %s robot to initial q0[0]..." % self.robot_name)
@@ -203,10 +203,9 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
     def send_action(self, action):
         """
-        Update the ROS messages that will be published from an action vector.
-        :param self:
-        :param action:
-        :return:
+        Update the ROS messages that will be published from a desired action vector.
+        :param action: Desired action vector.
+        :return: None
         """
         for ii, des_action in enumerate(self.action_types):
             if des_action['type'] in ['position', 'velocity', 'effort']:
@@ -223,7 +222,8 @@ class RobotROSEnvInterface(ROSEnvInterface):
             else:
                 raise NotImplementedError("Only Advr commands: position, velocity or effort available!")
 
-        self.publish_action = True  # TODO Deactivating constant publishing of publish threads
+        # Start publishing in ROS
+        self.publish_action = True
 
     def set_initial_acts(self, initial_acts):
         self.init_acts = initial_acts
@@ -314,7 +314,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
         #print(state)
         return state
 
-
     def get_obs_info(self, name=None):
         if name is None:
             obs_info = {'names': [obs['name'] for obs in self.obs_types],
@@ -344,7 +343,14 @@ class RobotROSEnvInterface(ROSEnvInterface):
                     'state': self.get_state_info()}
         return env_info
 
-    def reset(self, time=None, freq=None, conf=0):
+    def get_q_from_condition(self, condition):
+        state_info = self.get_state_info()
+        if 'link_position' in state_info['names']:
+            return condition[state_info['idx'][state_info['names'].index('link_position')]]
+        else:
+            raise TypeError("Link position is not in the state!!")
+
+    def reset(self, time=None, freq=None, cond=0):
 
         if freq is None:
             freq = 100
@@ -352,8 +358,8 @@ class RobotROSEnvInterface(ROSEnvInterface):
         if time is None:
             time = 5
 
-        if conf > len(self.q0)-1:
-            raise AttributeError("Desired configuration not available. %d > %d" % (conf, len(self.q0)-1))
+        if cond > len(self.conditions)-1:
+            raise AttributeError("Desired condition not available. %d > %d" % (cond, len(self.conditions)-1))
 
         N = int(np.ceil(time*freq))
         pub_rate = rospy.Rate(freq)
@@ -371,7 +377,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         joint_names = self.obs_types[joint_state_idx]['ros_msg'].name
         joint_positions = self.obs_types[joint_state_idx]['ros_msg'].link_position
         joint_ids = [self.joint_names.index(joint_name) for joint_name in joint_names]
-        final_positions = [self.q0[conf][joint_id] for joint_id in joint_ids]
+        final_positions = [self.get_q_from_condition(self.conditions[cond])[joint_id] for joint_id in joint_ids]
         joint_trajectory = polynomial5_interpolation(N, final_positions, joint_positions)[0]
 
         reset_cmd.name = joint_names
@@ -384,12 +390,36 @@ class RobotROSEnvInterface(ROSEnvInterface):
         # Interpolate from current position
         rospy.sleep(1)  # Because I need to find a good way to reset
 
-        # Resetting gazebo also
+        # Resetting Gazebo also
         super(RobotROSEnvInterface, self).reset(model_name=self.robot_name)
 
-    def set_initial_conditions(self, conditions):
-        self.initial_conditions = conditions
+        # Custom simulation reset function
+        if self.mode == 'simulation' and self.reset_simulation_fcn is not None:
+            self.reset_simulation_fcn(self.conditions[cond], self.get_state_info())
 
-    def get_initial_conditions(self):
-        return self.initial_conditions
+    def set_conditions(self, conditions):
+        self.conditions = conditions
+
+    def add_condition(self, condition):
+        #TODO: Check condition size
+        self.conditions.append(condition)
+        return len(self.conditions)-1
+
+    def remove_condition(self, cond_idx):
+        self.conditions.pop(cond_idx)
+
+    def get_conditions(self, condition=None):
+        return self.conditions[condition] if condition is not None else self.conditions
+
+    def add_q0(self, q0):
+        if len(q0) != len(self.q0[-1]):
+            raise ValueError("Desired q0 dimension (%d) does not match with Robot (%d)" % (len(q0), len(self.q0[-1])))
+        self.q0.append(q0)
+
+        return len(self.q0)-1
+
+    def get_q0_idx(self, q0):
+        if len(q0) != len(self.q0[-1]):
+            raise ValueError("Desired q0 dimension (%d) does not match with Robot (%d)" % (len(q0), len(self.q0[-1])))
+        return self.q0.index(q0)
 
