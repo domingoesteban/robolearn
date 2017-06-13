@@ -2,3 +2,5 @@ numpy
 tensorflow
 rospy
 scipy
+rbdl
+tf

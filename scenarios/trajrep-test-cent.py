@@ -8,7 +8,7 @@ import tf
 from XCM.msg import CommandAdvr
 from XCM.msg import JointStateAdvr
 from robolearn.utils.trajectory_reproducer import TrajectoryReproducer
-from robolearn.utils.iit.iit_robots_params import bigman_params
+from robolearn.utils.iit.iit_robots_params import centauro_params
 from robolearn.utils.transformations import *
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 from robolearn.utils.plot_utils import plot_desired_sensed_torque_position
@@ -31,6 +31,7 @@ dir_path = os.path.dirname(path)
 
 load_torques = False
 torques_saved_filename = 'torques_init_traj.npy'
+centauro_params['joints_names'] = centauro_params['joints_names'][12:27]
 
 T_init = 3
 T_init_traj = 5
@@ -54,21 +55,15 @@ lift_method = 2
 traj_files = ['trajectories/traj1'+'_x'+str(box_position[0])+'_y'+str(box_position[1])+'_Y'+str(box_yaw)+'_m'+str(reach_method)+'_reach.npy']
 traj_rep = TrajectoryReproducer(traj_files)
 
-default_joint_stiffness = np.array([8000.,  5000.,  8000.,  5000.,  5000.,  2000.,
-                                    8000.,  5000.,  5000.,  5000.,  5000.,  2000.,
-                                    5000.,  8000.,  5000.,
-                                    5000.,  8000.,  5000.,  5000.,   300.,  2000.,   300.,
-                                    300.,   300.,
-                                    5000.,  8000.,  5000.,  5000.,   300.,  2000.,   300.])
-default_joint_damping = np.array([30.,  50.,  30.,  30.,  30.,   5.,
-                                  30.,  50.,  30.,  30.,  30.,   5.,
-                                  30.,  50.,  30.,
-                                  30.,  50.,  30.,  30.,   1.,   5.,   1.,
-                                  1.,   1.,
-                                  30.,  50.,  30.,  30.,   1.,   5.,   1.])
+default_joint_stiffness = np.array([5000.0,
+                                    5000.0, 8000.0, 5000.0, 5000.0, 300.0, 2000.0, 300.0,
+                                    5000.0, 8000.0, 5000.0, 5000.0, 300.0, 2000.0, 300.0])
+default_joint_damping = np.array([30.0,
+                                  30.0, 50.0, 30.0, 30.0, 1.0, 5.0, 1.0,
+                                  30.0, 50.0, 30.0, 30.0, 1.0, 5.0, 1.0])
 
 # ROBOT MODEL for trying ID
-robot_urdf = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
+robot_urdf = '/home/domingo/robotology-superbuild/configs/ADVR_shared/centauro/urdf/centauro_upper_body_updated_inertia.urdf'
 robot_model = RobotModel(robot_urdf)
 #LH_name = 'LWrMot3'
 #RH_name = 'RWrMot3'
@@ -76,6 +71,7 @@ robot_model = RobotModel(robot_urdf)
 joint_pos_state = np.zeros(robot_model.q_size)
 joint_vel_state = np.zeros(robot_model.qdot_size)
 joint_effort_state = np.zeros(robot_model.qdot_size)
+joint_effort_ref_state = np.zeros(robot_model.qdot_size)
 joint_stiffness_state = np.zeros(robot_model.qdot_size)
 joint_damping_state = np.zeros(robot_model.qdot_size)
 joint_state_id = []
@@ -86,22 +82,25 @@ def callback(data, params):
     joint_pos_state = params[1]
     joint_effort_state = params[2]
     #if not joint_ids:
-    #    joint_ids[:] = [bigman_params['joints_names'].index(name) for name in data.name]
-    joint_ids[:] = [bigman_params['joints_names'].index(name) for name in data.name]
+    #    joint_ids[:] = [centauro_params['joints_names'].index(name) for name in data.name]
+    joint_ids[:] = [centauro_params['joints_names'].index(name) for name in data.name]
     joint_pos_state[joint_ids] = data.link_position
     joint_effort_state[joint_ids] = data.effort
     joint_stiffness_state[joint_ids] = data.stiffness
     joint_damping_state[joint_ids] = data.damping
     joint_vel_state[joint_ids] = data.link_velocity
+    joint_effort_ref_state[joint_ids] = data.effort_reference
 
-publisher = rospy.Publisher("/xbotcore/bigman/command", CommandAdvr, queue_size=10)
-subscriber = rospy.Subscriber("/xbotcore/bigman/joint_states", JointStateAdvr, callback, (joint_state_id, joint_pos_state, joint_effort_state))
+publisher = rospy.Publisher("/xbotcore/centauro/command", CommandAdvr, queue_size=10)
+subscriber = rospy.Subscriber("/xbotcore/centauro/joint_states", JointStateAdvr, callback, (joint_state_id, joint_pos_state, joint_effort_state))
 rospy.init_node('traj_example')
 pub_rate = rospy.Rate(freq)
 des_cmd = CommandAdvr()
-des_cmd.name = bigman_params['joints_names']
+des_cmd.name = centauro_params['joints_names']
 
-q_init = traj_rep.get_data(0)*0
+
+joints_from_traj_rep = range(12, 27)
+q_init = np.zeros(robot_model.q_size)
 N = int(np.ceil(T_init*freq))
 joint_init_traj = polynomial5_interpolation(N, q_init, joint_pos_state)[0]
 print("Moving to zero configuration")
@@ -112,22 +111,23 @@ for ii in range(N):
     publisher.publish(des_cmd)
     pub_rate.sleep()
 
-q_init = traj_rep.get_data(0)
+q_init = np.zeros(robot_model.q_size)
+q_init[2] = np.deg2rad(-45)
 N = int(np.ceil(T_init_traj*freq))
 joint_init_traj = polynomial5_interpolation(N, q_init, joint_pos_state)[0]
-joint_init_traj_dots = np.vstack((np.diff(joint_init_traj, axis=0), np.zeros((1, traj_rep.dim))))*freq
-joint_init_traj_ddots = np.vstack((np.diff(joint_init_traj_dots, axis=0), np.zeros((1, traj_rep.dim))))*freq*freq
+joint_init_traj_dots = np.vstack((np.diff(joint_init_traj, axis=0), np.zeros((1, len(joints_from_traj_rep)))))*freq
+joint_init_traj_ddots = np.vstack((np.diff(joint_init_traj_dots, axis=0), np.zeros((1, len(joints_from_traj_rep)))))*freq*freq
 
 tau = np.zeros(robot_model.qdot_size)
 a = np.zeros(robot_model.qdot_size)
 M = np.zeros((robot_model.qdot_size, robot_model.qdot_size))
-joints_to_move = bigman_params['joint_ids']['BA'][:7]
-#joints_to_move = [bigman_params['joint_ids']['BA'][6]]
-des_cmd.name = [bigman_params['joints_names'][idx] for idx in joints_to_move]
+joints_to_move = range(1, 8)
+des_cmd.name = [centauro_params['joints_names'][idx] for idx in joints_to_move]
 #raw_input("Press key for moving to the initial configuration of trajectory")
 des_cmd.position = []
 qs_init_traj = np.zeros((N, robot_model.q_size))
 taus_cmd_init_traj = np.zeros((N, robot_model.qdot_size))
+taus_ref_init_traj = np.zeros((N, robot_model.qdot_size))
 
 if load_torques:
     taus_init_traj = np.load(torques_saved_filename)
@@ -139,37 +139,42 @@ raw_input("Press a key to continue...")
 for ii in range(N):
     if load_torques:
         print("Reproducing previous torques!")
-        des_cmd.effort = taus_init_traj[ii, joints_to_move]
+        tau[:] = taus_init_traj[ii, :]
+        des_cmd.effort = tau[joints_to_move]
         des_cmd.stiffness = np.zeros_like(tau[joints_to_move])
         des_cmd.damping = np.zeros_like(tau[joints_to_move])
     else:
-        #des_cmd.position = joint_init_traj[ii, joints_to_move]
-        #des_cmd.stiffness = default_joint_stiffness[joints_to_move]
-        #des_cmd.damping = default_joint_damping[joints_to_move]
-        #taus_init_traj[ii, :] = joint_effort_state
-        #print(joint_init_traj[ii, joints_to_move] - joint_pos_state[joints_to_move])
-        #robot_model.update_torque(tau, joint_init_traj[ii, :], joint_init_traj_dots[ii, :]*freq,
-        #                          joint_init_traj_ddots[ii, :]*freq*freq)
+        des_cmd.position = joint_init_traj[ii, joints_to_move]
+        des_cmd.stiffness = default_joint_stiffness[joints_to_move]
+        des_cmd.damping = default_joint_damping[joints_to_move]
+        #robot_model.update_torque(tau, joint_pos_state, joint_vel_state,
+        #                          joint_init_traj_ddots[ii, :])
+        rbdl.InverseDynamics(robot_model.model, joint_init_traj[ii, :], joint_init_traj_dots[ii, :],
+                             joint_init_traj_ddots[ii, :], tau)
+        #robot_model.update_torque(tau, joint_init_traj[ii, :], joint_init_traj_dots[ii, :],
+        #                          joint_init_traj_ddots[ii, :])
         #robot_model.update_coriolis_forces(tau, joint_pos_state, joint_vel_state)
         #robot_model.update_coriolis_forces(tau, joint_pos_state, joint_vel_state*0)
 
         #a = joint_init_traj_ddots[ii, :] + \
-        a = default_joint_damping * (joint_init_traj_dots[ii, :] - joint_vel_state) + \
-            default_joint_stiffness * (joint_init_traj[ii, :] - joint_pos_state)
-        robot_model.update_inertia_matrix(M, joint_pos_state)
-        robot_model.update_torque(tau, joint_pos_state, joint_vel_state,
-                                  joint_init_traj_ddots[ii, :])
-        tau += M.dot(a)
-        des_cmd.effort = tau[joints_to_move]
-        des_cmd.stiffness = np.zeros_like(tau[joints_to_move])
-        des_cmd.damping = np.zeros_like(tau[joints_to_move])
+        #a = default_joint_damping * (joint_init_traj_dots[ii, :] - joint_vel_state) + \
+        #    default_joint_stiffness * (joint_init_traj[ii, :] - joint_pos_state)
+        #robot_model.update_inertia_matrix(M, joint_pos_state)
+        #robot_model.update_torque(tau, joint_pos_state, joint_vel_state,
+        #                          joint_init_traj_ddots[ii, :])
+        #tau += M.dot(a)
+        #des_cmd.effort = tau[joints_to_move]
+        #des_cmd.stiffness = np.zeros_like(tau[joints_to_move])
+        #des_cmd.damping = np.zeros_like(tau[joints_to_move])
     publisher.publish(des_cmd)
     taus_init_traj[ii, :] = joint_effort_state
+    taus_ref_init_traj[ii, :] = joint_effort_ref_state
+    qs_init_traj[ii, :] = joint_pos_state
     taus_cmd_init_traj[ii, :] = tau
     pub_rate.sleep()
-joints_to_plot = bigman_params['joint_ids']['LA']
+joints_to_plot = range(1, 8)
 cols = 3
-joint_names = [bigman_params['joints_names'][idx] for idx in joints_to_plot]
+joint_names = centauro_params['joints_names']
 plot_desired_sensed_torque_position(joints_to_plot, taus_cmd_init_traj, taus_init_traj,
                                     joint_init_traj, qs_init_traj, joint_names, block=True, cols=cols)
 
@@ -256,16 +261,16 @@ print('joint_damping = %s' % repr(joint_damping_state))
 
 #raw_input("Press key for reproducing trajectory")
 print("Reproducing trajectory (ONLY ARMS)...")
-joints_to_move = bigman_params['joint_ids']['BA'][5:6]
-joints_to_move = [bigman_params['joint_ids']['BA'][6]]
-des_cmd.name = [bigman_params['joints_names'][idx] for idx in joints_to_move]
+joints_to_move = centauro_params['joint_ids']['BA'][5:6]
+joints_to_move = [centauro_params['joint_ids']['BA'][6]]
+des_cmd.name = [centauro_params['joints_names'][idx] for idx in joints_to_move]
 #robot_model.update_torque(tau, joint_pos_state, joint_vel_state, qddot)
 robot_model.update_torque(tau, joint_pos_state, qdot, qddot)
 print(tau[joints_to_move])
 print(joint_effort_state[joints_to_move])
 des_cmd.position = []
 des_cmd.effort = tau[joints_to_move]
-#des_cmd.effort = joint_effort_state[bigman_params['joint_ids']['BA'][:4]]
+#des_cmd.effort = joint_effort_state[centauro_params['joint_ids']['BA'][:4]]
 des_cmd.stiffness = np.zeros_like(default_joint_stiffness[joints_to_move])
 des_cmd.damping = np.zeros_like(default_joint_damping[joints_to_move])
 qs2 = np.tile(joint_pos_state[:], (T_impedance_zero*freq, 1))
@@ -301,9 +306,9 @@ for ii in range(T_impedance_zero*freq):
     publisher.publish(des_cmd)
     pub_rate.sleep()
 os.system("gz log -d 0")
-joints_to_plot = bigman_params['joint_ids']['LA']
+joints_to_plot = range(1, 8)
 cols = 3
-joint_names = [bigman_params['joints_names'][idx] for idx in joints_to_plot]
+joint_names = centauro_params['joints_names']
 plot_desired_sensed_torque_position(joints_to_plot, taus2, sensed_taus2, qs2, sensed_qs2, joint_names, block=False, cols=cols)
 #sys.exit()
 raw_input("AA")
@@ -318,7 +323,7 @@ for ii in range(traj_rep.data_points):
 #for ii in range(20):
     #print("Sending LIFTING cmd...")
     #error = joint_lift_trajectory[ii, :] - joint_pos_state
-    #print(error[bigman_params['joint_ids']['BA']])
+    #print(error[centauro_params['joint_ids']['BA']])
     #des_cmd.position += K*error
     q[joints_to_move] = joint_effort_state[joints_to_move]
     qdot[joints_to_move] = qdots[ii, joints_to_move]*freq
@@ -327,39 +332,24 @@ for ii in range(traj_rep.data_points):
     taus[ii, :] = tau
     sensed_taus[ii, ] = joint_effort_state
     sensed_qs[ii, :] = joint_pos_state
-    print("joint_names: %s" % [bigman_params['joints_names'][id] for id in joints_to_move])
+    print("joint_names: %s" % [centauro_params['joints_names'][id] for id in joints_to_move])
     print("q: %s" % repr(q[joints_to_move]))
     print("tau: %s" % repr(tau[joints_to_move]))
     print("tau_state: %s" % repr(joint_effort_state[joints_to_move]))
     print("--")
-    #des_cmd.position = traj_rep.get_data(ii)[bigman_params['joint_ids']['BA'][joints_to_move]]
+    #des_cmd.position = traj_rep.get_data(ii)[centauro_params['joint_ids']['BA'][joints_to_move]]
     #des_cmd.position = q[joints_to_move]
     des_cmd.effort = tau[joints_to_move]
     des_cmd.stiffness = np.zeros_like(qdot[joints_to_move])
     des_cmd.damping = np.zeros_like(qdot[joints_to_move])
-    #des_cmd.stiffness = default_joint_stiffness[bigman_params['joint_ids']['BA'][joints_to_move]]
-    #des_cmd.damping = default_joint_damping[bigman_params['joint_ids']['BA'][joints_to_move]]
+    #des_cmd.stiffness = default_joint_stiffness[centauro_params['joint_ids']['BA'][joints_to_move]]
+    #des_cmd.damping = default_joint_damping[centauro_params['joint_ids']['BA'][joints_to_move]]
     publisher.publish(des_cmd)
     pub_rate.sleep()
 
-#fig, axs = plt.subplots(dU/cols+1, cols)
-#fig.canvas.set_window_title("Positions")
-#fig.set_facecolor((0.5, 0.5, 0.5))
-#for ii in range(dU):
-#    #plt.subplot(dU/cols+1, cols, ii+1)
-#    print(ii/cols)
-#    print(ii%cols)
-#    print("-")
-#    axs[ii/cols, ii % cols].set_title("Position %d: %s" % (ii+1, bigman_params['joints_names'][joints_to_plot[ii]]))
-#    print(joints_to_plot[ii])
-#    print(bigman_params['joints_names'][joints_to_plot[ii]])
-#    axs[ii/cols, ii % cols].plot(qs[:, joints_to_plot[ii]], 'b')
-#    axs[ii/cols, ii % cols].plot(sensed_qs[:, joints_to_plot[ii]], 'r')
-#plt.show(block=False)
-
-joints_to_plot = bigman_params['joint_ids']['LA']
+joints_to_plot = range(1, 8)
 cols = 3
-joint_names = [bigman_params['joints_names'][idx] for idx in joints_to_plot]
+joint_names = [centauro_params['joints_names'][idx] for idx in joints_to_plot]
 plot_desired_sensed_torque_position(joints_to_plot, taus, sensed_taus, qs, sensed_qs, joint_names, block=False, cols=cols)
 #plot_joint_info(joints_to_plot, taus, joint_names, data='torque')
 

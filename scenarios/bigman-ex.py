@@ -92,7 +92,7 @@ observation_active = [{'name': 'joint_state',
                        'type': 'optitrack',
                        'ros_topic': '/optitrack/relative_poses',
                        'fields': ['position', 'orientation'],
-                       'bodies': ['LSoftHand', 'RSoftHand', 'cardboard_cube_box']},
+                       'bodies': ['LSoftHand', 'RSoftHand', 'box']},
                       ]
 
 #observation_active = [{'name': 'imu1',
@@ -112,8 +112,8 @@ state_active = [{'name': 'joint_state',
 
                 {'name': 'optitrack',
                  'type': 'optitrack',
-                 'fields': ['position'],
-                 'bodies': ['cardboard_cube_box']}]  # check if it is better relative position with EE(EEs)
+                 'fields': ['position', 'orientation'],
+                 'bodies': ['box']}]  # check if it is better relative position with EE(EEs)
 
 
 

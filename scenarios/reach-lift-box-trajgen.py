@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from timeit import default_timer as timer
 from robolearn.utils.iit.iit_robots_params import *
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 from robolearn.utils.trajectory_interpolators import spline_interpolation
@@ -15,7 +16,8 @@ np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 
 # Script parameters
 #box_position = np.array([0.75, 0.0, 0.0184])
-box_position = np.array([0.75-0.05,
+box_mass = 0.71123284
+box_position = np.array([0.75,
                          0.00,
                          0.0184])
 box_size = [0.4, 0.5, 0.3]
@@ -25,8 +27,8 @@ box_orient = tf.transformations.rotation_matrix(np.deg2rad(box_yaw), [0, 0, 1])
 box_matrix = homogeneous_matrix(rot=box_orient, pos=box_position)
 freq = 100
 T_init = 1
-T_reach = 2
-T_lift = 2
+T_reach = 10
+T_lift = 10
 
 # Save/Load file name
 file_name = 'trajectories/traj1'+'_x'+str(box_position[0])+'_y'+str(box_position[1])+'_Y'+str(box_yaw)
@@ -37,7 +39,6 @@ load_lift_traj = False
 save_reach_traj = True
 save_lift_traj = True
 
-remove_spawn_new_box = True
 plot_at_the_end = True
 
 reach_option = 0
@@ -61,7 +62,7 @@ q_init[25] = np.deg2rad(-50)
 #q_init = np.deg2rad(np.array(bigman_Tpose))
 
 # Robot Model
-robot_urdf = '/home/'+os.environ["USER"]+'/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
+robot_urdf = os.environ["ROBOTOLOGY_ROOT"]+'/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
 robot_model = RobotModel(robot_urdf)
 LH_name = 'LWrMot3'
 RH_name = 'RWrMot3'
@@ -173,8 +174,11 @@ if not load_reach_traj:
                                   method=ik_method)
         q_reach[bigman_params['joint_ids']['RA']] = q_reach2[bigman_params['joint_ids']['RA']]
 
-        J1 = np.zeros((6, robot_model.qdot_size))
-        J2 = np.zeros((6, robot_model.qdot_size))
+        #J1 = np.zeros((6, robot_model.qdot_size))
+        #J2 = np.zeros((6, robot_model.qdot_size))
+        J = np.zeros((12, robot_model.qdot_size))
+        xdot = np.zeros(12)
+        qdot = np.zeros(robot_model.qdot_size)
         K = 500
     else:
         raise ValueError("Wrong reach_option %d" % reach_option)
@@ -192,8 +196,11 @@ else:
     joint_reach_trajectory = np.load(file_name + '_m' + str(reach_option) + '_reach.npy')
     if reach_option == 2:
         q_reach = joint_reach_trajectory[-1, :]
-        J1 = np.zeros((6, robot_model.qdot_size))
-        J2 = np.zeros((6, robot_model.qdot_size))
+        #J1 = np.zeros((6, robot_model.qdot_size))
+        #J2 = np.zeros((6, robot_model.qdot_size))
+        J = np.zeros((12, robot_model.qdot_size))
+        xdot = np.zeros(12)
+        qdot = np.zeros(robot_model.qdot_size)
         desired_LH_reach_pose = np.load(file_name+'_reach_LH_EE.npy')
         desired_RH_reach_pose = np.load(file_name+'_reach_RH_EE.npy')
     print("\033[31mDONE!! \033[0m")
@@ -267,8 +274,11 @@ if not load_lift_traj:
         desired_LH_lift_pose = polynomial5_interpolation(N, LH_lift_pose, actual_LH_pose)[0]
         desired_RH_lift_pose = polynomial5_interpolation(N, RH_lift_pose, actual_RH_pose)[0]
 
-        J1 = np.zeros((6, robot_model.qdot_size))
-        J2 = np.zeros((6, robot_model.qdot_size))
+        #J1 = np.zeros((6, robot_model.qdot_size))
+        #J2 = np.zeros((6, robot_model.qdot_size))
+        J = np.zeros((12, robot_model.qdot_size))
+        xdot = np.zeros(12)
+        qdot = np.zeros(robot_model.qdot_size)
         K = 500
     else:
         raise ValueError("Wrong lift_option %d" % lift_option)
@@ -278,8 +288,11 @@ else:
     print("\n\033[5mLoading lifting trajectory...")
     joint_lift_trajectory = np.load(file_name + '_m' + str(lift_option) + '_lift.npy')
     if lift_option == 2:
-        J1 = np.zeros((6, robot_model.qdot_size))
-        J2 = np.zeros((6, robot_model.qdot_size))
+        #J1 = np.zeros((6, robot_model.qdot_size))
+        #J2 = np.zeros((6, robot_model.qdot_size))
+        J = np.zeros((12, robot_model.qdot_size))
+        xdot = np.zeros(12)
+        qdot = np.zeros(robot_model.qdot_size)
         desired_LH_lift_pose = np.load(file_name+'_lift_LH_EE.npy')
         desired_RH_lift_pose = np.load(file_name+'_lift_RH_EE.npy')
     print("\033[31mDONE!! \033[0m")
@@ -291,25 +304,29 @@ if reach_option == 2:
     joint_reach_trajectory[0, :] = q[:]
     for ii in range(desired_LH_reach_pose.shape[0]-1):
         #for ii in range(N-1):
-        print("Sending LIFTING cmd...")
+        print("Generating REACHING %d/%d..." % (ii+1, desired_LH_reach_pose.shape[0]))
         #error1 = compute_cartesian_error(desired_LH_lift_pose[ii, :], actual_LH_lift_pose, rotation_rep='quat')
         #error2 = compute_cartesian_error(desired_RH_lift_pose[ii, :], actual_RH_lift_pose, rotation_rep='quat')
 
-        xdot = compute_cartesian_error(desired_LH_reach_pose[ii+1, :], desired_LH_reach_pose[ii, :], rotation_rep='quat')#error1
-        xdot2 = compute_cartesian_error(desired_RH_reach_pose[ii+1, :], desired_RH_reach_pose[ii, :], rotation_rep='quat')#error1
+        xdot[:6] = compute_cartesian_error(desired_LH_reach_pose[ii+1, :], desired_LH_reach_pose[ii, :], rotation_rep='quat')#error1
+        xdot[6:] = compute_cartesian_error(desired_RH_reach_pose[ii+1, :], desired_RH_reach_pose[ii, :], rotation_rep='quat')#error1
+
+        ## Compute the jacobian matrix
+        ##rbdl.CalcPointJacobian6D(robot_model.model, q, model.GetBodyId(LH_name), np.zeros(0), J1, True)
+        #robot_model.update_jacobian(J1, LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
+        #robot_model.update_jacobian(J2, RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
+        #J1[:, bigman_params['joint_ids']['TO']] = 0
+        #J2[:, bigman_params['joint_ids']['TO']] = 0
+        #qdot = np.linalg.lstsq(J1, xdot)[0]
+        #qdot2 = np.linalg.lstsq(J2, xdot2)[0]
+        #qdot[bigman_params['joint_ids']['RA']] = qdot2[bigman_params['joint_ids']['RA']]
 
         # Compute the jacobian matrix
         #rbdl.CalcPointJacobian6D(robot_model.model, q, model.GetBodyId(LH_name), np.zeros(0), J1, True)
-        robot_model.update_jacobian(J1, LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
-        robot_model.update_jacobian(J2, RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
-        J1[:, bigman_params['joint_ids']['TO']] = 0
-        J2[:, bigman_params['joint_ids']['TO']] = 0
-        #print(J1)
-
-        qdot = np.linalg.lstsq(J1, xdot)[0]
-        qdot2 = np.linalg.lstsq(J2, xdot2)[0]
-
-        qdot[bigman_params['joint_ids']['RA']] = qdot2[bigman_params['joint_ids']['RA']]
+        robot_model.update_jacobian(J[:6, :], LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
+        robot_model.update_jacobian(J[6:, :], RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
+        #Note: lstsq is faster than pinv and then dot
+        qdot[:] = np.linalg.lstsq(J, xdot)[0]
 
         q[:] += qdot
 
@@ -324,25 +341,30 @@ if lift_option == 2:
     joint_lift_trajectory[0, :] = q[:]
     for ii in range(desired_LH_lift_pose.shape[0]-1):
     #for ii in range(N-1):
-        print("Sending LIFTING cmd...")
+        print("Generating LIFTING %d/%d..." % (ii+1, desired_LH_lift_pose.shape[0]))
         #error1 = compute_cartesian_error(desired_LH_lift_pose[ii, :], actual_LH_lift_pose, rotation_rep='quat')
         #error2 = compute_cartesian_error(desired_RH_lift_pose[ii, :], actual_RH_lift_pose, rotation_rep='quat')
 
-        xdot = compute_cartesian_error(desired_LH_lift_pose[ii+1, :], desired_LH_lift_pose[ii, :], rotation_rep='quat')#error1
-        xdot2 = compute_cartesian_error(desired_RH_lift_pose[ii+1, :], desired_RH_lift_pose[ii, :], rotation_rep='quat')#error1
+        xdot[:6] = compute_cartesian_error(desired_LH_lift_pose[ii+1, :], desired_LH_lift_pose[ii, :], rotation_rep='quat')#error1
+        xdot[6:] = compute_cartesian_error(desired_RH_lift_pose[ii+1, :], desired_RH_lift_pose[ii, :], rotation_rep='quat')#error1
+
+        ## Compute the jacobian matrix
+        ##rbdl.CalcPointJacobian6D(robot_model.model, q, model.GetBodyId(LH_name), np.zeros(0), J1, True)
+        #robot_model.update_jacobian(J1, LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
+        #robot_model.update_jacobian(J2, RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
+        #J1[:, bigman_params['joint_ids']['TO']] = 0
+        #J2[:, bigman_params['joint_ids']['TO']] = 0
+        #qdot = np.linalg.lstsq(J1, xdot)[0]
+        #qdot2 = np.linalg.lstsq(J2, xdot2)[0]
+        #qdot[bigman_params['joint_ids']['RA']] = qdot2[bigman_params['joint_ids']['RA']]
 
         # Compute the jacobian matrix
         #rbdl.CalcPointJacobian6D(robot_model.model, q, model.GetBodyId(LH_name), np.zeros(0), J1, True)
-        robot_model.update_jacobian(J1, LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
-        robot_model.update_jacobian(J2, RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
-        J1[:, bigman_params['joint_ids']['TO']] = 0
-        J2[:, bigman_params['joint_ids']['TO']] = 0
-        #print(J1)
-
-        qdot = np.linalg.lstsq(J1, xdot)[0]
-        qdot2 = np.linalg.lstsq(J2, xdot2)[0]
-
-        qdot[bigman_params['joint_ids']['RA']] = qdot2[bigman_params['joint_ids']['RA']]
+        robot_model.update_jacobian(J[:6, :], LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
+        robot_model.update_jacobian(J[6:, :], RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
+        #Note: lstsq is faster than pinv and then dot
+        qdot[:] = np.linalg.lstsq(J, xdot)[0]
+        #qdot = np.linalg.pinv(J).dot(xdot)
 
         q[:] += qdot
 
@@ -383,3 +405,5 @@ if plot_at_the_end:
     plot_joint_info(joints_to_plot, qddots_lift*freq*freq, joint_names, data='acceleration', block=False)
 
     raw_input("Press a key to close the script")
+
+

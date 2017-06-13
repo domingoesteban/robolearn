@@ -1,10 +1,12 @@
 from __future__ import print_function
 
 import sys
+import os
+import signal
 import numpy as np
 import matplotlib.pyplot as plt
 
-from robolearn.utils.iit.iit_robots_params import *
+from robolearn.utils.iit.iit_robots_params import bigman_params
 from robolearn.envs import BigmanEnv
 from robolearn.agents import GPSAgent
 
@@ -28,14 +30,21 @@ from robolearn.policies.policy_prior import PolicyPrior  # For MDGPS
 from robolearn.utils.sampler import Sampler
 from robolearn.policies.traj_reprod_policy import TrajectoryReproducerPolicy
 
-import tf
-from robolearn.utils.transformations import homogeneous_matrix
+from robolearn.utils.lift_box_utils import create_box_relative_pose
+from robolearn.utils.lift_box_utils import reset_condition_bigman_box_gazebo
+from robolearn.utils.lift_box_utils import spawn_box_gazebo
+from robolearn.utils.lift_box_utils import create_bigman_box_condition
 
-import rospy
-from robolearn.utils.print_utils import *
+from robolearn.utils.print_utils import change_print_color
 
 import time
 
+
+def kill_everything(_signal=None, _frame=None):
+    print("\n\033[1;31mThe script has been kill by the user!!")
+    os._exit(1)
+
+signal.signal(signal.SIGINT, kill_everything)
 
 # ################## #
 # ################## #
@@ -45,16 +54,18 @@ import time
 # Task parameters
 #update_frequency = 5
 Ts = 0.01
-EndTime = 4  # Using final time to define the horizon
+#EndTime = 4  # Using final time to define the horizon
+EndTime = 10  # Using final time to define the horizon
 
 # BOX
-box_position = np.array([0.75-0.05,
-                         0.00,
-                         0.0184])
-box_size = [0.4, 0.5, 0.3]
+box_x = 0.75-0.05
+box_y = 0.00
+box_z = 0.0184
 box_yaw = 0  # Degrees
-box_orient = tf.transformations.rotation_matrix(np.deg2rad(box_yaw), [0, 0, 1])
-box_matrix = homogeneous_matrix(rot=box_orient, pos=box_position)
+box_size = [0.4, 0.5, 0.3]
+box_relative_pose = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
+
+# Robot Conditions
 
 
 # ################### #
@@ -62,13 +73,13 @@ box_matrix = homogeneous_matrix(rot=box_orient, pos=box_position)
 # ### ENVIRONMENT ### #
 # ################### #
 # ################### #
-
+change_print_color.change('BLUE')
 print("\nCreating Bigman environment...")
 
 # Robot configuration
 interface = 'ros'
-body_part_active = 'UB'
-command_type = 'position'
+body_part_active = 'BA'
+command_type = 'effort'
 file_save_restore = "models/bigman_agent_vars.ckpt"
 
 
@@ -131,19 +142,16 @@ state_active = [{'name': 'joint_state',
                  'bodies': ['box']}]  # check if it is better relative position with EE(EEs)
 
 
-
+# Spawn Box first because it is simulation
+spawn_box_gazebo(box_relative_pose, box_size=box_size)
 
 # Create a Bigman robot ROS EnvInterface
 bigman_env = BigmanEnv(interface=interface, mode='simulation',
                        body_part_active=body_part_active, command_type=command_type,
                        observation_active=observation_active,
                        state_active=state_active,
-                       cmd_freq=int(1/Ts))
-
-# TODO: DOMINGOOOO
-# TODO: Temporally using current state to set one initial condition
-current_state = bigman_env.get_state()
-bigman_env.set_initial_conditions([current_state])
+                       cmd_freq=int(1/Ts),
+                       reset_simulation_fcn=reset_condition_bigman_box_gazebo)
 
 action_dim = bigman_env.get_action_dim()
 state_dim = bigman_env.get_state_dim()
@@ -151,12 +159,16 @@ observation_dim = bigman_env.get_obs_dim()
 
 print("Bigman Environment OK. body_part_active:%s (action_dim=%d). Command_type:%s" % (body_part_active, action_dim, command_type))
 
+#print(bigman_env.get_state_info())
+#raw_input("SSS")
+
 
 # ################# #
 # ################# #
 # ##### AGENT ##### #
 # ################# #
 # ################# #
+change_print_color.change('CYAN')
 print("\nCreating Bigman Agent...")
 
 # Create an Agent
@@ -190,9 +202,9 @@ policy_params = {
         #'image_channels': IMAGE_CHANNELS (3),  # For multi_modal_network
     }
 }
-policy = PolicyOptTf(policy_params, observation_dim, action_dim)
+policy_opt = PolicyOptTf(policy_params, observation_dim, action_dim)
 #policy = None
-bigman_agent = GPSAgent(act_dim=action_dim, obs_dim=observation_dim, state_dim=state_dim, policy=policy)
+bigman_agent = GPSAgent(act_dim=action_dim, obs_dim=observation_dim, state_dim=state_dim, policy_opt=policy_opt)
 # Load previous learned variables
 #bigman_agent.load(file_save_restore)
 print("Bigman Agent:%s OK\n" % type(bigman_agent))
@@ -203,8 +215,7 @@ print("Bigman Agent:%s OK\n" % type(bigman_agent))
 # ##### COSTS ##### #
 # ################# #
 # ################# #
-
-# Action Cost  #TODO: I think it doesn't have sense if the control is joint position
+# Action Cost
 act_cost = {
     'type': CostAction,
     'wu': np.ones(action_dim) * 1e-4,
@@ -214,20 +225,10 @@ act_cost = {
 }
 
 # State Cost
-box_pose = [-0.7500,  # pos x
-            0.0000,   # pos y
-            0.0184,   # pos z
-            0.0000,   # orient x
-            0.0000,   # orient y
-            0.0000,   # orient z
-            1.0000]   # orient w
+left_ee_pose = box_relative_pose
+left_ee_pose[0] += box_size[0]/2 - 0.05
 
-box_size = [0.4, 0.5, 0.3]
-
-left_ee_pose = box_pose
-left_ee_pose[0] += box_size[0]/2 - 0.05 #
-
-target_state = left_ee_pose + box_pose
+target_state = left_ee_pose + box_relative_pose
 # 'B' pose
 state_cost = {
     'type': CostState,
@@ -278,24 +279,43 @@ cost_sum = {
 # ## SAMPLE FROM DEMONSTRATIONS ## #
 # ################################ #
 # ################################ #
-n_samples = 5
-noisy = True
-sampler_hyperparams = {
-    'noisy': noisy,
-    'noise_var_scale': 0.0001,  # It can be a np.array() with dim=dU
-    'smooth_noise': False,
-    'smooth_noise_var': 0.01,#01
-    'smooth_noise_renormalize': False,
-    'T': int(EndTime/Ts),  # Total points
-    'dt': Ts
-    }
-traj_files = ['trajectories/traj1'+'_x'+str(box_position[0])+'_y'+str(box_position[1])+'_Y'+str(box_yaw)+'_m0_reach.npy',
-              'trajectories/traj1'+'_x'+str(box_position[0])+'_y'+str(box_position[1])+'_Y'+str(box_yaw)+'_m1_lift.npy']
-traj_rep_policy = TrajectoryReproducerPolicy(traj_files, act_idx=bigman_params['joint_ids']['UB'])
-sampler = Sampler(traj_rep_policy, bigman_env, **sampler_hyperparams)
-cond = bigman_env.add_q0(traj_rep_policy.traj_rep.get_data(0))
-#raw_input("Press a key for sampling from Sampler")
-sampler.take_samples(n_samples, cond=cond, noisy=noisy)
+#change_print_color.change('GREEN')
+#n_samples = 4
+#noisy = True
+#sampler_hyperparams = {
+#    'noisy': noisy,
+#    'noise_var_scale': 0.0001,  # It can be a np.array() with dim=dU
+#    'smooth_noise': False,
+#    'smooth_noise_var': 0.01,#01
+#    'smooth_noise_renormalize': False,
+#    'T': int(EndTime/Ts),  # Total points
+#    'dt': Ts
+#    }
+##traj_files = ['trajectories/traj1'+'_x'+str(box_x)+'_y'+str(box_y)+'_Y'+str(box_yaw)+'_m0_reach.npy',
+##              'trajectories/traj1'+'_x'+str(box_x)+'_y'+str(box_y)+'_Y'+str(box_yaw)+'_m1_lift.npy']
+#traj_files = ['trajectories/traj1'+'_x'+str(box_x)+'_y'+str(box_y)+'_Y'+str(box_yaw)+'_m0_reach.npy']
+#traj_rep_policy = TrajectoryReproducerPolicy(traj_files, act_idx=bigman_params['joint_ids']['BA'])
+#sampler = Sampler(traj_rep_policy, bigman_env, **sampler_hyperparams)
+#condition = create_bigman_box_condition(traj_rep_policy.eval(t=0), box_relative_pose)
+#cond_idx = bigman_env.add_condition(condition)
+#print(cond_idx)
+##raw_input("Press a key for sampling from Sampler")
+#print("\nSampling %d times from condition%d and with policy:%s (noisy:%s)" % (n_samples, cond_idx,
+#                                                                              type(traj_rep_policy), noisy))
+#sampler.take_samples(n_samples, cond=cond_idx, noisy=noisy)
+
+# ########## #
+# Conditions #
+# ########## #
+q0 = np.zeros(31)
+condition0 = create_bigman_box_condition(q0, box_relative_pose, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition0)
+
+q1 = q0.copy()
+q1[16] = np.deg2rad(50)
+q1[25] = np.deg2rad(-50)
+condition1 = create_bigman_box_condition(q1, box_relative_pose, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition1)
 
 
 # ######################## #
@@ -303,10 +323,12 @@ sampler.take_samples(n_samples, cond=cond, noisy=noisy)
 # ## LEARNING ALGORITHM ## #
 # ######################## #
 # ######################## #
+change_print_color.change('YELLOW')
+print("\nConfiguring learning algorithm...\n")
 
 # Learning params
-total_episodes = 5
-num_samples = 5  # Samples for exploration trajs
+total_episodes = 10
+num_samples = 15  # Samples for exploration trajs
 resume_training_itr = None  # Resume from previous training iteration
 T = int(EndTime/Ts)  # Total points
 conditions = 1  # Number of initial conditions
@@ -315,14 +337,14 @@ test_policy_after_iter = False
 kl_step = 0.2
 # init_traj_distr is a list of dict
 init_traj_distr = {'type': init_lqr,
-                    'init_var': 1.0,
-                    'stiffness': 1.0,
-                    'stiffness_vel': 0.5,
-                    'final_weight': 1.0,
-                    # Parameters for guessing dynamics
-                    'init_acc': np.zeros(action_dim),  # dU vector(np.array) of accelerations, default zeros.
-                    'init_gains': 1*np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
-                   }
+                   'init_var': 1.0,
+                   'stiffness': 1.0,
+                   'stiffness_vel': 0.5,
+                   'final_weight': 1.0,
+                   # Parameters for guessing dynamics
+                   'init_acc': np.zeros(action_dim),  # dU vector(np.array) of accelerations, default zeros.
+                   'init_gains': 1*np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
+                  }
 #init_traj_distr = [{'type': init_pd,
 #                    'init_var': 0.00001,  # initial variance (Default:10)
 #                    'pos_gains': 0.001,  # position gains (Default:10)
@@ -359,7 +381,39 @@ print("Learning algorithm: %s OK\n" % type(learn_algo))
 
 # Learn using learning algorithm
 print("Running Learning Algorithm!!!")
-learn_algo.run(resume_training_itr)
-print("Learning Algorithm has finished!")
-sys.exit()
+training_successful = learn_algo.run(resume_training_itr)
+if training_successful:
+    print("Learning Algorithm has finished SUCCESSFULLY!")
+else:
+    print("Learning Algorithm has finished WITH ERRORS!")
+
+
+# ############################## #
+# ############################## #
+# ## SAMPLE FROM FINAL POLICY ## #
+# ############################## #
+# ############################## #
+if training_successful:
+    conditions_to_sample = [0]
+    change_print_color.change('GREEN')
+    n_samples = 4
+    noisy = False
+    sampler_hyperparams = {
+        'noisy': noisy,
+        'noise_var_scale': 0.0001,  # It can be a np.array() with dim=dU
+        'smooth_noise': False,
+        'smooth_noise_var': 0.01,#01
+        'smooth_noise_renormalize': False,
+        'T': int(EndTime/Ts),  # Total points
+        'dt': Ts
+        }
+    sampler = Sampler(bigman_agent.policy, bigman_env, **sampler_hyperparams)
+    print("Sampling from final policy!!!")
+    for cond_idx in conditions_to_sample:
+        raw_input("\nSampling %d times from condition%d and with policy:%s (noisy:%s). \n Press a key to continue..." %
+                  (n_samples, cond_idx, type(bigman_agent.policy), noisy))
+        sampler.take_samples(n_samples, cond=cond_idx, noisy=noisy)
+
+print("The script has finished!")
+os._exit(0)
 
