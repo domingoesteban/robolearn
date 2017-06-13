@@ -1,5 +1,5 @@
 class Environment(object):
-    def send_action(self):
+    def send_action(self, action):
         NotImplementedError
 
     def read_observation(self):
@@ -25,8 +25,13 @@ class RewardManager(object):
 
 
 class EnvInterface(object):
+    def __init__(self):
+        # General Environment properties
+        self.obs_dim = 0
+        self.act_dim = 0
+
     def send_action(self, *args):
         NotImplementedError
 
-    def read_observation(self, *args):
+    def get_observation(self, *args):
         NotImplementedError

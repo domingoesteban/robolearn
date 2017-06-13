@@ -10,13 +10,16 @@ from robolearn.utils.transformations import *
 
 
 class RobotModel(object):
-    def __init__(self, robot_urdf, floating_base=False):
+    """
+    RobotModel class. Kinematic/Dynamic model of robot. Main functions are calculated with the RBDL package.
+    """
+    def __init__(self, robot_urdf_file, floating_base=False):
         self.floating_base = floating_base
-        self.model = rbdl.loadModel(robot_urdf, verbose=False, floating_base=floating_base)
-        self.q = np.zeros(self.model.q_size)# * np.nan
-        self.qdot = np.zeros(self.model.qdot_size)# * np.nan
-        self.qddot = np.zeros(self.model.qdot_size)# * np.nan
-        self.tau = np.zeros(self.model.qdot_size)# * np.nan
+        self.model = rbdl.loadModel(robot_urdf_file, verbose=False, floating_base=floating_base)
+        self.q = np.zeros(self.model.q_size)
+        self.qdot = np.zeros(self.model.qdot_size)
+        self.qddot = np.zeros(self.model.qdot_size)
+        self.tau = np.zeros(self.model.qdot_size)
 
         self.q_size = self.q.shape[0]
         self.qdot_size = self.qdot.shape[0]
@@ -25,90 +28,96 @@ class RobotModel(object):
         # Update model
         self.update()
 
-        FLOATING_BASE_BODY_ID = 0
+        floating_base_body_id = 0
         self.fb_origin_offset = rbdl.CalcBodyToBaseCoordinates(self.model, self.q * 0,
-                                                               FLOATING_BASE_BODY_ID,
+                                                               floating_base_body_id,
                                                                np.zeros(3), False)
 
-        #self.body_names = ['ROOT',
-        #                   'LHipMot',
-        #                   'LThighUpLeg',
-        #                   'LThighLowLeg',
-        #                   'LLowLeg',
-        #                   'LFootmot',
-        #                   'LFoot',
-        #                   'RHipMot',
-        #                   'RThighUpLeg',
-        #                   'RThighLowLeg',
-        #                   'RLowLeg',
-        #                   'RFootmot',
-        #                   'RFoot',
-        #                   'DWL',
-        #                   'DWS',
-        #                   'DWYTorso',
-        #                   'LShp',
-        #                   'LShr',
-        #                   'LShy',
-        #                   'LElb',
-        #                   'LForearm',
-        #                   'LWrMot2',
-        #                   'LWrMot3',
-        #                   'NeckYaw',
-        #                   'NeckPitch',
-        #                   'RShp',
-        #                   'RShr',
-        #                   'RShy',
-        #                   'RElb',
-        #                   'RForearm',
-        #                   'RWrMot2',
-        #                   'RWrMot3']
-
-    def update(self):#, update_position=True, update_velocity=True, update_desired_acceleration=True):
+    def update(self):
+        """
+        Update RBDL model with current joint positions, velocities and accelerations.
+        :return: None
+        """
         #rbdl.UpdateKinematicsCustom(_rbdl_model, q_ptr, qdot_ptr, qddot_ptr)
         rbdl.UpdateKinematics(self.model, self.q, self.qdot, self.qddot)
 
-    def get_joint_position(self):
+    def get_joint_positions(self):
+        """
+        Get the Joint Positions of the model.
+        :return: Array with the current joint positions.
+        """
         return self.q
 
-    def get_joint_velocity(self):
+    def get_joint_velocities(self):
+        """
+        Get the Joint Velocities of the model.
+        :return: Array with the current joint velocities.
+        """
         return self.qdot
 
-    def get_joint_acceleration(self):
+    def get_joint_accelerations(self):
+        """
+        Get the Joint Accelerations of the model.
+        :return: Array with the current joint accelerations.
+        """
         return self.qddot
 
-    def set_joint_position(self, des_q):
+    def set_joint_positions(self, des_q):
+        """
+        Set the Joint Positions of the model
+        :param des_q: Desired array of joint positions.
+        :return: None
+        """
         self.q = des_q.copy()
 
-    def set_joint_velocity(self, des_qdot):
-        self.qdot = des_qdot.copy()
+    def set_joint_velocities(self, desired_qdot):
+        """
+        Set the Joint Velocities of the model
+        :param desired_qdot: Desired array of joint velocities.
+        :return: None
+        """
+        self.qdot = desired_qdot.copy()
 
-    def set_joint_acceleration(self, des_qddot):
-        self.qddot = des_qddot.copy()
+    def set_joint_accelerations(self, desired_qddot):
+        """
+        Set the Joint Accelerations of the model
+        :param desired_qddot: Desired array of joint accelerations.
+        :return: None
+        """
+        self.qddot = desired_qddot.copy()
 
-    def link_id(self, link_name):
-        if link_name == "world":
-            body_id = self.model.GetBodyId("ROOT")
+    def get_link_id(self, body_name):
+        """
+        Get the ID (index) of the requested body (link) in the model of the robot.
+        Returns -1 if the body is not considered in the model of the robot.
+        :param body_name: Name of the body (link)
+        :return: Body (link) id.
+        """
+        if body_name.lower() == 'world':
+            body_id = self.model.GetBodyId('ROOT')
         else:
-            body_id = self.model.GetBodyId(link_name)
+            body_id = self.model.GetBodyId(body_name)
 
-        #if std::numeric_limits<unsigned int>::max() ==  body_id:
         if body_id > self.model.q_size:
             return -1
         else:
             return body_id
 
     def fk(self, body_name, q=None, body_offset=np.zeros(3), update_kinematics=True, rotation_rep='quat'):
-        if body_name == 'Waist':
+        """
+        Forward kinematics for a joint configuration.
+        :param body_name: Name of the body
+        :param q: Joint configuration. If it is not specified, the current q value of the model is used.
+        :param body_offset: Body offset.
+        :param update_kinematics: Update model with the joint configuration.
+        :param rotation_rep: Representation used to represent the rotation of the body: 'quat' or 'rpy'
+        :return: Pose of the requested body.
+        """
+        if body_name == 'Waist' and not self.floating_base:
             body_name = 'ROOT'
 
-        #elif body_name == 'LSoftHand':
-        #    body_name = 'LWrMot3'
-
-        #elif body_name == 'RSoftHand':
-        #    body_name = 'RWrMot3'
-
         if q is None:
-            q = np.zeros(self.model.q_size)
+            q = self.q
 
         body_id = self.model.GetBodyId(body_name)
         pos = rbdl.CalcBodyToBaseCoordinates(self.model,
@@ -127,7 +136,7 @@ class RobotModel(object):
         elif rotation_rep == 'quat':
             orient = tf.transformations.quaternion_from_matrix(homogeneous_matrix(rot=rot))
         else:
-            raise TypeError("Wrong rotation representation: %s" % rotation_rep)
+            raise TypeError("Wrong requested rotation representation: %s" % rotation_rep)
 
         return np.concatenate((orient, pos))
 
@@ -188,7 +197,7 @@ class RobotModel(object):
 
                 # Integrate the computed velocities
                 q[:] += qdot * gamma
-                actual_pose = fk(self.model, body_name, q=q, body_offset=body_offset, update_kinematics=False)
+                actual_pose = fk(self.model, body_name, q=q, body_offset=body_offset, update_kinematics=True)
 
             return q
         else:
@@ -212,17 +221,17 @@ class RobotModel(object):
             qdot = self.qdot
         if qddot is None:
             qddot = self.qddot
-
-        #print(qdot)
-        #print(qddot)
-        #print(tau)
-        #rbdl.InverseDynamics(self.model, q, qdot/100., qddot/10000., tau)
-        #print(tau)
         rbdl.InverseDynamics(self.model, q, qdot, qddot, tau)
-        #print(tau)
-        #raw_input("w")
 
-    def id(self, q=None, qdot=None, qddot=None):
+    def inverse_dynamics(self, q=None, qdot=None, qddot=None):
+        """
+        Calculate the joint torques for the given joint positions, velocities and accelerations.
+        If any of these are not specified, the current values of the model are used.
+        :param q: Joint positions.
+        :param qdot: Joint velocities.
+        :param qddot: Joint accelerations.
+        :return: Joint torques
+        """
         tau = np.zeros(self.model.qdot_size)
         if q is None:
             q = self.q
@@ -234,6 +243,50 @@ class RobotModel(object):
         rbdl.InverseDynamics(self.model, q, qdot, qddot, tau)
         return tau
 
+    def forward_dynamics(self, tau, q=None, qdot=None):
+        """
+        Calculate the joint accelerations from given joint torques, joint positions and joint velocities. 
+        :param tau: Joint torques.
+        :param q: Joint positions. It uses the current model positions if it is not specified.
+        :param qdot: Joint accelerations. It uses the current model accelerations if it is not specified.
+        :return: Joint Accelerations
+        """
+        if q is None:
+            q = self.q
+        if qdot is None:
+            qdot = self.qdot
+
+        qddot = np.zeros(self.qdot_size)
+        rbdl.ForwardDynamics(self.model, q, qdot, tau, qddot)
+        return qddot
+
+    def get_coriolis_forces(self, q=None, qdot=None):
+        if q is None:
+            q = self.q
+        if qdot is None:
+            qdot = self.qdot
+        g = np.zeros(self.qdot_size)
+        rbdl.NonlinearEffects(self.model, q, qdot, g)
+        return g
+
+    def update_coriolis_forces(self, g, q=None, qdot=None):
+        if q is None:
+            q = self.q
+        if qdot is None:
+            qdot = self.qdot
+        rbdl.NonlinearEffects(self.model, q, qdot, g)
+
+    def get_inertia_matrix(self, q=None, update_kinematics=True):
+        if q is None:
+            q = self.q
+        M = np.zeros((self.qdot_size, self.qdot_size))
+        rbdl.CompositeRigidBodyAlgorithm(self.model, q, M, update_kinematics)
+        return M
+
+    def update_inertia_matrix(self, M, q=None, update_kinematics=True):
+        if q is None:
+            q = self.q
+        rbdl.CompositeRigidBodyAlgorithm(self.model, q, M, update_kinematics)
 
 class BodyState:
     def __init__(self, model, q, qd, body_id, body_point_position, update_kinematics=True):
@@ -292,14 +345,14 @@ def fk(model, body_name, q=None, body_offset=np.zeros(3), update_kinematics=True
 
 
 if __name__ == "__main__":
-    #robot_urdf = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
-    #robot_urdf = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman_floating_base_lower_body.urdf'
-    #robot_model = RobotModel(robot_urdf)
+    #robot_urdf_file = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
+    #robot_urdf_file = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman_floating_base_lower_body.urdf'
+    #robot_model = RobotModel(robot_urdf_file)
 
 
     np.set_printoptions(precision=4, suppress=True, linewidth=1000)
-    robot_urdf = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
-    model = rbdl.loadModel(robot_urdf, verbose=False, floating_base=False)
+    robot_urdf_file = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
+    model = rbdl.loadModel(robot_urdf_file, verbose=False, floating_base=False)
     end_effector1 = 'LWrMot3'
     l_soft_hand_offset = np.array([0.000, -0.030, -0.210])
     r_soft_hand_offset = np.array([0.000, 0.030, -0.210])
@@ -404,7 +457,7 @@ if __name__ == "__main__":
 
 
 
-    robot_model = RobotModel(robot_urdf)
+    robot_model = RobotModel(robot_urdf_file)
     q_init = np.zeros(model.q_size)
     #q_init[16] = np.deg2rad(30)
     #q_init = touch_box_config

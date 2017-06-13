@@ -1,24 +1,20 @@
-
 import numpy as np
-
-#from gps.proto.gps_pb2 import ACTION
 
 
 class Sample(object):
     """
     Class that handles the representation of a trajectory and stores a
     single trajectory.
-    Inspired by code in github.com:cbfinn/gps.git
+    Inspired by sample.py file in github.com:cbfinn/gps.git (C. Finn et al)
     """
     def __init__(self, env, T):
         #self.agent = agent
 
         self.T = T
-        self.dX = env.get_state_dim()  # State
-        self.dU = env.get_action_dim() # Action
-        self.dO = env.get_obs_dim()    # Observation
-        #self.dM = env.get_env_info  # Meta data?
-
+        self.dX = env.get_state_dim()   # State
+        self.dU = env.get_action_dim()  # Action
+        self.dO = env.get_obs_dim()     # Observation
+        #self.dM = env.get_env_info      # Meta data?
 
         self._X = np.empty((self.T, self.dX))
         self._X.fill(np.nan)
@@ -26,6 +22,8 @@ class Sample(object):
         self._obs.fill(np.nan)
         self._act = np.empty((self.T, self.dU))
         self._act.fill(np.nan)
+        self._noise = np.empty((self.T, self.dU))
+        self._noise.fill(np.nan)
         #self._meta = np.empty(self.dM)
         #self._meta.fill(np.nan)
 
@@ -68,7 +66,14 @@ class Sample(object):
         else:
             self._X[t, state_idx] = state_data
 
-    def set(self, act_data=None, obs_data=None, state_data=None, t=None):
+    def set_noise(self, noise_data, t=None):
+        #TODO: Check the len of act_data
+        if t is None:
+            self._noise = noise_data
+        else:
+            self._noise[t, :] = noise_data
+
+    def set(self, act_data=None, obs_data=None, state_data=None, noise_data=None, t=None):
         """ Set trajectory data for a particular sensor. """
         if act_data is not None:
             self.set_acts(act_data, t=t)
@@ -76,7 +81,8 @@ class Sample(object):
             self.set_obs(obs_data, t=t)
         if state_data is not None:
             self.set_states(state_data, t=t)
-
+        if noise_data is not None:
+            self.set_noise(noise_data, t=t)
 
     def get_acts(self, t=None):
         """ Get the action(s). """
@@ -104,6 +110,10 @@ class Sample(object):
             obs = obs[:, obs_idx]
 
         return obs
+
+    def get_noise(self, t=None):
+        """ Get the noise(s). """
+        return self._noise if t is None else self._noise[t, :]
 
     def get_info(self):
         """ Get info data."""

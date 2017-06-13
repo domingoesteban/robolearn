@@ -1,9 +1,13 @@
-""" This file defines the data logger.
-    Author: C. Finn et al
+""" Data logger.
+    Author: C. Finn et al. Code in github.com:cbfinn/gps.git
 """
 import logging
-import pickle
+try:
+   import cPickle as pickle
+except:
+   import pickle
 
+import datetime
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,14 +23,24 @@ class DataLogger(object):
     def __init__(self):
         pass
 
-    def pickle(self, filename, data):
+    @staticmethod
+    def pickle(filename, data):
         """ Pickle data into file specified by filename. """
-        pickle.dump(data, open(filename, 'wb'))
+        if filename.endswith('.pkl'):
+            filename = filename[:-4]
 
-    def unpickle(self, filename):
-        """ Unpickle data from file specified by filename. """
+        filename = filename+datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")+'.pkl'
+        pickle.dump(data, open(filename, 'wb'))
+        return filename
+
+    @staticmethod
+    def unpickle(filename):
+        """ Unpickle dta from file specified by filename. """
         try:
-            return pickle.load(open(filename, 'rb'))
+            if filename.endswith('.pkl'):
+                return pickle.load(open(filename, 'rb'))
+            else:
+                return pickle.load(open(filename+'.pkl', 'rb'))
         except IOError:
-            LOGGER.debug('Unpickle error. Cannot find file: %s', filename)
+            print('Unpickle error. Cannot find file: %s', filename)
             return None

@@ -1,3 +1,7 @@
+"""
+This file defines the TfPolicy class.
+Author: C. Finn et al. Original code in: https://github.com/cbfinn/gps
+"""
 import pickle
 import os
 import uuid
@@ -5,7 +9,6 @@ import uuid
 import numpy as np
 import tensorflow as tf
 
-#from gps.algorithm.policy.policy import Policy
 from robolearn.policies.policy import Policy
 
 
@@ -43,16 +46,14 @@ class TfPolicy(Policy):
                                                      self.copy_params_assign_placeholders[i])
                                              for i in range(len(self.copy_params))]
 
-    def act(self, x, obs, t, noise):
+    def eval(self, obs=None, noise=None):
         """
-        Return an action for a state.
-        Args:
-            x: State vector.
-            obs: Observation vector.
-            t: Time step.
-            noise: Action noise. This will be scaled by the variance.
+        Evaluate the TFPolicy for specified observations and noise values.
+        U = net.forward(obs) + noise, where noise ~ N(0, diag(var)) 
+        :param obs: Observation vector.
+        :param noise: Action noise. This will be scaled by the variance of the policy.
+        :return: 
         """
-
         # Normalize obs.
         if len(obs.shape) == 1:
             obs = np.expand_dims(obs, axis=0)
@@ -86,7 +87,6 @@ class TfPolicy(Policy):
         value_list = [param_values[self.copy_params[i].name] for i in range(len(self.copy_params))]
         feeds = {self.copy_params_assign_placeholders[i]:value_list[i] for i in range(len(self.copy_params))}
         self.sess.run(self.copy_params_assign_ops, feed_dict=feeds)
-
 
     def pickle_policy(self, deg_obs, deg_action, checkpoint_path, goal_state=None, should_hash=False):
         """

@@ -44,11 +44,11 @@ class SampleList(object):
             idx = range(len(self._samples))
         return np.asarray([self._samples[i].get_acts(t=t) for i in idx])
 
-    #def get_noise(self, idx=None):
-    #    """ Returns N x T x dU numpy array of noise generated during rollouts. """
-    #    if idx is None:
-    #        idx = range(len(self._samples))
-    #    return np.asarray([self._samples[i].get(NOISE) for i in idx])
+    def get_noise(self, idx=None, t=None):
+        """ Returns N x T x dU numpy array of noise generated during rollouts. """
+        if idx is None:
+            idx = range(len(self._samples))
+        return np.asarray([self._samples[i].get_noise(t=t) for i in idx])
 
     def get_samples(self, idx=None):
         """ Returns N sample objects. """

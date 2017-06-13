@@ -10,6 +10,7 @@ import traceback
 import numpy as np
 import scipy as sp
 import copy
+import random
 
 from robolearn.algos.rl_algorithm import RLAlgorithm
 
@@ -39,15 +40,15 @@ class GPS(RLAlgorithm):
         super(GPS, self).__init__(agent, env, default_gps_hyperparams, kwargs)
 
         # Number of initial conditions
-        self._conditions = self._hyperparams['conditions']
+        self.M = self._hyperparams['conditions']
 
         if 'train_conditions' in self._hyperparams:
-            self._train_idx = self._hyperparams['train_conditions']
-            self._test_idx = self._hyperparams['test_conditions']
+            self._train_cond_idx = self._hyperparams['train_conditions']
+            self._test_cond_idx = self._hyperparams['test_conditions']
         else:
-            self._train_idx = self._test_idx = range(self._conditions)
-            self._hyperparams['train_conditions'] = self._train_idx
-            self._hyperparams['test_conditions'] = self._test_idx
+            self._train_cond_idx = self._test_cond_idx = range(self.M)
+            self._hyperparams['train_conditions'] = self._train_cond_idx
+            self._hyperparams['test_conditions'] = self._test_cond_idx
 
         self.data_logger = DataLogger()
         self._data_files_dir = "gps_data_files"
@@ -55,8 +56,7 @@ class GPS(RLAlgorithm):
         # ############################### #
         # Code used in original Algorithm #
         # ############################### #
-        self.M = self._conditions  # TODO: Review code so only one is used
-        self._cond_idx = self._train_idx  # TODO: Review code so only one is used
+        self._cond_idx = self._train_cond_idx  # TODO: Review code so only one is used
 
         self.iteration_count = 0
 
@@ -71,7 +71,7 @@ class GPS(RLAlgorithm):
 
         # Initial trajectory hyperparams
         init_traj_distr = self._hyperparams['init_traj_distr']
-        init_traj_distr['x0'] = env.get_initial_conditions()  # TODO: Check if it is better get_x0() or get_state()
+        init_traj_distr['x0'] = env.get_conditions()  # TODO: Check if it is better get_x0() or get_state()
         init_traj_distr['dX'] = self.dX
         init_traj_distr['dU'] = self.dU
         init_traj_distr['dt'] = self.dt
@@ -151,13 +151,13 @@ class GPS(RLAlgorithm):
             #self.policy_opt = self._hyperparams['policy_opt']['type'](
             #    self._hyperparams['policy_opt'], self.dO, self.dU
             #)
-            self.policy_opt = self.agent.policy
+            self.policy_opt = self.agent.policy_opt
 
     def run(self, itr_load=None):
         """
         Run GPS.
-        If itr_load is especified, first loads the algorithm state from that iteration
-         and resumes training at the next iteration
+        If itr_load is specified, first loads the algorithm state from that iteration
+         and resumes training at the next iteration.
         :param itr_load: desired iteration to load algorithm from
         :return: 
         """
@@ -166,20 +166,19 @@ class GPS(RLAlgorithm):
 
             for itr in range(itr_start, self._hyperparams['iterations']):
                 # Collect samples
-                for cond in self._train_idx:
+                for cond in self._train_cond_idx:
                     for i in range(self._hyperparams['num_samples']):
                         print("")
                         print("#"*40)
                         print("Sample itr:%d/%d, cond:%d/%d, i:%d/%d" % (itr+1, self._hyperparams['iterations'],
-                                                                         cond+1, len(self._train_idx),
+                                                                         cond+1, len(self._train_cond_idx),
                                                                          i+1, self._hyperparams['num_samples']))
                         print("#"*40)
                         self._take_sample(itr, cond, i)
 
-                traj_sample_lists = [
-                    self.agent.get_samples(cond, -self._hyperparams['num_samples'])
-                    for cond in self._train_idx
-                ]
+                # Get agent's sample list
+                traj_sample_lists = [self.agent.get_samples(cond, -self._hyperparams['num_samples'])
+                                     for cond in self._train_cond_idx]
 
                 # Clear agent samples.
                 self.agent.clear_samples()
@@ -188,9 +187,11 @@ class GPS(RLAlgorithm):
 
                 if self._hyperparams['test_after_iter']:
                     pol_sample_lists = self._take_policy_samples()
+                else:
+                    pol_sample_lists = None
 
                 # Log data
-                #self._log_data(itr, traj_sample_lists, pol_sample_lists)
+                self._log_data(itr, traj_sample_lists, pol_sample_lists)
 
         except Exception as e:
             traceback.print_exception(*sys.exc_info())
@@ -200,15 +201,19 @@ class GPS(RLAlgorithm):
             print("Panic: ERROR IN GPS!!!!")
             print("#"*30)
             print("#"*30)
+            return False
         finally:
             self._end()
+            return True
 
     def _end(self):
-        """ Finish running and exit. """
+        """
+        Finish GPS and exit.
+        :return: None
+        """
         print("")
         print("GPS has finished!")
-        # TODO: Check how to also stop/abort the environment in case of error
-        self.env.reset(time=2, conf=0)
+        self.env.stop()
 
     def _initialize(self, itr_load):
         """
@@ -246,11 +251,13 @@ class GPS(RLAlgorithm):
     def _take_sample(self, itr, cond, i, verbose=True, save=True, noisy=True):
         """
         Collect a sample from the environment.
-        Args:
-            itr: Iteration number.
-            cond: Condition number.
-            i: Sample number.
-        Returns: None
+        :param itr: Iteration number.
+        :param cond: Condition number.
+        :param i: Sample number.
+        :param verbose: 
+        :param save: 
+        :param noisy: 
+        :return: None
         """
         # Parameters
         self._hyperparams['smooth_noise'] = True
@@ -261,7 +268,7 @@ class GPS(RLAlgorithm):
         if self._hyperparams['sample_on_policy'] \
                 and (self.iteration_count > 0 or
                      ('sample_pol_first_itr' in self._hyperparams and self._hyperparams['sample_pol_first_itr'])):
-            policy = self.agent.policy.policy  # DOM: Instead self.opt_pol.policy
+            policy = self.agent.policy  # DOM: Instead self.opt_pol.policy
             print("On-policy sampling: %s!" % type(policy))
         else:
             policy = self.cur[cond].traj_distr
@@ -292,7 +299,7 @@ class GPS(RLAlgorithm):
         for t in range(self.T):
             if verbose:
                 print("Sample itr:%d/%d, cond:%d/%d, i:%d/%d | t:%d/%d" % (itr+1, self._hyperparams['iterations'],
-                                                                           cond+1, len(self._train_idx),
+                                                                           cond+1, len(self._train_cond_idx),
                                                                            i+1, self._hyperparams['num_samples'],
                                                                            t+1, self.T))
             obs = self.env.get_observation()
@@ -300,31 +307,19 @@ class GPS(RLAlgorithm):
             #action = self.agent.act(obs=obs)
             #action = policy.act(state, obs, t, noise[t, :])
             action = policy.eval(state, obs, t, noise[t, :])
-            action = np.zeros_like(action)
-            action[3] = -0.15707963267948966
+            #action = np.zeros_like(action)
+            #action[3] = -0.15707963267948966
             self.env.send_action(action)
-            #print("Episode %d/%d | Sample:%d/%d | t=%d/%d" % (episode+1, total_episodes,
-            #                                                  n_sample+1, num_samples,
-            #                                                  i+1, T))
             obs_hist[t] = (obs, action)
             history[t] = (state, action)
-            #print(obs)
-            #print("..")
-            #print(state)
-            #print("--")
-            #print("obs_shape:(%s)" % obs.shape)
-            #print("state_shape:(%s)" % state.shape)
-            #print("obs active names: %s" % bigman_env.get_obs_info()['names'])
-            #print("obs active dims: %s" % bigman_env.get_obs_info()['dimensions'])
-            #print("state active names: %s" % bigman_env.get_state_info()['names'])
-            #print("state active dims: %s" % bigman_env.get_state_info()['dimensions'])
-            #print("")
-
             #sample.set_acts(action, t=i)  # Set action One by one
             #sample.set_obs(obs[:42], obs_name='joint_state', t=i)  # Set action One by one
             #sample.set_states(state[:7], state_name='link_position', t=i)  # Set action One by one
 
             ros_rate.sleep()
+
+        # Stop environment
+        self.env.stop()
 
         all_actions = np.array([hist[1] for hist in history])
         all_states = np.array([hist[0] for hist in history])
@@ -333,12 +328,14 @@ class GPS(RLAlgorithm):
         sample.set_obs(all_obs)  # Set all obs at the same time
         sample.set_states(all_states)  # Set all states at the same time
 
-        if save:  # Save sample in agent
-            self.agent._samples[cond].append(sample)  # TODO: Do this with a method
+        if save:  # Save sample in agent sample list
+            sample_id = self.agent.add_sample(sample, cond)
+            print("The sample was added to Agent's sample list. Now there are %d sample(s) for condition '%d'." %
+                  (sample_id+1, cond))
 
-        print("Plotting sample %d" % (i+1))
-        plot_sample(sample, data_to_plot='actions', block=False)
-        plot_sample(sample, data_to_plot='states', block=True)
+        #print("Plotting sample %d" % (i+1))
+        #plot_sample(sample, data_to_plot='actions', block=True)
+        ##plot_sample(sample, data_to_plot='states', block=True)
 
         return sample
 
@@ -351,7 +348,8 @@ class GPS(RLAlgorithm):
         Returns: None
         """
         print("")
-        print("GPS iteration %d | Using %d samples" % (itr+1, len(sample_lists)))
+        total_samples = sum([len(sample) for sample in sample_lists])
+        print("%s iteration %d | Using %d samples in total." % (self.gps_algo.upper(), itr+1, total_samples))
 
         if self.gps_algo == 'pigps':
             self.iteration_pigps(sample_lists)
@@ -360,9 +358,15 @@ class GPS(RLAlgorithm):
             self.iteration_mdgps(sample_lists)
 
         else:
-            raise NotImplementedError("GPS algorithm:%s NOT IMPLEMENTED!" % self.gps_algo)
+            raise NotImplementedError("GPS algorithm:'%s' NOT IMPLEMENTED!" % self.gps_algo)
 
     def _take_policy_samples(self, N=None, verbose=True):
+        """
+        Take samples from the global policy.
+        :param N: number of policy samples to take per condition
+        :param verbose: Print messages
+        :return: 
+        """
         """
         Take samples from the policy to see how it's doing.
         Args:
@@ -371,7 +375,7 @@ class GPS(RLAlgorithm):
         """
         #policy = self.agent.policy.policy  # DOM: Instead self.opt_pol.policy
 
-        pol_samples = [[None] for _ in range(len(self._test_idx))]
+        pol_samples = [[None] for _ in range(len(self._test_cond_idx))]
 
         # Since this isn't noisy, just take one sample.
         # TODO: Make this noisy? Add hyperparam?
@@ -379,7 +383,7 @@ class GPS(RLAlgorithm):
 
         # TODO: Take at all conditions for GUI?
 
-        for cond in range(len(self._test_idx)):
+        for cond in range(len(self._test_cond_idx)):
             # Create a sample class
             # TODO: In original GPS code this is done with self._init_sample(self, condition, feature_fn=None) in agent
             sample = Sample(self.env, self.T)
@@ -394,7 +398,7 @@ class GPS(RLAlgorithm):
 
             for t in range(self.T):
                 if verbose:
-                    print("Sampling using Agent Policy | cond:%d/%d | t:%d/%d" % (cond+1, len(self._test_idx),
+                    print("Sampling using Agent Policy | cond:%d/%d | t:%d/%d" % (cond+1, len(self._test_cond_idx),
                                                                                   t+1, self.T))
                 obs = self.env.get_observation()
                 state = self.env.get_state()
@@ -423,18 +427,14 @@ class GPS(RLAlgorithm):
 
     def _log_data(self, itr, traj_sample_lists, pol_sample_lists=None):
         """
-        Log data and algorithm
-        Args:
-            itr: Iteration number.
-            traj_sample_lists: trajectory samples as SampleList object
-            pol_sample_lists: policy samples as SampleList object
-        Returns: None
+        Log data and algorithm.
+        :param itr: Iteration number.
+        :param traj_sample_lists: trajectory samples as SampleList object.
+        :param pol_sample_lists: policy samples as SampleList object.
+        :return: None
         """
-        #TODO DOMINGO: Assuming we always save
-        #if 'no_sample_logging' in self._hyperparams['common']:
-        #    return
         self.data_logger.pickle(
-            self._data_files_dir + ('%sgps_algorithm_itr_%02d.pkl' % (self.gps_algo, itr)),
+            self._data_files_dir + ('%sgps_algorithm_itr_%02d.pkl' % (self.gps_algo.upper(), itr)),
             #copy.copy(self.algorithm)
         )
 
@@ -449,8 +449,6 @@ class GPS(RLAlgorithm):
                 copy.copy(pol_sample_lists)
             )
 
-
-    # FROM ALGORITHM CLASS!!!!
     def _update_dynamics(self):
         """
         Instantiate dynamics objects and update prior. Fit dynamics to
@@ -469,18 +467,14 @@ class GPS(RLAlgorithm):
             x0 = X[:, 0, :]
             x0mu = np.mean(x0, axis=0)
             self.cur[m].traj_info.x0mu = x0mu
-            self.cur[m].traj_info.x0sigma = np.diag(
-                np.maximum(np.var(x0, axis=0),
-                           self._hyperparams['initial_state_var'])
-            )
+            self.cur[m].traj_info.x0sigma = np.diag(np.maximum(np.var(x0, axis=0),
+                                                    self._hyperparams['initial_state_var']))
 
             prior = self.cur[m].traj_info.dynamics.get_prior()
             if prior:
                 mu0, Phi, priorm, n0 = prior.initial_state()
                 N = len(cur_data)
-                self.cur[m].traj_info.x0sigma += \
-                    Phi + (N*priorm) / (N+priorm) * \
-                          np.outer(x0mu-mu0, x0mu-mu0) / (N+n0)
+                self.cur[m].traj_info.x0sigma += Phi + (N*priorm) / (N+priorm) * np.outer(x0mu-mu0, x0mu-mu0) / (N+n0)
 
     def _update_trajectories(self):
         """
@@ -544,6 +538,7 @@ class GPS(RLAlgorithm):
         """
         Move all 'cur' variables to 'prev', and advance iteration
         counter.
+        :return: None
         """
         self.iteration_count += 1
         self.prev = copy.deepcopy(self.cur)
@@ -606,19 +601,18 @@ class GPS(RLAlgorithm):
         random.setstate(state.pop('_random_state'))
         np.random.set_state(state.pop('_np_random_state'))
 
-
+    """
     # ################### #
     # ################### #
     # ###### PIGPS ###### #
     # ################### #
     # ################### #
-    """ PIGPS algorithm. 
-        Author: C.Finn et al
-        Reference:
-        Y. Chebotar, M. Kalakrishnan, A. Yahya, A. Li, S. Schaal, S. Levine. 
-        Path Integral Guided Policy Search. 2016. https://arxiv.org/abs/1610.00529.
+    PIGPS algorithm. 
+    Author: C.Finn et al
+    Reference:
+    Y. Chebotar, M. Kalakrishnan, A. Yahya, A. Li, S. Schaal, S. Levine. 
+    Path Integral Guided Policy Search. 2016. https://arxiv.org/abs/1610.00529.
     """
-
     def iteration_pigps(self, sample_lists):
         """
         Run iteration of PI-based guided policy search.
@@ -634,40 +628,38 @@ class GPS(RLAlgorithm):
         # On the first iteration, need to catch policy up to init_traj_distr.
         if self.iteration_count == 0:
             self.new_traj_distr = [self.cur[cond].traj_distr for cond in range(self.M)]
-            self._update_policy_mdgps()
+            self.update_policy_mdgps()
 
         # Update policy linearizations.
         for m in range(self.M):
-            self._update_policy_fit_mdgps(m)
+            self.update_policy_fit_mdgps(m)
 
         # C-step
         self._update_trajectories()
 
         # S-step
-        self._update_policy_mdgps()
+        self.update_policy_mdgps()
 
         # Prepare for next iteration
-        self._advance_iteration_variables_mdgps()
+        self.advance_iteration_variables_mdgps()
 
-
-
+    """
     # ################### #
     # ################### #
     # ###### MDGPS ###### #
     # ################### #
     # ################### #
-    """ MDGPS algorithm. 
-        Author: C.Finn et al
-        Reference:
-        W. Montgomery, S. Levine
-        Guided Policy Search as Approximate Mirror Descent. 2016. https://arxiv.org/abs/1607.04614
+    MDGPS algorithm. 
+    Author: C.Finn et al
+    Reference:
+    W. Montgomery, S. Levine
+    Guided Policy Search as Approximate Mirror Descent. 2016. https://arxiv.org/abs/1607.04614
     """
     def iteration_mdgps(self, sample_lists):
         """
         Run iteration of MDGPS-based guided policy search.
-
-        Args:
-            sample_lists: List of SampleList objects for each condition.
+        :param sample_lists: List of SampleList objects for each condition.
+        :return: None
         """
         # Store the samples and evaluate the costs.
         for m in range(self.M):
@@ -679,28 +671,29 @@ class GPS(RLAlgorithm):
 
         # On the first iteration, need to catch policy up to init_traj_distr.
         if self.iteration_count == 0:
-            self.new_traj_distr = [
-                self.cur[cond].traj_distr for cond in range(self.M)
-            ]
-            self._update_policy_mdgps()
+            self.new_traj_distr = [self.cur[cond].traj_distr for cond in range(self.M)]
+            self.update_policy_mdgps()
 
-        # Update policy linearizations.
+        # Update global policy linearizations.
         for m in range(self.M):
-            self._update_policy_fit_mdgps(m)
+            self.update_policy_fit_mdgps(m)
 
         # C-step
         if self.iteration_count > 0:
-            self._stepadjust_mdgps()
+            self.stepadjust_mdgps()
         self._update_trajectories()
 
         # S-step
-        self._update_policy_mdgps()
+        self.update_policy_mdgps()
 
         # Prepare for next iteration
-        self._advance_iteration_variables()
+        self.advance_iteration_variables_mdgps()
 
-    def _update_policy_mdgps(self):
-        """ Compute the new policy. """
+    def update_policy_mdgps(self):
+        """
+        Computes(updates) a new global policy.
+        :return: 
+        """
         dU, dO, T = self.dU, self.dO, self.T
         # Compute target mean, cov, and weight for each sample.
         obs_data, tgt_mu = np.zeros((0, T, dO)), np.zeros((0, T, dU))
@@ -730,18 +723,17 @@ class GPS(RLAlgorithm):
 
         self.policy_opt.update(obs_data, tgt_mu, tgt_prc, tgt_wt)
 
-    def _update_policy_fit_mdgps(self, m):
+    def update_policy_fit_mdgps(self, cond):
         """
-        Re-estimate the local policy values in the neighborhood of the
-        trajectory.
-        Args:
-            m: Condition
+        Re-estimate the local policy values in the neighborhood of the trajectory.
+        :param cond: Condition
+        :return: None
         """
         dX, dU, T = self.dX, self.dU, self.T
         # Choose samples to use.
-        samples = self.cur[m].sample_list
+        samples = self.cur[cond].sample_list
         N = len(samples)
-        pol_info = self.cur[m].pol_info
+        pol_info = self.cur[cond].pol_info
         X = samples.get_states()
         obs = samples.get_obs().copy()
         pol_mu, pol_sig = self.policy_opt.prob(obs)[:2]
@@ -749,7 +741,7 @@ class GPS(RLAlgorithm):
 
         # Update policy prior.
         policy_prior = pol_info.policy_prior
-        samples = SampleList(self.cur[m].sample_list)
+        samples = SampleList(self.cur[cond].sample_list)
         mode = self._hyperparams['policy_sample_mode']
         policy_prior.update(samples, self.policy_opt, mode)
 
@@ -760,24 +752,25 @@ class GPS(RLAlgorithm):
             pol_info.chol_pol_S[t, :, :] = \
                 sp.linalg.cholesky(pol_info.pol_S[t, :, :])
 
-    def _advance_iteration_variables_mdgps(self):
+    def advance_iteration_variables_mdgps(self):
         """
         Move all 'cur' variables to 'prev', reinitialize 'cur'
         variables, and advance iteration counter.
+        :return: None
         """
-        self._advance_iteration_variables(self)
+        self._advance_iteration_variables()
         for m in range(self.M):
             self.cur[m].traj_info.last_kl_step = \
                 self.prev[m].traj_info.last_kl_step
             self.cur[m].pol_info = copy.deepcopy(self.prev[m].pol_info)
 
-    def _stepadjust_mdgps(self):
+    def stepadjust_mdgps(self):
         """
         Calculate new step sizes. This version uses the same step size
         for all conditions.
         """
         # Compute previous cost and previous expected cost.
-        prev_M = len(self.prev) # May be different in future.
+        prev_M = len(self.prev)  # May be different in future.
         prev_laplace = np.empty(prev_M)
         prev_mc = np.empty(prev_M)
         prev_predicted = np.empty(prev_M)
@@ -788,17 +781,13 @@ class GPS(RLAlgorithm):
             # Compute values under Laplace approximation. This is the policy
             # that the previous samples were actually drawn from under the
             # dynamics that were estimated from the previous samples.
-            prev_laplace[m] = self.traj_opt.estimate_cost(
-                prev_nn, self.prev[m].traj_info
-            ).sum()
+            prev_laplace[m] = self.traj_opt.estimate_cost(prev_nn, self.prev[m].traj_info).sum()
             # This is the actual cost that we experienced.
             prev_mc[m] = self.prev[m].cs.mean(axis=0).sum()
             # This is the policy that we just used under the dynamics that
             # were estimated from the prev samples (so this is the cost
             # we thought we would have).
-            prev_predicted[m] = self.traj_opt.estimate_cost(
-                prev_lg, self.prev[m].traj_info
-            ).sum()
+            prev_predicted[m] = self.traj_opt.estimate_cost(prev_lg, self.prev[m].traj_info).sum()
 
         # Compute current cost.
         cur_laplace = np.empty(self.M)
@@ -836,7 +825,7 @@ class GPS(RLAlgorithm):
     def compute_costs(self, m, eta, augment=True):
         """ Compute cost estimates used in the LQR backward pass. """
         if not self.gps_algo in ['pigps', 'mdgps']:
-            NotImplementedError("function not implemented for %s gps" % self.gps_algo)
+            NotImplementedError("Function not implemented for %s gps" % self.gps_algo)
 
         traj_info, traj_distr = self.cur[m].traj_info, self.cur[m].traj_distr
         if not augment:  # Whether to augment cost with term to penalize KL

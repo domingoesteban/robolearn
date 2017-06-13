@@ -1,4 +1,7 @@
-""" This file defines policy optimization for a tensorflow policy. """
+"""
+This file defines policy optimization for a tensorflow policy.
+Author: C. Finn et al. Original code in: https://github.com/cbfinn/gps
+"""
 import copy
 import logging
 import os
@@ -90,7 +93,10 @@ class PolicyOptTf(PolicyOpt):
         self.sess.run(init_op)
 
     def init_network(self):
-        """ Helper method to initialize the tf networks used """
+        """
+        Initialize the TF network
+        :return: None
+        """
         tf_map_generator = self._hyperparams['network_model']
 
         tf_map, fc_vars, last_conv_vars = tf_map_generator(dim_input=self._dO, dim_output=self._dU,
@@ -110,7 +116,10 @@ class PolicyOptTf(PolicyOpt):
         self.grads = [tf.gradients(self.act_op[:, u], self.obs_tensor)[0] for u in range(self._dU)]
 
     def init_solver(self):
-        """ Helper method to initialize the solver. """
+        """
+        Initialize the TF solver.
+        :return: None
+        """
         self.solver = TfSolver(loss_scalar=self.loss_scalar,
                                solver_name=self._hyperparams['solver_type'],
                                base_lr=self._hyperparams['lr'],
@@ -124,13 +133,11 @@ class PolicyOptTf(PolicyOpt):
     def update(self, obs, tgt_mu, tgt_prc, tgt_wt):
         """
         Update policy.
-        Args:
-            obs: Numpy array of observations, N x T x dO.
-            tgt_mu: Numpy array of mean controller outputs, N x T x dU.
-            tgt_prc: Numpy array of precision matrices, N x T x dU x dU.
-            tgt_wt: Numpy array of weights, N x T.
-        Returns:
-            A tensorflow object with updated weights.
+        :param obs: Numpy array of observations, N x T x dO.
+        :param tgt_mu: Numpy array of mean controller outputs, N x T x dU.
+        :param tgt_prc: Numpy array of precision matrices, N x T x dU x dU.
+        :param tgt_wt: Numpy array of weights, N x T.
+        :return: TFPolicy object with updated weights.
         """
         N, T = obs.shape[:2]
         dU, dO = self._dU, self._dO

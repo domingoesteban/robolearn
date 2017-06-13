@@ -104,22 +104,7 @@ class ROSEnvInterface(EnvInterface):
             self.last_obs[obs_id] = msg
         else:
             copy_class_attr(msg, self.last_obs[obs_id], attribute_names)
-
-    def get_observation(self):
-        """
-        Return defined observations as an array.
-        :return:
-        """
-        raise NotImplementedError
-
-    def get_action_dim(self):
-        raise NotImplementedError
-
-    def get_obs_dim(self):
-        raise NotImplementedError
-
-    def get_state_dim(self):
-        raise NotImplementedError
+        #print("Obs_id %d " % obs_id)
 
     def set_action_type(self, init_cmd_vals, cmd_type, act_idx, **kwargs):
 
@@ -213,15 +198,6 @@ class ROSEnvInterface(EnvInterface):
                 pub_rate.sleep()
             #else:
             #    print("Not sending anything to ROS !!!")
-
-    def send_action(self, action):
-        """
-        Update, from a desired action vector, the ROS messages that will be published,
-        and set publish_action flag to True
-        :param action: Desired action vector.
-        :return: None
-        """
-        raise NotImplementedError
 
     def reset_config(self):
         """
@@ -409,3 +385,27 @@ class ROSEnvInterface(EnvInterface):
         """
         return self.state_types[self.get_state_idx(name, state_type)]['ros_msg']
 
+    def send_action(self, action):
+        """
+        Update, from a desired action vector, the ROS messages that will be published,
+        and set publish_action flag to True
+        :param action: Desired action vector.
+        :return: None
+        """
+        raise NotImplementedError
+
+    def get_observation(self):
+        """
+        Return defined observations as an array.
+        :return:
+        """
+        raise NotImplementedError
+
+    def get_action_dim(self):
+        raise NotImplementedError
+
+    def get_obs_dim(self):
+        raise NotImplementedError
+
+    def get_state_dim(self):
+        raise NotImplementedError

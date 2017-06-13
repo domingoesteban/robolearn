@@ -148,6 +148,11 @@ class RobotROSEnvInterface(ROSEnvInterface):
             init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indexes(body_part_active)])
             self.cmd_type = cmd_type
             cmd_type = 'position'  # TEMPORAL
+        elif cmd_type == 'effort':
+            # TODO: Check if initiate with zeros_like is a good idea
+            init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indexes(body_part_active)])
+            self.cmd_type = cmd_type
+            cmd_type = 'effort'  # TEMPORAL
         else:
             raise NotImplementedError("Only position command has been implemented!")
 
@@ -170,7 +175,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
         # Resetting before get initial state
         #print("Resetting %s robot to initial q0[0]..." % self.robot_name)
         print("NO RESETTING BEFORE PUBLISHING!!")
-        #self.reset(time=2, conf=0)
         self.x0 = self.get_state()
 
         self.run()
@@ -209,16 +213,17 @@ class RobotROSEnvInterface(ROSEnvInterface):
         """
         for ii, des_action in enumerate(self.action_types):
             if des_action['type'] in ['position', 'velocity', 'effort']:
-                if self.cmd_type == 'velocity':  #TODO: TEMPORAL HACK
+                if self.cmd_type == 'velocity':  #TODO: TEMPORAL HACK / Velocity not implemented
                     #current_pos = state_vector_joint_state(['link_position'], self.act_joint_names, self.get_obs_ros_msg(name='joint_state')).ravel()
                     current_pos = state_vector_joint_state(['position'], self.act_joint_names, self.get_action_ros_msg(action_type='position')).ravel()
                     vel = action[des_action['act_idx']]*1./self.cmd_freq
                     now = rospy.get_rostime()
-                    action[des_action['act_idx']] = vel + current_pos
+                    action[des_action['act_idx']] = vel + current_pos  # Integrating position
 
-                self.action_types[ii]['ros_msg'] = update_advr_command(des_action['ros_msg'],
-                                                                       des_action['type'],
-                                                                       action[des_action['act_idx']])
+                update_advr_command(des_action['ros_msg'], des_action['type'], action[des_action['act_idx']])
+                #self.action_types[ii]['ros_msg'] = update_advr_command(des_action['ros_msg'],
+                #                                                       des_action['type'],
+                #                                                       action[des_action['act_idx']])
             else:
                 raise NotImplementedError("Only Advr commands: position, velocity or effort available!")
 
@@ -257,7 +262,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
         """
         Get the joint indexes from a list of joint names
         :param joint_names: 
-        :type joint_names: list
         :return: List of joint indexes (ids)
         :rtype: list
         """
@@ -351,6 +355,8 @@ class RobotROSEnvInterface(ROSEnvInterface):
             raise TypeError("Link position is not in the state!!")
 
     def reset(self, time=None, freq=None, cond=0):
+        # Stop First
+        self.stop()
 
         if freq is None:
             freq = 100
@@ -366,22 +372,16 @@ class RobotROSEnvInterface(ROSEnvInterface):
         reset_cmd = CommandAdvr()
 
         # Wait for getting zero velocity and acceleration
-        rospy.sleep(1)  # Because I need to find a good way to reset
+        #rospy.sleep(1)  # Because I need to find a good way to reset
 
-        # TODO: Check if this option is correct
-        # All the joints that are in the joint state will be interpolated
-        obs_names = [obs['name'] for obs in self.obs_types]
-        if 'joint_state' not in obs_names:
-            raise AttributeError("There is not joint_state observation, required for environment reset.")
-        joint_state_idx = obs_names.index('joint_state')
-        joint_names = self.obs_types[joint_state_idx]['ros_msg'].name
-        joint_positions = self.obs_types[joint_state_idx]['ros_msg'].link_position
-        joint_ids = [self.joint_names.index(joint_name) for joint_name in joint_names]
-        final_positions = [self.get_q_from_condition(self.conditions[cond])[joint_id] for joint_id in joint_ids]
-        joint_trajectory = polynomial5_interpolation(N, final_positions, joint_positions)[0]
+        joint_positions = get_last_advr_state_field(self.robot_name, 'link_position', self.act_joint_names)
 
-        reset_cmd.name = joint_names
+        reset_cmd.name = self.act_joint_names
         reset_publisher = rospy.Publisher("/xbotcore/"+self.robot_name+"/command", CommandAdvr, queue_size=10)
+
+        final_positions = self.get_q_from_condition(self.conditions[cond])
+        joint_trajectory = polynomial5_interpolation(N, final_positions, joint_positions)[0]
+        print("Moving to condition '%d' in position control mode..." % cond)
         for ii in range(joint_trajectory.shape[0]):
             reset_cmd.position = joint_trajectory[ii, :]
             reset_publisher.publish(reset_cmd)
@@ -422,4 +422,25 @@ class RobotROSEnvInterface(ROSEnvInterface):
         if len(q0) != len(self.q0[-1]):
             raise ValueError("Desired q0 dimension (%d) does not match with Robot (%d)" % (len(q0), len(self.q0[-1])))
         return self.q0.index(q0)
+
+    def stop(self):
+        self.publish_action = False  # Stop sending
+        time = 1
+        freq = 100
+        N = int(np.ceil(time*freq))
+        pub_rate = rospy.Rate(freq)
+        stop_cmd = CommandAdvr()
+
+        stop_publisher = rospy.Publisher("/xbotcore/"+self.robot_name+"/command", CommandAdvr, queue_size=10)
+        joint_positions = get_last_advr_state_field(self.robot_name, 'link_position', self.act_joint_names)
+        stop_cmd.name = self.act_joint_names
+
+        joint_ids = [self.joint_names.index(joint_name) for joint_name in self.act_joint_names]
+        print("Stop robot! Changing to position control mode...")
+        for ii in range(N):
+            stop_cmd.position = joint_positions
+            stop_cmd.stiffness = bigman_params['stiffness_gains'][joint_ids]
+            stop_cmd.damping = bigman_params['damping_gains'][joint_ids]
+            stop_publisher.publish(stop_cmd)
+            pub_rate.sleep()
 

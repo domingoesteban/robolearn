@@ -94,6 +94,23 @@ default_gps_hyperparams = {
 
 }
 
+# BADMM
+default_badmm_hyperparams = {
+    'inner_iterations': 4,
+    'policy_dual_rate': 0.1,
+    'policy_dual_rate_covar': 0.0,
+    'fixed_lg_step': 0,
+    'lg_step_schedule': 10.0,
+    'ent_reg_schedule': 0.0,
+    'init_pol_wt': 0.01,
+    'policy_sample_mode': 'add',
+    'exp_step_increase': 2.0,
+    'exp_step_decrease': 0.5,
+    'exp_step_upper': 0.5,
+    'exp_step_lower': 1.0,
+}
+
+# MDGPS
 default_mdgps_hyperparams = {
     # TODO: remove need for init_pol_wt in MDGPS
     'init_pol_wt': 0.01,
@@ -103,9 +120,46 @@ default_mdgps_hyperparams = {
     'policy_prior': {'type': PolicyPrior},
 }
 
+# PIGPS
 default_pigps_hyperparams = {
     'init_pol_wt': 0.01,
     'policy_sample_mode': 'add',
     # Dynamics fitting is not required for PIGPS.
     'fit_dynamics': False,
+}
+
+# PILQR
+default_pilqr_hyperparams = {
+    'init_pol_wt': 0.01,
+    # Dynamics fitting is not required for PI2 but it is for LQR.
+    'fit_dynamics': True,
+    # Whether to use 'const' or 'res_percent' in step adjusment
+    'step_rule': 'res_percent',
+    'step_rule_res_ratio_dec': 0.2,
+    'step_rule_res_ratio_inc': 0.05,
+    # The following won't work for a different horizon, but that's up to the user.
+    'kl_step': np.linspace(0.4, 0.2, 100),
+    'max_step_mult': np.linspace(10.0, 5.0, 100),
+    'min_step_mult': np.linspace(0.01, 0.5, 100),
+    'max_mult': np.linspace(5.0, 2.0, 100),
+    'min_mult': np.linspace(0.1, 0.5, 100),
+}
+
+# MDGPS-PILQR
+default_msgps_pilqr_hyperparams = {
+    # TODO: remove need for init_pol_wt in MDGPS
+    'init_pol_wt': 0.01,
+    'policy_sample_mode': 'add',
+    # Dynamics fitting is not required for PI2 but it is for LQR.
+    'fit_dynamics': True,
+    # Whether to use 'const' or 'res_percent' in step adjusment
+    'step_rule': 'res_percent',
+    'step_rule_res_ratio_dec': 0.2,
+    'step_rule_res_ratio_inc': 0.05,
+    # The following won't work for a different horizon, but that's up to the user.
+    'kl_step': np.linspace(0.4, 0.2, 100),
+    'max_step_mult': np.linspace(10.0, 5.0, 100),
+    'min_step_mult': np.linspace(0.01, 0.5, 100),
+    'max_mult': np.linspace(5.0, 2.0, 100),
+    'min_mult': np.linspace(0.1, 0.5, 100),
 }

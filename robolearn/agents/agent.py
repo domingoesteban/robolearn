@@ -16,7 +16,6 @@ class Agent(object):
         :param obs: Environment observations
         :return:
         """
-        #return self.policy(kwargs)
         return self.policy.eval(**kwargs)
 
     def policy(self, **kwargs):
@@ -26,17 +25,3 @@ class Agent(object):
         :return:
         """
         NotImplementedError
-
-    def train(self, history):
-        raise NotImplementedError
-
-    def explore(self, **kwargs):
-        """
-        Explore (sample) from environment
-        :param kwargs: 
-        :return: 
-        """
-        raise NotImplementedError
-
-
-

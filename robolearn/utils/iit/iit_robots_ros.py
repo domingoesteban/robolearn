@@ -1,4 +1,5 @@
 import numpy as np
+import rospy
 
 # ROS package
 from XCM.msg import JointStateAdvr
@@ -22,7 +23,9 @@ def config_advr_command(joint_names, cmd_type, init_cmd_vals):
     """
     advr_cmd_msg = CommandAdvr()
     advr_cmd_msg.name = joint_names
-    advr_cmd_msg = update_advr_command(advr_cmd_msg, cmd_type, init_cmd_vals)
+    #advr_cmd_msg = update_advr_command(advr_cmd_msg, cmd_type, init_cmd_vals)
+    update_advr_command(advr_cmd_msg, cmd_type, init_cmd_vals)
+
     #if hasattr(advr_cmd_msg, cmd_type):
     #    setattr(advr_cmd_msg, cmd_type, init_cmd_vals)
     #else:
@@ -36,12 +39,17 @@ def update_advr_command(cmd_msg, cmd_field, cmd_vals):
     :param cmd_msg: CommandAdvr ROS message to be updated
     :param cmd_field: Field that will be updated. E.g. position, velocity, effort, stiffness, damping
     :param cmd_vals: Desired values
+    :return None
     """
+    if cmd_field == 'effort':
+        setattr(cmd_msg, 'damping', cmd_vals*0)
+        setattr(cmd_msg, 'stiffness', cmd_vals*0)
+
     if hasattr(cmd_msg, cmd_field):
         setattr(cmd_msg, cmd_field, cmd_vals)
     else:
         raise ValueError("Wrong field option for ADVR command. | type:%s" % cmd_field)
-    return cmd_msg
+    #return cmd_msg
 
 
 def get_advr_sensor_data(obs_msg, sensor_field):
@@ -199,3 +207,9 @@ def state_vector_joint_state(state_fields, joint_names, ros_joint_state_msg):
             get_advr_sensor_data(ros_joint_state_msg, obs_field)[get_indexes_from_list(ros_joint_state_msg.name,
                                                                                        joint_names)]
     return state
+
+
+def get_last_advr_state_field(robot_name, state_field, joint_names):
+    joint_state_msg = rospy.wait_for_message("/xbotcore/"+robot_name+"/joint_states", JointStateAdvr)
+    return get_advr_sensor_data(joint_state_msg, state_field)[get_indexes_from_list(joint_state_msg.name,
+                                                                                    joint_names)]
