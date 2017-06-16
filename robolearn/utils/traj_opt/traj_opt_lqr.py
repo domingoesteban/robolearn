@@ -147,7 +147,7 @@ class TrajOptLQR(TrajOpt):
                                  np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
                                  np.mean(eta[:-1]))
 
-        if (self.cons_per_step and not self._conv_check(con, kl_step)):
+        if self.cons_per_step and not self._conv_check(con, kl_step):
             m_b, v_b = np.zeros(T-1), np.zeros(T-1)
 
             for itr in range(DGD_MAX_GD_ITER):
@@ -217,7 +217,8 @@ class TrajOptLQR(TrajOpt):
                     mu[t, :].T.dot(traj_info.cv[t, :])
         return predicted_cost
 
-    def forward(self, traj_distr, traj_info):
+    @staticmethod
+    def forward(traj_distr, traj_info):
         """
         Perform LQR forward pass. Computes state-action marginals from
         dynamics and policy.

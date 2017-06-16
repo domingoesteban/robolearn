@@ -33,6 +33,22 @@ def create_box_relative_pose(box_x=0.75, box_y=0.00, box_z=0.0184, box_yaw=0):
     return np.hstack((box_x, box_y, box_z, box_quat))
 
 
+def create_ee_relative_pose(box_pose, ee_x=0.0, ee_y=0.0, ee_z=0.0, ee_yaw=0):
+
+    box_matrix = tf.transformations.quaternion_matrix(box_pose[3:])
+    box_matrix[:3, -1] = box_pose[:3]
+
+    box_RH_matrix = homogeneous_matrix(pos=np.array([ee_x, ee_y, ee_z]))
+
+    ee_matrix = box_matrix.dot(box_RH_matrix)
+    ee_matrix = ee_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0]))
+    ee_matrix = ee_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(ee_yaw), [1, 0, 0]))
+    ee_pose = np.zeros(7)
+    ee_pose[:3] = tf.transformations.translation_from_matrix(ee_matrix)
+    ee_pose[3:] = tf.transformations.quaternion_from_matrix(ee_matrix)
+    return ee_pose
+
+
 def reset_condition_bigman_box_gazebo(condition, state_info):
     state_name = 'optitrack'
     if state_name in state_info['names']:

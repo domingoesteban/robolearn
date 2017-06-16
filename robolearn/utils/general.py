@@ -1,6 +1,7 @@
 """Utility functions and classes. """
 import numpy as np
 
+
 def check_shape(value, expected_shape, name=''):
     """
     Throws a ValueError if value.shape != expected_shape.

@@ -46,7 +46,7 @@ class TfPolicy(Policy):
                                                      self.copy_params_assign_placeholders[i])
                                              for i in range(len(self.copy_params))]
 
-    def eval(self, obs=None, noise=None):
+    def eval(self, state=None, obs=None, t=None, noise=None):
         """
         Evaluate the TFPolicy for specified observations and noise values.
         U = net.forward(obs) + noise, where noise ~ N(0, diag(var)) 

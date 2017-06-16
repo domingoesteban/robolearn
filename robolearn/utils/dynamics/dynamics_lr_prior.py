@@ -1,4 +1,7 @@
-""" This file defines linear regression with an arbitrary prior. """
+"""
+This file defines linear regression with an arbitrary prior.
+Author: C. Finn et al. Code in https://github.com/cbfinn/gps
+"""
 import numpy as np
 
 from robolearn.utils.dynamics.dynamics import Dynamics
@@ -12,8 +15,7 @@ class DynamicsLRPrior(Dynamics):
         self.Fm = None
         self.fv = None
         self.dyn_covar = None
-        self.prior = \
-                self._hyperparams['prior']['type'](self._hyperparams['prior'])
+        self.prior = self._hyperparams['prior']['type'](self._hyperparams['prior'])
 
     def update_prior(self, samples):
         """ Update dynamics prior. """

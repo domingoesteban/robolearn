@@ -142,6 +142,19 @@ class RobotModel(object):
 
     def ik(self, body_name, desired_pose, body_offset=np.zeros(3), mask_joints=None, q_init=None, joints_limits=None,
            method='optimization', regularization_parameter=None):
+        """
+        
+        :param body_name: 
+        :param desired_pose: orientation+position
+        :param body_offset: 
+        :param mask_joints: 
+        :param q_init: 
+        :param joints_limits: 
+        :param method: 
+        :param regularization_parameter: 
+        :return: 
+        """
+
         if mask_joints is None:
             mask_joints = []
 
@@ -308,19 +321,6 @@ class BodyState:
         rbdl.CalcPointJacobian6D(model, q, body_id, body_point_position, self.temp, update_kinematics)
         self.J = self.temp[:6, :model.dof_count]
 
-
-
-
-def compute_cartesian_error(ref, actual, rotation_rep='quat'):
-    position_error = ref[-3:] - actual[-3:]
-    if rotation_rep == 'quat':
-        orientation_error = actual[3]*ref[:3] - ref[3]*actual[:3] - np.cross(ref[:3], actual[:3])
-    elif rotation_rep == 'rpy':
-        orientation_error = ref[:3] - actual[:3]
-    else:
-        raise NotImplementedError("Only quaternion has been implemented")
-
-    return np.concatenate((orientation_error, position_error))
 
 
 def fk(model, body_name, q=None, body_offset=np.zeros(3), update_kinematics=True):

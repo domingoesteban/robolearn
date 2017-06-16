@@ -37,6 +37,7 @@ TRAJ_OPT_PI2 = {
     'del0': 1e-4,
 }
 
+
 class TrajOptPI2(TrajOpt):
     """ PI2 trajectory optimization.
     Hyperparameters:
@@ -45,7 +46,7 @@ class TrajOptPI2(TrajOpt):
             multiple of the old covariance. Multiplier is taken to the power
             (1 / covariance_damping). If greater than one, slows down 
             convergence and keeps exploration noise high for more iterations.
-        min_temperature: Minimum bound of the temperature optimiztion for the 
+        min_temperature: Minimum bound of the temperature optimization for the 
             soft-max probabilities of the policy samples.
     """
     def __init__(self, hyperparams):

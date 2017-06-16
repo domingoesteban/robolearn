@@ -10,7 +10,7 @@ class TrajOpt(object):
         self._hyperparams = hyperparams
 
     @abc.abstractmethod
-    def update(self):
+    def update(self, *args, **kwargs):
         """ Update trajectory distributions. """
         raise NotImplementedError("Must be implemented in subclass.")
 

@@ -79,7 +79,7 @@ class Sampler(object):
         obs_hist = [None] * self.T
 
         print("Resetting environment...")
-        self.env.reset(time=5, cond=cond)
+        self.env.reset(time=2, cond=cond)
 
         ros_rate = rospy.Rate(int(1/self.dt))  # hz
         # Collect history
@@ -88,7 +88,7 @@ class Sampler(object):
                 print("Sample cond:%d | i:%d/%d | t:%d/%d" % (cond, i+1, self.n_samples, t+1, self.T))
             obs = self.env.get_observation()
             state = self.env.get_state()
-            action = self.policy.eval(state, obs, t, noise[t, :])
+            action = self.policy.eval(state=state, obs=obs, t=t, noise=noise[t, :])
             self.env.send_action(action)
             obs_hist[t] = (obs, action)
             history[t] = (state, action)
@@ -104,7 +104,7 @@ class Sampler(object):
         sample.set_noise(noise)
 
         if save:
-            name_file = self.data_logger.pickle('./samples/cosa', sample)
+            name_file = self.data_logger.pickle('/cosa', sample)
             print("Sample saved in %s" % name_file)
         #if save:  # Save sample in agent
         #    self.agent._samples[cond].append(sample)  # TODO: Do this with a method

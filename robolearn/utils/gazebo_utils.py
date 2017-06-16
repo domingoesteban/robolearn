@@ -4,6 +4,7 @@ from gazebo_msgs.srv import DeleteModel
 from gazebo_msgs.srv import SpawnModel
 from gazebo_msgs.srv import GetModelState
 from geometry_msgs.msg import Pose
+from gazebo_msgs.msg import ModelStates
 
 
 class ResetGazeboEnv(object):
@@ -78,6 +79,13 @@ def spawn_gazebo_model(model_name, model_sdf, model_pose, relative_name=None):
         relative_name = 'world'
     if not isinstance(type(model_pose), Pose):
         model_pose = pose_to_geometry_msg(model_pose)
+
+    #if not rospy.is_shutdown():
+    #    print("Waiting for gazebo model_states...")
+    #    model_state_msg = rospy.wait_for_message("/gazebo/model_states", ModelStates)
+    #    if model_name in model_state_msg.name:
+    #        print("Model %s already exists. Not spawning anything." % model_name)
+    #        return
 
     print("Spawning '%s' gazebo model..." % model_name)
     rospy.wait_for_service('gazebo/spawn_sdf_model')

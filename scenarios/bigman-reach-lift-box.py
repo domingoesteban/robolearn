@@ -18,11 +18,13 @@ from robolearn.utils.sample_list import SampleList
 
 from robolearn.costs.cost_action import CostAction
 from robolearn.costs.cost_state import CostState
+from robolearn.costs.cost_fk import CostFK
 from robolearn.costs.cost_sum import CostSum
 from robolearn.costs.cost_utils import RAMP_QUADRATIC
 
-from robolearn.utils.algos_utils import IterationData
-from robolearn.utils.algos_utils import TrajectoryInfo
+from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
+from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
+
 from robolearn.algos.gps.gps import GPS
 from robolearn.policies.lin_gauss_init import init_lqr, init_pd
 from robolearn.policies.policy_prior import PolicyPrior  # For MDGPS
@@ -34,7 +36,11 @@ from robolearn.utils.lift_box_utils import create_box_relative_pose
 from robolearn.utils.lift_box_utils import reset_condition_bigman_box_gazebo
 from robolearn.utils.lift_box_utils import spawn_box_gazebo
 from robolearn.utils.lift_box_utils import create_bigman_box_condition
+from robolearn.utils.lift_box_utils import create_ee_relative_pose
 
+from robolearn.utils.robot_model import RobotModel
+from robolearn.utils.algos_utils import IterationData
+from robolearn.utils.algos_utils import TrajectoryInfo
 from robolearn.utils.print_utils import change_print_color
 
 import time
@@ -55,7 +61,7 @@ signal.signal(signal.SIGINT, kill_everything)
 #update_frequency = 5
 Ts = 0.01
 #EndTime = 4  # Using final time to define the horizon
-EndTime = 10  # Using final time to define the horizon
+EndTime = 4  # Using final time to define the horizon
 
 # BOX
 box_x = 0.75-0.05
@@ -99,20 +105,20 @@ observation_active = [{'name': 'joint_state',
                        'ros_topic': '/xbotcore/bigman/ft/r_arm_ft',
                        'fields': ['force', 'torque']},
 
-                      {'name': 'ft_left_leg',
-                       'type': 'ft_sensor',
-                       'ros_topic': '/xbotcore/bigman/ft/l_leg_ft',
-                       'fields': ['force', 'torque']},
+                      #{'name': 'ft_left_leg',
+                      # 'type': 'ft_sensor',
+                      # 'ros_topic': '/xbotcore/bigman/ft/l_leg_ft',
+                      # 'fields': ['force', 'torque']},
 
-                      {'name': 'ft_right_leg',
-                       'type': 'ft_sensor',
-                       'ros_topic': '/xbotcore/bigman/ft/r_leg_ft',
-                       'fields': ['force', 'torque']},
+                      #{'name': 'ft_right_leg',
+                      # 'type': 'ft_sensor',
+                      # 'ros_topic': '/xbotcore/bigman/ft/r_leg_ft',
+                      # 'fields': ['force', 'torque']},
 
-                      {'name': 'imu1',
-                       'type': 'imu',
-                       'ros_topic': '/xbotcore/bigman/imu/imu_link',
-                       'fields': ['orientation', 'angular_velocity', 'linear_acceleration']},
+                      #{'name': 'imu1',
+                      # 'type': 'imu',
+                      # 'ros_topic': '/xbotcore/bigman/imu/imu_link',
+                      # 'fields': ['orientation', 'angular_velocity', 'linear_acceleration']},
 
                       {'name': 'optitrack',
                        'type': 'optitrack',
@@ -185,7 +191,7 @@ print("\nCreating Bigman Agent...")
 #}
 policy_params = {
     'network_model': tf_network,  # tf_network, multi_modal_network, multi_modal_network_fp
-    'iterations': 500,  # Inner iteration (Default:5000). Reccomended: 1000?
+    'iterations': 100,  # Inner iteration (Default:5000). Reccomended: 1000?
     'network_params': {
         'n_layers': 1,  # Hidden layers??
         'dim_hidden': [40],  # Dictionary of size per n_layers
@@ -202,7 +208,11 @@ policy_params = {
         #'image_channels': IMAGE_CHANNELS (3),  # For multi_modal_network
     }
 }
-policy_opt = PolicyOptTf(policy_params, observation_dim, action_dim)
+
+policy_opt = {
+    'type': PolicyOptTf,
+    'hyperparams': policy_params
+    }
 #policy = None
 bigman_agent = GPSAgent(act_dim=action_dim, obs_dim=observation_dim, state_dim=state_dim, policy_opt=policy_opt)
 # Load previous learned variables
@@ -225,10 +235,9 @@ act_cost = {
 }
 
 # State Cost
-left_ee_pose = box_relative_pose
-left_ee_pose[0] += box_size[0]/2 - 0.05
 
-target_state = left_ee_pose + box_relative_pose
+#target_state = left_ee_pose + box_relative_pose
+target_state = box_relative_pose
 # 'B' pose
 state_cost = {
     'type': CostState,
@@ -267,11 +276,56 @@ state_cost = {
 #    },
 #}
 
+# Robot Model
+robot_urdf = os.environ["ROBOTOLOGY_ROOT"]+'/configs/ADVR_shared/bigman/urdf/bigman.urdf'
+robot_model = RobotModel(robot_urdf)
+LH_name = 'LWrMot3'
+RH_name = 'RWrMot3'
+l_soft_hand_offset = np.array([0.000, -0.030, -0.210])
+r_soft_hand_offset = np.array([0.000, 0.030, -0.210])
+
+left_ee_pose = create_ee_relative_pose(box_relative_pose, ee_x=0, ee_y=box_size[1]/2-0.02, ee_z=0, ee_yaw=0)
+LAfk_cost = {
+    'type': CostFK,
+    'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
+    'target_end_effector': left_ee_pose,
+    'end_effector_name': LH_name,
+    'end_effector_offset': l_soft_hand_offset,
+    'joint_ids': bigman_params['joint_ids']['BA'],
+    'robot_model': robot_model,
+    'wp': np.array([1.2, 0, 0.8, 1, 1.2, 0.8]),  # one less because 'quat' error | 1)orient 2)pos
+    'l1': 0.1,
+    'l2': 10.0,
+    'alpha': 1e-5,
+    'state_idx': bigman_env.get_state_info(name='link_position')['idx']
+}
+
+right_ee_pose = create_ee_relative_pose(box_relative_pose, ee_x=0, ee_y=-box_size[1]/2+0.02, ee_z=0, ee_yaw=0)
+RAfk_cost = {
+    'type': CostFK,
+    'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
+    'target_end_effector': right_ee_pose,
+    'end_effector_name': RH_name,
+    'end_effector_offset': r_soft_hand_offset,
+    'joint_ids': bigman_params['joint_ids']['BA'],
+    'robot_model': robot_model,
+    'wp': np.array([1.2, 0, 0.8, 1, 1.2, 0.8]),  # one less because 'quat' error | 1)orient 2)pos
+    'l1': 0.1,
+    'l2': 10.0,
+    'alpha': 1e-5,
+    'state_idx': bigman_env.get_state_info(name='link_position')['idx']
+}
+
 # Sum of costs
+#cost_sum = {
+#    'type': CostSum,
+#    'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
+#    'weights': [0.1, 5.0],
+#}
 cost_sum = {
     'type': CostSum,
-    'costs': [act_cost, state_cost],
-    'weights': [0.1, 5.0],
+    'costs': [act_cost, state_cost, LAfk_cost, RAfk_cost],
+    'weights': [0.1, 5.0, 8.0, 8.0],
 }
 
 # ################################ #
@@ -311,11 +365,11 @@ q0 = np.zeros(31)
 condition0 = create_bigman_box_condition(q0, box_relative_pose, joint_idxs=bigman_params['joint_ids']['BA'])
 bigman_env.add_condition(condition0)
 
-q1 = q0.copy()
-q1[16] = np.deg2rad(50)
-q1[25] = np.deg2rad(-50)
-condition1 = create_bigman_box_condition(q1, box_relative_pose, joint_idxs=bigman_params['joint_ids']['BA'])
-bigman_env.add_condition(condition1)
+#q1 = q0.copy()
+#q1[16] = np.deg2rad(50)
+#q1[25] = np.deg2rad(-50)
+#condition1 = create_bigman_box_condition(q1, box_relative_pose, joint_idxs=bigman_params['joint_ids']['BA'])
+#bigman_env.add_condition(condition1)
 
 
 # ######################## #
@@ -328,19 +382,23 @@ print("\nConfiguring learning algorithm...\n")
 
 # Learning params
 total_episodes = 10
-num_samples = 15  # Samples for exploration trajs
-resume_training_itr = None  # Resume from previous training iteration
+num_samples = 4  # Samples for exploration trajs
+resume_training_itr = 10 - 1  # Resume from previous training iteration
+data_files_dir = './GPS_2017-06-15_14:56:13'#None
 T = int(EndTime/Ts)  # Total points
-conditions = 1  # Number of initial conditions
+conditions = len(bigman_env.get_conditions())  # Total number of initial conditions
+train_conditions = range(conditions)  # Indexes of conditions used for training
+test_conditions = train_conditions  # Indexes of conditions used for testing
 sample_on_policy = False
 test_policy_after_iter = False
 kl_step = 0.2
+
 # init_traj_distr is a list of dict
 init_traj_distr = {'type': init_lqr,
                    'init_var': 1.0,
                    'stiffness': 1.0,
                    'stiffness_vel': 0.5,
-                   'final_weight': 1.0,
+                   'final_weight': 10.0,  # Multiplies cost at T
                    # Parameters for guessing dynamics
                    'init_acc': np.zeros(action_dim),  # dU vector(np.array) of accelerations, default zeros.
                    'init_gains': 1*np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
@@ -351,6 +409,16 @@ init_traj_distr = {'type': init_lqr,
 #                    'vel_gains_mult': 0.01,  # velocity gains multiplier on pos_gains
 #                    'init_action_offset': None,
 #                   }]
+
+learned_dynamics = {'type': DynamicsLRPrior,
+                    'regularization': 1e-6,
+                    'prior': {
+                        'type': DynamicsPriorGMM,
+                        'max_clusters': 20,
+                        'min_samples_per_cluster': 40,
+                        'max_samples': 20,
+                    },
+                    }
 
 #gps_algo = 'pigps'
 ## PIGPS hyperparams
@@ -370,12 +438,16 @@ learn_algo = GPS(agent=bigman_agent, env=bigman_env,
                  T=T, dt=Ts,
                  cost=cost_sum,
                  conditions=conditions,
+                 gps_algo=gps_algo,
+                 gps_algo_hyperparams=gps_algo_hyperparams,
+                 train_conditions=train_conditions,
+                 test_conditions=test_conditions,
                  sample_on_policy=sample_on_policy,
                  test_after_iter=test_policy_after_iter,
                  init_traj_distr=init_traj_distr,
+                 dynamics=learned_dynamics,
                  kl_step=kl_step,
-                 gps_algo=gps_algo,
-                 gps_algo_hyperparams=gps_algo_hyperparams
+                 data_files_dir=data_files_dir
                  )
 print("Learning algorithm: %s OK\n" % type(learn_algo))
 

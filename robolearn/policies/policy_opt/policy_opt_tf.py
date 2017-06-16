@@ -15,6 +15,7 @@ import numpy as np
 
 from robolearn.policies.policy_opt.config import POLICY_OPT_TF
 import tensorflow as tf
+from tensorflow.core.protobuf import saver_pb2
 
 from robolearn.policies.tf_policy import TfPolicy
 from robolearn.policies.policy_opt.policy_opt import PolicyOpt
@@ -128,7 +129,7 @@ class PolicyOptTf(PolicyOpt):
                                weight_decay=self._hyperparams['weight_decay'],
                                fc_vars=self.fc_vars,
                                last_conv_vars=self.last_conv_vars)
-        self.saver = tf.train.Saver()
+        self.saver = tf.train.Saver(write_version = saver_pb2.SaverDef.V1)
 
     def update(self, obs, tgt_mu, tgt_prc, tgt_wt):
         """
@@ -317,4 +318,3 @@ class PolicyOptTf(PolicyOpt):
             f.write(state['wts'])
             f.seek(0)
             self.restore_model(f.name)
-

@@ -83,8 +83,8 @@ def init_lqr(hyperparams):
     PSig = np.zeros((T, dU, dU))  # Covariance of noise.
     cholPSig = np.zeros((T, dU, dU))  # Cholesky decomposition.
     invPSig = np.zeros((T, dU, dU))  # Inverse of covariance.
-    vx_t = np.zeros(dX)  # Vx = dV/dX. Derivative of value function.
-    Vxx_t = np.zeros((dX, dX))  # Vxx = ddV/dXdX.
+    vx_t = np.zeros(dX)  # Vx = dV/dX. Derivative of value function wrt to X at time t.
+    Vxx_t = np.zeros((dX, dX))  # Vxx = ddV/dXdX at time t.
 
     #TODO: A lot of this code is repeated with traj_opt_lqr_python.py
     #      backward pass.
@@ -154,5 +154,16 @@ def init_pd(hyperparams):
     PSig = config['init_var'] * np.tile(np.eye(dU), [T, 1, 1])
     cholPSig = np.sqrt(config['init_var']) * np.tile(np.eye(dU), [T, 1, 1])
     invPSig = (1.0 / config['init_var']) * np.tile(np.eye(dU), [T, 1, 1])
+
+    return LinearGaussianPolicy(K, k, PSig, cholPSig, invPSig)
+
+
+def init_demos(hyperparams):
+    """
+    Initializes the linear-Gaussian controler from demonstrations.
+    :param hyperparams: SampleList, 
+    :return: 
+    """
+    demos = hyperparams['sample_list']
 
     return LinearGaussianPolicy(K, k, PSig, cholPSig, invPSig)
