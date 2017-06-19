@@ -365,7 +365,7 @@ sample_on_policy = False
 test_policy_after_iter = False
 kl_step = 0.2
 
-# init_traj_distr is a list of dict
+# init_traj_distr values are lists (One for each condition)
 init_traj_distr = {'type': init_lqr,
                    'init_var': 1.0,
                    'stiffness': 1.0,

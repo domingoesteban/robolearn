@@ -1,2 +1,2 @@
-model_checkpoint_path: "bigman_agent_vars.ckpt"
-all_model_checkpoint_paths: "bigman_agent_vars.ckpt"
+model_checkpoint_path: "tf-test-model.ckpt"
+all_model_checkpoint_paths: "tf-test-model.ckpt"

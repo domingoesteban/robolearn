@@ -1,7 +1,8 @@
 from __future__ import print_function
-from robolearn.envs.ros_env_interface import *
 import numpy as np
+import rospy
 
+from robolearn.envs.ros_env_interface import ROSEnvInterface
 from robolearn.utils.iit.iit_robots_ros import CommandAdvr, JointStateAdvr, WrenchStamped, Imu, RelativePose
 from robolearn.utils.iit.iit_robots_ros import state_vector_joint_state, update_advr_command, get_indexes_from_list
 from robolearn.utils.iit.iit_robots_ros import get_last_advr_state_field, get_advr_sensor_data
@@ -217,7 +218,8 @@ class RobotROSEnvInterface(ROSEnvInterface):
         for ii, des_action in enumerate(self.action_types):
             if des_action['type'] in ['position', 'velocity', 'effort']:
                 if self.cmd_type == 'velocity':  # TODO: TEMPORAL HACK / Velocity not implemented
-                    # current_pos = state_vector_joint_state(['link_position'], self.act_joint_names, self.get_obs_ros_msg(name='joint_state')).ravel()
+                    # current_pos = state_vector_joint_state(['link_position'], self.act_joint_names,
+                    #                                        self.get_obs_ros_msg(name='joint_state')).ravel()
                     current_pos = state_vector_joint_state(['position'], self.act_joint_names,
                                                            self.get_action_ros_msg(action_type='position')).ravel()
                     vel = action[des_action['act_idx']]*1./self.cmd_freq
@@ -225,9 +227,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
                     action[des_action['act_idx']] = vel + current_pos  # Integrating position
 
                 update_advr_command(des_action['ros_msg'], des_action['type'], action[des_action['act_idx']])
-                # self.action_types[ii]['ros_msg'] = update_advr_command(des_action['ros_msg'],
-                #                                                        des_action['type'],
-                #                                                        action[des_action['act_idx']])
             else:
                 raise NotImplementedError("Only Advr commands: position, velocity or effort available!")
 
@@ -322,6 +321,11 @@ class RobotROSEnvInterface(ROSEnvInterface):
         return state
 
     def get_obs_info(self, name=None):
+        """
+        Return Observation info dictionary.
+        :param name: Name of the observation. If not specified, returns for all the observations.
+        :return: obs_info dictionary with keys: names, dimensions and idx.
+        """
         if name is None:
             obs_info = {'names': [obs['name'] for obs in self.obs_types],
                         'dimensions': [len(obs['obs_idx']) for obs in self.obs_types],
@@ -334,6 +338,11 @@ class RobotROSEnvInterface(ROSEnvInterface):
         return obs_info
 
     def get_state_info(self, name=None):
+        """
+        Return State info dictionary.
+        :param name: Name of the state. If not specified, returns for all the states.
+        :return: state_info dictionary with keys: names, dimensions and idx.
+        """
         if name is None:
             state_info = {'names': [state['name'] for state in self.state_types],
                           'dimensions': [len(state['state_idx']) for state in self.state_types],
@@ -346,11 +355,20 @@ class RobotROSEnvInterface(ROSEnvInterface):
         return state_info
 
     def get_env_info(self):
+        """
+        Return Observation and State info dictionary.
+        :return: Dictionary with obs_info and state_info dictionaries. Each one with keys: names, dimensions and idx.
+        """
         env_info = {'obs': self.get_obs_info(),
                     'state': self.get_state_info()}
         return env_info
 
     def get_q_from_condition(self, condition):
+        """
+        Get joint positions from condition (state)
+        :param condition: Condition ID
+        :return: Joint position array
+        """
         state_info = self.get_state_info()
         if 'link_position' in state_info['names']:
             return condition[state_info['idx'][state_info['names'].index('link_position')]]
@@ -427,6 +445,10 @@ class RobotROSEnvInterface(ROSEnvInterface):
         return self.q0.index(q0)
 
     def stop(self):
+        """
+        Stop the robot (Change it to position mode)
+        :return: None
+        """
         self.publish_action = False  # Stop sending
         time = 1
         freq = 100
