@@ -89,16 +89,16 @@ class TrajOptPI2(TrajOpt):
         ffw_controls = np.zeros(U.shape)
         if use_lqr_actions:
             noise = cur_data.get_noise()
-            for i in xrange(len(cur_data)):
+            for i in range(len(cur_data)):
                 U_lqr = [prev_traj_distr.K[t].dot(X[i, t]) + prev_traj_distr.k[t] +
                          prev_traj_distr.chol_pol_covar[t].T.dot(noise[i, t])
-                         for t in xrange(T)]
+                         for t in range(T)]
                 ffw_controls[i] = [U_lqr[t] - prev_traj_distr.K[t].dot(X[i, t])
-                                   for t in xrange(T)]
+                                   for t in range(T)]
         else:
-            for i in xrange(len(cur_data)):
+            for i in range(len(cur_data)):
                 ffw_controls[i] = [U[i, t] - prev_traj_distr.K[t].dot(X[i, t])
-                                   for t in xrange(T)]
+                                   for t in range(T)]
 
         # Copy feedback gain matrix from the old trajectory distribution.                       
         traj_distr = prev_traj_distr.nans_like()
@@ -150,7 +150,7 @@ class TrajOptPI2(TrajOpt):
         fail = True
         while fail:
             fail = False
-            for t in xrange(T):
+            for t in range(T):
 
                 # Compute cost-to-go for each time step for each sample.
                 cost_to_go = np.sum(costs[:, t:T], axis=1)
@@ -207,6 +207,7 @@ class TrajOptPI2(TrajOpt):
 
         return mean_new, cov_new, inv_cov_new, chol_cov_new, etas
 
+    @staticmethod
     def kl_dual(self, eta, kl_threshold, costs):
         """
         Dual function for optimizing the temperature eta according to the given
@@ -221,6 +222,6 @@ class TrajOptPI2(TrajOpt):
         """
         max_costs = np.max(-costs)
         exponent = -costs - max_costs
-        return (eta * kl_threshold + max_costs
-                + eta * np.log((1.0 / len(costs)) *
-                np.sum(np.exp(exponent / eta))))
+        return (eta * kl_threshold
+                + max_costs
+                + eta * np.log((1.0 / len(costs)) * np.sum(np.exp(exponent / eta))))

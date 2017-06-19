@@ -97,6 +97,7 @@ class GPS(RLAlgorithm):
         if self._hyperparams['fit_dynamics']:
             # Add dynamics if the algorithm requires fit_dynamics (Same type for all the conditions)
             dynamics = self._hyperparams['dynamics']
+
         for m in range(self.M):
             self.cur[m].traj_info = TrajectoryInfo()
 
@@ -106,7 +107,7 @@ class GPS(RLAlgorithm):
             # Get the initial trajectory distribution hyperparams
             init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'], self._cond_idx[m])
 
-            # Instantiate Trajectory Distribution: init_lqr or init_pd (Same initial type for all the conditions)
+            # Instantiate Trajectory Distribution: init_lqr or init_pd
             self.cur[m].traj_distr = init_traj_distr['type'](init_traj_distr)
 
         # Traj Opt (Local policy opt) method #
@@ -121,11 +122,11 @@ class GPS(RLAlgorithm):
         if isinstance(type(self._hyperparams['cost']), list):
             # One cost function for each condition
             self.cost_function = [self._hyperparams['cost'][i]['type'](self._hyperparams['cost'][i])
-                         for i in range(self.M)]
+                                  for i in range(self.M)]
         else:
             # Same cost function for all conditions
             self.cost_function = [self._hyperparams['cost']['type'](self._hyperparams['cost'])
-                         for _ in range(self.M)]
+                                  for _ in range(self.M)]
 
         # KL step #
         # ------- #
@@ -261,22 +262,22 @@ class GPS(RLAlgorithm):
 
                 self.agent.policy = self.agent.policy_opt.policy
 
-            #self.algorithm = self.data_logger.unpickle(algorithm_file)
-            #if self.algorithm is None:
-            #    print("Error: cannot find '%s.'" % algorithm_file)
-            #    os._exit(1) # called instead of sys.exit(), since this is in a thread
+            # self.algorithm = self.data_logger.unpickle(algorithm_file)
+            # if self.algorithm is None:
+            #     print("Error: cannot find '%s.'" % algorithm_file)
+            #     os._exit(1) # called instead of sys.exit(), since this is in a thread
 
-            #if self.gui:
-            #    traj_sample_lists = self.data_logger.unpickle(self._data_files_dir +
-            #                                                  ('traj_sample_itr_%02d.pkl' % itr_load))
-            #    if self.algorithm.cur[0].pol_info:
-            #        pol_sample_lists = self.data_logger.unpickle(self._data_files_dir +
-            #                                                     ('pol_sample_itr_%02d.pkl' % itr_load))
-            #    else:
-            #        pol_sample_lists = None
-            #    self.gui.set_status_text(
-            #        ('Resuming training from algorithm state at iteration %d.\n' +
-            #         'Press \'go\' to begin.') % itr_load)
+            # if self.gui:
+            #     traj_sample_lists = self.data_logger.unpickle(self._data_files_dir +
+            #                                                   ('traj_sample_itr_%02d.pkl' % itr_load))
+            #     if self.algorithm.cur[0].pol_info:
+            #         pol_sample_lists = self.data_logger.unpickle(self._data_files_dir +
+            #                                                      ('pol_sample_itr_%02d.pkl' % itr_load))
+            #     else:
+            #         pol_sample_lists = None
+            #     self.gui.set_status_text(
+            #         ('Resuming training from algorithm state at iteration %d.\n' +
+            #          'Press \'go\' to begin.') % itr_load)
             return itr_load + 1
 
     def _take_sample(self, itr, cond, i, verbose=True, save=True, noisy=True, on_policy=False):
@@ -336,14 +337,14 @@ class GPS(RLAlgorithm):
             obs = self.env.get_observation()
             state = self.env.get_state()
             action = policy.eval(state, obs, t, noise[t, :])
-            #action = np.zeros_like(action)
-            #action[3] = -0.15707963267948966
+            # action = np.zeros_like(action)
+            # action[3] = -0.15707963267948966
             self.env.send_action(action)
             obs_hist[t] = (obs, action)
             history[t] = (state, action)
-            #sample.set_acts(action, t=i)  # Set action One by one
-            #sample.set_obs(obs[:42], obs_name='joint_state', t=i)  # Set action One by one
-            #sample.set_states(state[:7], state_name='link_position', t=i)  # Set action One by one
+            # sample.set_acts(action, t=i)  # Set action One by one
+            # sample.set_obs(obs[:42], obs_name='joint_state', t=i)  # Set action One by one
+            # sample.set_states(state[:7], state_name='link_position', t=i)  # Set action One by one
 
             ros_rate.sleep()
 
@@ -362,9 +363,9 @@ class GPS(RLAlgorithm):
             print("The sample was added to Agent's sample list. Now there are %d sample(s) for condition '%d'." %
                   (sample_id+1, cond))
 
-        #print("Plotting sample %d" % (i+1))
-        #plot_sample(sample, data_to_plot='actions', block=True)
-        ##plot_sample(sample, data_to_plot='states', block=True)
+        # print("Plotting sample %d" % (i+1))
+        # plot_sample(sample, data_to_plot='actions', block=True)
+        # #plot_sample(sample, data_to_plot='states', block=True)
 
         return sample
 
@@ -410,14 +411,15 @@ class GPS(RLAlgorithm):
             # Collect samples
             for cond in self._test_cond_idx:
                 for i in range(self._hyperparams['num_samples']):
-                    print("")
-                    print("#"*50)
-                    print("Sample with AGENT POLICY itr:%d/%d, cond:%d/%d, i:%d/%d" % (itr+1, self.max_iterations,
-                                                                                       cond+1,
-                                                                                       len(self._train_cond_idx),
-                                                                                       i+1,
-                                                                                       self._hyperparams['num_samples']))
-                    print("#"*50)
+                    if verbose:
+                        print("")
+                        print("#"*50)
+                        print("Sample with AGENT POLICY itr:%d/%d, cond:%d/%d, i:%d/%d" % (itr+1, self.max_iterations,
+                                                                                           cond+1,
+                                                                                           len(self._train_cond_idx),
+                                                                                           i+1,
+                                                                                           self._hyperparams['num_samples']))
+                        print("#"*50)
                     pol_samples[cond].append(self._take_sample(itr, cond, i, on_policy=True, noisy=False, save=False))
 
         return [SampleList(samples) for samples in pol_samples]
@@ -616,8 +618,8 @@ class GPS(RLAlgorithm):
     # For unpickling.
     def __setstate__(self, state):
         self.__dict__.update(state)
-        #self.__dict__ = state
-        #self.__dict__['agent'] = None
+        # self.__dict__ = state
+        # self.__dict__['agent'] = None
 
     """
     # ################### #

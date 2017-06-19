@@ -8,7 +8,7 @@ from threading import Thread
 # ROS packages
 import rospy
 from gazebo_msgs.msg import ModelStates
-from gazebo_msgs.srv import *
+from gazebo_msgs.srv import SetModelConfiguration
 from std_srvs.srv import Empty
 from gazebo_robolearn.srv import ResetPhysicsStatesModel
 
@@ -90,7 +90,7 @@ class ROSEnvInterface(EnvInterface):
         """
 
         :param msg:
-        :param obs_id:
+        :param params:
         :return:
         """
         obs_id = params[0]

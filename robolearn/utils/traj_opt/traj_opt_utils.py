@@ -1,5 +1,6 @@
-""" This file defines utilities for trajectory optimization.
-    Author: C. Finn et al.
+"""
+This file defines utilities for trajectory optimization
+Author: C. Finn et al. Code in: https://github.com/cbfinn/gps
 """
 import abc
 import logging
@@ -25,10 +26,8 @@ def traj_distr_kl(new_mu, new_sigma, new_traj_distr, prev_traj_distr, tot=True):
     Args:
         new_mu: T x dX, mean of new trajectory distribution.
         new_sigma: T x dX x dX, variance of new trajectory distribution.
-        new_traj_distr: A linear Gaussian policy object, new
-            distribution.
-        prev_traj_distr: A linear Gaussian policy object, previous
-            distribution.
+        new_traj_distr: A linear Gaussian policy object, new distribution.
+        prev_traj_distr: A linear Gaussian policy object, previous distribution.
         tot: Whether or not to sum KL across all time steps.
     Returns:
         kl_div: The KL divergence between the new and previous
@@ -81,13 +80,11 @@ def traj_distr_kl(new_mu, new_sigma, new_traj_distr, prev_traj_distr, tot=True):
         c_new = 0.5 * k_new.T.dot(prc_new).dot(k_new)
 
         # Compute KL divergence at timestep t.
-        kl_div[t] = max(
-            0,
-            -0.5 * mu_t.T.dot(M_new - M_prev).dot(mu_t) -
-            mu_t.T.dot(v_new - v_prev) - c_new + c_prev -
-            0.5 * np.sum(sigma_t * (M_new-M_prev)) - 0.5 * logdet_new +
-            0.5 * logdet_prev
-        )
+        kl_div[t] = max(0,
+                        -0.5 * mu_t.T.dot(M_new - M_prev).dot(mu_t) -
+                        mu_t.T.dot(v_new - v_prev) - c_new + c_prev -
+                        0.5 * np.sum(sigma_t * (M_new-M_prev)) - 0.5 * logdet_new +
+                        0.5 * logdet_prev)
 
     # Add up divergences across time to get total divergence.
     return np.sum(kl_div) if tot else kl_div
@@ -124,15 +121,13 @@ def traj_distr_kl_alt(new_mu, new_sigma, new_traj_distr, prev_traj_distr, tot=Tr
         K_diff, k_diff = K_prev - K_new, k_prev - k_new
         mu, sigma = new_mu[t, :dX], new_sigma[t, :dX, :dX]
 
-        kl_div[t] = max(
-                0,
-                0.5 * (logdet_prev - logdet_new - new_traj_distr.dU +
-                       np.sum(np.diag(inv_prev.dot(sig_new))) +
-                       k_diff.T.dot(inv_prev).dot(k_diff) +
-                       mu.T.dot(K_diff.T).dot(inv_prev).dot(K_diff).dot(mu) +
-                       np.sum(np.diag(K_diff.T.dot(inv_prev).dot(K_diff).dot(sigma))) +
-                       2 * k_diff.T.dot(inv_prev).dot(K_diff).dot(mu))
-        )
+        kl_div[t] = max(0,
+                        0.5 * (logdet_prev - logdet_new - new_traj_distr.dU +
+                               np.sum(np.diag(inv_prev.dot(sig_new))) +
+                               k_diff.T.dot(inv_prev).dot(k_diff) +
+                               mu.T.dot(K_diff.T).dot(inv_prev).dot(K_diff).dot(mu) +
+                               np.sum(np.diag(K_diff.T.dot(inv_prev).dot(K_diff).dot(sigma))) +
+                               2 * k_diff.T.dot(inv_prev).dot(K_diff).dot(mu)) )
 
     return np.sum(kl_div) if tot else kl_div
 

@@ -1,5 +1,6 @@
-""" Data logger.
-    Author: C. Finn et al. Code in github.com:cbfinn/gps.git
+"""
+Data logger
+Author: C. Finn et al. Code in github.com:cbfinn/gps.git
 """
 import logging
 try:

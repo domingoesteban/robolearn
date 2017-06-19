@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class BundleType(object):
     """
     This class bundles many fields, similar to a record or a mutable
@@ -15,6 +16,7 @@ class BundleType(object):
         if not hasattr(self, key):
             raise AttributeError("%r has no attribute %s" % (self, key))
         object.__setattr__(self, key, value)
+
 
 class TrajectoryInfo(BundleType):
     """ Collection of trajectory-related variables. """
