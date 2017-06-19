@@ -58,9 +58,9 @@ signal.signal(signal.SIGINT, kill_everything)
 # ################## #
 # ################## #
 # Task parameters
-#update_frequency = 5
+# update_frequency = 5
 Ts = 0.01
-#EndTime = 4  # Using final time to define the horizon
+# EndTime = 4  # Using final time to define the horizon
 EndTime = 4  # Using final time to define the horizon
 
 # BOX
@@ -88,12 +88,11 @@ body_part_active = 'BA'
 command_type = 'effort'
 file_save_restore = "models/bigman_agent_vars.ckpt"
 
-
 observation_active = [{'name': 'joint_state',
                        'type': 'joint_state',
                        'ros_topic': '/xbotcore/bigman/joint_states',
                        'fields': ['link_position', 'link_velocity', 'effort'],
-                       'joints': bigman_params['joint_ids']['UB']},  # Value that can be gotten from robot_params['joints_names']['UB']
+                       'joints': bigman_params['joint_ids']['UB']},
 
                       {'name': 'ft_left_arm',
                        'type': 'ft_sensor',
@@ -383,8 +382,8 @@ print("\nConfiguring learning algorithm...\n")
 # Learning params
 total_episodes = 10
 num_samples = 4  # Samples for exploration trajs
-resume_training_itr = 10 - 1  # Resume from previous training iteration
-data_files_dir = './GPS_2017-06-15_14:56:13'#None
+resume_training_itr = None  #10 - 1  # Resume from previous training iteration
+data_files_dir = None  #'./GPS_2017-06-15_14:56:13'
 T = int(EndTime/Ts)  # Total points
 conditions = len(bigman_env.get_conditions())  # Total number of initial conditions
 train_conditions = range(conditions)  # Indexes of conditions used for training

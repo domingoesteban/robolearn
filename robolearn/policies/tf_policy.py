@@ -50,7 +50,9 @@ class TfPolicy(Policy):
         """
         Evaluate the TFPolicy for specified observations and noise values.
         U = net.forward(obs) + noise, where noise ~ N(0, diag(var)) 
+        :param state: State vector.
         :param obs: Observation vector.
+        :param t: Time vector.
         :param noise: Action noise. This will be scaled by the variance of the policy.
         :return: 
         """
@@ -118,7 +120,8 @@ class TfPolicy(Policy):
                               batch_size=1, network_config=network_config)
 
         sess = tf.Session()
-        init_op = tf.initialize_all_variables()
+        #init_op = tf.initialize_all_variables()
+        init_op = tf.global_variables_initializer()
         sess.run(init_op)
         saver = tf.train.Saver()
         check_file = pol_dict['checkpoint_path_tf']

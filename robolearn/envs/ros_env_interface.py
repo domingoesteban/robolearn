@@ -1,11 +1,9 @@
 from __future__ import print_function
 from robolearn.envs.environment import EnvInterface
-from robolearn.utils.iit.iit_robots_ros import *
+from robolearn.utils.iit.iit_robots_ros import copy_class_attr, config_advr_command
 
 # Useful packages
-from threading import Thread, Lock
-#from multiprocessing import Process, Lock
-import abc
+from threading import Thread
 
 # ROS packages
 import rospy
@@ -42,7 +40,8 @@ class ROSEnvInterface(EnvInterface):
             self.unpause_srv = rospy.ServiceProxy('/gazebo/unpause_physics', Empty)
             self.pause_srv = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
             self.set_config_srv = rospy.ServiceProxy('/gazebo/set_model_configuration', SetModelConfiguration)
-            self.reset_model_physics_srv = rospy.ServiceProxy('/gazebo/reset_physics_states_model', ResetPhysicsStatesModel)
+            self.reset_model_physics_srv = rospy.ServiceProxy('/gazebo/reset_physics_states_model',
+                                                              ResetPhysicsStatesModel)
 
         self.init_act = 0
         self.init_acts = None
@@ -81,12 +80,13 @@ class ROSEnvInterface(EnvInterface):
         :return: Index of the observation topic in the observation_subs list.
         """
         obs_id = len(self.observation_subs)
-        self.observation_subs.append(rospy.Subscriber(topic_name, topic_type, self.callback_observation, (obs_id, attribute_names)))
+        self.observation_subs.append(rospy.Subscriber(topic_name, topic_type, self.callback_observation,
+                                                      (obs_id, attribute_names)))
         self.last_obs.append(None)
         return obs_id
 
     def callback_observation(self, msg, params):
-        #TODO: Check if it is better to get attribute_names from the obs_types
+        # TODO: Check if it is better to get attribute_names from the obs_types
         """
 
         :param msg:
@@ -97,14 +97,14 @@ class ROSEnvInterface(EnvInterface):
         attribute_names = params[1]
         if not len(self.last_obs):
             raise AttributeError("last_obs has not been configured")
-        #if isinstance(msg, WrenchStamped):
-        #    print(msg)
-        #print(msg.link_position)
+        # if isinstance(msg, WrenchStamped):
+        #     print(msg)
+        # print(msg.link_position)
         if self.last_obs[obs_id] is None:
             self.last_obs[obs_id] = msg
         else:
             copy_class_attr(msg, self.last_obs[obs_id], attribute_names)
-        #print("Obs_id %d " % obs_id)
+        # print("Obs_id %d " % obs_id)
 
     def set_action_type(self, init_cmd_vals, cmd_type, act_idx, **kwargs):
 
@@ -124,14 +124,14 @@ class ROSEnvInterface(EnvInterface):
 
         obs_type_id = len(self.obs_types)
 
-        #if obs_type in ['joint_state']:
-        #    obs_msg = config_advr_command(act_joint_names, obs_type, init_cmd_vals)
-        #else:
-        #    raise NotImplementedError("Only ADVR joint_state observations has been implemented!")
+        # if obs_type in ['joint_state']:
+        #     obs_msg = config_advr_command(act_joint_names, obs_type, init_cmd_vals)
+        # else:
+        #     raise NotImplementedError("Only ADVR joint_state observations has been implemented!")
 
         obs_msg = self.last_obs[obs_id]
         self.obs_types.append({'name': obs_name, 'ros_msg': obs_msg, 'type': obs_type, 'obs_idx': obs_idx})
-        #self.obs_types.append([obs_type, obs_msg, obs_idx])
+        # self.obs_types.append([obs_type, obs_msg, obs_idx])
         return obs_type_id
 
     def set_state_type(self, state_name, obs_type_id, state_type, state_idx):
@@ -140,8 +140,8 @@ class ROSEnvInterface(EnvInterface):
         obs_msg = self.obs_types[obs_type_id]['ros_msg']
 
         # TODO: Temporal removing obs_msg existence because there is a problem in "optitrack" state
-        #if not hasattr(obs_msg, state_type):
-        #    raise ValueError("Wrong ADVR field type option")
+        # if not hasattr(obs_msg, state_type):
+        #     raise ValueError("Wrong ADVR field type option")
 
         state_msg = obs_msg  # TODO: Doing this until we find a better solution to get a 'pointer' to a dict key
 
@@ -196,40 +196,38 @@ class ROSEnvInterface(EnvInterface):
                 publisher.publish(self.action_types[action_idx]['ros_msg'])
                 self.publish_action = False
                 pub_rate.sleep()
-            #else:
-            #    print("Not sending anything to ROS !!!")
+            # else:
+            #     print("Not sending anything to ROS !!!")
 
     def reset_config(self):
         """
-
+        Reset to configuration
         :return:
         """
         # Set Model Config
         if self.mode == 'simulation':
             try:
                 self.set_config_srv(self.initial_config)
-                #self.set_config_srv(model_name=self.initial_config.model_name,
-                #                    joint_names=self.initial_config.joint_names,
-                #                    joint_positions=self.initial_config.joint_positions)
+                # self.set_config_srv(model_name=self.initial_config.model_name,
+                #                     joint_names=self.initial_config.joint_names,
+                #                     joint_positions=self.initial_config.joint_positions)
             except rospy.ServiceException as exc:
                 print("/gazebo/set_model_configuration service call failed: %s" % str(exc))
 
     def reset(self, model_name=None):
-        #NotImplementedError
+        # if self.initial_config is None:
+        #     raise AttributeError("Robot initial configuration not defined!")
 
-        #if self.initial_config is None:
-        #    raise AttributeError("Robot initial configuration not defined!")
-
-        #if self.init_acts is None:
-        #    raise AttributeError("Robot initial actions not defined!")
+        # if self.init_acts is None:
+        #     raise AttributeError("Robot initial actions not defined!")
 
         if self.mode == 'simulation':
             print("Resetting in gazebo!")
             rospy.wait_for_service('/gazebo/reset_simulation')
-            #try:
-            #    self.pause_srv()  # It does not response anything
-            #except rospy.ServiceException as exc:
-            #    print("/gazebo/pause_physics service call failed: %s" % str(exc))
+            # try:
+            #     self.pause_srv()  # It does not response anything
+            # except rospy.ServiceException as exc:
+            #     print("/gazebo/pause_physics service call failed: %s" % str(exc))
 
             try:
                 self.reset_srv()
@@ -243,39 +241,37 @@ class ROSEnvInterface(EnvInterface):
                 except rospy.ServiceException as exc:
                     print("/gazebo/reset_physics_states_model service call failed: %s" % str(exc))
 
+            # rospy.sleep(0.5)
 
+        # #print("Reset config!")
+        # self.reset_config()
+        # #print("SLeeping 2 seconds")
+        # #rospy.sleep(2)
 
-            #rospy.sleep(0.5)
+        # #print("Reset gazebo!")
+        # #try:
+        # #    self.reset_srv()
+        # #except rospy.ServiceException as exc:
+        # #    print("/gazebo/reset_world service call failed: %s" % str(exc))
 
-        ##print("Reset config!")
-        #self.reset_config()
-        ##print("SLeeping 2 seconds")
-        ##rospy.sleep(2)
+        # #print("SLeeping 2 seconds")
+        # #rospy.sleep(2)
 
-        ##print("Reset gazebo!")
-        ##try:
-        ##    self.reset_srv()
-        ##except rospy.ServiceException as exc:
-        ##    print("/gazebo/reset_world service call failed: %s" % str(exc))
+        # #print("Reset config!")
+        # #self.reset_config()
+        # #print("SLeeping 2 MORE seconds")
+        # #rospy.sleep(2)
 
-        ##print("SLeeping 2 seconds")
-        ##rospy.sleep(2)
+        # #print("Reset gazebo!")
+        # #try:
+        # #    self.reset_srv()
+        # #except rospy.ServiceException as exc:
+        # #    print("/gazebo/reset_world service call failed: %s" % str(exc))
 
-        ##print("Reset config!")
-        ##self.reset_config()
-        ##print("SLeeping 2 MORE seconds")
-        ##rospy.sleep(2)
-
-        ##print("Reset gazebo!")
-        ##try:
-        ##    self.reset_srv()
-        ##except rospy.ServiceException as exc:
-        ##    print("/gazebo/reset_world service call failed: %s" % str(exc))
-
-        ##try:
-        ##    self.unpause_srv()  # It does not response anything
-        ##except rospy.ServiceException as exc:
-        ##    print("/gazebo/unpause_physics service call failed: %s" % str(exc))
+        # #try:
+        # #    self.unpause_srv()  # It does not response anything
+        # #except rospy.ServiceException as exc:
+        # #    print("/gazebo/unpause_physics service call failed: %s" % str(exc))
 
     def get_action_idx(self, name=None, action_type=None):
         """

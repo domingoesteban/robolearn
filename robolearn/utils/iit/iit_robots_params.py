@@ -8,15 +8,15 @@ joint_state_fields = ['link_position',
                       'link_velocity',
                       'effort']
 
-#joint_state_fields = ['link_position',   # 0
-#                      'motor_position',  # 1
-#                      'link_velocity',   # 2
-#                      'motor_velocity',  # 3
-#                      'effort',          # 4
-#                      'temperature',     # 5
-#                      'stiffness',       # 6
-#                      'damping',         # 7
-#                      'aux']             # 8
+# joint_state_fields = ['link_position',   # 0
+#                       'motor_position',  # 1
+#                       'link_velocity',   # 2
+#                       'motor_velocity',  # 3
+#                       'effort',          # 4
+#                       'temperature',     # 5
+#                       'stiffness',       # 6
+#                       'damping',         # 7
+#                       'aux']             # 8
 
 # XBOT FT sensor fields (geometry_msgs/WrenchStamped)
 ft_sensor_fields = ['force', 'torque']
@@ -40,19 +40,19 @@ optitrack_dof = {'position': 3,  # x, y, z
                  'orientation': 4}  # x, y, z, w
 
 # Observation example
-#observation_active = [{'name': 'joint_state',
-#                       'type': 'joint_state',
-#                       'ros_topic': '/xbotcore/centauro/joint_states',
-#                       'fields': ['link_position', 'link_velocity', 'effort'],
-#                       'joints': range(12, 27)},  # Value that can be gotten from robot_params['joints_names']['UB']
+# observation_active = [{'name': 'joint_state',
+#                        'type': 'joint_state',
+#                        'ros_topic': '/xbotcore/centauro/joint_states',
+#                        'fields': ['link_position', 'link_velocity', 'effort'],
+#                        'joints': range(12, 27)},  # Value that can be gotten from robot_params['joints_names']['UB']
 #
-#                      {'name': 'ft_arm2',
-#                       'type': 'ft_sensor',
-#                       'ros_topic': '/xbotcore/centauro/ft/ft_arm2',
-#                       'fields': ['force', 'torque']},
+#                       {'name': 'ft_arm2',
+#                        'type': 'ft_sensor',
+#                        'ros_topic': '/xbotcore/centauro/ft/ft_arm2',
+#                        'fields': ['force', 'torque']},
 #
-#                      {'name': 'imu',
-#                       'type': 'imu',
+#                       {'name': 'imu',
+#                        'type': 'imu',
 #                       'ros_topic': '/xbotcore/centauro/imu/ft_arm2',
 #                       'fields': ['orientation', 'angular_velocity', 'linear_acceleration']}]
 
@@ -60,7 +60,7 @@ optitrack_dof = {'position': 3,  # x, y, z
 # BIGMAN #
 # ###### #
 
-bigman_params = {}
+bigman_params = dict()
 
 bigman_params['joint_state_fields'] = joint_state_fields
 
@@ -111,7 +111,7 @@ bigman_params['joints_limits'] = [(-0.697778, 0.87222),               # 'LHipLat
                                   (-0.610865238198, 0.610865238198),  # 'WaistLat',       # Joint 12
                                   (-0.349065850399, 1.3962634016),    # 'WaistSag',       # Joint 13
                                   (-2.84488668075, 2.84488668075),    # 'WaistYaw',       # Joint 14
-                                  (-2.87979326579,2.79252680319),     # 'LShSag',         # Joint 15
+                                  (-2.87979326579, 2.79252680319),    # 'LShSag',         # Joint 15
                                   (0.0872664625997, 3.85717764691),   # 'LShLat',         # Joint 16
                                   (-2.84488668075, 2.84488668075),    # 'LShYaw',         # Joint 17
                                   (-2.96705972839, 0.593411945678),   # 'LElbj',          # Joint 18
@@ -225,7 +225,7 @@ bigman_params['q0'].append([0,  # 'LHipLat'       #0
                             0,  # 'WaistSag'      #13
                             0,  # 'WaistYaw'      #14
                             0,  # 'LShSag'        #15
-                            np.array(50),  # 'LShLat'        #16
+                            np.deg2rad(50),  # 'LShLat'        #16
                             0,  # 'LShYaw'        #17
                             0,  # 'LElbj'         #18
                             0,  # 'LForearmPlate' #19
@@ -234,7 +234,7 @@ bigman_params['q0'].append([0,  # 'LHipLat'       #0
                             0,  # 'NeckYawj'      #22
                             0,  # 'NeckPitchj'    #23
                             0,  # 'RShSag'        #24
-                            np.array(-50),  # 'RShLat'        #25
+                            np.deg2rad(-50),  # 'RShLat'        #25
                             0,  # 'RShYaw'        #26
                             0,  # 'RElbj'         #27
                             0,  # 'RForearmPlate' #28
@@ -266,7 +266,7 @@ bigman_params['observation_active'] = [{'name': 'joint_state',
                                         'type': 'joint_state',
                                         'ros_topic': '/xbotcore/centauro/joint_states',
                                         'fields': ['link_position', 'link_velocity', 'effort'],
-                                        'joints': range(0, 31)},  # Value that can be gotten from robot_params['joints_names']['UB']
+                                        'joints': range(0, 31)},
 
                                        {'name': 'ft_left_arm',
                                         'type': 'ft_sensor',
@@ -296,16 +296,13 @@ bigman_params['observation_active'] = [{'name': 'joint_state',
 bigman_params['state_active'] = [{'name': 'joint_state',
                                   'type': 'joint_state',
                                   'fields': ['link_position', 'link_velocity'],
-                                  'joints': range(0, 31)}]  # Value that can be gotten from robot_params['joints_names']['UB']
+                                  'joints': range(0, 31)}]  # It can be gotten from robot_params['joints_names']['UB']
 
 # ######## #
 # CENTAURO #
 # ######## #
 
-centauro_params = {}
-
-#centauro_params['joint_state_fields'] = joint_state_fields
-#centauro_params['ft_sensor_fields'] = ft_sensor_fields
+centauro_params = dict()
 
 centauro_params['joints_names'] = ['hip_yaw_1',     # Joint 0
                                    'hip_pitch_1',   # Joint 1
@@ -378,17 +375,17 @@ centauro_params['q0'].append([0,  # 'hip_yaw_1',     # Joint 0
 
 
 centauro_params['observation_active'] = [{'name': 'joint_state',
-                       'type': 'joint_state',
-                       'ros_topic': '/xbotcore/centauro/joint_states',
-                       'fields': ['link_position', 'link_velocity', 'effort'],
-                       'joints': range(12, 27)},  # Value that can be gotten from robot_params['joints_names']['UB']
+                                          'type': 'joint_state',
+                                          'ros_topic': '/xbotcore/centauro/joint_states',
+                                          'fields': ['link_position', 'link_velocity', 'effort'],
+                                          'joints': range(12, 27)},
 
-                      {'name': 'ft_arm2',
-                       'type': 'ft_sensor',
-                       'ros_topic': '/xbotcore/centauro/ft/ft_arm2',
-                       'fields': ['force', 'torque']}]
+                                         {'name': 'ft_arm2',
+                                          'type': 'ft_sensor',
+                                          'ros_topic': '/xbotcore/centauro/ft/ft_arm2',
+                                          'fields': ['force', 'torque']}]
 
 centauro_params['state_active'] = [{'name': 'joint_state',
                                     'type': 'joint_state',
                                     'fields': ['link_position', 'link_velocity'],
-                                    'joints': range(12, 27)}]  # Value that can be gotten from robot_params['joints_names']['UB']
+                                    'joints': range(12, 27)}]

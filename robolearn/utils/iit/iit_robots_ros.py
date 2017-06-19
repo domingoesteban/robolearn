@@ -1,15 +1,17 @@
 import numpy as np
-import rospy
 
-# ROS package
-from XCM.msg import JointStateAdvr
-from XCM.msg import CommandAdvr
+# ROS packages
+import rospy
 from geometry_msgs.msg import WrenchStamped
 from sensor_msgs.msg import Imu
+from XCM.msg import JointStateAdvr
+from XCM.msg import CommandAdvr
 from robolearn_gazebo_env.msg import RelativePose
 
 # Robolearn package
-from robolearn.utils.iit.iit_robots_params import *
+from robolearn.utils.iit.iit_robots_params import ft_sensor_dof
+from robolearn.utils.iit.iit_robots_params import imu_sensor_dof
+from robolearn.utils.iit.iit_robots_params import optitrack_dof
 
 
 def config_advr_command(joint_names, cmd_type, init_cmd_vals):
@@ -23,13 +25,8 @@ def config_advr_command(joint_names, cmd_type, init_cmd_vals):
     """
     advr_cmd_msg = CommandAdvr()
     advr_cmd_msg.name = joint_names
-    #advr_cmd_msg = update_advr_command(advr_cmd_msg, cmd_type, init_cmd_vals)
     update_advr_command(advr_cmd_msg, cmd_type, init_cmd_vals)
 
-    #if hasattr(advr_cmd_msg, cmd_type):
-    #    setattr(advr_cmd_msg, cmd_type, init_cmd_vals)
-    #else:
-    #    raise ValueError("Wrong ADVR command type option")
     return advr_cmd_msg
 
 
@@ -49,7 +46,6 @@ def update_advr_command(cmd_msg, cmd_field, cmd_vals):
         setattr(cmd_msg, cmd_field, cmd_vals)
     else:
         raise ValueError("Wrong field option for ADVR command. | type:%s" % cmd_field)
-    #return cmd_msg
 
 
 def get_advr_sensor_data(obs_msg, sensor_field):
@@ -62,7 +58,8 @@ def get_advr_sensor_data(obs_msg, sensor_field):
     if hasattr(obs_msg, sensor_field):
         data_field = getattr(obs_msg, sensor_field)
     else:
-        raise ValueError("Wrong field option for ADVR sensor. | type:%s | obs_msg_type:%s" % (sensor_field, type(obs_msg)))
+        raise ValueError("Wrong field option for ADVR sensor. | type:%s | obs_msg_type:%s" % (sensor_field,
+                                                                                              type(obs_msg)))
 
     return np.asarray(data_field)
 
@@ -77,25 +74,20 @@ def copy_class_attr(objfrom, objto, attribute_names):
     """
 
     for n in attribute_names:
-        #if hasattr(objfrom, n):
-        #    v = getattr(objfrom, n)
-        #    setattr(objto, n, v)
-        #else:
-        #    raise ValueError("Wrong ADVR attribute")
         if isinstance(objfrom, RelativePose):
             if hasattr(objfrom, 'pose'):
                 new_pose = getattr(objfrom, 'pose')
                 if hasattr(new_pose, n):
                     v = getattr(new_pose, n)
                     setattr(objto.pose, n, v)
-                    #setattr(objto, 'wrench', wrench)
+                    # setattr(objto, 'wrench', wrench)
         elif isinstance(objfrom, WrenchStamped):
             if hasattr(objfrom, 'wrench'):
                 new_wrench = getattr(objfrom, 'wrench')
                 if hasattr(new_wrench, n):
                     v = getattr(new_wrench, n)
                     setattr(objto.wrench, n, v)
-                #setattr(objto, 'wrench', wrench)
+                # setattr(objto, 'wrench', wrench)
         elif isinstance(objfrom, JointStateAdvr) or isinstance(objfrom, Imu):
             if hasattr(objfrom, n):
                 v = getattr(objfrom, n)
@@ -107,7 +99,7 @@ def copy_class_attr(objfrom, objto, attribute_names):
 def get_indexes_from_list(list_to_check, values):
     """
     Get the indexes of matching values 
-    :param list: List whose values we want to look at.
+    :param list_to_check: List whose values we want to look at.
     :param values: Values we want to find.
     :return: 
     """
@@ -116,8 +108,6 @@ def get_indexes_from_list(list_to_check, values):
 
 def obs_vector_joint_state(obs_fields, joint_names, ros_joint_state_msg):
     observation = np.empty(len(joint_names)*len(obs_fields))
-    #print (observation.shape)
-    #print(obs_fields)
 
     for ii, obs_field in enumerate(obs_fields):
         observation[len(joint_names)*ii:len(joint_names)*(ii+1)] = \
@@ -130,8 +120,6 @@ def obs_vector_ft_sensor(obs_fields, ros_ft_sensor_msg):
     observation = np.empty(sum([ft_sensor_dof[x] for x in obs_fields]))
     prev_idx = 0
     for ii, obs_field in enumerate(obs_fields):
-        #print(get_advr_sensor_data(ros_ft_sensor_msg.wrench, obs_field)[1])
-        #print(get_advr_sensor_data(ros_ft_sensor_msg.wrench, obs_field)[2])
         wrench_data = get_advr_sensor_data(ros_ft_sensor_msg.wrench, obs_field).item()
         observation[prev_idx] = wrench_data.x
         observation[prev_idx+1] = wrench_data.y
@@ -145,8 +133,6 @@ def obs_vector_imu(obs_fields, ros_imu_msg):
     observation = np.empty(sum([imu_sensor_dof[x] for x in obs_fields]))
     prev_idx = 0
     for ii, obs_field in enumerate(obs_fields):
-        #print(get_advr_sensor_data(ros_imu_sensor_msg.wrench, obs_field)[1])
-        #print(get_advr_sensor_data(ros_fimusensor_msg.wrench, obs_field)[2])
         imu_data = get_advr_sensor_data(ros_imu_msg, obs_field).item()
         observation[prev_idx] = imu_data.x
         observation[prev_idx+1] = imu_data.y
@@ -161,10 +147,6 @@ def obs_vector_imu(obs_fields, ros_imu_msg):
 
 def obs_vector_optitrack(obs_fields, body_names, ros_optitrack_msg):
     observation = np.empty(len(body_names)*sum([optitrack_dof[x] for x in obs_fields]))
-    #print (observation.shape)
-    #print(obs_fields)
-    #print(body_names)
-    #print(ros_optitrack_msg)
 
     prev_idx = 0
     bodies_idx = get_indexes_from_list(ros_optitrack_msg.name, body_names)
@@ -187,8 +169,6 @@ def obs_vector_optitrack(obs_fields, body_names, ros_optitrack_msg):
 
             prev_idx += optitrack_dof[obs_field]
 
-    #print(observation)
-    #raw_input("AA")
     return observation
 
 

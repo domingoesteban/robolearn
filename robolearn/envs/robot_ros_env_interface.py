@@ -1,9 +1,14 @@
 from __future__ import print_function
 from robolearn.envs.ros_env_interface import *
 import numpy as np
-import copy
 
-from robolearn.utils.iit.iit_robots_ros import *
+from robolearn.utils.iit.iit_robots_ros import CommandAdvr, JointStateAdvr, WrenchStamped, Imu, RelativePose
+from robolearn.utils.iit.iit_robots_ros import state_vector_joint_state, update_advr_command, get_indexes_from_list
+from robolearn.utils.iit.iit_robots_ros import get_last_advr_state_field, get_advr_sensor_data
+from robolearn.utils.iit.iit_robots_ros import obs_vector_joint_state, obs_vector_optitrack
+from robolearn.utils.iit.iit_robots_ros import obs_vector_ft_sensor, obs_vector_imu
+from robolearn.utils.iit.iit_robots_params import joint_state_fields, ft_sensor_dof, imu_sensor_dof, optitrack_dof
+from robolearn.utils.iit.iit_robots_params import centauro_params, bigman_params
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 
 
@@ -16,7 +21,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
             raise AttributeError("robot has not been defined!")
 
         if robot_name == 'centauro':
-            # Centauro fields
             self.robot_params = centauro_params
         elif robot_name == 'bigman':
             self.robot_params = bigman_params
@@ -35,7 +39,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
         # Configure actuated joints
         self.act_joint_names = self.get_joints_names(body_part_active)
         self.act_dof = len(self.act_joint_names)
-
 
         # ############ #
         # OBSERVATIONS #
@@ -82,7 +85,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
             print("Waiting to receive %s message in %s ..." % (obs_to_activate['type'], obs_to_activate['ros_topic']))
             while self.last_obs[obs_msg_id] is None:
                 pass
-                #print("Waiting to receive joint_state message...")
+                # print("Waiting to receive joint_state message...")
 
             obs_id = self.set_observation_type(obs_to_activate['name'], obs_msg_id,
                                                obs_to_activate['type'], obs_idx)
@@ -116,11 +119,11 @@ class RobotROSEnvInterface(ROSEnvInterface):
             elif state_to_activate['type'] == 'optitrack':
                 self.state_optitrack_bodies = state_to_activate['bodies']
                 self.state_optitrack_fields = state_to_activate['fields']
-                #for hh, body_name in enumerate(self.state_optitrack_bodies):
-                    #for ii, state_element in enumerate(self.state_optitrack_fields):
-                    #    if not state_element in self.obs_optitrack_fields:
-                    #        raise AttributeError("Joint state type %s is not being observed. Current observations are %s" %
-                    #                             (state_element, self.obs_joint_fields))
+                # for hh, body_name in enumerate(self.state_optitrack_bodies):
+                    # for ii, state_element in enumerate(self.state_optitrack_fields):
+                    #     if not state_element in self.obs_optitrack_fields:
+                    #         raise AttributeError("Joint state type %s is not being observed. Current observations are %s" %
+                    #                              (state_element, self.obs_joint_fields))
                 state_dof = len(self.state_optitrack_bodies)*sum([optitrack_dof[x] for x in self.state_optitrack_fields])
                 state_idx = range(state_idx[-1] + 1, state_idx[-1] + 1 + state_dof)
                 state_id = self.set_state_type('optitrack',  # State name
@@ -167,9 +170,9 @@ class RobotROSEnvInterface(ROSEnvInterface):
         ## ##### #
         ## RESET #
         ## ##### #
-        ## TODO: Find a better way to reset the robot
-        #self.srv_xbot_comm_plugin = rospy.ServiceProxy('/XBotCommunicationPlugin_switch', SetBool)
-        #self.srv_homing_ex_plugin = rospy.ServiceProxy('/HomingExample_switch', SetBool)
+        # # TODO: Find a better way to reset the robot
+        # self.srv_xbot_comm_plugin = rospy.ServiceProxy('/XBotCommunicationPlugin_switch', SetBool)
+        # self.srv_homing_ex_plugin = rospy.ServiceProxy('/HomingExample_switch', SetBool)
         self.reset_simulation_fcn = reset_simulation_fcn
 
         # Resetting before get initial state
@@ -213,17 +216,18 @@ class RobotROSEnvInterface(ROSEnvInterface):
         """
         for ii, des_action in enumerate(self.action_types):
             if des_action['type'] in ['position', 'velocity', 'effort']:
-                if self.cmd_type == 'velocity':  #TODO: TEMPORAL HACK / Velocity not implemented
-                    #current_pos = state_vector_joint_state(['link_position'], self.act_joint_names, self.get_obs_ros_msg(name='joint_state')).ravel()
-                    current_pos = state_vector_joint_state(['position'], self.act_joint_names, self.get_action_ros_msg(action_type='position')).ravel()
+                if self.cmd_type == 'velocity':  # TODO: TEMPORAL HACK / Velocity not implemented
+                    # current_pos = state_vector_joint_state(['link_position'], self.act_joint_names, self.get_obs_ros_msg(name='joint_state')).ravel()
+                    current_pos = state_vector_joint_state(['position'], self.act_joint_names,
+                                                           self.get_action_ros_msg(action_type='position')).ravel()
                     vel = action[des_action['act_idx']]*1./self.cmd_freq
-                    now = rospy.get_rostime()
+                    # now = rospy.get_rostime()
                     action[des_action['act_idx']] = vel + current_pos  # Integrating position
 
                 update_advr_command(des_action['ros_msg'], des_action['type'], action[des_action['act_idx']])
-                #self.action_types[ii]['ros_msg'] = update_advr_command(des_action['ros_msg'],
-                #                                                       des_action['type'],
-                #                                                       action[des_action['act_idx']])
+                # self.action_types[ii]['ros_msg'] = update_advr_command(des_action['ros_msg'],
+                #                                                        des_action['type'],
+                #                                                        action[des_action['act_idx']])
             else:
                 raise NotImplementedError("Only Advr commands: position, velocity or effort available!")
 
@@ -304,8 +308,9 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
         for x in self.state_types:
             if x['type'] in joint_state_fields:
-                state[x['state_idx']] = get_advr_sensor_data(x['ros_msg'], x['type'])[get_indexes_from_list(x['ros_msg'].name,
-                                                                                                            self.state_joint_names)]
+                state[x['state_idx']] = \
+                    get_advr_sensor_data(x['ros_msg'], x['type'])[get_indexes_from_list(x['ros_msg'].name,
+                                                                                        self.state_joint_names)]
 
             elif x['type'] == 'optitrack':
                 state[x['state_idx']] = obs_vector_optitrack(self.state_optitrack_fields,
@@ -314,8 +319,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
             else:
                 raise NotImplementedError("State type %s has not been implemented in get_state()" %
                                           x['type'])
-
-        #print(state)
         return state
 
     def get_obs_info(self, name=None):
@@ -372,7 +375,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         reset_cmd = CommandAdvr()
 
         # Wait for getting zero velocity and acceleration
-        #rospy.sleep(1)  # Because I need to find a good way to reset
+        # rospy.sleep(1)  # Because I need to find a good way to reset
 
         joint_positions = get_last_advr_state_field(self.robot_name, 'link_position', self.act_joint_names)
 
@@ -401,7 +404,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.conditions = conditions
 
     def add_condition(self, condition):
-        #TODO: Check condition size
+        # TODO: Check condition size
         self.conditions.append(condition)
         return len(self.conditions)-1
 
@@ -443,4 +446,3 @@ class RobotROSEnvInterface(ROSEnvInterface):
             stop_cmd.damping = bigman_params['damping_gains'][joint_ids]
             stop_publisher.publish(stop_cmd)
             pub_rate.sleep()
-
