@@ -31,7 +31,6 @@ default_gps_hyperparams = {
     },
 
     # Dynamics hyperaparams.
-    #'dynamics': None,
     'dynamics': {
         'type': DynamicsLRPrior,
         'regularization': 1e-6,
@@ -63,7 +62,6 @@ default_gps_hyperparams = {
     'fixed_lg_step': 3,
     'sample_decrease_var': 0.05,
     'sample_increase_var': 0.1,
-
 
     # Trajectory settings.
     'initial_state_var': 1e-6,

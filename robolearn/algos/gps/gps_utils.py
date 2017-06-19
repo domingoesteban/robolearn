@@ -1,5 +1,7 @@
+"""
+This file defines utility classes and functions for algorithms.
 # Original code from Finn et al in github.com/cbfinn/gps
-""" This file defines utility classes and functions for algorithms. """
+"""
 import numpy as np
 
 from robolearn.policies.lin_gauss_policy import LinearGaussianPolicy
@@ -20,6 +22,7 @@ class BundleType(object):
             raise AttributeError("%r has no attribute %s" % (self, key))
         object.__setattr__(self, key, value)
 
+
 def extract_condition(hyperparams, m):
     """
     Pull the relevant hyperparameters corresponding to the specified
@@ -27,6 +30,7 @@ def extract_condition(hyperparams, m):
     """
     return {var: val[m] if isinstance(val, list) else val
             for var, val in hyperparams.items()}
+
 
 class IterationData(BundleType):
     """ Collection of iteration variables. """
@@ -64,15 +68,15 @@ class PolicyInfo(BundleType):
     def __init__(self, hyperparams):
         T, dU, dX = hyperparams['T'], hyperparams['dU'], hyperparams['dX']
         variables = {
-            'lambda_k': np.zeros((T, dU)),  # Dual variables.
-            'lambda_K': np.zeros((T, dU, dX)),  # Dual variables.
+            'lambda_k': np.zeros((T, dU)),  # Dual variable (Lagrange multiplier vectors) for k.
+            'lambda_K': np.zeros((T, dU, dX)),  # Dual variables (Lagrange multiplier vectors) for K.
             'pol_wt': hyperparams['init_pol_wt'] * np.ones(T),  # Policy weight.
             'pol_mu': None,  # Mean of the current policy output.
             'pol_sig': None,  # Covariance of the current policy output.
-            'pol_K': np.zeros((T, dU, dX)),  # Policy linearization.
-            'pol_k': np.zeros((T, dU)),  # Policy linearization.
+            'pol_K': np.zeros((T, dU, dX)),  # Policy linearization K matrix.
+            'pol_k': np.zeros((T, dU)),  # Policy linearization k vector.
             'pol_S': np.zeros((T, dU, dU)),  # Policy linearization covariance.
-            'chol_pol_S': np.zeros((T, dU, dU)),  # Cholesky decomp of covar.
+            'chol_pol_S': np.zeros((T, dU, dU)),  # Policy linearization Cholesky decomp of covar.
             'prev_kl': None,  # Previous KL divergence.
             'init_kl': None,  # The initial KL divergence, before the iteration.
             'policy_samples': [],  # List of current policy samples.

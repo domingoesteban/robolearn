@@ -115,19 +115,19 @@ def get_indexes_from_list(list_to_check, values):
 
 
 def obs_vector_joint_state(obs_fields, joint_names, ros_joint_state_msg):
-    observation = np.empty((len(joint_names)*len(obs_fields), 1))
+    observation = np.empty(len(joint_names)*len(obs_fields))
     #print (observation.shape)
     #print(obs_fields)
 
     for ii, obs_field in enumerate(obs_fields):
-        observation[len(joint_names)*ii:len(joint_names)*(ii+1), -1] = \
+        observation[len(joint_names)*ii:len(joint_names)*(ii+1)] = \
                 get_advr_sensor_data(ros_joint_state_msg, obs_field)[get_indexes_from_list(ros_joint_state_msg.name,
                                                                                            joint_names)]
     return observation
 
 
 def obs_vector_ft_sensor(obs_fields, ros_ft_sensor_msg):
-    observation = np.empty((sum([ft_sensor_dof[x] for x in obs_fields]), 1))
+    observation = np.empty(sum([ft_sensor_dof[x] for x in obs_fields]))
     prev_idx = 0
     for ii, obs_field in enumerate(obs_fields):
         #print(get_advr_sensor_data(ros_ft_sensor_msg.wrench, obs_field)[1])
@@ -142,7 +142,7 @@ def obs_vector_ft_sensor(obs_fields, ros_ft_sensor_msg):
 
 
 def obs_vector_imu(obs_fields, ros_imu_msg):
-    observation = np.empty((sum([imu_sensor_dof[x] for x in obs_fields]), 1))
+    observation = np.empty(sum([imu_sensor_dof[x] for x in obs_fields]))
     prev_idx = 0
     for ii, obs_field in enumerate(obs_fields):
         #print(get_advr_sensor_data(ros_imu_sensor_msg.wrench, obs_field)[1])
@@ -160,7 +160,7 @@ def obs_vector_imu(obs_fields, ros_imu_msg):
 
 
 def obs_vector_optitrack(obs_fields, body_names, ros_optitrack_msg):
-    observation = np.empty((len(body_names)*sum([optitrack_dof[x] for x in obs_fields]), 1))
+    observation = np.empty(len(body_names)*sum([optitrack_dof[x] for x in obs_fields]))
     #print (observation.shape)
     #print(obs_fields)
     #print(body_names)
@@ -201,9 +201,9 @@ def state_vector_joint_state(state_fields, joint_names, ros_joint_state_msg):
     :return: Array for the requested data
     :rtype: numpy.ndarray
     """
-    state = np.empty((len(joint_names)*len(state_fields), 1))
+    state = np.empty(len(joint_names)*len(state_fields))
     for ii, obs_field in enumerate(state_fields):
-        state[len(joint_names)*ii:len(joint_names)*(ii+1), -1] = \
+        state[len(joint_names)*ii:len(joint_names)*(ii+1)] = \
             get_advr_sensor_data(ros_joint_state_msg, obs_field)[get_indexes_from_list(ros_joint_state_msg.name,
                                                                                        joint_names)]
     return state
