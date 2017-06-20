@@ -31,19 +31,26 @@ from robolearn.policies.policy_prior import PolicyPrior  # For MDGPS
 
 from robolearn.utils.sampler import Sampler
 from robolearn.policies.traj_reprod_policy import TrajectoryReproducerPolicy
+from robolearn.utils.joint_space_control_sampler import JointSpaceControlSampler
+from robolearn.policies.computed_torque_policy import ComputedTorquePolicy
 
 from robolearn.utils.lift_box_utils import create_box_relative_pose
 from robolearn.utils.lift_box_utils import reset_condition_bigman_box_gazebo
 from robolearn.utils.lift_box_utils import spawn_box_gazebo
 from robolearn.utils.lift_box_utils import create_bigman_box_condition
 from robolearn.utils.lift_box_utils import create_ee_relative_pose
+from robolearn.utils.lift_box_utils import generate_reach_joints_trajectories
+from robolearn.utils.lift_box_utils import generate_lift_joints_trajectories
 
 from robolearn.utils.robot_model import RobotModel
 from robolearn.utils.algos_utils import IterationData
 from robolearn.utils.algos_utils import TrajectoryInfo
 from robolearn.utils.print_utils import change_print_color
+from robolearn.utils.plot_utils import plot_joint_info
 
 import time
+
+np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 
 
 def kill_everything(_signal=None, _frame=None):
@@ -59,8 +66,10 @@ signal.signal(signal.SIGINT, kill_everything)
 # ################## #
 # Task parameters
 Ts = 0.01
+Treach = 4
+Tlift = 0
 # EndTime = 4  # Using final time to define the horizon
-EndTime = 4  # Using final time to define the horizon
+EndTime = Treach + Tlift  # Using final time to define the horizon
 
 # BOX
 box_x = 0.75-0.05
@@ -300,48 +309,102 @@ cost_sum = {
     'weights': [0.1, 5.0, 8.0, 8.0],
 }
 
-# ################################ #
-# ################################ #
-# ## SAMPLE FROM DEMONSTRATIONS ## #
-# ################################ #
-# ################################ #
-# change_print_color.change('GREEN')
-# n_samples = 4
-# noisy = True
-# sampler_hyperparams = {
-#     'noisy': noisy,
-#     'noise_var_scale': 0.0001,  # It can be a np.array() with dim=dU
-#     'smooth_noise': False,
-#     'smooth_noise_var': 0.01,#01
-#     'smooth_noise_renormalize': False,
-#     'T': int(EndTime/Ts),  # Total points
-#     'dt': Ts
-#     }
-# #traj_files = ['trajectories/traj1'+'_x'+str(box_x)+'_y'+str(box_y)+'_Y'+str(box_yaw)+'_m0_reach.npy',
-# #              'trajectories/traj1'+'_x'+str(box_x)+'_y'+str(box_y)+'_Y'+str(box_yaw)+'_m1_lift.npy']
-# traj_files = ['trajectories/traj1'+'_x'+str(box_x)+'_y'+str(box_y)+'_Y'+str(box_yaw)+'_m0_reach.npy']
-# traj_rep_policy = TrajectoryReproducerPolicy(traj_files, act_idx=bigman_params['joint_ids']['BA'])
-# sampler = Sampler(traj_rep_policy, bigman_env, **sampler_hyperparams)
-# condition = create_bigman_box_condition(traj_rep_policy.eval(t=0), box_relative_pose)
-# cond_idx = bigman_env.add_condition(condition)
-# print(cond_idx)
-# #raw_input("Press a key for sampling from Sampler")
-# print("\nSampling %d times from condition%d and with policy:%s (noisy:%s)" % (n_samples, cond_idx,
-#                                                                               type(traj_rep_policy), noisy))
-# sampler.take_samples(n_samples, cond=cond_idx, noisy=noisy)
 
 # ########## #
+# ########## #
 # Conditions #
+# ########## #
 # ########## #
 q0 = np.zeros(31)
 condition0 = create_bigman_box_condition(q0, box_relative_pose, joint_idxs=bigman_params['joint_ids']['BA'])
 bigman_env.add_condition(condition0)
 
-# q1 = q0.copy()
-# q1[16] = np.deg2rad(50)
-# q1[25] = np.deg2rad(-50)
-# condition1 = create_bigman_box_condition(q1, box_relative_pose, joint_idxs=bigman_params['joint_ids']['BA'])
-# bigman_env.add_condition(condition1)
+q1 = q0.copy()
+q1[16] = np.deg2rad(50)
+q1[25] = np.deg2rad(-50)
+condition1 = create_bigman_box_condition(q1, box_relative_pose, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition1)
+
+
+# ################################ #
+# ################################ #
+# ## SAMPLE FROM DEMONSTRATIONS ## #
+# ################################ #
+# ################################ #
+change_print_color.change('GREEN')
+n_samples = 4
+noisy = True
+sampler_hyperparams = {
+    'noisy': noisy,
+    #'noise_var_scale': 0.0001,  # It can be a np.array() with dim=dU
+    'noise_var_scale': 0.1,  # It can be a np.array() with dim=dU
+    'smooth_noise': False,
+    'smooth_noise_var': 0.01,#01
+    'smooth_noise_renormalize': False,
+    'T': int(EndTime/Ts),  # Total points
+    'dt': Ts
+    }
+
+# Generate joints trajectories
+print("Generating joints trajectories..")
+# Expand conditions:
+init_cond = bigman_env.get_conditions()
+joints_trajectories = list()
+joint_idx = bigman_params['joint_ids']['BA']
+state_info = bigman_env.get_state_info()
+q0 = np.zeros(robot_model.q_size)
+for cond in init_cond:
+    if Treach > 0:
+        arms_des = cond[state_info['idx'][state_info['names'].index('link_position')]]
+        q0[joint_idx] = arms_des
+        qs_reach, qdots_reach, qddots_reach = generate_reach_joints_trajectories(box_relative_pose, box_size, Treach,
+                                                                                 q0, option=0, dt=Ts)
+
+        #joints_to_plot = bigman_params['joint_ids']['LA']
+        #joint_names = [bigman_params['joints_names'][idx] for idx in joints_to_plot]
+        #plot_joint_info(joints_to_plot, qs_reach, joint_names, data='position', block=False)
+        #plot_joint_info(joints_to_plot, qdots_reach, joint_names, data='velocity', block=False)
+        #plot_joint_info(joints_to_plot, qddots_reach, joint_names, data='acceleration', block=False)
+        #raw_input("Plotting reaching... Press a key to continue")
+
+    if Tlift > 0:
+        qs_lift, qdots_lift, qddots_lift = generate_lift_joints_trajectories(box_relative_pose, box_size, Tlift, q0,
+                                                                             option=0, dt=Ts)
+
+        #joints_to_plot = bigman_params['joint_ids']['LA']
+        #joint_names = [bigman_params['joints_names'][idx] for idx in joints_to_plot]
+        #plot_joint_info(joints_to_plot, qs_lift, joint_names, data='position', block=False)
+        #plot_joint_info(joints_to_plot, qdots_lift, joint_names, data='velocity', block=False)
+        #plot_joint_info(joints_to_plot, qddots_lift, joint_names, data='acceleration', block=False)
+        #raw_input("Plotting lifting... Press a key to continue")
+
+    qs = qs_reach
+    qdot_s = qdots_reach
+    qddot_s = qddots_reach
+
+    joints_trajectories.append([qs, qdot_s, qddot_s])
+
+# #traj_files = ['trajectories/traj1'+'_x'+str(box_x)+'_y'+str(box_y)+'_Y'+str(box_yaw)+'_m0_reach.npy',
+# #              'trajectories/traj1'+'_x'+str(box_x)+'_y'+str(box_y)+'_Y'+str(box_yaw)+'_m1_lift.npy']
+# traj_files = ['trajectories/traj1'+'_x'+str(box_x)+'_y'+str(box_y)+'_Y'+str(box_yaw)+'_m0_reach.npy']
+# traj_rep_policy = TrajectoryReproducerPolicy(traj_files, act_idx=bigman_params['joint_ids']['BA'])
+# sampler = Sampler(traj_rep_policy, bigman_env, **sampler_hyperparams)
+
+computed_torque_policy = ComputedTorquePolicy(robot_model.model)
+sampler_hyperparams['act_idx'] = bigman_params['joint_ids']['BA']
+sampler_hyperparams['joints_idx'] = bigman_params['joint_ids']['BA']
+sampler_hyperparams['state_pos_idx'] = bigman_env.get_state_info(name='link_position')['idx']
+sampler_hyperparams['state_vel_idx'] = bigman_env.get_state_info(name='link_velocity')['idx']
+sampler_hyperparams['q_size'] = robot_model.q_size
+sampler_hyperparams['qdot_size'] = robot_model.qdot_size
+sampler_hyperparams['joints_trajectories'] = joints_trajectories
+sampler = JointSpaceControlSampler(computed_torque_policy, bigman_env, **sampler_hyperparams)
+
+#raw_input("Press a key for sampling from Sampler")
+for cond_idx, _ in enumerate(init_cond):
+    print("\nSampling %d times from condition%d and with policy:%s (noisy:%s)" % (n_samples, cond_idx,
+                                                                                  type(computed_torque_policy), noisy))
+    sampler.take_samples(n_samples, cond=cond_idx, noisy=noisy, save=False)
 
 
 # ######################## #

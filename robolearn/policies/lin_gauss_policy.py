@@ -1,4 +1,7 @@
-# Based on lin_gaus_policy from github.com:cbfinn/gps.git
+"""
+Adapted by robolearn team.
+Based on lin_gaus_policy from github.com:cbfinn/gps.git
+"""
 
 import numpy as np
 

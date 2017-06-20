@@ -7,6 +7,7 @@ from robolearn.envs.environment import Environment
 from robolearn.utils.sample import Sample
 from robolearn.utils.plot_utils import *
 from robolearn.utils.data_logger import DataLogger
+from robolearn.utils.sample_list import SampleList
 from robolearn.agents.agent_utils import generate_noise
 
 default_hyperparams = {
@@ -18,7 +19,7 @@ default_hyperparams = {
 }
 
 
-class Sampler(object):
+class JointSpaceControlSampler(object):
     def __init__(self, policy, env, **kwargs):
 
         if not issubclass(type(env), Environment):
@@ -48,13 +49,33 @@ class Sampler(object):
 
         self.n_samples = 1
 
+        self.q = np.zeros(self._hyperparams['q_size'])
+        self.qdot = np.zeros(self._hyperparams['qdot_size'])
+        self.q_des = np.zeros(self._hyperparams['q_size'])
+        self.qdot_des = np.zeros(self._hyperparams['qdot_size'])
+        self.qddot_des = np.zeros(self._hyperparams['qdot_size'])
+
+        # Indexes
+        self.joints_idx = self._hyperparams['joints_idx']
+        self.state_pos_idx = self._hyperparams['state_pos_idx']
+        self.state_vel_idx = self._hyperparams['state_vel_idx']
+
+        if self._hyperparams['act_idx'] is None:
+            self.act_idx = range(self._hyperparams['qdot_size'])
+        else:
+            self.act_idx = self._hyperparams['act_idx']
+
+        self.joints_trajectories = self._hyperparams['joints_trajectories']
+
         self.data_logger = DataLogger()
 
     def take_samples(self, n_samples, cond=0, noisy=False, save=True):
         self.n_samples = n_samples
 
+        sample_list = SampleList()
+
         for ii in range(n_samples):
-            self._take_sample(ii, cond, noisy=noisy, save=save)
+            sample_list.add_sample(self._take_sample(ii, cond, noisy=noisy, save=save))
 
     def _take_sample(self, i, cond, verbose=True, save=True, noisy=False):
         """
@@ -85,9 +106,17 @@ class Sampler(object):
         for t in range(self.T):
             if verbose:
                 print("Sample cond:%d | i:%d/%d | t:%d/%d" % (cond, i+1, self.n_samples, t+1, self.T))
+
+            self.q_des[:] = self.joints_trajectories[cond][0][t, :]
+            self.qdot_des[:] = self.joints_trajectories[cond][1][t, :]
+            self.qddot_des[:] = self.joints_trajectories[cond][2][t, :]
+
             obs = self.env.get_observation()
             state = self.env.get_state()
-            action = self.policy.eval(state=state, obs=obs, t=t, noise=noise[t, :])
+            self.q[self.joints_idx] = state[self.state_pos_idx]
+            self.qdot[self.joints_idx] = state[self.state_vel_idx]
+
+            action = self.policy.eval(self.q_des, self.qdot_des, self.qddot_des, self.q, self.qdot)[self.act_idx] + noise[t, :]
             self.env.send_action(action)
             obs_hist[t] = (obs, action)
             history[t] = (state, action)

@@ -1,10 +1,23 @@
 import numpy as np
 import tf
+import os
 from robolearn.utils.gazebo_utils import *
 from robolearn.utils.transformations import homogeneous_matrix
 from robolearn.utils.iit.robot_poses.bigman.poses import bigman_pose
+from robolearn.utils.iit.iit_robots_params import bigman_params
+from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
+from robolearn.utils.robot_model import RobotModel
 from gazebo_msgs.srv import GetModelState
 import rospkg
+
+# Robot Model
+robot_urdf = os.environ["ROBOTOLOGY_ROOT"]+'/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
+robot_model = RobotModel(robot_urdf)
+LH_name = 'LWrMot3'
+RH_name = 'RWrMot3'
+l_soft_hand_offset = np.array([0.000, -0.030, -0.210])
+r_soft_hand_offset = np.array([0.000, 0.030, -0.210])
+torso_joints = bigman_params['joint_ids']['TO']
 
 
 def create_bigman_box_condition(q, bigman_box_pose, joint_idxs=None):
@@ -98,3 +111,51 @@ def spawn_box_gazebo(bigman_box_pose, box_size=None):
 
     spawn_gazebo_model('box_support', box_support_sdf, box_support_pose)
     spawn_gazebo_model('box', box_sdf, box_pose)
+
+
+def generate_reach_joints_trajectories(box_relative_pose, box_size, T, q_init, option=0, dt=1):
+    # reach_option 0: IK desired final pose, interpolate in joint space
+    # reach_option 1: Trajectory in EEs, then IK whole trajectory
+    # reach_option 2: Trajectory in EEs, IK with Jacobians
+
+    ik_method = 'optimization'  # iterative / optimization
+    LH_reach_pose = create_ee_relative_pose(box_relative_pose, ee_x=0, ee_y=box_size[1]/2-0.02, ee_z=0, ee_yaw=0)
+    RH_reach_pose = create_ee_relative_pose(box_relative_pose, ee_x=0, ee_y=-box_size[1]/2+0.02, ee_z=0, ee_yaw=0)
+    N = int(np.ceil(T/dt))
+
+    # Swap position, orientation
+    LH_reach_pose = np.concatenate((LH_reach_pose[3:], LH_reach_pose[:3]))
+    RH_reach_pose = np.concatenate((RH_reach_pose[3:], RH_reach_pose[:3]))
+
+    # ######### #
+    # Reach Box #
+    # ######### #
+    if option == 0:
+        q_reach = robot_model.ik(LH_name, LH_reach_pose, body_offset=l_soft_hand_offset,
+                                 mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
+                                 method=ik_method)
+        q_reachRA = robot_model.ik(RH_name, RH_reach_pose, body_offset=r_soft_hand_offset,
+                                   mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
+                                   method=ik_method)
+
+        q_reach[bigman_params['joint_ids']['RA']] = q_reachRA[bigman_params['joint_ids']['RA']]
+
+        # Trajectory
+        reach_qs, reach_q_dots, reach_q_ddots = polynomial5_interpolation(N, q_reach, q_init)
+    else:
+        raise ValueError("Wrong reach_option %d" % option)
+
+    reach_q_dots *= 1./dt
+    reach_q_ddots *= 1./dt*1./dt
+
+    return reach_qs, reach_q_dots, reach_q_ddots
+
+
+def generate_lift_joints_trajectories(box_relative_pose, box_size, option=0):
+    # ######## #
+    # Lift box #
+    # ######## #
+    if option == 0:
+        pass
+    else:
+        raise ValueError("Wrong lift_option %d" % option)

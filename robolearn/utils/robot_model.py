@@ -201,7 +201,8 @@ class RobotModel(object):
                 nm = np.linalg.norm(xdot)
 
                 # Compute the jacobian matrix
-                rbdl.CalcPointJacobian6D(self.model, q, self.model.GetBodyId(body_name), np.zeros(0), J, update_kinematics=True)
+                rbdl.CalcPointJacobian6D(self.model, q, self.model.GetBodyId(body_name), np.zeros(0), J,
+                                         update_kinematics=True)
                 J[:, mask_joints] = 0
 
                 qdot[:] = np.linalg.lstsq(J, xdot)[0]
@@ -210,7 +211,7 @@ class RobotModel(object):
 
                 # Integrate the computed velocities
                 q[:] += qdot * gamma
-                actual_pose = fk(self.model, body_name, q=q, body_offset=body_offset, update_kinematics=True)
+                actual_pose = self.fk(body_name, q=q, body_offset=body_offset, update_kinematics=True)
 
             return q
         else:

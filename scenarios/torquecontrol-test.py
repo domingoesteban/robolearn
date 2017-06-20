@@ -57,7 +57,7 @@ default_joint_damping = np.array([30.,  50.,  30.,  30.,  30.,   5.,
                                   1.,   1.,
                                   30.,  50.,  30.,  30.,   1.,   5.,   1.])
 pd_tau_weights = np.array([0.80,  0.50,  0.80,  0.50,  0.50,  0.20,
-                           0.80,  0.50,  0.50,  0.50,  0.50,  0.20are the same initial gains ,
+                           0.80,  0.50,  0.50,  0.50,  0.50,  0.20,
                            0.50,  0.80,  0.50,
                            0.50,  0.80,  0.50,  0.50,  0.10,  0.20,   0.03,
                            0.03,  0.03,
@@ -194,10 +194,14 @@ for ii in range(50):
     publisher.publish(des_cmd)
     pub_rate.sleep()
 
+
+# ##### #
+# PLOTS #
+# ##### #
 joints_to_plot = bigman_params['joint_ids']['LA']
 cols = 3
 joint_names = [bigman_params['joints_names'][idx] for idx in joints_to_plot]
-print("Ploting...")
+print("Plotting...")
 plot_desired_sensed_data(joints_to_plot, joint_traj, qs_traj, joint_names, data_type='position', block=False)
 #plot_desired_sensed_data(joints_to_plot, joint_traj_dots, qdots_traj, joint_names, data_type='velocity', block=False)
 plot_desired_sensed_torque_position(joints_to_plot, taus_cmd_traj, taus_traj,
