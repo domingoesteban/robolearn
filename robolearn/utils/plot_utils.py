@@ -71,12 +71,20 @@ def plot_desired_sensed_data(joints_to_plot, des_qs, sensed_qs,  joint_names, da
     fig, axs = plt.subplots(int(math.ceil(float(dU)/cols)), cols)
     if data_type.lower() == 'position':
         fig.canvas.set_window_title("Joint Positions")
+        des_color = 'limegreen'
+        sensed_color = 'forestgreen'
     elif data_type.lower() == 'velocity':
         fig.canvas.set_window_title("Joint Velocities")
+        des_color = 'lightcoral'
+        sensed_color = 'red'
     elif data_type.lower() == 'acceleration':
         fig.canvas.set_window_title("Joint Accelerations")
+        des_color = 'lightskyblue'
+        sensed_color = 'blue'
     elif data_type.lower() == 'torque':
         fig.canvas.set_window_title("Joint Torques")
+        des_color = 'gray'
+        sensed_color = 'black'
     else:
         raise ValueError("Wrong data_type option:%s " % data_type)
     fig.set_facecolor((1, 1, 1))
@@ -84,8 +92,8 @@ def plot_desired_sensed_data(joints_to_plot, des_qs, sensed_qs,  joint_names, da
         ax1 = axs[ii/cols, ii % cols]
         if ii < dU:
             ax1.set_title("Joint %d: %s" % (ii+1, joint_names[ii]))
-            ax1.plot(sensed_qs[:, joints_to_plot[ii]], 'k')
-            ax1.plot(des_qs[:, joints_to_plot[ii]], '--', color='gray')
+            ax1.plot(sensed_qs[:, joints_to_plot[ii]], color=sensed_color)
+            ax1.plot(des_qs[:, joints_to_plot[ii]], '--', color=des_color)
             ax1.set_ylabel('Position (rad)', color='k')
             ax1.tick_params('y', colors='k')
             ax1.tick_params(direction='in')

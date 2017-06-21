@@ -41,7 +41,8 @@ def create_box_relative_pose(box_x=0.75, box_y=0.00, box_z=0.0184, box_yaw=0):
     :param box_yaw: Box Yaw (axisZ) orientation (degrees) relative to base_link of robot
     :return:         
     """
-    box_quat = tf.transformations.quaternion_from_matrix(tf.transformations.rotation_matrix(np.deg2rad(box_yaw), [0, 0, 1]))
+    box_quat = tf.transformations.quaternion_from_matrix(tf.transformations.rotation_matrix(np.deg2rad(box_yaw),
+                                                                                            [0, 0, 1]))
     #box_matrix = homogeneous_matrix(rot=box_orient, pos=box_position)
     return np.hstack((box_x, box_y, box_z, box_quat))
 
@@ -151,7 +152,7 @@ def generate_reach_joints_trajectories(box_relative_pose, box_size, T, q_init, o
     return reach_qs, reach_q_dots, reach_q_ddots
 
 
-def generate_lift_joints_trajectories(box_relative_pose, box_size, option=0):
+def generate_lift_joints_trajectories(box_relative_pose, box_size, T, q_init, option=0, dt=1):
     # ######## #
     # Lift box #
     # ######## #

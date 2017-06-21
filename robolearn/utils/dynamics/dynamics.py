@@ -1,9 +1,8 @@
 """
 This file defines the base class for dynamics estimation.
-Author: C.Finn et al
+Author: C. Finn et al. Code in https://github.com/cbfinn/gps
 """
 import abc
-
 import numpy as np
 
 
@@ -24,7 +23,8 @@ class Dynamics(object):
         self.dyn_covar = np.array(np.nan)  # Covariance.
 
     @abc.abstractmethod
-    def update_prior(self, sample):
+    # def update_prior(self, sample):
+    def update_prior(self, *args):
         """ Update dynamics prior. """
         raise NotImplementedError("Must be implemented in subclass.")
 
@@ -34,7 +34,8 @@ class Dynamics(object):
         raise NotImplementedError("Must be implemented in subclass.")
 
     @abc.abstractmethod
-    def fit(self, sample_list):
+    # def fit(self, sample_list):
+    def fit(self, *args):
         """ Fit dynamics. """
         raise NotImplementedError("Must be implemented in subclass.")
 

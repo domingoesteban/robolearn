@@ -1,11 +1,13 @@
 import numpy as np
+import tf
 from scipy import interpolate
-from pyquaternion import Quaternion
+
 
 def polynomial5_interpolation(N, xf, x0=None, dxf=None, dx0=None, ddxf=None, ddx0=None):
     # Polynomial Hermite 5th order interpolation
 
-    n_array = np.array(range(N+1))
+    # n_array = np.array(range(N+1))
+    n_array = np.linspace(0, 1, N)
     x_n = np.array([[n**5, n**4, n**3, n**2, n, 1] for n in n_array])
     dx_n = np.array([[5*n**4, 4*n**3, 3*n**2, 2*n, 1] for n in n_array])
     ddx_n = np.array([[20*n**3, 12*n**2, 6*n, 2] for n in n_array])
@@ -34,9 +36,12 @@ def polynomial5_interpolation(N, xf, x0=None, dxf=None, dx0=None, ddxf=None, ddx
     else:
         ddx0 = np.array(ddx0)#.reshape(1, -1)
 
-    x = np.empty([N+1, dim])
-    dx = np.empty([N+1, dim])
-    ddx = np.empty([N+1, dim])
+    # x = np.empty([N+1, dim])
+    # dx = np.empty([N+1, dim])
+    # ddx = np.empty([N+1, dim])
+    x = np.empty([N, dim])
+    dx = np.empty([N, dim])
+    ddx = np.empty([N, dim])
 
     for ii in range(dim):
         A = np.array([[1,  1,  1, 1, 1, 1],
@@ -44,7 +49,7 @@ def polynomial5_interpolation(N, xf, x0=None, dxf=None, dx0=None, ddxf=None, ddx
                       [20, 12, 6, 2, 0, 0],
                       [0,  0,  0, 1, 0, 0],
                       [0,  0,  0, 0, 1, 0],
-                      [0,  0,  0, 0, 0, 1]])
+                      [0,  0,  0, 0, 0, 1]], dtype=np.float64)
 
         A *= x_n[-1, :]
         b = np.array([xf[ii], dxf[ii], ddxf[ii], ddx0[ii], dx0[ii], x0[ii]])
@@ -81,20 +86,13 @@ def spline_interpolation(N, time_points, via_points):
     return x
 
 
-def quaternion_interpolation(N, q_end, q_init=None):
+def quaternion_slerp_interpolation(N, q_end, q_init=None):
     if q_init is None:
         q_init = np.array([0, 0, 0, 1])
 
-    #q_end = Quaternion(q_end[3], q_end[0], q_end[1], q_end[2])
-    q_end = Quaternion(q_end[[3, 0, 1, 2]])
-    #q_init = Quaternion(q_init[3], q_init[0], q_init[1], q_init[2])
-    q_init = Quaternion(q_init[[3, 0, 1, 2]])
-
-    quat_traj = np.empty([N+1, 4])
-
-    for ii in range(N+1):
-        temp_quat = Quaternion.slerp(q_init, q_end, amount=float(ii)/N)
-        quat_traj[ii, 3] = temp_quat.scalar
-        quat_traj[ii, :3] = temp_quat.vector
+    quat_traj = np.empty((N, 4))
+    linspace_interp = np.linspace(0, 1, N)
+    for ii in range(N):
+        quat_traj[ii, :] = tf.transformations.quaternion_slerp(q_init, q_end, linspace_interp[ii])
 
     return quat_traj

@@ -31,6 +31,8 @@ LOGGER.addHandler(ch)
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
+GPU_MEM_PERCENTAGE = 0.5
+
 
 class PolicyOptTf(PolicyOpt):
     """ Policy optimization using tensor flow for DAG computations/nonlinear function approximation. """
@@ -60,7 +62,9 @@ class PolicyOptTf(PolicyOpt):
         self.init_network()
         self.init_solver()
         self.var = self._hyperparams['init_var'] * np.ones(dU)
-        self.sess = tf.Session()
+        config = tf.ConfigProto()
+        config.gpu_options.per_process_gpu_memory_fraction = GPU_MEM_PERCENTAGE
+        self.sess = tf.Session(config=config)
         self.policy = TfPolicy(dU, self.obs_tensor, self.act_op, self.feat_op,
                                np.zeros(dU), self.sess, self.device_string, copy_param_scope=self._hyperparams['copy_param_scope'])
 

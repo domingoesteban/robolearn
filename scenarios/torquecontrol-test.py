@@ -39,8 +39,7 @@ T_impedance_zero = 10
 freq = 100
 
 # ROBOT MODEL for trying ID
-#robot_urdf_file = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
-robot_urdf_file = '/home/domingo/robotology-superbuild/configs/ADVR_shared/bigman/urdf/bigman.urdf'
+robot_urdf_file = os.environ["ROBOTOLOGY_ROOT"]+'/configs/ADVR_shared/bigman/urdf/bigman.urdf'
 robot_model = rbdl.loadModel(robot_urdf_file, verbose=False, floating_base=False)
 #LH_name = 'LWrMot3'
 #RH_name = 'RWrMot3'
@@ -59,7 +58,7 @@ default_joint_damping = np.array([30.,  50.,  30.,  30.,  30.,   5.,
 pd_tau_weights = np.array([0.80,  0.50,  0.80,  0.50,  0.50,  0.20,
                            0.80,  0.50,  0.50,  0.50,  0.50,  0.20,
                            0.50,  0.80,  0.50,
-                           0.50,  0.80,  0.50,  0.50,  0.10,  0.20,   0.03,
+                           0.50,  0.80,  0.30,  0.50,  0.10,  0.20,   0.03,
                            0.03,  0.03,
                            0.50,  0.80,  0.50,  0.50,  0.10,  0.20,   0.03])
 Kp_tau = 100 * pd_tau_weights
@@ -108,7 +107,7 @@ for ii in range(N):
 
 q_end = np.zeros(robot_model.q_size)
 joints_to_move = bigman_params['joint_ids']['BA'][:7]
-#joints_to_move = [bigman_params['joint_ids']['BA'][1]]
+#joints_to_move = [bigman_params['joint_ids']['BA'][6]]
 q_end[16] = np.deg2rad(90)
 q_end[joints_to_move] += np.deg2rad(-20)
 N = int(np.ceil(T_traj*freq))

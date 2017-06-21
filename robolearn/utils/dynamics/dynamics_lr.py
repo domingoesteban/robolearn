@@ -1,4 +1,7 @@
-""" This file defines linear regression for dynamics estimation. """
+"""
+This file defines linear regression for dynamics estimation.
+Author: C. Finn et al. Code in https://github.com/cbfinn/gps
+"""
 import numpy as np
 
 from robolearn.utils.dynamics.dynamics import Dynamics

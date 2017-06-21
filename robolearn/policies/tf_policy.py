@@ -11,6 +11,8 @@ import tensorflow as tf
 
 from robolearn.policies.policy import Policy
 
+GPU_MEM_PERCENTAGE = 0.5
+
 
 class TfPolicy(Policy):
     """
@@ -118,8 +120,9 @@ class TfPolicy(Policy):
         pol_dict = pickle.load(open(policy_dict_path, "rb"))
         tf_map = tf_generator(dim_input=pol_dict['deg_obs'], dim_output=pol_dict['deg_action'],
                               batch_size=1, network_config=network_config)
-
-        sess = tf.Session()
+        config = tf.ConfigProto()
+        config.gpu_options.per_process_gpu_memory_fraction = GPU_MEM_PERCENTAGE
+        sess = tf.Session(config=config)
         #init_op = tf.initialize_all_variables()
         init_op = tf.global_variables_initializer()
         sess.run(init_op)

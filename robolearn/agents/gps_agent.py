@@ -10,7 +10,7 @@ class GPSAgent(Agent):
     """
     GPSAgent class: An agent with samples attribute and policy_opt method.
     """
-    def __init__(self, act_dim, obs_dim, state_dim, policy_opt=None, **kwargs):
+    def __init__(self, act_dim, obs_dim, state_dim, policy_opt=None):
         super(GPSAgent, self).__init__(act_dim=act_dim, obs_dim=obs_dim, state_dim=state_dim)
 
         # TODO: We assume that an agent should remember his samples (experience??). Check if we include it in all agents

@@ -3,9 +3,7 @@ from __future__ import print_function
 import numpy as np
 
 from robolearn.envs.environment import Environment
-from centauro_ros_env_interface import CentauroROSEnvInterface
 from robolearn.envs.robot_ros_env_interface import RobotROSEnvInterface
-from robolearn.utils.iit.iit_robots_params import centauro_params
 
 
 class CentauroEnv(Environment):
@@ -13,45 +11,24 @@ class CentauroEnv(Environment):
     # TODO Check if the evaluation of the commands should be done here!
 
     def __init__(self, interface='ros', mode='simulation', body_part_active='LA', command_type='torque',
-                 observation_active=None, state_active=None):
+                 observation_active=None, state_active=None, cmd_freq=100, reset_simulation_fcn=None):
 
         if interface == 'ros':
-            #self.interface = CentauroROSEnvInterface(mode=mode,
-            #                                         body_part_active=body_part_active, cmd_type=command_type,
-            #                                         observation_active=observation_active,
-            #                                         state_active=state_active)
             self.interface = RobotROSEnvInterface(robot_name='centauro',
                                                   mode=mode,
                                                   body_part_active=body_part_active, cmd_type=command_type,
                                                   observation_active=observation_active,
-                                                  state_active=state_active)
+                                                  state_active=state_active,
+                                                  cmd_freq=cmd_freq,
+                                                  reset_simulation_fcn=reset_simulation_fcn)
         else:
             raise NotImplementedError("Only ROS interface has been implemented")
 
     def send_action(self, action):
         self.interface.send_action(action=action)
 
-    def read_observation(self):
-        return self.interface.read_observation(option=['all'])
-
-    def reset(self):
-        self.interface.reset()
-
-    def get_reward(self):
-        #desired_configuration = [0, 0, 0, 0, 0, 0,
-        #                              0, 0, 0, 0, 0, 0,
-        #                              0, 0, 0,
-        #                              0, 1.57079630, 0, 0, 0, 0, 0,
-        #                              0, 0,
-        #                              0, -1.5707963, 0, 0, 0, 0, 0]
-        desired_config = np.zeros(31)
-        desired_config[8] = 1.57079630
-        desired_config[19] = -1.57079630
-
-        # Get current obs
-        current_config = self.interface.last_obs[0].position
-        r1 = -sum(np.power(np.abs((desired_config + np.pi - current_config) % (2*np.pi) - np.pi), 2))
-        return r1
+    def reset(self, **kwargs):
+        self.interface.reset(**kwargs)
 
     def get_action_dim(self):
         return self.interface.get_action_dim()
@@ -74,12 +51,33 @@ class CentauroEnv(Environment):
     def get_state(self):
         return self.interface.get_state()
 
-    def get_obs_info(self):
-        return self.interface.get_obs_info()
+    def get_obs_info(self, **kwargs):
+        return self.interface.get_obs_info(**kwargs)
 
-    def get_state_info(self):
-        return self.interface.get_state_info()
+    def get_state_info(self, **kwargs):
+        return self.interface.get_state_info(**kwargs)
 
     def get_env_info(self):
         return self.interface.get_env_info()
+
+    def set_conditions(self, conditions):
+        return self.interface.set_conditions(conditions)
+
+    def add_condition(self, condition):
+        return self.interface.add_condition(condition)
+
+    def remove_condition(self, cond_idx):
+        return self.interface.remove_condition(cond_idx)
+
+    def get_conditions(self, cond=None):
+        return self.interface.get_conditions(cond)
+
+    def add_q0(self, q0):
+        return self.interface.add_q0(q0)
+
+    def get_q0_idx(self, q0):
+        return self.interface.get_q0_idx(q0)
+
+    def stop(self):
+        return self.interface.stop()
 

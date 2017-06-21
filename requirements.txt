@@ -4,3 +4,4 @@ rospy
 scipy
 rbdl
 tf
+future
