@@ -85,18 +85,36 @@ def plot_desired_sensed_data(joints_to_plot, des_qs, sensed_qs,  joint_names, da
         fig.canvas.set_window_title("Joint Torques")
         des_color = 'gray'
         sensed_color = 'black'
+    elif data_type.lower() == 'pose':
+        fig.canvas.set_window_title("Operational point pose")
+        des_color = 'thistle'
+        sensed_color = 'purple'
     else:
         raise ValueError("Wrong data_type option:%s " % data_type)
     fig.set_facecolor((1, 1, 1))
     for ii in range(axs.size):
         ax1 = axs[ii/cols, ii % cols]
         if ii < dU:
-            ax1.set_title("Joint %d: %s" % (ii+1, joint_names[ii]))
-            ax1.plot(sensed_qs[:, joints_to_plot[ii]], color=sensed_color)
-            ax1.plot(des_qs[:, joints_to_plot[ii]], '--', color=des_color)
-            ax1.set_ylabel('Position (rad)', color='k')
+            if not data_type.lower() == 'pose':
+                ax1.set_title("Joint %d: %s" % (ii+1, joint_names[ii]))
+                #label = "Joint %d: %s" % (ii+1, joint_names[ii])
+            else:
+                ax1.set_title("%s" % joint_names[ii])
+                #label = "%s" % joint_names[ii]
+            ax1.plot(sensed_qs[:, joints_to_plot[ii]], color=sensed_color, label='Sensed')
+            ax1.plot(des_qs[:, joints_to_plot[ii]], '--', color=des_color, label='Desired')
+            if data_type.lower() == 'position':
+                ax1.set_ylabel('Position (rad)', color='k')
+            elif data_type.lower() == 'velocity':
+                ax1.set_ylabel('Velocity (rad/s)', color='k')
+            elif data_type.lower() == 'acceleration':
+                ax1.set_ylabel('Acceleration (rad/s2)', color='k')
+            elif data_type.lower() == 'torque':
+                ax1.set_ylabel('Torque (N/m)', color='k')
             ax1.tick_params('y', colors='k')
             ax1.tick_params(direction='in')
+            legend = ax1.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+            #legend.get_frame().set_facecolor('#00FFCC')
         else:
             plt.setp(ax1, visible=False)
 

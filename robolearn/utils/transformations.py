@@ -20,8 +20,8 @@ def quat_vector_cross(quat_vec):
 
 
 def quat_difference(final_quat, init_quat):
-    #return init_quat[3]*final_quat[:3] - final_quat[3]*init_quat[:3] - np.cross(final_quat[:3], init_quat[:3])  # Previous
-    return final_quat[3]*init_quat[:3] - init_quat[3]*final_quat[:3] + quat_vector_cross(final_quat[:3]).dot(init_quat[:3])  # From Nakanishi
+    return init_quat[3]*final_quat[:3] - final_quat[3]*init_quat[:3] - np.cross(final_quat[:3], init_quat[:3])  # Previous
+    #return final_quat[3]*init_quat[:3] - init_quat[3]*final_quat[:3] + quat_vector_cross(final_quat[:3]).dot(init_quat[:3])  # From Nakanishi
 
 
 def homogeneous_matrix(rot=np.identity(3), pos=np.zeros(3)):

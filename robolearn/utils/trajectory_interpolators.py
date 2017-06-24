@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import tf
 from scipy import interpolate
@@ -7,7 +8,8 @@ def polynomial5_interpolation(N, xf, x0=None, dxf=None, dx0=None, ddxf=None, ddx
     # Polynomial Hermite 5th order interpolation
 
     # n_array = np.array(range(N+1))
-    n_array = np.linspace(0, 1, N)
+    n_array = np.array(range(N))
+    # n_array = np.linspace(0, 1, N)
     x_n = np.array([[n**5, n**4, n**3, n**2, n, 1] for n in n_array])
     dx_n = np.array([[5*n**4, 4*n**3, 3*n**2, 2*n, 1] for n in n_array])
     ddx_n = np.array([[20*n**3, 12*n**2, 6*n, 2] for n in n_array])
@@ -86,13 +88,37 @@ def spline_interpolation(N, time_points, via_points):
     return x
 
 
+def ang_vel_from_quaternions(q0, q1):
+    # From https://www.gamedev.net/forums/topic/347752-quaternion-and-angular-velocity/
+    q = tf.transformations.quaternion_multiply(q1, tf.transformations.quaternion_conjugate(q0))
+
+    len = math.sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2])
+    angle = 2 * math.atan2(len, q[3])
+    axis = q[:3] / len if len > 0 else np.array([1, 0, 0])
+    #print(q)
+    #print(axis)
+    #print(angle)
+    #print(axis*angle)
+    #print("---")
+    return axis*angle
+
+
 def quaternion_slerp_interpolation(N, q_end, q_init=None):
     if q_init is None:
         q_init = np.array([0, 0, 0, 1])
 
     quat_traj = np.empty((N, 4))
+    ang_vel_traj = np.empty((N, 3))
     linspace_interp = np.linspace(0, 1, N)
     for ii in range(N):
         quat_traj[ii, :] = tf.transformations.quaternion_slerp(q_init, q_end, linspace_interp[ii])
 
-    return quat_traj
+    # Angular velocity
+    for ii in range(N-1):
+        ang_vel_traj[ii, :] = ang_vel_from_quaternions(quat_traj[ii], quat_traj[ii+1])
+    ang_vel_traj[-1, :] = [0, 0, 0]
+
+    # Angular acceleration
+    ang_acc_traj = np.vstack((np.diff(ang_vel_traj, axis=0), np.zeros((1, 3))))
+
+    return quat_traj, ang_vel_traj, ang_acc_traj
