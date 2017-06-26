@@ -27,16 +27,13 @@ np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 
 # Always turn off Gazebo logger
 os.system("gz log -d 0")
-
-#current_path = os.path.abspath(__file__)
-path = os.path.abspath(__file__)
-dir_path = os.path.dirname(path)
-
+dir_path = os.path.dirname(os.path.abspath(__file__))
 torques_saved_filename = 'torques_init_traj.npy'
 
+# Time
 T_init = 5  # Time to move from current position to T_init
 T_traj = 5  # Time to execute the trajectory
-freq = 100
+freq = 100  # Frequency  (1/Ts)
 
 # BOX
 box_x = 0.75-0.05
@@ -46,7 +43,7 @@ box_yaw = 0  # Degrees
 box_size = [0.4, 0.5, 0.3]
 box_relative_pose = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
 final_left_ee_pose = create_ee_relative_pose(box_relative_pose, ee_x=0, ee_y=box_size[1]/2-0.02, ee_z=0, ee_yaw=0)
-final_left_ee_pose = final_left_ee_pose[[3, 4, 5, 6, 0, 1, 2]]
+final_left_ee_pose = final_left_ee_pose[[3, 4, 5, 6, 0, 1, 2]]  # First orientation, then position
 
 
 # ROBOT MODEL for trying ID
@@ -58,6 +55,7 @@ RH_name = 'RWrMot3'
 l_soft_hand_offset = np.array([0.000, -0.030, -0.210])
 r_soft_hand_offset = np.array([0.000, 0.030, -0.210])
 
+# Stiffness/Damping gains from Xbot config file
 default_joint_stiffness = np.array([8000.,  5000.,  8000.,  5000.,  5000.,  2000.,
                                     8000.,  5000.,  5000.,  5000.,  5000.,  2000.,
                                     5000.,  8000.,  5000.,
@@ -70,36 +68,30 @@ default_joint_damping = np.array([30.,  50.,  30.,  30.,  30.,   5.,
                                   30.,  50.,  30.,  30.,   1.,   5.,   1.,
                                   1.,   1.,
                                   30.,  50.,  30.,  30.,   1.,   5.,   1.])
-# pd_tau_weights = np.array([0.80,  0.50,  0.80,  0.50,  0.50,  0.20,
-#                            0.80,  0.50,  0.50,  0.50,  0.50,  0.20,
-#                            0.50,  0.80,  0.50,
-#                            0.50,  0.80,  0.50,  0.50,  0.10,  0.20,   0.03,
-#                            0.03,  0.03,
-#                            0.50,  0.80,  0.50,  0.50,  0.10,  0.20,   0.03])
-pd_tau_weights = np.array([0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
-                           0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
-                           0.0,  0.0,  0.0,
-                           0.50,  0.80,  0.50,  0.50,  0.20,  0.20,   0.03,
-                           0.0,  0.0,
-                           0.50,  0.80,  0.50,  0.50,  0.20,  0.20,   0.03])
+
+pd_tau_weights = np.array([0.80,  0.50,  0.80,  0.50,  0.50,  0.20,
+                           0.80,  0.50,  0.50,  0.50,  0.50,  0.20,
+                           0.50,  0.80,  0.50,
+                           0.50,  0.80,  0.50,  0.50,  0.10,  0.20,   0.03,
+                           0.03,  0.03,
+                           0.50,  0.80,  0.50,  0.50,  0.10,  0.20,   0.03])
 Kp_tau = np.eye(robot_rbdl_model.q_size)*(100 * pd_tau_weights)
 Kd_tau = np.eye(robot_rbdl_model.qdot_size)*(2 * pd_tau_weights)
+
 Kp_tau = np.eye(robot_rbdl_model.q_size)*np.array([0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
                                                    0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
                                                    0.0,  0.0,  0.0,
-                                                   #50,  80,  50,  50,  100,  200,   -7.7036e05,
                                                    500,  0,  0,  0,  0,  0,   50000,
                                                    0.0,  0.0,
                                                    0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0])
 Kd_tau = np.eye(robot_rbdl_model.qdot_size)*np.array([0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
                                                       0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
                                                       0.0,  0.0,  0.0,
-                                                      #1.,  1.,  1,  1,  1.,  1.,   4.72e02,
                                                       10.,  0.,  0,  0,  0.,  0.,   500,
                                                       0.0,  0.0,
                                                       0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0])
 
-
+# ROS
 joint_pos_state = np.zeros(robot_rbdl_model.q_size)
 joint_vel_state = np.zeros(robot_rbdl_model.qdot_size)
 joint_effort_state = np.zeros(robot_rbdl_model.qdot_size)
@@ -108,29 +100,39 @@ joint_damping_state = np.zeros(robot_rbdl_model.qdot_size)
 joint_state_id = []
 
 
-def callback(data, params):
+def state_callback(data, params):
     joint_ids = params[0]
-    joint_pos_state = params[1]
-    joint_effort_state = params[2]
+    joint_pos = params[1]
+    joint_effort = params[2]
+    joint_vel = params[3]
+    joint_stiffness = params[4]
+    joint_damping = params[5]
     #if not joint_ids:
     #    joint_ids[:] = [bigman_params['joints_names'].index(name) for name in data.name]
     joint_ids[:] = [bigman_params['joints_names'].index(name) for name in data.name]
-    joint_pos_state[joint_ids] = data.link_position
-    joint_effort_state[joint_ids] = data.effort
-    joint_stiffness_state[joint_ids] = data.stiffness
-    joint_damping_state[joint_ids] = data.damping
-    joint_vel_state[joint_ids] = data.link_velocity
+    joint_pos[joint_ids] = data.link_position
+    joint_effort[joint_ids] = data.effort
+    joint_vel[joint_ids] = data.link_velocity
+    joint_stiffness[joint_ids] = data.stiffness
+    joint_damping[joint_ids] = data.damping
 
 publisher = rospy.Publisher("/xbotcore/bigman/command", CommandAdvr, queue_size=10)
-subscriber = rospy.Subscriber("/xbotcore/bigman/joint_states", JointStateAdvr, callback, (joint_state_id, joint_pos_state, joint_effort_state))
+subscriber = rospy.Subscriber("/xbotcore/bigman/joint_states", JointStateAdvr, state_callback, (joint_state_id,
+                                                                                                joint_pos_state,
+                                                                                                joint_effort_state,
+                                                                                                joint_vel_state,
+                                                                                                joint_stiffness_state,
+                                                                                                joint_damping_state))
 rospy.init_node('torquecontrol_example')
 pub_rate = rospy.Rate(freq)
 des_cmd = CommandAdvr()
-des_cmd.name = bigman_params['joints_names']
 
+# Move from current position to initial position in position control mode.
+des_cmd.name = bigman_params['joints_names']
 q_init = np.zeros(robot_rbdl_model.q_size)
-q_init[16] = np.deg2rad(90)
+q_init[16] = np.deg2rad(45)
 q_init[17] = np.deg2rad(90)
+q_init[18] = np.deg2rad(-20)
 N = int(np.ceil(T_init*freq))
 joint_init_traj = polynomial5_interpolation(N, q_init, joint_pos_state)[0]
 print("Moving to zero configuration with Position control.")
@@ -141,15 +143,15 @@ for ii in range(N):
     publisher.publish(des_cmd)
     pub_rate.sleep()
 
-N = int(np.ceil(T_traj*freq))
-joints_to_move = bigman_params['joint_ids']['BA'][:7]# + bigman_params['joint_ids']['TO']
-#joints_to_move = [bigman_params['joint_ids']['BA'][6]]
-
-
-
 # PAUSE:
 print("Sleeping some seconds..")
 rospy.sleep(1)
+
+# Move to reach pose in torque control mode.
+N = int(np.ceil(T_traj*freq))
+joints_to_move = bigman_params['joint_ids']['BA'][:7]# + bigman_params['joint_ids']['TO']
+#joints_to_move = bigman_params['joint_ids']['BA'][:5] + [bigman_params['joint_ids']['BA'][6]]
+#joints_to_move = [bigman_params['joint_ids']['BA'][6]]'
 
 init_left_ee_pose = robot_model.fk(LH_name, q=q_init, body_offset=l_soft_hand_offset,
                                    update_kinematics=True,
@@ -158,50 +160,52 @@ init_left_ee_pose = robot_model.fk(LH_name, q=q_init, body_offset=l_soft_hand_of
 task_space_traj = np.zeros((N, 7))
 task_space_traj_dots = np.zeros((N, 6))
 task_space_traj_ddots = np.zeros((N, 6))
-
 joint_traj = np.zeros((N, robot_rbdl_model.q_size))
 joint_traj_dots = np.vstack((np.diff(joint_traj, axis=0), np.zeros((1, robot_rbdl_model.qdot_size))))
 joint_traj_ddots = np.vstack((np.diff(joint_traj_dots, axis=0), np.zeros((1, robot_rbdl_model.qdot_size))))
 
+# Joint space interpolation
+# -------------------------
 #final_left_ee_pose = init_left_ee_pose.copy()
-q_reach = final_left_ee_pose
 q_reach = robot_model.ik(LH_name, final_left_ee_pose, body_offset=l_soft_hand_offset,
                          mask_joints=bigman_params['joint_ids']['TO'], joints_limits=bigman_params['joints_limits'],
                          method='optimization')
-joint_traj, joint_traj_dots, joint_traj_ddots = polynomial5_interpolation(N, q_reach, joint_pos_state)
-
+joint_traj[:,:], joint_traj_dots[:,:], joint_traj_ddots[:,:] = polynomial5_interpolation(N, q_reach, joint_pos_state)
 joint_traj_dots *= freq
 joint_traj_ddots *= freq*freq
 
+# Task space interpolation
+# ------------------------
 task_space_traj[:, 4:], task_space_traj_dots[:, 3:], task_space_traj_ddots[:, 3:] = \
     polynomial5_interpolation(N, final_left_ee_pose[4:], init_left_ee_pose[4:])
-
 task_space_traj[:, :4], task_space_traj_dots[:, :3], task_space_traj_ddots[:, :3] = \
     quaternion_slerp_interpolation(N, final_left_ee_pose[:4], init_left_ee_pose[:4])
 task_space_traj_dots *= freq
 task_space_traj_ddots *= freq*freq
 
+# Task space interpolation 2 (From the joint space trajectory)
+# ------------------------------------------------------------
 J = np.zeros((6, robot_rbdl_model.qdot_size))
-#for ii in range(N):
-#    task_space_traj[ii, :] = robot_model.fk(LH_name, q=joint_traj[ii, :], body_offset=l_soft_hand_offset,
-#                                            update_kinematics=True, rotation_rep='quat')
-#    robot_model.update_jacobian(J, LH_name, joint_traj[ii, :], l_soft_hand_offset, update_kinematics=True)
-#    task_space_traj_dots[ii, :] = J.dot(joint_traj_dots[ii, :])
-#task_space_traj_ddots = np.vstack((np.diff(task_space_traj_ddots, axis=0), np.zeros((1, 6))))
-#task_space_traj_ddots *= freq
+for ii in range(N):
+    task_space_traj[ii, :] = robot_model.fk(LH_name, q=joint_traj[ii, :], body_offset=l_soft_hand_offset,
+                                            update_kinematics=True, rotation_rep='quat')
+    if ii > 0:
+        if quaternion_inner(task_space_traj[ii, :4], task_space_traj[ii-1, :4]) < 0:
+            task_space_traj[ii, :4] *= -1
+    robot_model.update_jacobian(J, LH_name, joint_traj[ii, :], l_soft_hand_offset, update_kinematics=True)
+    task_space_traj_dots[ii, :] = J.dot(joint_traj_dots[ii, :])
+task_space_traj_ddots = np.vstack((np.diff(task_space_traj_ddots, axis=0), np.zeros((1, 6))))
+task_space_traj_ddots *= freq
 
-# joint_traj_dots *= freq
-# joint_traj_ddots *= freq*freq
 
-
+# Task Space Torque Control
+# -------------------------
 tau = np.zeros(robot_rbdl_model.qdot_size)
-a = np.zeros(robot_rbdl_model.qdot_size)
-des_cmd.name = [bigman_params['joints_names'][idx] for idx in joints_to_move]
-des_cmd.position = []
-qs_traj = np.zeros((N, robot_rbdl_model.q_size))
-qdots_traj = np.zeros((N, robot_rbdl_model.q_size))
 taus_cmd_traj = np.zeros((N, robot_rbdl_model.qdot_size))
 taus_traj = np.zeros((N, robot_rbdl_model.qdot_size))
+a = np.zeros(robot_rbdl_model.qdot_size)
+qs_traj = np.zeros((N, robot_rbdl_model.q_size))
+qdots_traj = np.zeros((N, robot_rbdl_model.q_size))
 
 J = np.zeros((6, robot_rbdl_model.qdot_size))
 M = np.zeros((robot_rbdl_model.qdot_size, robot_rbdl_model.qdot_size))
@@ -209,11 +213,12 @@ M_bar = np.zeros((6, 6))
 C_bar = np.zeros(6)
 g = np.zeros(robot_rbdl_model.qdot_size)
 task_pose_errors = np.zeros((N, 6))
-
 real_task_space_traj = np.zeros_like(task_space_traj)
 real_task_space_traj_dots = np.zeros_like(task_space_traj_dots)
 
 
+des_cmd.name = [bigman_params['joints_names'][idx] for idx in joints_to_move]
+des_cmd.position = []
 
 print("Moving to the initial configuration of trajectory with torque control.")
 #raw_input("Press a key to continue...")
@@ -233,8 +238,11 @@ Kd_task = np.sqrt(Kp_task)
 
 ## Domingo: low task space gain setting
 #Kp_task = np.eye(6)*np.array([500.00, 500.00, 500.00, 200., 200., 200.], dtype=np.float64)
-#Kd_task = 2*np.sqrt(Kp_task)
+Kp_task = np.eye(6)*np.array([500, 500, 500, 25., 25., 25.], dtype=np.float64)
+Kd_task = 2*np.sqrt(Kp_task)
 
+Kp_null = np.eye(robot_model.qdot_size)*2.5
+q0 = q_reach
 #real_task_space_traj[0, :] = robot_model.fk(LH_name, q=joint_pos_state, body_offset=l_soft_hand_offset,
 #                                             update_kinematics=True, rotation_rep='quat')[[3, 4, 5, 6, 0, 1, 2]]
 des_cmd.position = q_init[joints_to_move]
@@ -264,19 +272,36 @@ for ii in range(N):
     robot_model.update_jacobian(J, LH_name, current_pos, l_soft_hand_offset, update_kinematics=True)
     rbdl.CompositeRigidBodyAlgorithm(robot_rbdl_model, current_pos, M, update_kinematics=True)
     M_bar[:, :] = np.linalg.inv(J.dot(np.linalg.inv(M)).dot(J.T))
+    J_bar = np.linalg.inv(M).dot(J.T).dot(M_bar)
+    J_bar_T = M_bar.dot(J).dot(np.linalg.inv(M))
 
     real_task_space_traj[ii, :] = robot_model.fk(LH_name, q=current_pos, body_offset=l_soft_hand_offset,
                                                  update_kinematics=True, rotation_rep='quat')
+
+    if ii > 0:
+        if quaternion_inner(real_task_space_traj[ii, :4], real_task_space_traj[ii-1, :4]) < 0:
+            real_task_space_traj[ii, :4] *= -1
+
     real_task_space_traj_dots[ii, :] = J.dot(joint_vel_state)
     task_pose_error = compute_cartesian_error(task_space_traj[ii, :], real_task_space_traj[ii, :])
-    task_vel_error = task_space_traj_dots[ii, :]*0 - real_task_space_traj_dots[ii, :]
+    task_vel_error = task_space_traj_dots[ii, :] - real_task_space_traj_dots[ii, :]
 
-    x_ddot_r = task_space_traj_ddots[ii, :]*0 + Kp_task.dot(task_pose_error) + Kd_task.dot(task_vel_error)
+    x_ddot_r = task_space_traj_ddots[ii, :] + Kp_task.dot(task_pose_error) + Kd_task.dot(task_vel_error)
     #F = M_bar.dot(x_ddot_r)
-    #J_bar = np.linalg.inv(M).dot(J.T).dot(M_bar)
     rbdl.NonlinearEffects(robot_rbdl_model, current_pos, current_vel, g)
-
     tau = J.T.dot(M_bar).dot(x_ddot_r) + g
+
+    # Null space
+    #u_null = Kp_null.dot(joint_traj[ii, :] - current_pos)
+    u_null = Kp_null.dot(q_reach - current_pos)
+    #u_null = Kp_null.dot(joint_traj[0, :] - current_pos)
+    #u_null = 0.5*(q0 - current_pos)*Kp_null.dot(q0 - current_pos)
+    torque_null = (np.eye(robot_model.qdot_size) - J.T.dot(J_bar.T)).dot(u_null)
+    torque_null = (np.eye(robot_model.qdot_size) - J.T.dot(J_bar_T)).dot(u_null)
+    tau += torque_null
+
+
+    #tau = M.dot(J_bar)(x_ddot_r - )
 
     # rbdl.NonlinearEffects(robot_rbdl_model, joint_pos_state, joint_vel_state*0, g)
     # rbdl.CompositeRigidBodyAlgorithm(robot_rbdl_model, joint_pos_state, M, update_kinematics=True)
@@ -345,11 +370,11 @@ task_error_names = ['omegax', 'omegay', 'omegaz', 'x', 'y', 'z']
 joint_names = [bigman_params['joints_names'][idx] for idx in joints_to_plot]
 print("Plotting...")
 plot_desired_sensed_data(range(7), task_space_traj, real_task_space_traj, task_names, data_type='pose', block=False)
-#plot_desired_sensed_data(range(6), task_pose_errors, task_pose_errors, task_error_names, data_type='pose', block=False)
-#plot_desired_sensed_data(joints_to_plot, joint_traj, qs_traj, joint_names, data_type='position', block=False)
+plot_desired_sensed_data(range(6), task_pose_errors, task_pose_errors, task_error_names, data_type='pose-error', block=False)
+plot_desired_sensed_data(joints_to_plot, joint_traj, qs_traj, joint_names, data_type='position', limits=bigman_params['joints_limits'], block=False)
 #plot_desired_sensed_data(joints_to_plot, np.tile(q_init, (N, 1)), qs_traj, joint_names, data_type='position', block=False)
 #plot_desired_sensed_data(joints_to_plot, joint_traj_dots*0, qdots_traj, joint_names, data_type='velocity', block=False)
-plot_desired_sensed_data(joints_to_plot, taus_cmd_traj, taus_traj, joint_names, data_type='torque', block=True)
+#plot_desired_sensed_data(joints_to_plot, taus_cmd_traj, taus_traj, joint_names, data_type='torque', block=True)
 # plot_desired_sensed_torque_position(joints_to_plot, taus_cmd_traj, taus_traj,
 #                                     joint_traj, qs_traj, joint_names, block=True, cols=cols)
 

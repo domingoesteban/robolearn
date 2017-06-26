@@ -9,6 +9,23 @@ def multiply_quat(quat1, quat2):
     return [x, y, z, w]
 
 
+def quaternion_inner(q1, q2):
+    q1 = np.array(q1)
+    q2 = np.array(q2)
+    return q1.dot(q2)
+    #return quaternion_multiply(q1, q2)
+
+
+def quaternion_multiply(q1, q2):
+    q1 = np.array(q1)
+    q2 = np.array(q2)
+    w1 = q1[-1]
+    w2 = q2[-1]
+    v1 = q1[:3]
+    v2 = q2[:3]
+    return np.r_[w1*v2+w2*v1 + np.cross(v1, v2), w1*w2-v1.dot(v2)]
+
+
 def inv_quat(quat):
     return [-quat[0], -quat[1], -quat[2], quat[3]]
 

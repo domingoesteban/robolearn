@@ -65,7 +65,8 @@ def plot_desired_sensed_torque(joints_to_plot, des_taus, sensed_taus,  joint_nam
     return fig, axs
 
 
-def plot_desired_sensed_data(joints_to_plot, des_qs, sensed_qs,  joint_names, data_type='position', block=True, cols=3):
+def plot_desired_sensed_data(joints_to_plot, des_qs, sensed_qs,  joint_names, data_type='position',
+                             limits=None, block=True, cols=3):
     # TODO: Check sizes
     dU = len(joints_to_plot)
     fig, axs = plt.subplots(int(math.ceil(float(dU)/cols)), cols)
@@ -86,7 +87,11 @@ def plot_desired_sensed_data(joints_to_plot, des_qs, sensed_qs,  joint_names, da
         des_color = 'gray'
         sensed_color = 'black'
     elif data_type.lower() == 'pose':
-        fig.canvas.set_window_title("Operational point pose")
+        fig.canvas.set_window_title("Operational point Pose")
+        des_color = 'thistle'
+        sensed_color = 'purple'
+    elif data_type.lower() == 'pose-error':
+        fig.canvas.set_window_title("Operational point Pose Error")
         des_color = 'thistle'
         sensed_color = 'purple'
     else:
@@ -95,7 +100,11 @@ def plot_desired_sensed_data(joints_to_plot, des_qs, sensed_qs,  joint_names, da
     for ii in range(axs.size):
         ax1 = axs[ii/cols, ii % cols]
         if ii < dU:
-            if not data_type.lower() == 'pose':
+            if limits is not None:
+                ax1.plot(np.tile(limits[joints_to_plot[ii]][0], sensed_qs.shape[0]), color='orange', label='limit-min')
+                ax1.plot(np.tile(limits[joints_to_plot[ii]][1], sensed_qs.shape[0]), color='orange', label='limit-max')
+
+            if not data_type.lower() in ['pose', 'pose-error']:
                 ax1.set_title("Joint %d: %s" % (ii+1, joint_names[ii]))
                 #label = "Joint %d: %s" % (ii+1, joint_names[ii])
             else:
@@ -103,6 +112,7 @@ def plot_desired_sensed_data(joints_to_plot, des_qs, sensed_qs,  joint_names, da
                 #label = "%s" % joint_names[ii]
             ax1.plot(sensed_qs[:, joints_to_plot[ii]], color=sensed_color, label='Sensed')
             ax1.plot(des_qs[:, joints_to_plot[ii]], '--', color=des_color, label='Desired')
+
             if data_type.lower() == 'position':
                 ax1.set_ylabel('Position (rad)', color='k')
             elif data_type.lower() == 'velocity':

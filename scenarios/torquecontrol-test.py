@@ -64,6 +64,13 @@ pd_tau_weights = np.array([0.80,  0.50,  0.80,  0.50,  0.50,  0.20,
 Kp_tau = 100 * pd_tau_weights
 Kd_tau = 2 * pd_tau_weights
 
+Kp_tau = np.eye(robot_model.q_size)*np.array(np.array([0.80,  0.50,  0.80,  0.50,  0.50,  0.20,
+                                                       0.80,  0.50,  0.50,  0.50,  0.50,  0.20,
+                                                       0.50,  0.80,  0.50,
+                                                       0.50,  0.80,  0.30,  0.50,  0.10,  0.20,   0.03,
+                                                       0.03,  0.03,
+                                                       0.50,  0.80,  0.50,  0.50,  0.10,  0.20,   0.03]))
+Kd_tau = 2*np.sqrt(Kp_tau)
 
 joint_pos_state = np.zeros(robot_model.q_size)
 joint_vel_state = np.zeros(robot_model.qdot_size)
@@ -157,8 +164,8 @@ for ii in range(N):
         #a = joint_traj_ddots[ii, :] + \
         #    default_joint_damping*0 * (joint_traj_dots[ii, :] - joint_vel_state) + \
         #    default_joint_stiffness*0.0 * (joint_traj[ii, :] - joint_pos_state)
-        pd_tau = Kp_tau * (joint_traj[ii, :] - joint_pos_state) + \
-                 Kd_tau * (joint_traj_dots[ii, :] - joint_vel_state)
+        pd_tau = Kp_tau.dot(joint_traj[ii, :] - joint_pos_state) + \
+                 Kd_tau.dot(joint_traj_dots[ii, :] - joint_vel_state)
         #pd_tau = default_joint_stiffness * (joint_traj[ii, :] - joint_pos_state) + \
         #         default_joint_damping * (joint_traj_dots[ii, :] - joint_vel_state)
         tau += pd_tau
