@@ -18,6 +18,7 @@ RH_name = 'RWrMot3'
 l_soft_hand_offset = np.array([0.000, -0.030, -0.210])
 r_soft_hand_offset = np.array([0.000, 0.030, -0.210])
 torso_joints = bigman_params['joint_ids']['TO']
+bigman_righ_left_sign = np.array([1, -1, -1, 1, -1, 1, -1])
 
 
 def create_bigman_box_condition(q, bigman_box_pose, joint_idxs=None):

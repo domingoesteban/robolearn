@@ -228,6 +228,21 @@ class RobotModel(object):
 
         rbdl.CalcPointJacobian6D(self.model, q, body_id, body_offset, J, update_kinematics)
 
+    def jdqd(self, body_name, q=None, qdot=None, body_offset=np.zeros(3), update_kinematics=True):
+        if body_name == 'Waist' and not self.floating_base:
+            body_name = 'ROOT'
+
+        if q is None:
+            q = self.q
+
+        if qdot is None:
+            qdot = self.qdot
+
+        body_id = self.model.GetBodyId(body_name)
+
+        return rbdl.CalcPointAcceleration6D(self.model, q, qdot, np.zeros(self.qdot_size), body_id,
+                                            body_offset, update_kinematics=update_kinematics)
+
     def update_torque(self, tau, q=None, qdot=None, qddot=None):
         if q is None:
             q = self.q

@@ -64,6 +64,64 @@ def polynomial5_interpolation(N, xf, x0=None, dxf=None, dx0=None, ddxf=None, ddx
     return x, dx, ddx
 
 
+def lspv_interpolation(N, xf, x0=None, v=None):
+    """
+    Linear Segment with parabolic blend.
+    Based on Robotics Toolbox for MATLAB (release 10.1): (c) Peter Corke 1992-2011 http://www.petercorke.com
+    :param N: Steps
+    :param xf: final point
+    :param x0: initial point
+    :param v: velocity of the linear segment
+    :return: 
+    """
+    dim = xf.size
+    tend = N
+
+    if x0 is None:
+        x0 = np.zeros_like(xf)
+
+    if v is None:
+        v = (xf-x0)/N * 1.5
+    else:
+        v = np.abs(v) * np.sign(xf-x0)
+
+        for ii in range(dim):
+            if np.abs(v[ii]) < np.abs(xf-x0)[ii]/N:
+                raise AttributeError('Velocity %d too small: %f' % (ii, v[ii]))
+            elif np.abs(v[ii]) > 2*np.abs(xf-x0)[ii]/N:
+                raise AttributeError('Velocity %d too big: %f' % (ii, v[ii]))
+
+    if np.array_equal(x0, xf):
+        return np.tile(xf, (N, 1)), np.zeros((N, dim)), np.zeros((N, xf.size))
+
+    tb = np.divide((x0 - xf + v*tend), v)
+    a = np.divide(v, tb)
+
+    xs = np.zeros((N, dim))
+    xds = np.zeros((N, dim))
+    xdds = np.zeros((N, dim))
+
+    for ii in range(dim):
+        for tt in range(N):
+            if tt < tb[ii]:
+                # Initial blend
+                xs[tt, ii] = x0[ii] + a[ii]/2*tt**2
+                xds[tt, ii] = a[ii]*tt
+                xdds[tt, ii] = a[ii]
+            elif tt <= (tend[ii] - tb[ii]):
+                # Linear motion
+                xs[tt, ii] = (xf[ii] + x0[ii] - v[ii]*tend)/2 + v[ii]*tt
+                xds[tt, ii] = v[ii]
+                xdds[tt, ii] = 0
+            else:
+                # Final blend
+                xs[tt, ii] = xf[ii] - a[ii]/2*tend**2 + a[ii]*tend*tt + a[ii]/2*tt**2
+                xds[tt, ii] = a[ii]*tend - a[ii]*tt
+                xdds[tt, ii] = -a[ii]
+
+    return xs, xds, xdds
+
+
 def spline_interpolation(N, time_points, via_points):
     n_points = via_points.shape[0]
     dim = via_points.shape[0]
