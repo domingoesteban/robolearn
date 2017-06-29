@@ -489,6 +489,17 @@ for ii in range(N):
     #tau_right = M.dot(J_right_bar).dot(x_right_ddot_r - J_right_dot_q_dot*0) + right_projection_null_times_torque_null + c_plus_g
     #tau_right = M.dot(J_right_bar).dot(x_right_ddot_r - J_right_dot_q_dot*0) + projection_null_times_torque_null + g
 
+    # Multitask controller
+    #tau = alpha_left*tau_left + alpha_right*tau_right
+    #tau_left[bigman_params['joint_ids']['RA']] = 0
+    #tau_right[bigman_params['joint_ids']['LA']] = 0
+    print(repr(tau_left))
+    print(repr(tau_right))
+    tau = alpha_left*tau_left + alpha_right*tau_right + c_plus_g
+    #tau = tau_left + c_plus_g
+    #tau = tau_left + tau_right + c_plus_g
+    #tau = tau_right + c_plus_g
+
     # # Nakanishi: Dynamical Decoupling Controller Variation 2
     # # (With Null Space Pre-multiplication of M, and Compensation of C and g in Joint Space)
     # rbdl.CompositeRigidBodyAlgorithm(robot_rbdl_model, current_joint_pos, M, update_kinematics=True)
@@ -504,6 +515,25 @@ for ii in range(N):
 
     # Modugno: Unified Framework (UF)
 
+
+    # Del Prete: Sentis' WBC
+    J_1 = J_right
+    J_2 = J_left
+    x_ddot_1 = x_right_ddot_r
+    x_ddot_2 = x_left_ddot_r
+    J_1_dot_q_dot = J_right_dot_q_dot
+    J_2_dot_q_dot = J_right_dot_q_dot
+    Lambda_p_1 = np.linalg.pinv(J_1.dot(np.linalg.inv(M)).dot(J_1.T))
+    Lambda_p_2 = np.linalg.pinv(J_2.dot(np.linalg.inv(M)).dot(J_2.T))
+    h = c_plus_g
+
+    sum_F_p_1 = np.zeros_like(h)
+    F_p_1 = Lambda_p_1.dot(x_ddot_1 - J_1_dot_q_dot + J_1.dot(np.linalg.inv(M)).dot(h - sum_F_p_1))
+    sum_J_p_1 = np.zeros((6, robot_model.qdot_size))
+    J_p_1 = J_1.dot(np.eye(6))
+
+    torque = J_p_1.T.dot(F_p_1)# + J_p_2.T.dot(F_p_2)
+    raw_input("aaa")
 
 
     # Distance from singularities
@@ -522,16 +552,6 @@ for ii in range(N):
     print('%.4f -- %.4f' % (singu_distance_left, singu_distance_right))
     print('---')
 
-    # Multitask controller
-    #tau = alpha_left*tau_left + alpha_right*tau_right
-    #tau_left[bigman_params['joint_ids']['RA']] = 0
-    #tau_right[bigman_params['joint_ids']['LA']] = 0
-    print(repr(tau_left))
-    print(repr(tau_right))
-    tau = alpha_left*tau_left + alpha_right*tau_right + c_plus_g
-    #tau = tau_left + c_plus_g
-    #tau = tau_left + tau_right + c_plus_g
-    #tau = tau_right + c_plus_g
 
 
     # rbdl.NonlinearEffects(robot_rbdl_model, joint_pos_state, joint_vel_state*0, g)
