@@ -66,7 +66,7 @@ def plot_desired_sensed_torque(joints_to_plot, des_taus, sensed_taus,  joint_nam
 
 
 def plot_desired_sensed_data(joints_to_plot, des_qs, sensed_qs,  joint_names, data_type='position',
-                             limits=None, block=True, cols=3):
+                             limits=None, block=True, cols=3, legend=True):
     # TODO: Check sizes
     dU = len(joints_to_plot)
     fig, axs = plt.subplots(int(math.ceil(float(dU)/cols)), cols)
@@ -123,8 +123,9 @@ def plot_desired_sensed_data(joints_to_plot, des_qs, sensed_qs,  joint_names, da
                 ax1.set_ylabel('Torque (N/m)', color='k')
             ax1.tick_params('y', colors='k')
             ax1.tick_params(direction='in')
-            legend = ax1.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
-            #legend.get_frame().set_facecolor('#00FFCC')
+            if legend:
+                legend = ax1.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                #legend.get_frame().set_facecolor('#00FFCC')
         else:
             plt.setp(ax1, visible=False)
 
@@ -199,6 +200,57 @@ def plot_joint_info(joints_to_plot, data_to_plot,  joint_names, data='position',
                 ax1.set_ylabel('Torque (Nm)', color='k')
             ax1.tick_params('y', colors='k')
             ax1.tick_params(direction='in')
+        else:
+            plt.setp(ax1, visible=False)
+
+    fig.subplots_adjust(hspace=0)
+    plt.show(block=block)
+
+    return fig, axs
+
+
+def plot_joint_multi_info(joints_to_plot, data_to_plot,  joint_names, data='position', block=True, cols=3, legend=True,
+                          labels=None):
+    # TODO: Check sizes
+    dU = len(joints_to_plot)
+    fig, axs = plt.subplots(int(math.ceil(float(dU)/cols)), cols)
+    if data == 'position':
+        fig.canvas.set_window_title("Multi JJoint Positions")
+    elif data == 'velocity':
+        fig.canvas.set_window_title("Multi JJoint Velocities")
+    elif data == 'acceleration':
+        fig.canvas.set_window_title("Multi JJoint Accelerations")
+    elif data == 'torque':
+        fig.canvas.set_window_title("Multi Joint Torque")
+    else:
+        raise ValueError("Wrong plot option")
+
+    fig.set_facecolor((1, 1, 1))
+    for ii in range(axs.size):
+        ax1 = axs[ii/cols, ii % cols]
+        if ii < dU:
+            ax1.set_title("Joint %d: %s" % (ii+1, joint_names[ii]))
+            for jj in range(data_to_plot.shape[0]):
+                if labels is None:
+                    label_name = jj
+                else:
+                    label_name = labels[jj]
+                ax1.plot(data_to_plot[jj, :, joints_to_plot[ii]], label=label_name)
+
+            if data == 'position':
+                ax1.set_ylabel('Position (rad)', color='k')
+            elif data == 'velocity':
+                ax1.set_ylabel('Velocity (rad/s)', color='k')
+            elif data == 'acceleration':
+                ax1.set_ylabel('Acceleration (rad/s2)', color='k')
+            elif data == 'torque':
+                ax1.set_ylabel('Torque (Nm)', color='k')
+            ax1.tick_params('y', colors='k')
+            ax1.tick_params(direction='in')
+            if legend:
+                legend = ax1.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                legend.get_frame().set_alpha(0.4)
+                #legend.get_frame().set_facecolor('#00FFCC')
         else:
             plt.setp(ax1, visible=False)
 
