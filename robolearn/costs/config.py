@@ -17,6 +17,21 @@ COST_FK = {
     'evalnorm': evallogl2term,
 }
 
+# CostFKRelative
+COST_FK_RELATIVE = {
+    'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time.
+    'wp': None,  # State weights - must be set.
+    'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
+    'env_target': True,  # TODO - This isn't used.
+    'l1': 0.0,
+    'l2': 1.0,
+    'alpha': 1e-5,
+    'target_rel_pose': None,
+    'rel_data_type': None,  # 'state' or 'observation'
+    'rel_data_name': None,  # Name of the state/observation
+    'evalnorm': evallogl2term,
+}
+
 
 # CostState
 COST_STATE = {

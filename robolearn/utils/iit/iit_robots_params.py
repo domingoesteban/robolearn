@@ -128,6 +128,38 @@ bigman_params['joints_limits'] = [(-0.697778, 0.87222),               # 'LHipLat
                                   (-1.48, 1.48),                      # 'RWrj1',          # Joint 29
                                   (-1.48, 1.48)]                      # 'RWrj2']          # Joint 30
 
+bigman_params['effort_limits'] = [400,  # 'LHipLat'         # Joint 0
+                                  140,  # 'LHipYaw',        # Joint 1
+                                  400,  # 'LHipSag',        # Joint 2
+                                  400,  # 'LKneeSag',       # Joint 3
+                                  330,  # 'LAnkSag',        # Joint 4
+                                  210,  # 'LAnkLat',        # Joint 5
+                                  400,  # 'RHipLat',        # Joint 6
+                                  140,  # 'RHipYaw',        # Joint 7
+                                  400,  # 'RHipSag',        # Joint 8
+                                  400,  # 'RKneeSag',       # Joint 9
+                                  330,  # 'RAnkSag',        # Joint 10
+                                  210,  # 'RAnkLat',        # Joint 11
+                                  120,  # 'WaistLat',       # Joint 12
+                                  220,  # 'WaistSag',       # Joint 13
+                                  120,  # 'WaistYaw',       # Joint 14
+                                  120,  # 'LShSag',         # Joint 15
+                                  120,  # 'LShLat',         # Joint 16
+                                  120,  # 'LShYaw',         # Joint 17
+                                  120,  # 'LElbj',          # Joint 18
+                                  60,   # 'LForearmPlate',  # Joint 19
+                                  60,   # 'LWrj1',          # Joint 20
+                                  60,   # 'LWrj2',          # Joint 21
+                                  120,  # 'NeckYawj',       # Joint 22
+                                  120,  # 'NeckPitchj',     # Joint 23
+                                  120,  # 'RShSag',         # Joint 24
+                                  120,  # 'RShLat',         # Joint 25
+                                  120,  # 'RShYaw',         # Joint 26
+                                  120,  # 'RElbj',          # Joint 27
+                                  60,   # 'RForearmPlate',  # Joint 28
+                                  60,   # 'RWrj1',          # Joint 29
+                                  60]   # 'RWrj2']          # Joint 30
+
 bigman_params['joint_ids'] = {'LA': range(15, 22),
                               'RA': range(24, 31),
                               'BA': range(15, 22) + range(24, 31),

@@ -15,7 +15,8 @@ from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 
 class RobotROSEnvInterface(ROSEnvInterface):
     def __init__(self, robot_name=None, mode='simulation', body_part_active='LA', cmd_type='position',
-                 observation_active=None, state_active=None, cmd_freq=100, reset_simulation_fcn=None):
+                 observation_active=None, state_active=None, cmd_freq=100, robot_dyn_model=None,
+                 reset_simulation_fcn=None):
         super(RobotROSEnvInterface, self).__init__(mode=mode)
 
         if robot_name is None:
@@ -34,11 +35,17 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.q0 = self.robot_params['q0']
         self.conditions = []  # Necessary for GPS
 
+        #TODO:TEMPORAL
+        self.robot_dyn_model = robot_dyn_model
+        if self.robot_dyn_model is not None:
+            self.temp_effort = np.zeros(self.robot_dyn_model.qdot_size)
+
         # Set initial configuration using first configuration loaded from default params
         self.set_init_config(self.q0)
 
         # Configure actuated joints
         self.act_joint_names = self.get_joints_names(body_part_active)
+        self.act_joint_ids = get_indexes_from_list(self.joint_names, self.act_joint_names)
         self.act_dof = len(self.act_joint_names)
 
         # ############ #
@@ -53,6 +60,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 ros_topic_type = JointStateAdvr
                 self.obs_joint_fields = list(obs_to_activate['fields'])  # Used in get_obs
                 self.obs_joint_names = [self.joint_names[id] for id in obs_to_activate['joints']]
+                self.obs_joint_ids = get_indexes_from_list(self.joint_names, self.obs_joint_names)
                 obs_dof = len(obs_to_activate['fields'])*len(self.obs_joint_names)
 
             elif obs_to_activate['type'] == 'ft_sensor':
@@ -225,6 +233,14 @@ class RobotROSEnvInterface(ROSEnvInterface):
                     vel = action[des_action['act_idx']]*1./self.cmd_freq
                     # now = rospy.get_rostime()
                     action[des_action['act_idx']] = vel + current_pos  # Integrating position
+                if self.cmd_type == 'effort':  # TODO: TEMPORAL HACK / Add gravity compensation
+                    if self.robot_dyn_model is not None:
+                        obs_pos = obs_vector_joint_state(['link_position'], self.obs_joint_names,
+                                                         self.get_obs_ros_msg(name='joint_state')).ravel()
+                        current_pos = np.zeros(self.robot_dyn_model.qdot_size)
+                        current_pos[self.obs_joint_ids] = obs_pos
+                        self.robot_dyn_model.update_gravity_forces(self.temp_effort, current_pos)
+                        action[des_action['act_idx']] += self.temp_effort[self.act_joint_ids]
 
                 update_advr_command(des_action['ros_msg'], des_action['type'], action[des_action['act_idx']])
             else:

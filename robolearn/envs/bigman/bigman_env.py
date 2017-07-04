@@ -11,7 +11,8 @@ class BigmanEnv(Environment):
     # TODO Check if the evaluation of the commands should be done here!
 
     def __init__(self, interface='ros', mode='simulation', body_part_active='LA', command_type='torque',
-                 observation_active=None, state_active=None, cmd_freq=100, reset_simulation_fcn=None):
+                 observation_active=None, state_active=None, cmd_freq=100, robot_dyn_model=None,
+                 reset_simulation_fcn=None):
 
         if interface == 'ros':
             self.interface = RobotROSEnvInterface(robot_name='bigman',
@@ -20,6 +21,7 @@ class BigmanEnv(Environment):
                                                   observation_active=observation_active,
                                                   state_active=state_active,
                                                   cmd_freq=cmd_freq,
+                                                  robot_dyn_model=robot_dyn_model,
                                                   reset_simulation_fcn=reset_simulation_fcn)
         else:
             raise NotImplementedError("Only ROS interface has been implemented")

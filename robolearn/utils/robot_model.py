@@ -289,21 +289,33 @@ class RobotModel(object):
         rbdl.ForwardDynamics(self.model, q, qdot, tau, qddot)
         return qddot
 
-    def get_coriolis_forces(self, q=None, qdot=None):
+    def get_nonlinear_forces(self, q=None, qdot=None):
         if q is None:
             q = self.q
         if qdot is None:
             qdot = self.qdot
-        g = np.zeros(self.qdot_size)
-        rbdl.NonlinearEffects(self.model, q, qdot, g)
+        c_plus_g = np.zeros(self.qdot_size)
+        rbdl.NonlinearEffects(self.model, q, qdot, c_plus_g)
         return g
 
-    def update_coriolis_forces(self, g, q=None, qdot=None):
+    def update_nonlinear_forces(self, c_plus_g, q=None, qdot=None):
         if q is None:
             q = self.q
         if qdot is None:
             qdot = self.qdot
-        rbdl.NonlinearEffects(self.model, q, qdot, g)
+        rbdl.NonlinearEffects(self.model, q, qdot, c_plus_g)
+
+    def get_gravity_forces(self, q=None):
+        if q is None:
+            q = self.q
+        g = np.zeros(self.qdot_size)
+        rbdl.NonlinearEffects(self.model, q, self.qdot*0, g)
+        return g
+
+    def update_gravity_forces(self, g, q=None):
+        if q is None:
+            q = self.q
+        rbdl.NonlinearEffects(self.model, q, self.qdot*0, g)
 
     def get_inertia_matrix(self, q=None, update_kinematics=True):
         if q is None:
@@ -361,14 +373,14 @@ def fk(model, body_name, q=None, body_offset=np.zeros(3), update_kinematics=True
 
 
 if __name__ == "__main__":
-    #robot_urdf_file = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
-    #robot_urdf_file = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman_floating_base_lower_body.urdf'
+    #urdf_file = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
+    #urdf_file = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman_floating_base_lower_body.urdf'
     #robot_model = RobotModel(robot_urdf_file)
 
 
     np.set_printoptions(precision=4, suppress=True, linewidth=1000)
-    robot_urdf_file = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
-    model = rbdl.loadModel(robot_urdf_file, verbose=False, floating_base=False)
+    urdf_file = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
+    model = rbdl.loadModel(urdf_file, verbose=False, floating_base=False)
     end_effector1 = 'LWrMot3'
     l_soft_hand_offset = np.array([0.000, -0.030, -0.210])
     r_soft_hand_offset = np.array([0.000, 0.030, -0.210])
@@ -383,14 +395,14 @@ if __name__ == "__main__":
     rot[1, 1] = 1
     rot[0, 2] = -1
     des_orient = homogeneous_matrix(rot=rot)
-    des_orient = tf.transformations.rotation_matrix(np.deg2rad(-90), [0,1,0])
-    des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(-8), [1,0,0]))
-    des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(5), [0,0,1]))
+    des_orient = tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0])
+    des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(-8), [1, 0, 0]))
+    des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(5), [0, 0, 1]))
     desired_pose[:4] = tf.transformations.quaternion_from_matrix(des_orient)
     box_position = [0.75, 0, 0.0184]
     box_size = [0.4, 0.5, 0.3]
     desired_pose[4] = box_position[0] + 0.05
-    desired_pose[5] = box_position[1] + box_size[1]/2. - 0.02# +0.1#- 0.03
+    desired_pose[5] = box_position[1] + box_size[1]/2. - 0.02 #  + 0.1  # - 0.03
     desired_pose[6] = box_position[2] + 0.3
 
     #desired_pose = np.concatenate((rpy, pos))
@@ -405,7 +417,7 @@ if __name__ == "__main__":
     q_init[bigman_params['joint_ids']['RA']] = np.array(value)*right_sign
     #q_init = touch_box_config
     q = q_init.copy()
-    actual_pose = fk(model, end_effector1, q=q, body_offset=l_soft_hand_offset)
+    actual_pose = fk(model, end_effector1, q=q_init.copy(), body_offset=l_soft_hand_offset)
     print(actual_pose)
 
     print("Calculating kinematics")

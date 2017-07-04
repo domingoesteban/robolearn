@@ -48,20 +48,29 @@ def create_box_relative_pose(box_x=0.75, box_y=0.00, box_z=0.0184, box_yaw=0):
     return np.hstack((box_x, box_y, box_z, box_quat))
 
 
-def create_ee_relative_pose(box_pose, ee_x=0.0, ee_y=0.0, ee_z=0.0, ee_yaw=0):
+def create_hand_relative_pose(box_pose, hand_x=0.0, hand_y=0.0, hand_z=0.0, hand_yaw=0):
+    """
+    Create Hand Operational point relative pose
+    :param box_pose: 
+    :param hand_x: 
+    :param hand_y: 
+    :param hand_z: 
+    :param hand_yaw: 
+    :return: 
+    """
 
     box_matrix = tf.transformations.quaternion_matrix(box_pose[3:])
     box_matrix[:3, -1] = box_pose[:3]
 
-    box_RH_matrix = homogeneous_matrix(pos=np.array([ee_x, ee_y, ee_z]))
+    box_RH_matrix = homogeneous_matrix(pos=np.array([hand_x, hand_y, hand_z]))
 
-    ee_matrix = box_matrix.dot(box_RH_matrix)
-    ee_matrix = ee_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0]))
-    ee_matrix = ee_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(ee_yaw), [1, 0, 0]))
-    ee_pose = np.zeros(7)
-    ee_pose[:3] = tf.transformations.translation_from_matrix(ee_matrix)
-    ee_pose[3:] = tf.transformations.quaternion_from_matrix(ee_matrix)
-    return ee_pose
+    hand_matrix = box_matrix.dot(box_RH_matrix)
+    hand_matrix = hand_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0]))
+    hand_matrix = hand_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(hand_yaw), [1, 0, 0]))
+    hand_pose = np.zeros(7)
+    hand_pose[:3] = tf.transformations.translation_from_matrix(hand_matrix)
+    hand_pose[3:] = tf.transformations.quaternion_from_matrix(hand_matrix)
+    return hand_pose
 
 
 def reset_condition_bigman_box_gazebo(condition, state_info):
@@ -121,8 +130,8 @@ def generate_reach_joints_trajectories(box_relative_pose, box_size, T, q_init, o
     # reach_option 2: Trajectory in EEs, IK with Jacobians
 
     ik_method = 'optimization'  # iterative / optimization
-    LH_reach_pose = create_ee_relative_pose(box_relative_pose, ee_x=0, ee_y=box_size[1]/2-0.02, ee_z=0, ee_yaw=0)
-    RH_reach_pose = create_ee_relative_pose(box_relative_pose, ee_x=0, ee_y=-box_size[1]/2+0.02, ee_z=0, ee_yaw=0)
+    LH_reach_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=box_size[1]/2-0.02, hand_z=0, hand_yaw=0)
+    RH_reach_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=-box_size[1]/2+0.02, hand_z=0, hand_yaw=0)
     N = int(np.ceil(T/dt))
 
     # Swap position, orientation

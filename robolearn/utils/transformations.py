@@ -1,4 +1,5 @@
 import numpy as np
+import tf
 
 
 def multiply_quat(quat1, quat2):
@@ -67,4 +68,35 @@ def compute_cartesian_error(des, current, rotation_rep='quat'):
         raise NotImplementedError("Only quaternion has been implemented")
 
     return np.concatenate((orientation_error, position_error))
+
+
+def create_quat_pose(pos_x=0, pos_y=0, pos_z=0, rot_roll=0, rot_pitch=0, rot_yaw=0):
+    """
+    Rotation assuming first yaw, then pitch, and then yaw.
+    :param pos_x: 
+    :param pos_y: 
+    :param pos_z: 
+    :param rot_roll: 
+    :param rot_pith: 
+    :param rot_yaw: 
+    :return: 
+    """
+    pose = np.zeros(7)
+    pose[:4] = tf.transformations.quaternion_from_matrix(tf.transformations.euler_matrix(rot_roll, rot_pitch, rot_yaw))
+    pose[4] = pos_x
+    pose[5] = pos_y
+    pose[6] = pos_z
+    return pose
+
+
+def pose_transform(frame_pose, relative_pose):
+    frame_matrix = tf.transformations.quaternion_matrix(frame_pose[:4])
+    frame_matrix[:3, -1] = frame_pose[4:]
+    relative_matrix = tf.transformations.quaternion_matrix(relative_pose[:4])
+    relative_matrix[:3, -1] = relative_pose[4:]
+    transform_matrix = frame_matrix.dot(relative_matrix)
+    pose = np.zeros(7)
+    pose[4:] = transform_matrix[:3, -1]
+    pose[:4] = tf.transformations.quaternion_from_matrix(transform_matrix)
+    return pose
 

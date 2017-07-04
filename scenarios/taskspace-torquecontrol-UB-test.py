@@ -20,7 +20,7 @@ from robolearn.utils.plot_utils import plot_desired_sensed_torque_position
 from robolearn.utils.plot_utils import plot_joint_info
 from robolearn.utils.plot_utils import plot_desired_sensed_data
 from robolearn.utils.plot_utils import plot_joint_multi_info
-from robolearn.utils.lift_box_utils import create_box_relative_pose, create_hand_relative_pose
+from robolearn.utils.lift_box_utils import create_box_relative_pose, create_ee_relative_pose
 
 from robolearn.utils.robot_model import RobotModel
 
@@ -33,7 +33,7 @@ torques_saved_filename = 'torques_init_traj.npy'
 
 # Time
 T_init = 5  # Time to move from current position to T_init
-T_traj = 5  # Time to execute the trajectory
+T_traj = 10  # Time to execute the trajectory
 freq = 100  # Frequency  (1/Ts)
 
 # BOX
@@ -43,15 +43,14 @@ box_z = 0.0184
 box_yaw = 0  # Degrees
 box_size = [0.4, 0.5, 0.3]
 box_relative_pose = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
-final_left_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=box_size[1]/2-0.02, hand_z=0, hand_yaw=0)
+final_left_hand_pose = create_ee_relative_pose(box_relative_pose, ee_x=0, ee_y=box_size[1]/2-0.02, ee_z=0, ee_yaw=0)
 final_left_hand_pose = final_left_hand_pose[[3, 4, 5, 6, 0, 1, 2]]  # First orientation, then position
-final_right_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=-box_size[1]/2+0.02, hand_z=0, hand_yaw=0)
+final_right_hand_pose = create_ee_relative_pose(box_relative_pose, ee_x=0, ee_y=-box_size[1]/2+0.02, ee_z=0, ee_yaw=0)
 final_right_hand_pose = final_right_hand_pose[[3, 4, 5, 6, 0, 1, 2]]  # First orientation, then position
 
 
 # ROBOT MODEL for trying ID
-# robot_urdf_file = os.environ["ROBOTOLOGY_ROOT"]+'/configs/ADVR_shared/bigman/urdf/bigman.urdf'
-robot_urdf_file = os.environ["ROBOTOLOGY_ROOT"]+'/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
+robot_urdf_file = os.environ["ROBOTOLOGY_ROOT"]+'/configs/ADVR_shared/bigman/urdf/bigman.urdf'
 robot_rbdl_model = rbdl.loadModel(robot_urdf_file, verbose=False, floating_base=False)
 robot_model = RobotModel(robot_urdf_file=robot_urdf_file)
 LH_name = 'LWrMot3'
@@ -128,23 +127,23 @@ des_cmd = CommandAdvr()
 # Move ALL joints from current position to INITIAL position in position control mode.
 des_cmd.name = bigman_params['joints_names']
 q_init = np.zeros(robot_rbdl_model.q_size)
-# q_init[15] = np.deg2rad(25)
-# q_init[16] = np.deg2rad(40)
-# q_init[17] = np.deg2rad(0)
-# q_init[18] = np.deg2rad(-75)
-# # ----
-# q_init[24] = np.deg2rad(25)
-# q_init[25] = np.deg2rad(-40)
-# q_init[26] = np.deg2rad(0)
-# q_init[27] = np.deg2rad(-75)
+q_init[15] = np.deg2rad(25)
+q_init[16] = np.deg2rad(40)
+q_init[17] = np.deg2rad(0)
+q_init[18] = np.deg2rad(-75)
+# ----
+q_init[24] = np.deg2rad(25)
+q_init[25] = np.deg2rad(-40)
+q_init[26] = np.deg2rad(0)
+q_init[27] = np.deg2rad(-75)
 q_init = np.array([0.,  0.,  0.,  0.,  0.,  0.,
                    0.,  0.,  0.,  0.,  0.,  0.,
                    0.,  0.,  0.,
-                   0.0568,  0.2386, -0.2337, -1.6803,  0.2226,  0.0107,  0.5633,
-                   #0.,  0.,  0.,  -1.5708,  0.,  0., 0.,
+                   #0.0568,  0.2386, -0.2337, -1.6803,  0.2226,  0.0107,  0.5633,
+                   0.,  0.,  0.,  -1.5708,  0.,  0., 0.,
                    0.,  0.,
-                   0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633])
-                   #0.,  0.,  0.,  -1.5708,  0.,  0., 0.])
+                   #0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633])
+                   0.,  0.,  0.,  -1.5708,  0.,  0., 0.])
 N = int(np.ceil(T_init*freq))
 joint_init_traj = polynomial5_interpolation(N, q_init, joint_pos_state)[0]
 print("Moving to zero configuration with Position control.")
@@ -186,16 +185,16 @@ joint_traj_ddots = np.zeros((N, robot_rbdl_model.qdot_size))
 
 # Joint space interpolation
 # -------------------------
-final_left_hand_pose = init_left_hand_pose.copy()
-final_right_hand_pose = init_right_hand_pose.copy()
+# final_left_hand_pose = init_left_hand_pose.copy()
+# final_right_hand_pose = init_right_hand_pose.copy()
 # op_matrix = tf.transformations.quaternion_matrix(final_left_hand_pose[:4])
 # op_matrix = op_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 0, 1]))
 # final_left_hand_pose[:4] = tf.transformations.quaternion_from_matrix(op_matrix)
 # op_matrix = tf.transformations.quaternion_matrix(final_right_hand_pose[:4])
 # op_matrix = op_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(90), [0, 0, 1]))
 # final_right_hand_pose[:4] = tf.transformations.quaternion_from_matrix(op_matrix)
-final_left_hand_pose[6] += 0.2
-final_right_hand_pose[6] += 0.2
+# final_left_hand_pose[6] += 0.2
+# final_right_hand_pose[6] += 0.2
 print(init_left_hand_pose)
 print(final_left_hand_pose)
 print(init_right_hand_pose)
@@ -372,13 +371,13 @@ Kp_task = np.eye(6)*np.array([500, 500, 500, 25., 25., 25.], dtype=np.float64)
 Kd_task = np.sqrt(Kp_task)
 
 # Domingo: similar than low task space gain setting
-K_ori = np.tile(50, 3)#*0.1
-K_pos = np.tile(20, 3)#*0.1
+#K_ori = np.tile(500, 3)
+#K_pos = np.tile(150, 3)
 #K_ori = np.tile(400, 3)
 #K_pos = np.tile(25, 3)
 #K_pos = np.tile(100, 3)
-#K_ori = np.tile(15, 3)
-#K_pos = np.tile(5, 3)
+K_ori = np.tile(50, 3)
+K_pos = np.tile(15, 3)
 Kp_task = np.eye(6)*np.r_[K_ori, K_pos]
 Kd_task = np.sqrt(Kp_task)
 
@@ -623,7 +622,6 @@ for ii in range(N):
 
     # # Uncomment to send position references
     # des_cmd.position = joint_traj[ii, joints_to_move]
-    # des_cmd.effort = []
     # des_cmd.stiffness = default_joint_stiffness[joints_to_move]
     # des_cmd.damping = default_joint_damping[joints_to_move]
 

@@ -1,3 +1,5 @@
 .idea
 *.pyc
 robolearn.egg-info
+scenarios/GPS_2017*
+scenarios/LOG_2017-*
