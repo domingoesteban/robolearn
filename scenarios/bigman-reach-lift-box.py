@@ -21,7 +21,7 @@ from robolearn.costs.cost_state import CostState
 from robolearn.costs.cost_fk_relative import CostFKRelative
 from robolearn.costs.cost_fk import CostFK
 from robolearn.costs.cost_sum import CostSum
-from robolearn.costs.cost_utils import RAMP_QUADRATIC
+from robolearn.costs.cost_utils import RAMP_QUADRATIC, RAMP_LINEAR, RAMP_FINAL_ONLY, RAMP_CONSTANT
 
 from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
 from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
@@ -224,12 +224,13 @@ act_cost = {
 }
 
 # State Cost
-target_state = box_relative_pose
+target_state = box_relative_pose[[3, 4, 5, 6, 0, 1, 2]]
 state_cost = {
     'type': CostState,
     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
-    'l1': 0.0,
-    'l2': 1.0,
+    'l1': 0.0,  # Weight for l1 norm
+    'l2': 1.0,  # Weight for l2 norm
+    'alpha': 1e-5,  # Constant added in square root in l1 norm
     'wp_final_multiplier': 5.0,  # Weight multiplier on final time step.
     'data_types': {
         'optitrack': {
@@ -263,27 +264,33 @@ state_cost = {
 #     'joint_ids': bigman_params['joint_ids']['BA'],
 #     'robot_model': robot_model,
 #     'wp': np.array([1.2, 0, 0.8, 1, 1.2, 0.8]),  # one less because 'quat' error | 1)orient 2)pos
-#     'l1': 0.1,
-#     'l2': 10.0,
-#     'alpha': 1e-5,
+#     'l1': 0.1,  # Weight for l1 norm
+#     'l2': 10.0,  # Weight for l2 norm
+#     'alpha': 1e-5,  # Constant added in square root in l1 norm
+#     'wp_final_multiplier': 20,
 #     'state_idx': bigman_env.get_state_info(name='link_position')['idx']
 # }
-left_hand_rel_pose = create_quat_pose(pos_x=0, pos_y=box_size[1]/2-0.02, pos_z=0, rot_roll=0, rot_pitch=0, rot_yaw=0)
+#left_hand_rel_pose = create_quat_pose(pos_x=0, pos_y=box_size[1]/2-0.02, pos_z=0, rot_roll=0, rot_pitch=0, rot_yaw=0)
+left_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
+                                               hand_x=0.0, hand_y=box_size[1]/2-0.02, hand_z=0.0, hand_yaw=0)
+left_hand_rel_pose[:] = left_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
 LAfk_cost = {
     'type': CostFKRelative,
-    'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
     'target_rel_pose': left_hand_rel_pose,
     'rel_data_type': 'state',  # 'state' or 'observation'
-    'rel_data_name': 'optitrack',  # Name of the state/observation
+    #'rel_data_name': 'optitrack',  # Name of the state/observation
+    'rel_idx': bigman_env.get_state_info(name='optitrack')['idx'],
+    'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
     'end_effector_name': LH_name,
     'end_effector_offset': l_soft_hand_offset,
     'joint_ids': bigman_params['joint_ids']['BA'],
     'robot_model': robot_model,
-    'wp': np.array([1.2, 0, 0.8, 1, 1.2, 0.8]),  # one less because 'quat' error | 1)orient 2)pos
-    'l1': 0.1,
-    'l2': 10.0,
-    'alpha': 1e-5,
-    'state_idx': bigman_env.get_state_info(name='link_position')['idx']
+    'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'l1': 0.1,  # Weight for l1 norm
+    'l2': 1.0,  # Weight for l2 norm
+    'alpha': 1e-5,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 5,
 }
 
 # right_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=-box_size[1]/2+0.02, hand_z=0, hand_yaw=0)
@@ -295,34 +302,41 @@ LAfk_cost = {
 #     'end_effector_offset': r_soft_hand_offset,
 #     'joint_ids': bigman_params['joint_ids']['BA'],
 #     'robot_model': robot_model,
-#     'wp': np.array([1.2, 0, 0.8, 1, 1.2, 0.8]),  # one less because 'quat' error | 1)orient 2)pos
-#     'l1': 0.1,
-#     'l2': 10.0,
-#     'alpha': 1e-5,
+#     'wp': np.array([1.2, 0, 0.8, 1, 1.2, 0.8]),  # one dim less because 'quat' error | 1)orient 2)pos
+#     'l1': 0.1,  # Weight for l1 norm
+#     'l2': 10.0,  # Weight for l2 norm
+#     'alpha': 1e-5,  # Constant added in square root in l1 norm
+#     'wp_final_multiplier': 20,
 #     'state_idx': bigman_env.get_state_info(name='link_position')['idx']
 # }
-right_hand_rel_pose = create_quat_pose(pos_x=0, pos_y=-box_size[1]/2+0.02, pos_z=0, rot_roll=0, rot_pitch=0, rot_yaw=0)
+#right_hand_rel_pose = create_quat_pose(pos_x=0, pos_y=-box_size[1]/2+0.02, pos_z=0, rot_roll=0, rot_pitch=0, rot_yaw=0)
+right_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
+                                                hand_x=0.0, hand_y=-box_size[1]/2+0.02, hand_z=0.0, hand_yaw=0)
+right_hand_rel_pose[:] = right_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
 RAfk_cost = {
     'type': CostFKRelative,
-    'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
+    'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
     'target_rel_pose': right_hand_rel_pose,
     'rel_data_type': 'state',  # 'state' or 'observation'
-    'rel_data_name': 'optitrack',  # Name of the state/observation
+    #'rel_data_name': 'optitrack',  # Name of the state/observation
+    'rel_idx': bigman_env.get_state_info(name='optitrack')['idx'],
+    'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
     'end_effector_name': RH_name,
     'end_effector_offset': r_soft_hand_offset,
     'joint_ids': bigman_params['joint_ids']['BA'],
     'robot_model': robot_model,
-    'wp': np.array([1.2, 0, 0.8, 1, 1.2, 0.8]),  # one less because 'quat' error | 1)orient 2)pos
-    'l1': 0.1,
-    'l2': 10.0,
-    'alpha': 1e-5,
-    'state_idx': bigman_env.get_state_info(name='link_position')['idx']
+    'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'l1': 0.1,  # Weight for l1 norm
+    'l2': 1.0,  # Weight for l2 norm
+    'alpha': 1e-5,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 5,
 }
 
 cost_sum = {
     'type': CostSum,
     'costs': [act_cost, state_cost, LAfk_cost, RAfk_cost],
-    'weights': [0.1, 5.0, 8.0, 8.0],
+    #'weights': [0.1, 5.0, 8.0, 8.0],
+    'weights': [1.0, 0.0, 2.0, 2.0],
     # 'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
     # 'weights': [0.1, 5.0],
 }
@@ -336,10 +350,10 @@ cost_sum = {
 q0 = np.zeros(31)
 q0[16] = np.deg2rad(50)
 q0[18] = np.deg2rad(-75)
-q0[15:15+7] = [0.0568,  0.2386, -0.2337, -1.6803,  0.2226,  0.0107,  0.5633]
+#q0[15:15+7] = [0.0568,  0.2386, -0.2337, -1.6803,  0.2226,  0.0107,  0.5633]
 q0[25] = np.deg2rad(-50)
 q0[27] = np.deg2rad(-75)
-q0[24:24+7] = [0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633]
+#q0[24:24+7] = [0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633]
 box_pose0 = box_relative_pose.copy()
 condition0 = create_bigman_box_condition(q0, box_pose0, joint_idxs=bigman_params['joint_ids']['BA'])
 bigman_env.add_condition(condition0)
@@ -445,8 +459,8 @@ change_print_color.change('YELLOW')
 print("\nConfiguring learning algorithm...\n")
 
 # Learning params
-total_episodes = 5  # 2000
-num_samples = 2  # Samples for exploration trajs
+total_episodes = 100  # 2000
+num_samples = 20  # Samples for exploration trajs
 resume_training_itr = None  # 10 - 1  # Resume from previous training iteration
 data_files_dir = None  # './GPS_2017-06-15_14:56:13'  # In case we want to resume from previous training
 T = int(EndTime/Ts)  # Total points

@@ -51,7 +51,7 @@ def create_box_relative_pose(box_x=0.75, box_y=0.00, box_z=0.0184, box_yaw=0):
 def create_hand_relative_pose(box_pose, hand_x=0.0, hand_y=0.0, hand_z=0.0, hand_yaw=0):
     """
     Create Hand Operational point relative pose
-    :param box_pose: 
+    :param box_pose: (pos+orient)
     :param hand_x: 
     :param hand_y: 
     :param hand_z: 

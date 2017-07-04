@@ -64,7 +64,8 @@ class CostFK(Cost):
         temp_idx = np.ix_(range(6), self._hyperparams['state_idx'])
         for ii in range(T):
             q[joint_ids] = x[ii, :]
-            dist[ii, :] = -compute_cartesian_error(tgt, robot_model.fk(end_effector_name,
+            #dist[ii, :] = -compute_cartesian_error(tgt, robot_model.fk(end_effector_name,
+            dist[ii, :] = compute_cartesian_error(tgt, robot_model.fk(end_effector_name,
                                                                        q=q,
                                                                        body_offset=end_effector_offset,
                                                                        update_kinematics=True,
