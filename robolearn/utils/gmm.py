@@ -1,4 +1,7 @@
-""" This file defines a Gaussian mixture model class. """
+"""
+This file defines a Gaussian mixture model class.
+Author: C. Finn et al. Code in https://github.com/cbfinn/gps
+"""
 import logging
 
 import numpy as np

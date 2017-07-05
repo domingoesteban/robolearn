@@ -1,4 +1,7 @@
-""" This file defines the GMM prior for dynamics estimation. """
+"""
+This file defines the GMM prior for dynamics estimation.
+Author: C. Finn et al. Code in https://github.com/cbfinn/gps
+"""
 import copy
 import logging
 
