@@ -158,6 +158,10 @@ class GPS(RLAlgorithm):
         # ------------- #
         self.policy_opt = self.agent.policy_opt
 
+        # OTHERS #
+        # ------ #
+        self.avg_cost_local_policies = np.zeros((self.max_iterations, self._hyperparams['num_samples']))
+
     def run(self, itr_load=None):
         """
         Run GPS.
@@ -182,7 +186,8 @@ class GPS(RLAlgorithm):
                                                                          cond+1, len(self._train_cond_idx),
                                                                          i+1, self._hyperparams['num_samples']))
                         print("#"*40)
-                        self._take_sample(itr, cond, i, on_policy=self._hyperparams['sample_on_policy'])
+                        self._take_sample(itr, cond, i, noisy=self._hyperparams['noisy_samples'],
+                                          on_policy=self._hyperparams['sample_on_policy'])
                 # Get agent's sample list
                 traj_sample_lists = [self.agent.get_samples(cond, -self._hyperparams['num_samples'])
                                      for cond in self._train_cond_idx]
@@ -291,10 +296,6 @@ class GPS(RLAlgorithm):
         :param noisy: 
         :return: None
         """
-        # Parameters
-        self._hyperparams['smooth_noise'] = True
-        self._hyperparams['smooth_noise_var'] = 2.0
-        self._hyperparams['smooth_noise_renormalize'] = True
 
         # On-policy or Off-policy
         if on_policy and (self.iteration_count > 0 or
@@ -317,7 +318,7 @@ class GPS(RLAlgorithm):
         obs_hist = [None] * self.T
 
         print("Resetting environment...")
-        self.env.reset(time=1, cond=cond)
+        self.env.reset(time=2, cond=cond)
         import rospy
 
         ros_rate = rospy.Rate(int(1/self.dt))  # hz
@@ -403,7 +404,6 @@ class GPS(RLAlgorithm):
             N  : number of policy samples to take per condition
         Returns: None
         """
-        #policy = self.agent.policy.policy  # DOM: Instead self.opt_pol.policy
 
         pol_samples = [list() for _ in range(len(self._test_cond_idx))]
 
@@ -435,7 +435,7 @@ class GPS(RLAlgorithm):
         print("Logging Agent... ")
         self.data_logger.pickle(
             ('agent_itr_%02d.pkl' % itr),
-            #copy.copy(temp_dict)
+            # copy.copy(temp_dict)
             copy.copy(self.agent)
         )
         print("Logging Policy_Opt... ")
@@ -545,6 +545,12 @@ class GPS(RLAlgorithm):
         self.cur[cond].traj_info.Cm = np.mean(Cm, 0)  # Quadratic term (matrix).
 
         self.cur[cond].cs = cs  # True value of cost.
+        print('$$$$$$$')
+        traj_sum = np.sum(self.cur[cond].cs, axis=1)
+        print("Traj costs: %s " % traj_sum)
+        print("Expected cost E[l(tau)]: %f" % np.average(traj_sum))
+        print('$$$$$$$')
+        self.avg_cost_local_policies[self.iteration_count, :] = traj_sum
 
     def _advance_iteration_variables(self):
         """
@@ -687,7 +693,7 @@ class GPS(RLAlgorithm):
             self.cur[m].sample_list = sample_lists[m]
             self._eval_cost(m)
 
-        # Update dynamics linearizations.
+        # Update dynamics linearizations (linear-Gaussian dynamics).
         print('->Updating dynamics linearization...')
         self._update_dynamics()
 
@@ -705,7 +711,7 @@ class GPS(RLAlgorithm):
         # C-step
         print('->| C-step |<-')
         if self.iteration_count > 0:
-            print('-->Adjust step size multiplier...')
+            print('-->Adjust step size multiplier (epsilon)...')
             self.stepadjust_mdgps()
         self._update_trajectories()
 
@@ -885,3 +891,5 @@ class GPS(RLAlgorithm):
 
         return fCm, fcv
 
+    def get_avg_local_policy_costs(self):
+        return self.avg_cost_local_policies

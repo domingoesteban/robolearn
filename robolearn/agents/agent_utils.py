@@ -30,8 +30,11 @@ def generate_noise(T, dU, hyperparams):
     else:
         raise TypeError("noise_var_scale size (%d) does not match dU (%d)" % (len(hyperparams['noise_var_scale']), dU))
 
+    # np.random.seed(5)
+
     # Generate noise and scale
     noise = np.random.randn(T, dU)*np.sqrt(scale)
+
     if smooth:
         # Smooth noise. This violates the controller assumption, but
         # might produce smoother motions.
@@ -40,4 +43,5 @@ def generate_noise(T, dU, hyperparams):
         if renorm:
             variance = np.var(noise, axis=0)
             noise = noise / np.sqrt(variance)
+
     return noise

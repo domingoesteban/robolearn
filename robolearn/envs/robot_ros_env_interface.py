@@ -189,6 +189,27 @@ class RobotROSEnvInterface(ROSEnvInterface):
         print("NO RESETTING BEFORE PUBLISHING!!")
         self.x0 = self.get_state()
 
+
+        # TEMPORAL
+        self.temp_joint_pos_state = np.zeros(self.robot_dyn_model.qdot_size)  # Assuming joint state only gives actuated joints state
+        self.temp_joint_vel_state = np.zeros(self.robot_dyn_model.qdot_size)
+        self.temp_joint_effort_state = np.zeros(self.robot_dyn_model.qdot_size)
+        self.temp_joint_stiffness_state = np.zeros(self.robot_dyn_model.qdot_size)
+        self.temp_joint_damping_state = np.zeros(self.robot_dyn_model.qdot_size)
+        self.temp_joint_state_id = []
+        self.temp_subscriber = rospy.Subscriber("/xbotcore/bigman/joint_states", JointStateAdvr,
+                                                self.temp_state_callback, (self.temp_joint_state_id,
+                                                                           self.temp_joint_pos_state,
+                                                                           self.temp_joint_vel_state,
+                                                                           self.temp_joint_effort_state,
+                                                                           self.temp_joint_stiffness_state,
+                                                                          self.temp_joint_damping_state))
+        self.temp_publisher = rospy.Publisher("/xbotcore/bigman/command", CommandAdvr, queue_size=10)
+        self.pub_rate = rospy.Rate(100)
+        self.des_cmd = CommandAdvr()
+        self.des_cmd.name = self.act_joint_names
+
+
         self.run()
 
         print("%s ROS-environment ready!" % self.robot_name.upper())
@@ -235,19 +256,27 @@ class RobotROSEnvInterface(ROSEnvInterface):
                     action[des_action['act_idx']] = vel + current_pos  # Integrating position
                 if self.cmd_type == 'effort':  # TODO: TEMPORAL HACK / Add gravity compensation
                     if self.robot_dyn_model is not None:
-                        obs_pos = obs_vector_joint_state(['link_position'], self.obs_joint_names,
-                                                         self.get_obs_ros_msg(name='joint_state')).ravel()
-                        current_pos = np.zeros(self.robot_dyn_model.qdot_size)
-                        current_pos[self.obs_joint_ids] = obs_pos
+                        # current_pos = np.zeros(self.robot_dyn_model.qdot_size)
+                        # current_pos[self.obs_joint_ids] = obs_vector_joint_state(['link_position'],
+                        #                                                          self.obs_joint_names,
+                        #                                                          self.get_obs_ros_msg(name='joint_state')).ravel()
+                        current_pos = self.temp_joint_pos_state
                         self.robot_dyn_model.update_gravity_forces(self.temp_effort, current_pos)
+                        # self.robot_dyn_model.update_nonlinear_forces(self.temp_effort, current_pos)
                         action[des_action['act_idx']] += self.temp_effort[self.act_joint_ids]
-
+                        # self.des_cmd.position = []
+                        # # self.des_cmd.effort = self.temp_effort[self.act_joint_ids]
+                        # self.des_cmd.effort = action[des_action['act_idx']]
+                        # self.des_cmd.stiffness = np.zeros_like(self.temp_effort[self.act_joint_ids])
+                        # self.des_cmd.damping = np.zeros_like(self.temp_effort[self.act_joint_ids])
                 update_advr_command(des_action['ros_msg'], des_action['type'], action[des_action['act_idx']])
             else:
                 raise NotImplementedError("Only Advr commands: position, velocity or effort available!")
 
         # Start publishing in ROS
         self.publish_action = True
+        # self.temp_publisher.publish(self.des_cmd)
+        # self.publish_action = False
 
     def set_initial_acts(self, initial_acts):
         self.init_acts = initial_acts
@@ -424,8 +453,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
             reset_publisher.publish(reset_cmd)
             pub_rate.sleep()
 
-        # Interpolate from current position
-        rospy.sleep(1)  # Because I need to find a good way to reset
+        rospy.sleep(5)  # Because I need to find a good way to reset
 
         # Resetting Gazebo also
         super(RobotROSEnvInterface, self).reset(model_name=self.robot_name)
@@ -435,10 +463,13 @@ class RobotROSEnvInterface(ROSEnvInterface):
             self.reset_simulation_fcn(self.conditions[cond], self.get_state_info())
 
     def set_conditions(self, conditions):
+        # TODO: Check conditions size
         self.conditions = conditions
 
     def add_condition(self, condition):
-        # TODO: Check condition size
+        if len(condition) != self.state_dim:
+            raise AttributeError("Condition and state does not have same dimension!! (%d != %d)" % (len(condition),
+                                                                                                    self.state_dim))
         self.conditions.append(condition)
         return len(self.conditions)-1
 
@@ -484,3 +515,19 @@ class RobotROSEnvInterface(ROSEnvInterface):
             stop_cmd.damping = bigman_params['damping_gains'][joint_ids]
             stop_publisher.publish(stop_cmd)
             pub_rate.sleep()
+
+    def temp_state_callback(self, data, params):
+        joint_ids = params[0]
+        joint_pos = params[1]
+        joint_vel = params[2]
+        joint_effort = params[3]
+        joint_stiffness = params[4]
+        joint_damping = params[5]
+        # if not joint_ids:
+        #     joint_ids[:] = [bigman_params['joints_names'].index(name) for name in data.name]
+        joint_ids[:] = [bigman_params['joints_names'].index(name) for name in data.name]
+        joint_pos[joint_ids] = data.link_position
+        joint_effort[joint_ids] = data.effort
+        joint_vel[joint_ids] = data.link_velocity
+        joint_stiffness[joint_ids] = data.stiffness
+        joint_damping[joint_ids] = data.damping

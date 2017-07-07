@@ -17,6 +17,12 @@ default_gps_hyperparams = {
     #'train_conditions': [0, 1, 2, 3], # ID? of conditions for training
     #'test_conditions': [0, 1, 2, 3],  # ID? of conditions for testing
 
+    'noisy_samples': True,
+    'smooth_noise': True,
+    'smooth_noise_var': 1.0,
+    'smooth_noise_renormalize': True,
+
+
     #'init_traj_distr': None,  # A list of initial LinearGaussianPolicy objects for each condition.
     'init_traj_distr': {
         'type': init_lqr,  # init_lqr, init_pd
@@ -69,7 +75,8 @@ default_gps_hyperparams = {
     # Trajectory optimization.
     #'traj_opt': None,
     'traj_opt': {
-        'type': TrajOptLQR, # TrajOptPI2
+        'type': TrajOptLQR,
+        # 'type': TrajOptPI2,
     },
     #'traj_opt': {
     #    'type': TrajOptPI2,

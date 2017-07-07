@@ -31,7 +31,7 @@ LOGGER.addHandler(ch)
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
-GPU_MEM_PERCENTAGE = 0.5
+GPU_MEM_PERCENTAGE = 0.4
 
 
 class PolicyOptTf(PolicyOpt):
@@ -52,7 +52,7 @@ class PolicyOptTf(PolicyOpt):
             self.device_string = "/gpu:" + str(self.gpu_device)
 
         self.act_op = None  # mu_hat
-        self.feat_op = None # features
+        self.feat_op = None  # features
         self.loss_scalar = None
         self.obs_tensor = None
         self.precision_tensor = None

@@ -1,6 +1,7 @@
-# CODE from Finn et al. in github.com/cbfinn/gps
-
-""" This file defines utility classes and functions for dynamics. """
+"""
+This file defines utility classes and functions for dynamics.
+Author: C. Finn et al. Code in https://github.com/cbfinn/gps
+"""
 import numpy as np
 
 

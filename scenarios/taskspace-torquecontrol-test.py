@@ -128,23 +128,23 @@ des_cmd = CommandAdvr()
 # Move ALL joints from current position to INITIAL position in position control mode.
 des_cmd.name = bigman_params['joints_names']
 q_init = np.zeros(robot_rbdl_model.q_size)
-# q_init[15] = np.deg2rad(25)
-# q_init[16] = np.deg2rad(40)
-# q_init[17] = np.deg2rad(0)
-# q_init[18] = np.deg2rad(-75)
-# # ----
-# q_init[24] = np.deg2rad(25)
-# q_init[25] = np.deg2rad(-40)
-# q_init[26] = np.deg2rad(0)
-# q_init[27] = np.deg2rad(-75)
-q_init = np.array([0.,  0.,  0.,  0.,  0.,  0.,
-                   0.,  0.,  0.,  0.,  0.,  0.,
-                   0.,  0.,  0.,
-                   0.0568,  0.2386, -0.2337, -1.6803,  0.2226,  0.0107,  0.5633,
-                   #0.,  0.,  0.,  -1.5708,  0.,  0., 0.,
-                   0.,  0.,
-                   0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633])
-                   #0.,  0.,  0.,  -1.5708,  0.,  0., 0.])
+q_init[15] = np.deg2rad(25)
+q_init[16] = np.deg2rad(40)
+q_init[17] = np.deg2rad(0)
+q_init[18] = np.deg2rad(-75)
+# ----
+q_init[24] = np.deg2rad(25)
+q_init[25] = np.deg2rad(-40)
+q_init[26] = np.deg2rad(0)
+q_init[27] = np.deg2rad(-75)
+# q_init = np.array([0.,  0.,  0.,  0.,  0.,  0.,
+#                    0.,  0.,  0.,  0.,  0.,  0.,
+#                    0.,  0.,  0.,
+#                    0.0568,  0.2386, -0.2337, -1.6803,  0.2226,  0.0107,  0.5633,
+#                    #0.,  0.,  0.,  -1.5708,  0.,  0., 0.,
+#                    0.,  0.,
+#                    0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633])
+#                    #0.,  0.,  0.,  -1.5708,  0.,  0., 0.])
 N = int(np.ceil(T_init*freq))
 joint_init_traj = polynomial5_interpolation(N, q_init, joint_pos_state)[0]
 print("Moving to zero configuration with Position control.")
@@ -194,8 +194,8 @@ final_right_hand_pose = init_right_hand_pose.copy()
 # op_matrix = tf.transformations.quaternion_matrix(final_right_hand_pose[:4])
 # op_matrix = op_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(90), [0, 0, 1]))
 # final_right_hand_pose[:4] = tf.transformations.quaternion_from_matrix(op_matrix)
-final_left_hand_pose[6] += 0.2
-final_right_hand_pose[6] += 0.2
+# final_left_hand_pose[6] += 0.2
+# final_right_hand_pose[6] += 0.2
 print(init_left_hand_pose)
 print(final_left_hand_pose)
 print(init_right_hand_pose)
@@ -524,8 +524,8 @@ for ii in range(N):
     tau_right = M_right.dot(J_right_bar).dot(x_right_ddot_r - J_right_dot_q_dot*0 + J_right.dot(np.linalg.inv(M_right)).dot(g)*0)\
                 + right_projection_null_times_torque_null*0
     # Multitask controller
-    tau = alpha_left*tau_left + alpha_right*tau_right + c_plus_g
-    #tau = alpha_left*tau_left + alpha_right*tau_right + g
+    #tau = alpha_left*tau_left*0 + alpha_right*tau_right*0 + c_plus_g
+    tau = alpha_left*tau_left*0 + alpha_right*tau_right*0 + g
 
     # # Nakanishi: Dynamical Decoupling Controller Variation 2
     # # (With Null Space Pre-multiplication of M, and Compensation of C and g in Joint Space)

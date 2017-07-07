@@ -23,6 +23,8 @@ from robolearn.costs.cost_fk import CostFK
 from robolearn.costs.cost_sum import CostSum
 from robolearn.costs.cost_utils import RAMP_QUADRATIC, RAMP_LINEAR, RAMP_FINAL_ONLY, RAMP_CONSTANT
 
+from robolearn.utils.traj_opt.traj_opt_pi2 import TrajOptPI2
+from robolearn.utils.traj_opt.traj_opt_lqr import TrajOptLQR
 from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
 from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
 
@@ -61,6 +63,7 @@ def kill_everything(_signal=None, _frame=None):
 
 signal.signal(signal.SIGINT, kill_everything)
 
+
 # ################## #
 # ################## #
 # ### PARAMETERS ### #
@@ -82,8 +85,8 @@ box_size = [0.4, 0.5, 0.3]
 box_relative_pose = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
 
 # Robot Model (It is used to calculate the IK cost)
-robot_urdf_file = os.environ["ROBOTOLOGY_ROOT"]+'/configs/ADVR_shared/bigman/urdf/bigman.urdf'
-# robot_urdf_file = os.environ["ROBOTOLOGY_ROOT"]+'/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
+#robot_urdf_file = os.environ["ROBOTOLOGY_ROOT"]+'/configs/ADVR_shared/bigman/urdf/bigman.urdf'
+robot_urdf_file = os.environ["ROBOTOLOGY_ROOT"]+'/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
 robot_model = RobotModel(robot_urdf_file)
 LH_name = 'LWrMot3'
 RH_name = 'RWrMot3'
@@ -101,25 +104,27 @@ print("\nCreating Bigman environment...")
 
 # Robot configuration
 interface = 'ros'
-body_part_active = 'BA'
+body_part_active = 'LA'
 command_type = 'effort'
 file_save_restore = "models/bigman_agent_vars.ckpt"
 
 observation_active = [{'name': 'joint_state',
                        'type': 'joint_state',
                        'ros_topic': '/xbotcore/bigman/joint_states',
-                       'fields': ['link_position', 'link_velocity', 'effort'],
-                       'joints': bigman_params['joint_ids']['UB']},
+                       # 'fields': ['link_position', 'link_velocity', 'effort'],
+                       'fields': ['link_position', 'link_velocity'],
+                       # 'joints': bigman_params['joint_ids']['UB']},
+                       'joints': bigman_params['joint_ids']['LA']},
 
-                      {'name': 'ft_left_arm',
-                       'type': 'ft_sensor',
-                       'ros_topic': '/xbotcore/bigman/ft/l_arm_ft',
-                       'fields': ['force', 'torque']},
+                      # {'name': 'ft_left_arm',
+                      #  'type': 'ft_sensor',
+                      #  'ros_topic': '/xbotcore/bigman/ft/l_arm_ft',
+                      #  'fields': ['force', 'torque']},
 
-                      {'name': 'ft_right_arm',
-                       'type': 'ft_sensor',
-                       'ros_topic': '/xbotcore/bigman/ft/r_arm_ft',
-                       'fields': ['force', 'torque']},
+                      # {'name': 'ft_right_arm',
+                      #  'type': 'ft_sensor',
+                      #  'ros_topic': '/xbotcore/bigman/ft/r_arm_ft',
+                      #  'fields': ['force', 'torque']},
 
                       # {'name': 'ft_left_leg',
                       #  'type': 'ft_sensor',
@@ -146,12 +151,13 @@ observation_active = [{'name': 'joint_state',
 state_active = [{'name': 'joint_state',
                  'type': 'joint_state',
                  'fields': ['link_position', 'link_velocity'],
-                 'joints': bigman_params['joint_ids']['BA']},
+                 'joints': bigman_params['joint_ids']['LA']},
 
                 {'name': 'optitrack',
                  'type': 'optitrack',
                  'fields': ['orientation', 'position'],
-                 'bodies': ['box']}]  # check if it is better relative position with EE(EEs)
+                 'bodies': ['box']}  # check if it is better relative position with EE(EEs)
+                ]
 
 
 # Spawn Box first because it is simulation
@@ -223,36 +229,36 @@ act_cost = {
     'target': None,   # Target action value
 }
 
-# State Cost
-target_state = box_relative_pose[[3, 4, 5, 6, 0, 1, 2]]
-state_cost = {
-    'type': CostState,
-    'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
-    'l1': 0.0,  # Weight for l1 norm
-    'l2': 1.0,  # Weight for l2 norm
-    'alpha': 1e-5,  # Constant added in square root in l1 norm
-    'wp_final_multiplier': 5.0,  # Weight multiplier on final time step.
-    'data_types': {
-        'optitrack': {
-            'wp': np.ones_like(target_state),  # State weights - must be set.
-            'target_state': target_state,  # Target state - must be set.
-            'average': None,  # (12, 3),
-            'data_idx': bigman_env.get_state_info(name='optitrack')['idx']
-        },
-        # 'link_position': {
-        #     'wp': np.ones_like(target_pos),  # State weights - must be set.
-        #     'target_state': target_pos,  # Target state - must be set.
-        #     'average': None,  #(12, 3),
-        #     'data_idx': bigman_env.get_state_info(name='link_position')['idx']
-        # },
-        # 'link_velocity': {
-        #     'wp': np.ones_like(target_vel),  # State weights - must be set.
-        #     'target_state': target_vel,  # Target state - must be set.
-        #     'average': None,  #(12, 3),
-        #     'data_idx': bigman_env.get_state_info(name='link_velocity')['idx']
-        # },
-    },
-}
+# # State Cost
+# target_state = box_relative_pose[[3, 4, 5, 6, 0, 1, 2]]
+# state_cost = {
+#     'type': CostState,
+#     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+#     'l1': 0.0,  # Weight for l1 norm
+#     'l2': 1.0,  # Weight for l2 norm
+#     'alpha': 1e-5,  # Constant added in square root in l1 norm
+#     'wp_final_multiplier': 5.0,  # Weight multiplier on final time step.
+#     'data_types': {
+#         'optitrack': {
+#             'wp': np.ones_like(target_state),  # State weights - must be set.
+#             'target_state': target_state,  # Target state - must be set.
+#             'average': None,  # (12, 3),
+#             'data_idx': bigman_env.get_state_info(name='optitrack')['idx']
+#         },
+#         # 'link_position': {
+#         #     'wp': np.ones_like(target_pos),  # State weights - must be set.
+#         #     'target_state': target_pos,  # Target state - must be set.
+#         #     'average': None,  #(12, 3),
+#         #     'data_idx': bigman_env.get_state_info(name='link_position')['idx']
+#         # },
+#         # 'link_velocity': {
+#         #     'wp': np.ones_like(target_vel),  # State weights - must be set.
+#         #     'target_state': target_vel,  # Target state - must be set.
+#         #     'average': None,  #(12, 3),
+#         #     'data_idx': bigman_env.get_state_info(name='link_velocity')['idx']
+#         # },
+#     },
+# }
 
 # left_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=box_size[1]/2-0.02, hand_z=0, hand_yaw=0)
 # LAfk_cost = {
@@ -278,17 +284,17 @@ LAfk_cost = {
     'type': CostFKRelative,
     'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
     'target_rel_pose': left_hand_rel_pose,
-    'rel_data_type': 'state',  # 'state' or 'observation'
+    'rel_data_type': 'observation',  # 'state' or 'observation'
     #'rel_data_name': 'optitrack',  # Name of the state/observation
-    'rel_idx': bigman_env.get_state_info(name='optitrack')['idx'],
+    'rel_idx': bigman_env.get_obs_info(name='optitrack')['idx'],
     'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
     'end_effector_name': LH_name,
     'end_effector_offset': l_soft_hand_offset,
-    'joint_ids': bigman_params['joint_ids']['BA'],
+    'joint_ids': bigman_params['joint_ids']['LA'],
     'robot_model': robot_model,
     'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'l1': 0.1,  # Weight for l1 norm
-    'l2': 1.0,  # Weight for l2 norm
+    'l1': 0.1,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+    'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1e-5,  # Constant added in square root in l1 norm
     'wp_final_multiplier': 5,
 }
@@ -310,33 +316,35 @@ LAfk_cost = {
 #     'state_idx': bigman_env.get_state_info(name='link_position')['idx']
 # }
 #right_hand_rel_pose = create_quat_pose(pos_x=0, pos_y=-box_size[1]/2+0.02, pos_z=0, rot_roll=0, rot_pitch=0, rot_yaw=0)
-right_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
-                                                hand_x=0.0, hand_y=-box_size[1]/2+0.02, hand_z=0.0, hand_yaw=0)
-right_hand_rel_pose[:] = right_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
-RAfk_cost = {
-    'type': CostFKRelative,
-    'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
-    'target_rel_pose': right_hand_rel_pose,
-    'rel_data_type': 'state',  # 'state' or 'observation'
-    #'rel_data_name': 'optitrack',  # Name of the state/observation
-    'rel_idx': bigman_env.get_state_info(name='optitrack')['idx'],
-    'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
-    'end_effector_name': RH_name,
-    'end_effector_offset': r_soft_hand_offset,
-    'joint_ids': bigman_params['joint_ids']['BA'],
-    'robot_model': robot_model,
-    'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'l1': 0.1,  # Weight for l1 norm
-    'l2': 1.0,  # Weight for l2 norm
-    'alpha': 1e-5,  # Constant added in square root in l1 norm
-    'wp_final_multiplier': 5,
-}
+# right_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
+#                                                 hand_x=0.0, hand_y=-box_size[1]/2+0.02, hand_z=0.0, hand_yaw=0)
+# right_hand_rel_pose[:] = right_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
+# RAfk_cost = {
+#     'type': CostFKRelative,
+#     'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
+#     'target_rel_pose': right_hand_rel_pose,
+#     'rel_data_type': 'state',  # 'state' or 'observation'
+#     #'rel_data_name': 'optitrack',  # Name of the state/observation
+#     'rel_idx': bigman_env.get_state_info(name='optitrack')['idx'],
+#     'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
+#     'end_effector_name': RH_name,
+#     'end_effector_offset': r_soft_hand_offset,
+#     'joint_ids': bigman_params['joint_ids']['BA'],
+#     'robot_model': robot_model,
+#     'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
+#     'l1': 0.1,  # Weight for l1 norm
+#     'l2': 1.0,  # Weight for l2 norm
+#     'alpha': 1e-5,  # Constant added in square root in l1 norm
+#     'wp_final_multiplier': 5,
+# }
 
 cost_sum = {
     'type': CostSum,
-    'costs': [act_cost, state_cost, LAfk_cost, RAfk_cost],
+    #'costs': [act_cost, state_cost, LAfk_cost, RAfk_cost],
+    'costs': [act_cost, LAfk_cost],
     #'weights': [0.1, 5.0, 8.0, 8.0],
-    'weights': [1.0, 0.0, 2.0, 2.0],
+    #'weights': [1.0, 0.0, 2.0, 2.0],
+    'weights': [1.0e-2, 1.0e-0],
     # 'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
     # 'weights': [0.1, 5.0],
 }
@@ -348,14 +356,17 @@ cost_sum = {
 # ########## #
 # ########## #
 q0 = np.zeros(31)
-q0[16] = np.deg2rad(50)
+q0[15] = np.deg2rad(25)
+q0[16] = np.deg2rad(40)
 q0[18] = np.deg2rad(-75)
 #q0[15:15+7] = [0.0568,  0.2386, -0.2337, -1.6803,  0.2226,  0.0107,  0.5633]
-q0[25] = np.deg2rad(-50)
+q0[24] = np.deg2rad(25)
+q0[25] = np.deg2rad(-40)
 q0[27] = np.deg2rad(-75)
 #q0[24:24+7] = [0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633]
 box_pose0 = box_relative_pose.copy()
-condition0 = create_bigman_box_condition(q0, box_pose0, joint_idxs=bigman_params['joint_ids']['BA'])
+condition0 = create_bigman_box_condition(q0, box_pose0, joint_idxs=bigman_params['joint_ids']['LA'])
+#condition0 = np.r_[q0[bigman_params['joint_ids']['LA']], np.zeros_like(bigman_params['joint_ids']['LA'])]
 bigman_env.add_condition(condition0)
 
 # q1 = q0.copy()
@@ -401,7 +412,7 @@ sampler_hyperparams = {
 #         #plot_joint_info(joints_to_plot, qs_reach, joint_names, data='position', block=False)
 #         #plot_joint_info(joints_to_plot, qdots_reach, joint_names, data='velocity', block=False)
 #         #plot_joint_info(joints_to_plot, qddots_reach, joint_names, data='acceleration', block=False)
-#         #input("Plotting reaching... Press a key to continue")
+#         #raw_input("Plotting reaching... Press a key to continue")
 #     if Tlift > 0:
 #         qs_lift, qdots_lift, qddots_lift = generate_lift_joints_trajectories(box_relative_pose, box_size, Tlift, q0,
 #                                                                              option=0, dt=Ts)
@@ -410,7 +421,7 @@ sampler_hyperparams = {
 #         #plot_joint_info(joints_to_plot, qs_lift, joint_names, data='position', block=False)
 #         #plot_joint_info(joints_to_plot, qdots_lift, joint_names, data='velocity', block=False)
 #         #plot_joint_info(joints_to_plot, qddots_lift, joint_names, data='acceleration', block=False)
-#         #input("Plotting lifting... Press a key to continue")
+#         #raw_input("Plotting lifting... Press a key to continue")
 #     # Concatenate reach and lift trajectories
 #     if Treach > 0 and Tlift > 0:
 #         qs = np.r_[qs_reach, qs_lift]
@@ -436,7 +447,7 @@ sampler_hyperparams = {
 # sampler_hyperparams['qdot_size'] = robot_model.qdot_size
 # sampler_hyperparams['joints_trajectories'] = joints_trajectories
 # sampler = JointSpaceControlSampler(computed_torque_policy, bigman_env, **sampler_hyperparams)
-# #input("Press a key for sampling from Sampler")
+# #raw_input("Press a key for sampling from Sampler")
 # for cond_idx, _ in enumerate(init_cond):
 #     print("\nSampling %d times from condition%d and with policy:%s (noisy:%s)" % (n_samples, cond_idx,
 #                                                                                  type(computed_torque_policy), noisy))
@@ -459,27 +470,42 @@ change_print_color.change('YELLOW')
 print("\nConfiguring learning algorithm...\n")
 
 # Learning params
-total_episodes = 100  # 2000
-num_samples = 20  # Samples for exploration trajs
 resume_training_itr = None  # 10 - 1  # Resume from previous training iteration
 data_files_dir = None  # './GPS_2017-06-15_14:56:13'  # In case we want to resume from previous training
-T = int(EndTime/Ts)  # Total points
-conditions = len(bigman_env.get_conditions())  # Total number of initial conditions
-train_conditions = range(conditions)  # Indexes of conditions used for training
-test_conditions = train_conditions  # Indexes of conditions used for testing
-sample_on_policy = False  # Whether generate on-policy samples or off-policy samples
-test_policy_after_iter = True  # If test the learned policy after an iteration in the RL algorithm
-kl_step = 0.2  # Kullback-Leibler step
+
+traj_opt_method = {'type': TrajOptLQR,
+                   'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
+                   # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
+                   'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
+                   'max_eta': 1e16,  # At max_eta, kl_div < kl_step
+                   'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step.
+                   'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
+                   'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
+                   }
+# traj_opt_method = {'type': TrajOptPI2,
+#                    'del0': 1e-4,  # Dual variable updates for non-PD Q-function.
+#                    'kl_threshold': 1.0,   # KL-divergence threshold between old and new policies.
+#                    'covariance_damping': 2.0,  # If greater than zero, covariance is computed as a multiple of the old
+#                                              # covariance. Multiplier is taken to the power (1 / covariance_damping).
+#                                              # If greater than one, slows down convergence and keeps exploration noise
+#                                              # high for more iterations.
+#                    'min_temperature': 0.001,  # Minimum bound of the temperature optimization for the soft-max
+#                                               # probabilities of the policy samples.
+#                    'use_sumexp': False,
+#                    'pi2_use_dgd_eta': False,
+#                    'pi2_cons_per_step': True,
+#                    }
 
 # init_traj_distr values can be lists if they are different for each condition
 init_traj_distr = {'type': init_lqr,
-                   'init_var': 1.0,
-                   'stiffness': 1.0,
-                   'stiffness_vel': 0.5,
+                   # Parameters to calculate initial COST function based on stiffness
+                   'init_var': 1.0e-2,  # Initial Variance
+                   'stiffness': 1.0e-1,  # Stiffness (multiplies q)
+                   'stiffness_vel': 0.5,  # Stiffness_vel*stiffness (multiplies qdot)
                    'final_weight': 10.0,  # Multiplies cost at T
                    # Parameters for guessing dynamics
                    'init_acc': np.zeros(action_dim),  # dU vector(np.array) of accelerations, default zeros.
-                   'init_gains': 1*np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
+                   'init_gains': 1.0*np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
                    }
 # init_traj_distr = [{'type': init_pd,
 #                     'init_var': 0.00001,  # initial variance (Default:10)
@@ -492,9 +518,10 @@ learned_dynamics = {'type': DynamicsLRPrior,
                     'regularization': 1e-6,
                     'prior': {
                         'type': DynamicsPriorGMM,
-                        'max_clusters': 20,
-                        'min_samples_per_cluster': 40,
-                        'max_samples': 20,
+                        'max_clusters': 20,  # Maximum number of clusters to fit.
+                        'min_samples_per_cluster': 40,  # Minimum samples per cluster.
+                        'max_samples': 20,  # Max. number of trajectories to use for fitting the GMM at any given time.
+                        'strength': 1.0,  # Adjusts the strength of the prior.
                         },
                     }
 
@@ -508,22 +535,41 @@ gps_algo_hyperparams = {'init_pol_wt': 0.01,
                         'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjusment
                         'policy_prior': {'type': PolicyPrior},
                         }
-learn_algo = GPS(agent=bigman_agent, env=bigman_env,
-                 iterations=total_episodes, num_samples=num_samples,
-                 T=T, dt=Ts,
-                 cost=cost_sum,
-                 conditions=conditions,
-                 gps_algo=gps_algo,
-                 gps_algo_hyperparams=gps_algo_hyperparams,
-                 train_conditions=train_conditions,
-                 test_conditions=test_conditions,
-                 sample_on_policy=sample_on_policy,
-                 test_after_iter=test_policy_after_iter,
-                 init_traj_distr=init_traj_distr,
-                 dynamics=learned_dynamics,
-                 kl_step=kl_step,
-                 data_files_dir=data_files_dir
-                 )
+
+gps_hyperparams = {
+    'T': int(EndTime/Ts),  # Total points
+    'dt': Ts,
+    'iterations': 6,  # 100  # 2000  # GPS episodes, "inner iterations"
+    'test_after_iter': False,  # If test the learned policy after an iteration in the RL algorithm
+    # Samples
+    'num_samples': 5,  # 20  # Samples for exploration trajs
+    'noisy_samples': True,
+    'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
+    'noise_var_scale': 1.0e+1,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
+    'smooth_noise': True,  # Apply Gaussian filter to noise generated
+    'smooth_noise_var': 3.0e+0,  # Variance to apply to Gaussian Filter
+    'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
+    'cost': cost_sum,
+    # Conditions
+    'conditions': len(bigman_env.get_conditions()),  # Total number of initial conditions
+    'train_conditions': range(len(bigman_env.get_conditions())),  # Indexes of conditions used for training
+    'test_conditions': range(len(bigman_env.get_conditions())),  # Indexes of conditions used for testing
+    # KL step (epsilon)
+    'kl_step': 0.2,  # Kullback-Leibler step (base_step)
+    'min_step_mult': 0.01,  # Min possible value of step multiplier (multiplies kl_step in LQR)
+    'max_step_mult': 10.0,  # Max possible value of step multiplier (multiplies kl_step in LQR)
+    # Others
+    'gps_algo': gps_algo,
+    'gps_algo_hyperparams': gps_algo_hyperparams,
+    'init_traj_distr': init_traj_distr,
+    'dynamics': learned_dynamics,
+    'traj_opt': traj_opt_method,
+    'data_files_dir': data_files_dir
+}
+
+
+learn_algo = GPS(agent=bigman_agent, env=bigman_env, **gps_hyperparams)
+
 print("Learning algorithm: %s OK\n" % type(learn_algo))
 
 # Optimize policy using learning algorithm
@@ -534,6 +580,12 @@ if training_successful:
 else:
     print("Learning Algorithm has finished WITH ERRORS!")
 
+avg_local_policy_costs = learn_algo.get_avg_local_policy_costs()
+np.save('.avg_local_policy_costsVALUES.npy', avg_local_policy_costs)
+t = np.arange(avg_local_policy_costs.shape[0])
+plt.plot(t, np.average(avg_local_policy_costs, axis=1))
+plt.fill_between(t, np.min(avg_local_policy_costs, axis=1), np.max(avg_local_policy_costs, axis=1), alpha=0.5)
+plt.show()
 
 # ############################## #
 # ############################## #
@@ -557,7 +609,7 @@ if training_successful:
     sampler = Sampler(bigman_agent.policy, bigman_env, **sampler_hyperparams)
     print("Sampling from final policy!!!")
     for cond_idx in conditions_to_sample:
-        input("\nSampling %d times from condition%d and with policy:%s (noisy:%s). \n Press a key to continue..." %
+        raw_input("\nSampling %d times from condition%d and with policy:%s (noisy:%s). \n Press a key to continue..." %
               (n_samples, cond_idx, type(bigman_agent.policy), noisy))
         sampler.take_samples(n_samples, cond=cond_idx, noisy=noisy)
 

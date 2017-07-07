@@ -12,7 +12,7 @@ from robolearn.policies.lin_gauss_policy import LinearGaussianPolicy
 # Note, PD is the default initializer type.
 INIT_LG_PD = {
     'init_var': 10.0,
-    'pos_gains': 10.0, # position gains
+    'pos_gains': 10.0,  # position gains
     'vel_gains_mult': 0.01,  # velocity gains multiplier on pos_gains
     'init_action_offset': None,
 }

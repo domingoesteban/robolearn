@@ -94,7 +94,8 @@ class CostFKRelative(Cost):
             #     print('++++')
             #     raw_input('waaaaa')
 
-            Jx[ii, temp_idx[0], temp_idx[1]] = jtemp[:, joint_ids]
+            Jx[ii, temp_idx[0], temp_idx[1]] = -jtemp[:, joint_ids]
+            #Jx[ii, temp_idx[0], temp_idx[1]] = jtemp[:, joint_ids]
 
         # Evaluate penalty term. Use estimated Jacobians and no higher
         # order terms.

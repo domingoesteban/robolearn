@@ -329,6 +329,7 @@ class RobotModel(object):
             q = self.q
         rbdl.CompositeRigidBodyAlgorithm(self.model, q, M, update_kinematics)
 
+
 class BodyState:
     def __init__(self, model, q, qd, body_id, body_point_position, update_kinematics=True):
         self.body_id = body_id
@@ -348,7 +349,6 @@ class BodyState:
         self.temp = np.zeros((6, model.dof_count + 1))  # this is a bug
         rbdl.CalcPointJacobian6D(model, q, body_id, body_point_position, self.temp, update_kinematics)
         self.J = self.temp[:6, :model.dof_count]
-
 
 
 def fk(model, body_name, q=None, body_offset=np.zeros(3), update_kinematics=True):
@@ -402,7 +402,7 @@ if __name__ == "__main__":
     box_position = [0.75, 0, 0.0184]
     box_size = [0.4, 0.5, 0.3]
     desired_pose[4] = box_position[0] + 0.05
-    desired_pose[5] = box_position[1] + box_size[1]/2. - 0.02 #  + 0.1  # - 0.03
+    desired_pose[5] = box_position[1] + box_size[1]/2. - 0.02  #  + 0.1  # - 0.03
     desired_pose[6] = box_position[2] + 0.3
 
     #desired_pose = np.concatenate((rpy, pos))
@@ -483,9 +483,7 @@ if __name__ == "__main__":
     print(repr(q_sol[15:22]))
     print("Time OPT: %s" % str(time.time() - start))
 
-
-
-    robot_model = RobotModel(robot_urdf_file)
+    robot_model = RobotModel(urdf_file)
     q_init = np.zeros(model.q_size)
     #q_init[16] = np.deg2rad(30)
     #q_init = touch_box_config

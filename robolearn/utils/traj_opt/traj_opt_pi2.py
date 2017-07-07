@@ -1,7 +1,7 @@
 """ This file defines code for PI2-based trajectory optimization.
 
 Optimization of trajectories with PI2 and a REPS-like KL-divergence constraint. 
-Author: C. Fin et al
+Author: C. Finn et al. Code in https://github.com/cbfinn/gps
 References:
 [1] E. Theodorou, J. Buchli, and S. Schaal. A generalized path integral control 
     approach to reinforcement learning. JMLR, 11, 2010.
@@ -10,6 +10,7 @@ References:
 [3] J. Peters, K. Mulling, and Y. Altun. Relative entropy policy search. 
     In AAAI, 2010.
  """
+import sys
 import copy
 import logging
 import numpy as np
@@ -19,23 +20,14 @@ from numpy.linalg import LinAlgError
 from scipy.optimize import minimize
 
 from robolearn.utils.traj_opt.traj_opt import TrajOpt
+from robolearn.utils.traj_opt.config import default_traj_opt_pi2_hyperparams
 
 LOGGER = logging.getLogger(__name__)
-
-TRAJ_OPT_PI2 = {
-    'kl_threshold': 1.0,  # KL-divergence threshold between old and new policies.
-    'covariance_damping': 2.0,  # If greater than zero, covariance is computed as a multiple of the old covariance.
-                                # Multiplier is taken to the power (1 / covariance_damping). If greater than one, slows
-                                # down convergence and keeps exploration noise high for more iterations.
-    'min_temperature': 0.001,  # Minimum bound of the temperature optimization for the soft-max probabilities of the
-                               #  policy samples.
-    'use_sumexp': False,
-    'pi2_use_dgd_eta': False,
-    'pi2_cons_per_step': True,
-    'min_eta': 1e-8,
-    'max_eta': 1e16,
-    'del0': 1e-4,
-}
+# Logging into console AND file
+LOGGER.setLevel(logging.DEBUG)
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.DEBUG)
+LOGGER.addHandler(ch)
 
 
 class TrajOptPI2(TrajOpt):
@@ -50,7 +42,7 @@ class TrajOptPI2(TrajOpt):
             soft-max probabilities of the policy samples.
     """
     def __init__(self, hyperparams):
-        config = copy.deepcopy(TRAJ_OPT_PI2)
+        config = copy.deepcopy(default_traj_opt_pi2_hyperparams)
         config.update(hyperparams)
         TrajOpt.__init__(self, config)
         self._kl_threshold = self._hyperparams['kl_threshold']
@@ -208,7 +200,7 @@ class TrajOptPI2(TrajOpt):
         return mean_new, cov_new, inv_cov_new, chol_cov_new, etas
 
     @staticmethod
-    def kl_dual(self, eta, kl_threshold, costs):
+    def kl_dual(eta, kl_threshold, costs):
         """
         Dual function for optimizing the temperature eta according to the given
         KL-divergence constraint.

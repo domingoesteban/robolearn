@@ -1,4 +1,8 @@
-""" This file defines code for iLQG-based trajectory optimization. """
+"""
+This file defines code for iLQG-based trajectory optimization.
+Author: C. Finn et al. Code in https://github.com/cbfinn/gps
+"""
+import sys
 import logging
 import copy
 
@@ -7,6 +11,7 @@ from numpy.linalg import LinAlgError
 import scipy as sp
 
 from robolearn.utils.traj_opt.traj_opt import TrajOpt
+from robolearn.utils.traj_opt.config import default_traj_opt_lqr_hyperparams
 from robolearn.utils.traj_opt.traj_opt_utils import \
         DGD_MAX_ITER, DGD_MAX_LS_ITER, DGD_MAX_GD_ITER, \
         ALPHA, BETA1, BETA2, EPS, \
@@ -17,24 +22,17 @@ from robolearn.utils.traj_opt.traj_opt_utils import \
 
 
 LOGGER = logging.getLogger(__name__)
-
-
-trajopt_lqr_default_hyperparams = {
-    # Dual variable updates for non-PD Q-function.
-    'del0': 1e-4,
-    'eta_error_threshold': 1e16,
-    'min_eta': 1e-8,
-    'max_eta': 1e16,
-    'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step.
-    'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
-    'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
-}
+# Logging into console AND file
+LOGGER.setLevel(logging.DEBUG)
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.DEBUG)
+LOGGER.addHandler(ch)
 
 
 class TrajOptLQR(TrajOpt):
     """ LQR trajectory optimization, Python implementation. """
     def __init__(self, hyperparams):
-        config = copy.deepcopy(trajopt_lqr_default_hyperparams)
+        config = copy.deepcopy(default_traj_opt_lqr_hyperparams)
         config.update(hyperparams)
 
         TrajOpt.__init__(self, config)
@@ -211,10 +209,10 @@ class TrajOptLQR(TrajOpt):
         # Compute cost.
         predicted_cost = np.zeros(T)
         for t in range(T):
-            predicted_cost[t] = traj_info.cc[t] + 0.5 * \
-                    np.sum(sigma[t, :, :] * traj_info.Cm[t, :, :]) + 0.5 * \
-                    mu[t, :].T.dot(traj_info.Cm[t, :, :]).dot(mu[t, :]) + \
-                    mu[t, :].T.dot(traj_info.cv[t, :])
+            predicted_cost[t] = traj_info.cc[t] + \
+                                0.5 * np.sum(sigma[t, :, :] * traj_info.Cm[t, :, :]) + \
+                                0.5 * mu[t, :].T.dot(traj_info.Cm[t, :, :]).dot(mu[t, :]) + \
+                                mu[t, :].T.dot(traj_info.cv[t, :])
         return predicted_cost
 
     @staticmethod
@@ -371,6 +369,7 @@ class TrajOptLQR(TrajOpt):
                             prev_traj_distr.inv_pol_covar[t].dot(prev_traj_distr.k[t])
                     K_term = (1.0 / eta[t]) * Qtt[t, idx_u, idx_x] - \
                             prev_traj_distr.inv_pol_covar[t].dot(prev_traj_distr.K[t])
+
                 # Compute Cholesky decomposition of Q function action
                 # component.
                 try:
