@@ -127,6 +127,7 @@ state_cost = {
 left_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
                                                hand_x=0.0, hand_y=box_size[1]/2-0.02, hand_z=0.0, hand_yaw=0)
 left_hand_rel_pose[:] = left_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
+print(left_hand_rel_pose)
 LAfk_cost = {
     'type': CostFKRelative,
     'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
@@ -145,7 +146,7 @@ LAfk_cost = {
     'l1': 0.0,  # Weight for l1 norm
     'l2': 1.0,  # Weight for l2 norm
     'alpha': 1e-5,  # Constant added in square root in l1 norm
-    'wp_final_multiplier': 5,
+    'wp_final_multiplier': 1,
 }
 
 
@@ -206,10 +207,10 @@ print(l[-1])
 # print("lux %s" % str(lux.shape))
 
 
-l, lx, lu, lxx, luu, lux = cost2.eval(sample)
-print('%%%%')
-print(l[1])
-print(l[-1])
+# l, lx, lu, lxx, luu, lux = cost2.eval(sample)
+# print('%%%%')
+# print(l[1])
+# print(l[-1])
 # print(lx[1, :])
 # print(lx[-1, :])
 # print(lu[1, :])

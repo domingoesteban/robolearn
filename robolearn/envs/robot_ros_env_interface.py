@@ -174,6 +174,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         # After all actions have been configured
         self.set_initial_acts(initial_acts=[action_type['ros_msg'] for action_type in self.action_types])  # TODO: Check if it is useful or not
         self.act_dim = self.get_total_action_dof()
+        self.act_vector = np.zeros(self.act_dim)
 
 
         ## ##### #
@@ -244,6 +245,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         :param action: Desired action vector.
         :return: None
         """
+        self.act_vector[:] = action[:]
         for ii, des_action in enumerate(self.action_types):
             if des_action['type'] in ['position', 'velocity', 'effort']:
                 if self.cmd_type == 'velocity':  # TODO: TEMPORAL HACK / Velocity not implemented
@@ -251,9 +253,9 @@ class RobotROSEnvInterface(ROSEnvInterface):
                     #                                        self.get_obs_ros_msg(name='joint_state')).ravel()
                     current_pos = state_vector_joint_state(['position'], self.act_joint_names,
                                                            self.get_action_ros_msg(action_type='position')).ravel()
-                    vel = action[des_action['act_idx']]*1./self.cmd_freq
+                    vel = self.act_vector[des_action['act_idx']]*1./self.cmd_freq
                     # now = rospy.get_rostime()
-                    action[des_action['act_idx']] = vel + current_pos  # Integrating position
+                    self.act_vector[des_action['act_idx']] = vel + current_pos  # Integrating position
                 if self.cmd_type == 'effort':  # TODO: TEMPORAL HACK / Add gravity compensation
                     if self.robot_dyn_model is not None:
                         # current_pos = np.zeros(self.robot_dyn_model.qdot_size)
@@ -263,13 +265,13 @@ class RobotROSEnvInterface(ROSEnvInterface):
                         current_pos = self.temp_joint_pos_state
                         self.robot_dyn_model.update_gravity_forces(self.temp_effort, current_pos)
                         # self.robot_dyn_model.update_nonlinear_forces(self.temp_effort, current_pos)
-                        action[des_action['act_idx']] += self.temp_effort[self.act_joint_ids]
+                        self.act_vector[des_action['act_idx']] += self.temp_effort[self.act_joint_ids]
                         # self.des_cmd.position = []
                         # # self.des_cmd.effort = self.temp_effort[self.act_joint_ids]
-                        # self.des_cmd.effort = action[des_action['act_idx']]
+                        # self.des_cmd.effort = self.act_vector[des_action['act_idx']]
                         # self.des_cmd.stiffness = np.zeros_like(self.temp_effort[self.act_joint_ids])
                         # self.des_cmd.damping = np.zeros_like(self.temp_effort[self.act_joint_ids])
-                update_advr_command(des_action['ros_msg'], des_action['type'], action[des_action['act_idx']])
+                update_advr_command(des_action['ros_msg'], des_action['type'], self.act_vector[des_action['act_idx']])
             else:
                 raise NotImplementedError("Only Advr commands: position, velocity or effort available!")
 

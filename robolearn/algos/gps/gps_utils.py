@@ -36,14 +36,14 @@ class IterationData(BundleType):
     """ Collection of iteration variables. """
     def __init__(self):
         variables = {
-            'sample_list': None,  # List of samples for the current iteration.
-            'traj_info': None,  # Current TrajectoryInfo object.
-            'pol_info': None,  # Current PolicyInfo object.
-            'traj_distr': None,  # Initial trajectory distribution.
-            'new_traj_distr': None,  # Updated trajectory distribution.
-            'cs': None,  # Sample costs of the current iteration.
-            'step_mult': 1.0,  # KL step multiplier for the current iteration.
-            'eta': 1.0,  # Dual variable used in LQR backward pass.
+            'sample_list': None,     # List of samples for the current iteration.
+            'traj_info': None,       # Current TrajectoryInfo object.
+            'pol_info': None,        # Current PolicyInfo object.
+            'traj_distr': None,      # Initial trajectory distribution. \bar{p}_i(u_t|x_t)
+            'new_traj_distr': None,  # Updated trajectory distribution. p_i(u_t|x_t)
+            'cs': None,              # Sample costs of the current iteration.
+            'step_mult': 1.0,        # KL step multiplier for the current iteration.
+            'eta': 1.0,              # Dual variable used in LQR backward pass.
         }
         BundleType.__init__(self, variables)
 
@@ -52,12 +52,12 @@ class TrajectoryInfo(BundleType):
     """ Collection of trajectory-related variables. """
     def __init__(self):
         variables = {
-            'dynamics': None,  # Dynamics object for the current iteration.
-            'x0mu': None,  # Mean for the initial state, used by the dynamics.
-            'x0sigma': None,  # Covariance for the initial state distribution.
-            'cc': None,  # Cost estimate constant term.
-            'cv': None,  # Cost estimate vector term.
-            'Cm': None,  # Cost estimate matrix term.
+            'dynamics': None,   # Dynamics object for the current iteration.
+            'x0mu': None,       # Mean for the initial state, used by the dynamics.
+            'x0sigma': None,    # Covariance for the initial state distribution.
+            'cc': None,         # Cost estimate constant term.
+            'cv': None,         # Cost estimate vector term.
+            'Cm': None,         # Cost estimate matrix term.
             'last_kl_step': float('inf'),  # KL step of the previous iteration.
         }
         BundleType.__init__(self, variables)
@@ -68,19 +68,19 @@ class PolicyInfo(BundleType):
     def __init__(self, hyperparams):
         T, dU, dX = hyperparams['T'], hyperparams['dU'], hyperparams['dX']
         variables = {
-            'lambda_k': np.zeros((T, dU)),  # Dual variable (Lagrange multiplier vectors) for k.
-            'lambda_K': np.zeros((T, dU, dX)),  # Dual variables (Lagrange multiplier vectors) for K.
+            'lambda_k': np.zeros((T, dU)),        # Dual variable (Lagrange multiplier vectors) for k.
+            'lambda_K': np.zeros((T, dU, dX)),    # Dual variables (Lagrange multiplier vectors) for K.
             'pol_wt': hyperparams['init_pol_wt'] * np.ones(T),  # Policy weight.
-            'pol_mu': None,  # Mean of the current policy output.
-            'pol_sig': None,  # Covariance of the current policy output.
-            'pol_K': np.zeros((T, dU, dX)),  # Policy linearization K matrix.
-            'pol_k': np.zeros((T, dU)),  # Policy linearization k vector.
-            'pol_S': np.zeros((T, dU, dU)),  # Policy linearization covariance.
+            'pol_mu': None,                       # Mean of the current policy output.
+            'pol_sig': None,                      # Covariance of the current policy output.
+            'pol_K': np.zeros((T, dU, dX)),       # Policy linearization K matrix.
+            'pol_k': np.zeros((T, dU)),           # Policy linearization k vector.
+            'pol_S': np.zeros((T, dU, dU)),       # Policy linearization covariance.
             'chol_pol_S': np.zeros((T, dU, dU)),  # Policy linearization Cholesky decomp of covar.
-            'prev_kl': None,  # Previous KL divergence.
-            'init_kl': None,  # The initial KL divergence, before the iteration.
-            'policy_samples': [],  # List of current policy samples.
-            'policy_prior': None,  # Current prior for policy linearization.
+            'prev_kl': None,                      # Previous KL divergence.
+            'init_kl': None,                      # The initial KL divergence, before the iteration.
+            'policy_samples': [],                 # List of current policy samples.
+            'policy_prior': None,                 # Current prior for policy linearization.
         }
         BundleType.__init__(self, variables)
 

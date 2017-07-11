@@ -41,6 +41,39 @@ def plot_sample(sample, data_to_plot='actions', block=True, cols=3):
         raise AttributeError("Wrong data to plot!")
 
 
+def plot_sample_list(sample_list, data_to_plot='actions', block=True, cols=3):
+
+    if data_to_plot == 'actions':
+        data = sample_list.get_actions()
+        window_title = "Actions"
+        ax_title = "Action"
+    elif data_to_plot == 'states':
+        data = sample_list.get_states()
+        window_title = "States"
+        ax_title = "State"
+    elif data_to_plot == 'obs':
+        data = sample_list.get_obs()
+        window_title = "Observations"
+        ax_title = "Observation"
+    else:
+        raise AttributeError("Wrong data to plot!")
+
+    for nn in range(data.shape[0]):
+        dData = data.shape[2]
+        fig, axs = plt.subplots(int(math.ceil(float(dData)/cols)), cols)
+        fig.subplots_adjust(hspace=0)
+        fig.canvas.set_window_title(window_title + " from Sample %d" % nn)
+        fig.set_facecolor((1, 1, 1))
+        for ii in range(axs.size):
+            ax = axs[ii/cols, ii % cols]
+            if ii < dData:
+                ax.set_title(ax_title + " %d" % (ii+1))
+                ax.plot(data[nn, :, ii])
+            else:
+                plt.setp(ax, visible=False)
+        plt.show(block=block)
+
+
 def plot_desired_sensed_torque(joints_to_plot, des_taus, sensed_taus,  joint_names, block=True, cols=3):
     # TODO: Check sizes
     dU = len(joints_to_plot)

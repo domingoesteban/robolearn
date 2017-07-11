@@ -51,7 +51,7 @@ def homogeneous_matrix(rot=np.identity(3), pos=np.zeros(3)):
 
 def compute_cartesian_error(des, current, rotation_rep='quat'):
     """
-    Compute the cartesian error between two poses
+    Compute the cartesian error between two poses: error = des-current
     :param des: Desired cartesian pose (orientation+position)
     :param current: Actual cartesian pose (orientation+position)
     :param rotation_rep: Orientation units:

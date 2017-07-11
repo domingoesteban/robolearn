@@ -110,6 +110,8 @@ class GPS(RLAlgorithm):
             # Instantiate Trajectory Distribution: init_lqr or init_pd
             self.cur[m].traj_distr = init_traj_distr['type'](init_traj_distr)
 
+        self.new_traj_distr = None  # Last trajectory distribution optimized in C-step
+
         # Traj Opt (Local policy opt) method #
         # ---------------------------------- #
         # Options: LQR, PI2
@@ -120,11 +122,11 @@ class GPS(RLAlgorithm):
         if self._hyperparams['cost'] is None:
             raise AttributeError("Cost function has not been defined")
         if isinstance(type(self._hyperparams['cost']), list):
-            # One cost function for each condition
+            # One cost function type for each condition
             self.cost_function = [self._hyperparams['cost'][i]['type'](self._hyperparams['cost'][i])
                                   for i in range(self.M)]
         else:
-            # Same cost function for all conditions
+            # Same cost function type for all conditions
             self.cost_function = [self._hyperparams['cost']['type'](self._hyperparams['cost'])
                                   for _ in range(self.M)]
 
@@ -151,6 +153,7 @@ class GPS(RLAlgorithm):
             # ------------ #
             policy_prior = self._hyperparams['policy_prior']
             for m in range(self.M):
+                # Same policy prior type for all conditions
                 self.cur[m].pol_info = PolicyInfo(self._hyperparams)
                 self.cur[m].pol_info.policy_prior = policy_prior['type'](policy_prior)
 
@@ -187,10 +190,17 @@ class GPS(RLAlgorithm):
                                                                          i+1, self._hyperparams['num_samples']))
                         print("#"*40)
                         self._take_sample(itr, cond, i, noisy=self._hyperparams['noisy_samples'],
-                                          on_policy=self._hyperparams['sample_on_policy'])
+                                          on_policy=self._hyperparams['sample_on_policy'],
+                                          verbose=False)
                 # Get agent's sample list
                 traj_sample_lists = [self.agent.get_samples(cond, -self._hyperparams['num_samples'])
                                      for cond in self._train_cond_idx]
+
+                # for hh in range(len(traj_sample_lists)):
+                #     plot_sample_list(traj_sample_lists[hh], data_to_plot='actions', block=False, cols=3)
+                #     plot_sample_list(traj_sample_lists[hh], data_to_plot='states', block=False, cols=3)
+                #     plot_sample_list(traj_sample_lists[hh], data_to_plot='obs', block=False, cols=3)
+                # raw_input('waaa')
 
                 # Clear agent samples.
                 self.agent.clear_samples()  # TODO: Check if it is better to 'remember' these samples
@@ -420,7 +430,8 @@ class GPS(RLAlgorithm):
                                                                                            i+1,
                                                                                            self._hyperparams['num_samples']))
                         print("#"*50)
-                    pol_samples[cond].append(self._take_sample(itr, cond, i, on_policy=True, noisy=False, save=False))
+                    pol_samples[cond].append(self._take_sample(itr, cond, i, on_policy=True, noisy=False, save=False,
+                                                               verbose=False))
 
         return [SampleList(samples) for samples in pol_samples]
 
@@ -495,7 +506,7 @@ class GPS(RLAlgorithm):
         Compute new linear Gaussian controllers.
         """
         print('-->Updating trajectories (local policies)...')
-        if not hasattr(self, 'new_traj_distr'):
+        if self.new_traj_distr is None:
             self.new_traj_distr = [self.cur[cond].traj_distr for cond in range(self.M)]
         for cond in range(self.M):
             self.new_traj_distr[cond], self.cur[cond].eta = self.traj_opt.update(cond, self)
@@ -729,7 +740,7 @@ class GPS(RLAlgorithm):
         """
         print('-->Updating Global policy...')
         dU, dO, T = self.dU, self.dO, self.T
-        # Compute target mean, cov, and weight for each sample.
+        # Compute target mean, cov(precision), and weight for each sample; and concatenate them.
         obs_data, tgt_mu = np.zeros((0, T, dO)), np.zeros((0, T, dU))
         tgt_prc, tgt_wt = np.zeros((0, T, dU, dU)), np.zeros((0, T))
         for m in range(self.M):
@@ -743,8 +754,7 @@ class GPS(RLAlgorithm):
             # Get time-indexed actions.
             for t in range(T):
                 # Compute actions along this trajectory.
-                prc[:, t, :, :] = np.tile(traj.inv_pol_covar[t, :, :],
-                                          [N, 1, 1])
+                prc[:, t, :, :] = np.tile(traj.inv_pol_covar[t, :, :], [N, 1, 1])
                 for i in range(N):
                     mu[i, t, :] = (traj.K[t, :, :].dot(X[i, t, :]) + traj.k[t, :])
 

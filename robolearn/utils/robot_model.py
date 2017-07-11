@@ -351,7 +351,7 @@ class BodyState:
         self.J = self.temp[:6, :model.dof_count]
 
 
-def fk(model, body_name, q=None, body_offset=np.zeros(3), update_kinematics=True):
+def fk(model, body_name, q=None, body_offset=np.zeros(3), update_kinematics=True, rotation_rep='quat'):
     if q is None:
         q = np.zeros(model.q_size)
 
@@ -367,9 +367,13 @@ def fk(model, body_name, q=None, body_offset=np.zeros(3), update_kinematics=True
                                         body_id,
                                         update_kinematics=update_kinematics).T
 
-    quat = tf.transformations.quaternion_from_matrix(homogeneous_matrix(rot=rot))
-    rpy = np.array(tf.transformations.euler_from_matrix(homogeneous_matrix(rot=rot), axes='sxyz'))
-    return np.concatenate((quat, pos))
+    if rotation_rep == 'quat':
+        orient = tf.transformations.quaternion_from_matrix(homogeneous_matrix(rot=rot))
+    elif rotation_rep == 'rpy':
+        orient = np.array(tf.transformations.euler_from_matrix(homogeneous_matrix(rot=rot), axes='sxyz'))
+    else:
+        return AttributeError("Wrong rotation representation %s. Only 'rpy' and 'quat' available." % rotation_rep)
+    return np.concatenate((orient, pos))
 
 
 if __name__ == "__main__":

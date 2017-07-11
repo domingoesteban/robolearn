@@ -53,6 +53,7 @@ from robolearn.utils.print_utils import change_print_color
 from robolearn.utils.plot_utils import plot_joint_info
 
 import time
+import datetime
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 
@@ -282,7 +283,7 @@ left_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
 left_hand_rel_pose[:] = left_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
 LAfk_cost = {
     'type': CostFKRelative,
-    'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'ramp_option': RAMP_LINEAR,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
     'target_rel_pose': left_hand_rel_pose,
     'rel_data_type': 'observation',  # 'state' or 'observation'
     #'rel_data_name': 'optitrack',  # Name of the state/observation
@@ -292,10 +293,11 @@ LAfk_cost = {
     'end_effector_offset': l_soft_hand_offset,
     'joint_ids': bigman_params['joint_ids']['LA'],
     'robot_model': robot_model,
-    'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
+    #'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([0.5, 0.5, 0.5, 3.0, 3.0, 1.5]),  # one dim less because 'quat' error | 1)orient 2)pos
     'l1': 0.1,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
-    'alpha': 1e-5,  # Constant added in square root in l1 norm
+    'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
     'wp_final_multiplier': 5,
 }
 
@@ -369,10 +371,10 @@ condition0 = create_bigman_box_condition(q0, box_pose0, joint_idxs=bigman_params
 #condition0 = np.r_[q0[bigman_params['joint_ids']['LA']], np.zeros_like(bigman_params['joint_ids']['LA'])]
 bigman_env.add_condition(condition0)
 
-# q1 = q0.copy()
-# box_pose1 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
-# condition1 = create_bigman_box_condition(q1, box_pose1, joint_idxs=bigman_params['joint_ids']['BA'])
-# bigman_env.add_condition(condition1)
+q1 = q0.copy()
+box_pose1 = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
+condition1 = create_bigman_box_condition(q1, box_pose1, joint_idxs=bigman_params['joint_ids']['LA'])
+bigman_env.add_condition(condition1)
 
 
 # ################################ #
@@ -471,7 +473,7 @@ print("\nConfiguring learning algorithm...\n")
 
 # Learning params
 resume_training_itr = None  # 10 - 1  # Resume from previous training iteration
-data_files_dir = None  # './GPS_2017-06-15_14:56:13'  # In case we want to resume from previous training
+data_files_dir = None  # './GPS_2017-07-10_18:10:28'  # In case we want to resume from previous training
 
 traj_opt_method = {'type': TrajOptLQR,
                    'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
@@ -530,19 +532,19 @@ learned_dynamics = {'type': DynamicsLRPrior,
 #                         'policy_sample_mode': 'add'
 #                         }
 gps_algo = 'mdgps'
-gps_algo_hyperparams = {'init_pol_wt': 0.01,
+gps_algo_hyperparams = {'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS
                         'policy_sample_mode': 'add',
-                        'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjusment
+                        'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
                         'policy_prior': {'type': PolicyPrior},
                         }
 
 gps_hyperparams = {
     'T': int(EndTime/Ts),  # Total points
     'dt': Ts,
-    'iterations': 6,  # 100  # 2000  # GPS episodes, "inner iterations"
+    'iterations': 40,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
     'test_after_iter': False,  # If test the learned policy after an iteration in the RL algorithm
     # Samples
-    'num_samples': 5,  # 20  # Samples for exploration trajs
+    'num_samples': 20,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
     'noise_var_scale': 1.0e+1,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
@@ -562,6 +564,7 @@ gps_hyperparams = {
     'gps_algo': gps_algo,
     'gps_algo_hyperparams': gps_algo_hyperparams,
     'init_traj_distr': init_traj_distr,
+    'fit_dynamics': True,
     'dynamics': learned_dynamics,
     'traj_opt': traj_opt_method,
     'data_files_dir': data_files_dir
@@ -581,11 +584,13 @@ else:
     print("Learning Algorithm has finished WITH ERRORS!")
 
 avg_local_policy_costs = learn_algo.get_avg_local_policy_costs()
-np.save('.avg_local_policy_costsVALUES.npy', avg_local_policy_costs)
+
+np.save('avg_local_policy_costsVALUES'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))+'.npy',
+        avg_local_policy_costs)
 t = np.arange(avg_local_policy_costs.shape[0])
 plt.plot(t, np.average(avg_local_policy_costs, axis=1))
 plt.fill_between(t, np.min(avg_local_policy_costs, axis=1), np.max(avg_local_policy_costs, axis=1), alpha=0.5)
-plt.show()
+plt.show(block=False)
 
 # ############################## #
 # ############################## #

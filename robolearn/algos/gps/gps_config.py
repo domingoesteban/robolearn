@@ -36,6 +36,9 @@ default_gps_hyperparams = {
         ##'T': agent['T']
     },
 
+
+    # Indicates if the algorithm requires fitting of the dynamics.
+    'fit_dynamics': True,
     # Dynamics hyperaparams.
     'dynamics': {
         'type': DynamicsLRPrior,
@@ -94,9 +97,6 @@ default_gps_hyperparams = {
     # Whether or not to sample with agent policy (only for badmm/mdgps).
     'sample_on_policy': False,
 
-    # Indicates if the algorithm requires fitting of the dynamics.
-    'fit_dynamics': True,
-
 }
 
 # BADMM
@@ -120,7 +120,7 @@ default_mdgps_hyperparams = {
     # TODO: remove need for init_pol_wt in MDGPS
     'init_pol_wt': 0.01,
     'policy_sample_mode': 'add',
-    # Whether to use 'laplace' or 'mc' cost in step adjusment
+    # Whether to use 'laplace' or 'mc' cost in step adjustment
     'step_rule': 'laplace',
     'policy_prior': {'type': PolicyPrior},
 }

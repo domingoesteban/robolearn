@@ -74,12 +74,18 @@ class CostFKRelative(Cost):
         for ii in range(T):
             tgt = pose_transform(data_pose[ii, :], rel_pose)
             q[joint_ids] = x[ii, :]
-            #dist[ii, :] = -compute_cartesian_error(tgt, robot_model.fk(end_effector_name,
-            dist[ii, :] = compute_cartesian_error(tgt, robot_model.fk(end_effector_name,
-                                                                      q=q,
-                                                                      body_offset=end_effector_offset,
-                                                                      update_kinematics=True,
-                                                                      rotation_rep='quat'))
+            # dist[ii, :] = -compute_cartesian_error(tgt, robot_model.fk(end_effector_name,
+            # dist[ii, :] = compute_cartesian_error(tgt, robot_model.fk(end_effector_name,
+            #                                                           q=q,
+            #                                                           body_offset=end_effector_offset,
+            #                                                           update_kinematics=True,
+            #                                                           rotation_rep='quat'))
+            dist[ii, :] = compute_cartesian_error(robot_model.fk(end_effector_name,
+                                                                 q=q,
+                                                                 body_offset=end_effector_offset,
+                                                                 update_kinematics=True,
+                                                                 rotation_rep='quat'),
+                                                  tgt)
             robot_model.update_jacobian(jtemp, end_effector_name, q=q,
                                         body_offset=end_effector_offset, update_kinematics=True)
             # if ii == 1:
@@ -94,8 +100,8 @@ class CostFKRelative(Cost):
             #     print('++++')
             #     raw_input('waaaaa')
 
-            Jx[ii, temp_idx[0], temp_idx[1]] = -jtemp[:, joint_ids]
-            #Jx[ii, temp_idx[0], temp_idx[1]] = jtemp[:, joint_ids]
+            #Jx[ii, temp_idx[0], temp_idx[1]] = -jtemp[:, joint_ids]
+            Jx[ii, temp_idx[0], temp_idx[1]] = jtemp[:, joint_ids]
 
         # Evaluate penalty term. Use estimated Jacobians and no higher
         # order terms.
