@@ -85,7 +85,6 @@ class GPS(RLAlgorithm):
         init_traj_distr['dU'] = self.dU
         init_traj_distr['dt'] = self.dt
         init_traj_distr['T'] = self.T
-        init_traj_distr['dQ'] = self.dX + self.dU
 
         # IterationData objects for each condition.
         self.cur = [IterationData() for _ in range(self.M)]
@@ -348,6 +347,7 @@ class GPS(RLAlgorithm):
             obs = self.env.get_observation()
             state = self.env.get_state()
             action = policy.eval(state, obs, t, noise[t, :])
+            # print(action)
             # action = np.zeros_like(action)
             # action[3] = -0.15707963267948966
             self.env.send_action(action)
@@ -581,7 +581,8 @@ class GPS(RLAlgorithm):
             self.cur[m].step_mult = self.prev[m].step_mult
             self.cur[m].eta = self.prev[m].eta
             self.cur[m].traj_distr = self.new_traj_distr[m]
-        delattr(self, 'new_traj_distr')
+
+        self.new_traj_distr = None
 
     def _set_new_mult(self, predicted_impr, actual_impr, m):
         """
@@ -821,15 +822,13 @@ class GPS(RLAlgorithm):
             prev_nn = self.prev[m].pol_info.traj_distr()
             prev_lg = self.prev[m].new_traj_distr
 
-            # Compute values under Laplace approximation. This is the policy
-            # that the previous samples were actually drawn from under the
-            # dynamics that were estimated from the previous samples.
+            # Compute values under Laplace approximation. This is the policy that the previous samples were actually
+            # drawn from under the dynamics that were estimated from the previous samples.
             prev_laplace[m] = self.traj_opt.estimate_cost(prev_nn, self.prev[m].traj_info).sum()
             # This is the actual cost that we experienced.
             prev_mc[m] = self.prev[m].cs.mean(axis=0).sum()
-            # This is the policy that we just used under the dynamics that
-            # were estimated from the prev samples (so this is the cost
-            # we thought we would have).
+            # This is the policy that we just used under the dynamics that were estimated from the prev samples (so
+            # this is the cost we thought we would have).
             prev_predicted[m] = self.traj_opt.estimate_cost(prev_lg, self.prev[m].traj_info).sum()
 
         # Compute current cost.
@@ -837,11 +836,8 @@ class GPS(RLAlgorithm):
         cur_mc = np.empty(self.M)
         for m in range(self.M):
             cur_nn = self.cur[m].pol_info.traj_distr()
-            # This is the actual cost we have under the current trajectory
-            # based on the latest samples.
-            cur_laplace[m] = self.traj_opt.estimate_cost(
-                cur_nn, self.cur[m].traj_info
-            ).sum()
+            # This is the actual cost we have under the current trajectory based on the latest samples.
+            cur_laplace[m] = self.traj_opt.estimate_cost(cur_nn, self.cur[m].traj_info).sum()
             cur_mc[m] = self.cur[m].cs.mean(axis=0).sum()
 
         # Compute predicted and actual improvement.

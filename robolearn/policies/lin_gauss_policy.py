@@ -8,6 +8,7 @@ import numpy as np
 from robolearn.policies.policy import Policy
 from robolearn.utils.general import check_shape
 
+
 class LinearGaussianPolicy(Policy):
     """
     Time-varying linear Gaussian policy.
@@ -22,7 +23,7 @@ class LinearGaussianPolicy(Policy):
         :param inv_pol_covar:dim=(T,dU,dU)
         """
         Policy.__init__(self)
-        #super(LinearGaussianPolicy, self).__init__()
+        # super(LinearGaussianPolicy, self).__init__()
 
         # Assume K has the correct shape, and make sure others match.
         self.T = K.shape[0]
