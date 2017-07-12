@@ -74,6 +74,51 @@ def plot_sample_list(sample_list, data_to_plot='actions', block=True, cols=3):
         plt.show(block=block)
 
 
+def plot_sample_list_distribution(sample_list, data_to_plot='actions', block=True, cols=3):
+    if data_to_plot == 'actions':
+        data = sample_list.get_actions()
+        window_title = "Actions"
+        ax_title = "Action"
+    elif data_to_plot == 'states':
+        data = sample_list.get_states()
+        window_title = "States"
+        ax_title = "State"
+    elif data_to_plot == 'obs':
+        data = sample_list.get_obs()
+        window_title = "Observations"
+        ax_title = "Observation"
+    else:
+        raise AttributeError("Wrong data to plot!")
+
+    means = np.mean(data, axis=0)
+    stds = np.std(data, axis=0)
+    mins = np.min(data, axis=0)
+    maxs = np.max(data, axis=0)
+
+    dData = means.shape[1]
+    fig, axs = plt.subplots(int(math.ceil(float(dData)/cols)), cols)
+    fig.subplots_adjust(hspace=0)
+    fig.canvas.set_window_title(window_title)
+    fig.set_facecolor((1, 1, 1))
+    for ii in range(axs.size):
+        ax = axs[ii/cols, ii % cols]
+        if ii < dData:
+            ax.set_title(ax_title + " %d" % (ii+1))
+            ax.plot(means[:, ii])
+            ax.fill_between(range(means.shape[0]), mins[:, ii],
+                            maxs[:, ii], alpha=0.5)
+        else:
+            plt.setp(ax, visible=False)
+    plt.show(block=block)
+
+
+def plot_training_costs(costs, block=True):
+    t = np.arange(costs.shape[0])
+    plt.plot(t, np.average(costs, axis=1))
+    plt.fill_between(t, np.min(costs, axis=1), np.max(costs, axis=1), alpha=0.5)
+    plt.show(block=block)
+
+
 def plot_desired_sensed_torque(joints_to_plot, des_taus, sensed_taus,  joint_names, block=True, cols=3):
     # TODO: Check sizes
     dU = len(joints_to_plot)
@@ -284,6 +329,31 @@ def plot_joint_multi_info(joints_to_plot, data_to_plot,  joint_names, data='posi
                 legend = ax1.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
                 legend.get_frame().set_alpha(0.4)
                 #legend.get_frame().set_facecolor('#00FFCC')
+        else:
+            plt.setp(ax1, visible=False)
+
+    fig.subplots_adjust(hspace=0)
+    plt.show(block=block)
+
+    return fig, axs
+
+
+def plot_multi_info(data_list, block=True, cols=3, legend=True):
+    dData = data_list[0].shape[1]
+    fig, axs = plt.subplots(int(math.ceil(float(dData)/cols)), cols)
+    fig.set_facecolor((1, 1, 1))
+    for ii in range(axs.size):
+        ax1 = axs[ii/cols, ii % cols]
+        if ii < dData:
+            ax1.set_title("Dimension %d" % (ii+1))
+            for jj in range(len(data_list)):
+                ax1.plot(data_list[jj][:, ii], label=('Data %d' % jj))
+            #ax1.set_ylabel('Torque (Nm)', color='k')
+            ax1.tick_params('y', colors='k')
+            ax1.tick_params(direction='in')
+            if legend:
+                legend = ax1.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                legend.get_frame().set_alpha(0.4)
         else:
             plt.setp(ax1, visible=False)
 
