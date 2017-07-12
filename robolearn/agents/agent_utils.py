@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.ndimage as sp_ndimage
+from robolearn.utils.plot_utils import plot_multi_info
 
 
 def generate_noise(T, dU, hyperparams):
@@ -35,13 +36,21 @@ def generate_noise(T, dU, hyperparams):
     # Generate noise and scale
     noise = np.random.randn(T, dU)*np.sqrt(scale)
 
+    temp_noise_list = list()
+    temp_noise_list.append(noise.copy())
+
     if smooth:
         # Smooth noise. This violates the controller assumption, but
         # might produce smoother motions.
         for i in range(dU):
             noise[:, i] = sp_ndimage.filters.gaussian_filter(noise[:, i], var)
+        temp_noise_list.append(noise.copy())
         if renorm:
             variance = np.var(noise, axis=0)
             noise = noise / np.sqrt(variance)
+
+        temp_noise_list.append(noise.copy())
+
+    #plot_multi_info(temp_noise_list, block=True, cols=3, legend=True)
 
     return noise
