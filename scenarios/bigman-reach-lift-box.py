@@ -472,8 +472,8 @@ change_print_color.change('YELLOW')
 print("\nConfiguring learning algorithm...\n")
 
 # Learning params
-resume_training_itr = None  # 10 - 1  # Resume from previous training iteration
-data_files_dir = None  # './GPS_2017-07-10_18:10:28'  # In case we want to resume from previous training
+resume_training_itr = 2 - 1  # 40 - 1  # Resume from previous training iteration
+data_files_dir = 'GPS_2017-07-12_11:16:35'  # 'GPS_2017-07-11_17:41:28'  # In case we want to resume from previous training
 
 traj_opt_method = {'type': TrajOptLQR,
                    'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
@@ -499,22 +499,24 @@ traj_opt_method = {'type': TrajOptLQR,
 #                    }
 
 # init_traj_distr values can be lists if they are different for each condition
-init_traj_distr = {'type': init_lqr,
-                   # Parameters to calculate initial COST function based on stiffness
-                   'init_var': 1.0e-2,  # Initial Variance
-                   'stiffness': 1.0e-1,  # Stiffness (multiplies q)
-                   'stiffness_vel': 0.5,  # Stiffness_vel*stiffness (multiplies qdot)
-                   'final_weight': 10.0,  # Multiplies cost at T
-                   # Parameters for guessing dynamics
-                   'init_acc': np.zeros(action_dim),  # dU vector(np.array) of accelerations, default zeros.
-                   'init_gains': 1.0*np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
+# init_traj_distr = {'type': init_lqr,
+#                    # Parameters to calculate initial COST function based on stiffness
+#                    'init_var': 8.0e-2,  # Initial Variance
+#                    'stiffness': 1.0e-1,  # Stiffness (multiplies q)
+#                    'stiffness_vel': 0.5,  # Stiffness_vel*stiffness (multiplies qdot)
+#                    'final_weight': 10.0,  # Multiplies cost at T
+#                    # Parameters for guessing dynamics
+#                    'init_acc': np.zeros(action_dim),  # dU vector(np.array) of accelerations, default zeros.
+#                    #'init_gains': 1.0*np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
+#                    'init_gains': 1.0/np.array([5000.0, 8000.0, 5000.0, 5000.0, 300.0, 2000.0, 300.0]),  # dU vector(np.array) of gains, default ones.
+#                    }
+init_traj_distr = {'type': init_pd,
+                   'init_var': np.ones(7)*0.1e-1,  # Initial variance (Default:10)
+                   'pos_gains': 0.001,  # Position gains (Default:10)
+                   'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
+                   'init_action_offset': None,
+                   'dQ': len(bigman_params['joint_ids']['LA']),  # Total joints in state
                    }
-# init_traj_distr = [{'type': init_pd,
-#                     'init_var': 0.00001,  # initial variance (Default:10)
-#                     'pos_gains': 0.001,  # position gains (Default:10)
-#                     'vel_gains_mult': 0.01,  # velocity gains multiplier on pos_gains
-#                     'init_action_offset': None,
-#                    }]
 
 learned_dynamics = {'type': DynamicsLRPrior,
                     'regularization': 1e-6,
@@ -541,13 +543,13 @@ gps_algo_hyperparams = {'init_pol_wt': 0.01,  # TODO: remove need for init_pol_w
 gps_hyperparams = {
     'T': int(EndTime/Ts),  # Total points
     'dt': Ts,
-    'iterations': 40,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
+    'iterations': 45,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
     'test_after_iter': False,  # If test the learned policy after an iteration in the RL algorithm
     # Samples
     'num_samples': 20,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
-    'noise_var_scale': 1.0e+1,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
+    'noise_var_scale': 1.0e+0,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
     'smooth_noise': True,  # Apply Gaussian filter to noise generated
     'smooth_noise_var': 3.0e+0,  # Variance to apply to Gaussian Filter
     'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
