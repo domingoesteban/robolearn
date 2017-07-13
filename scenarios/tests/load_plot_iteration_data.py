@@ -2,15 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import pickle
-import copy
 import math
+import os
 from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distribution
 from robolearn.algos.gps.gps_utils import IterationData
 
 gps_directory_name = 'GPS_2017-07-13_11:30:33'
 
 init_itr = 0
-final_itr = 5#10
+final_itr = 100
 
 plot_eta = False
 plot_step_mult = False
@@ -29,8 +29,10 @@ gps_path = '/home/desteban/workspace/robolearn/scenarios/' + gps_directory_name
 
 iteration_data_list = list()
 for pp in range(init_itr, final_itr):
-    print('Loading GPS iteration data from iteration %d' % pp)
-    iteration_data_list.append(pickle.load(open(gps_path+'/MDGPS_iteration_data_itr_'+str('%02d' % pp)+'.pkl', 'rb')))
+    if os.path.isfile(gps_path+'/MDGPS_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
+        print('Loading GPS iteration data from iteration %d' % pp)
+        iteration_data_list.append(pickle.load(open(gps_path+'/MDGPS_iteration_data_itr_'+str('%02d' % pp)+'.pkl',
+                                                    'rb')))
 
 # total_cond = len(pol_sample_lists_costs[0])
 total_itr = len(iteration_data_list)

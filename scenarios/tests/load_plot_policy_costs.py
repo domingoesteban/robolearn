@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
@@ -8,15 +9,16 @@ gps_directory_name = 'GPS_2017-07-13_11:30:33'
 init_traj_sample_itr = 0
 final_traj_sample_itr = 0  # 15
 init_pol_sample_itr = 0
-final_pol_sample_itr = 8
+final_pol_sample_itr = 100
 data_color = 'blue'
 
 gps_path = '/home/desteban/workspace/robolearn/scenarios/' + gps_directory_name
 
 pol_sample_lists_costs = list()
 for pp in range(init_pol_sample_itr, final_pol_sample_itr):
-    print('Loading policy sample cost from iteration %d' % pp)
-    pol_sample_lists_costs.append(pickle.load(open(gps_path+'/pol_sample_cost_itr_'+str('%02d' % pp)+'.pkl', 'rb')))
+    if os.path.isfile(gps_path+'/pol_sample_cost_itr_'+str('%02d' % pp)+'.pkl'):
+        print('Loading policy sample cost from iteration %d' % pp)
+        pol_sample_lists_costs.append(pickle.load(open(gps_path+'/pol_sample_cost_itr_'+str('%02d' % pp)+'.pkl', 'rb')))
 
 total_cond = len(pol_sample_lists_costs[0])
 total_itr = len(pol_sample_lists_costs)
