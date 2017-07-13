@@ -3,42 +3,36 @@ import numpy as np
 import math
 
 
-def plot_sample(sample, data_to_plot='actions', block=True, cols=3):
+def plot_sample(sample, data_to_plot='actions', block=True, cols=3, color='blue'):
 
     if data_to_plot == 'actions':
-        actions = sample.get_acts()
-        dU = actions.shape[1]
-        fig, axs = plt.subplots(int(math.ceil(float(dU)/cols)), cols)
-        fig.subplots_adjust(hspace=0)
-        fig.canvas.set_window_title("Actions from Sample")
-        fig.set_facecolor((1, 1, 1))
-        for ii in range(axs.size):
-            ax = axs[ii/cols, ii % cols]
-            if ii < dU:
-                ax.set_title("Action %d" % (ii+1))
-                ax.plot(actions[:, ii])
-            else:
-                plt.setp(ax, visible=False)
-        plt.show(block=block)
-
+        data = sample.get_acts()
+        window_title = "Actions"
+        ax_title = "Action"
     elif data_to_plot == 'states':
-        states = sample.get_states()
-        dX = states.shape[1]
-        fig, axs = plt.subplots(int(math.ceil(float(dX)/cols)), cols)
-        fig.subplots_adjust(hspace=0)
-        fig.canvas.set_window_title("States from Sample")
-        fig.set_facecolor((1, 1, 1))
-        for ii in range(axs.size):
-            ax = axs[ii/cols, ii % cols]
-            if ii < dX:
-                ax.set_title("State %d" % (ii+1))
-                ax.plot(states[:, ii])
-            else:
-                plt.setp(ax, visible=False)
-        plt.show(block=block)
-
+        data = sample.get_states()
+        window_title = "States"
+        ax_title = "State"
+    elif data_to_plot == 'obs':
+        data = sample.get_obs()
+        window_title = "Observations"
+        ax_title = "Observation"
     else:
         raise AttributeError("Wrong data to plot!")
+
+    dData = data.shape[1]
+    fig, axs = plt.subplots(int(math.ceil(float(dData)/cols)), cols)
+    fig.subplots_adjust(hspace=0)
+    fig.canvas.set_window_title(window_title)
+    fig.set_facecolor((1, 1, 1))
+    for ii in range(axs.size):
+        ax = axs[ii/cols, ii % cols]
+        if ii < dData:
+            ax.set_title(ax_title + " %d" % (ii+1))
+            ax.plot(data[:, ii], color=color)
+        else:
+            plt.setp(ax, visible=False)
+    plt.show(block=block)
 
 
 def plot_sample_list(sample_list, data_to_plot='actions', block=True, cols=3):
@@ -79,14 +73,17 @@ def plot_sample_list_distribution(sample_list, data_to_plot='actions', block=Tru
         data = sample_list.get_actions()
         window_title = "Actions"
         ax_title = "Action"
+        data_color = 'b'
     elif data_to_plot == 'states':
         data = sample_list.get_states()
         window_title = "States"
         ax_title = "State"
+        data_color = 'r'
     elif data_to_plot == 'obs':
         data = sample_list.get_obs()
         window_title = "Observations"
         ax_title = "Observation"
+        data_color = 'g'
     else:
         raise AttributeError("Wrong data to plot!")
 
@@ -104,9 +101,9 @@ def plot_sample_list_distribution(sample_list, data_to_plot='actions', block=Tru
         ax = axs[ii/cols, ii % cols]
         if ii < dData:
             ax.set_title(ax_title + " %d" % (ii+1))
-            ax.plot(means[:, ii])
+            ax.plot(means[:, ii], color=data_color)
             ax.fill_between(range(means.shape[0]), mins[:, ii],
-                            maxs[:, ii], alpha=0.5)
+                            maxs[:, ii], alpha=0.5, color=data_color)
         else:
             plt.setp(ax, visible=False)
     plt.show(block=block)
