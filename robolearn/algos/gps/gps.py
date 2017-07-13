@@ -160,10 +160,6 @@ class GPS(RLAlgorithm):
         # ------------- #
         self.policy_opt = self.agent.policy_opt
 
-        # OTHERS #
-        # ------ #
-        self.avg_cost_local_policies = np.zeros((self.max_iterations, self._hyperparams['num_samples']))
-
     def run(self, itr_load=None):
         """
         Run GPS.
@@ -184,7 +180,7 @@ class GPS(RLAlgorithm):
                     for i in range(self._hyperparams['num_samples']):
                         print("")
                         print("#"*40)
-                        print("Sample itr:%d/%d, cond:%d/%d, i:%d/%d" % (itr+1, self.max_iterations,
+                        print("Sample itr:%d/%d, cond:%d/%d, s:%d/%d" % (itr+1, self.max_iterations,
                                                                          cond+1, len(self._train_cond_idx),
                                                                          i+1, self._hyperparams['num_samples']))
                         print("#"*40)
@@ -207,12 +203,15 @@ class GPS(RLAlgorithm):
                 self._take_iteration(itr, traj_sample_lists)
 
                 if self._hyperparams['test_after_iter']:
-                    pol_sample_lists = self._take_policy_samples()
+                    pol_sample_lists = self._take_policy_samples(N=self._hyperparams['test_samples'])
+                    pol_sample_lists_costs = self._eval_sample_list_cost(pol_sample_lists)
+
                 else:
                     pol_sample_lists = None
+                    pol_sample_lists_costs = None
 
                 # Log data
-                self._log_data(itr, traj_sample_lists, pol_sample_lists)
+                self._log_data(itr, traj_sample_lists, pol_sample_lists, pol_sample_lists_costs)
 
         except Exception as e:
             traceback.print_exception(*sys.exc_info())
@@ -340,7 +339,7 @@ class GPS(RLAlgorithm):
                                                                                i+1, self._hyperparams['num_samples'],
                                                                                t+1, self.T))
                 else:
-                    print("Sample itr:%d/%d, cond:%d/%d, i:%d/%d | t:%d/%d" % (itr+1, self.max_iterations,
+                    print("Sample itr:%d/%d, cond:%d/%d, s:%d/%d | t:%d/%d" % (itr+1, self.max_iterations,
                                                                                cond+1, len(self._train_cond_idx),
                                                                                i+1, self._hyperparams['num_samples'],
                                                                                t+1, self.T))
@@ -408,34 +407,43 @@ class GPS(RLAlgorithm):
         :param verbose: Print messages
         :return: 
         """
-        """
-        Take samples from the policy to see how it's doing.
-        Args:
-            N  : number of policy samples to take per condition
-        Returns: None
-        """
 
         pol_samples = [list() for _ in range(len(self._test_cond_idx))]
 
-        for itr in range(N):
-            # Collect samples
-            for cond in self._test_cond_idx:
-                for i in range(self._hyperparams['num_samples']):
-                    if verbose:
-                        print("")
-                        print("#"*50)
-                        print("Sample with AGENT POLICY itr:%d/%d, cond:%d/%d, i:%d/%d" % (itr+1, self.max_iterations,
-                                                                                           cond+1,
-                                                                                           len(self._train_cond_idx),
-                                                                                           i+1,
-                                                                                           self._hyperparams['num_samples']))
-                        print("#"*50)
-                    pol_samples[cond].append(self._take_sample(itr, cond, i, on_policy=True, noisy=False, save=False,
-                                                               verbose=False))
+        itr = self.iteration_count
+
+        # Collect samples
+        for cond in self._test_cond_idx:
+            for i in range(N):
+                if verbose:
+                    print("")
+                    print("#"*50)
+                    print("Sample with AGENT POLICY itr:%d/%d, cond:%d/%d, i:%d/%d" % (itr+1, self.max_iterations,
+                                                                                       cond+1,
+                                                                                       len(self._train_cond_idx),
+                                                                                       i+1, N))
+                    print("#"*50)
+                pol_samples[cond].append(self._take_sample(itr, cond, i, on_policy=True, noisy=False, save=False,
+                                                           verbose=False))
 
         return [SampleList(samples) for samples in pol_samples]
 
-    def _log_data(self, itr, traj_sample_lists, pol_sample_lists=None):
+    def _eval_sample_list_cost(self, sample_list):
+        # costs = [list() for _ in range(len(sample_list))]
+        # # Collect samples
+        # for cond in range(len(sample_list)):
+        #     for n_sample in range(len(sample_list[cond])):
+        #         costs[cond].append(self.cost_function[cond].eval(sample_list[cond][n_sample])[0])
+        costs = list()
+        # Collect samples
+        for cond in range(len(sample_list)):
+            cost = np.zeros((len(sample_list[cond]), self.T))
+            for n_sample in range(len(sample_list[cond])):
+                cost[n_sample, :] = self.cost_function[cond].eval(sample_list[cond][n_sample])[0]
+            costs.append(cost)
+        return costs
+
+    def _log_data(self, itr, traj_sample_lists, pol_sample_lists=None, pol_sample_lists_costs=None):
         """
         Log data and algorithm.
         :param itr: Iteration number.
@@ -461,17 +469,30 @@ class GPS(RLAlgorithm):
             copy.copy(self)
         )
 
+        print("Logging GPS iteration data... ")
+        self.data_logger.pickle(
+            ('%s_iteration_data_itr_%02d.pkl' % (self.gps_algo.upper(), itr)),
+            copy.copy(self.prev)  # prev instead of cur
+        )
+
         print("Logging Trajectory samples... ")
         self.data_logger.pickle(
             ('traj_sample_itr_%02d.pkl' % itr),
             copy.copy(traj_sample_lists)
         )
 
-        if pol_sample_lists:
+        if pol_sample_lists is not None:
             print("Logging Global Policy samples... ")
             self.data_logger.pickle(
                 ('pol_sample_itr_%02d.pkl' % itr),
                 copy.copy(pol_sample_lists)
+            )
+
+        if pol_sample_lists_costs is not None:
+            print("Logging Global Policy samples costs... ")
+            self.data_logger.pickle(
+                ('pol_sample_cost_itr_%02d.pkl' % itr),
+                copy.copy(pol_sample_lists_costs)
             )
 
     def _update_dynamics(self):
@@ -556,12 +577,6 @@ class GPS(RLAlgorithm):
         self.cur[cond].traj_info.Cm = np.mean(Cm, 0)  # Quadratic term (matrix).
 
         self.cur[cond].cs = cs  # True value of cost.
-        print('$$$$$$$')
-        traj_sum = np.sum(self.cur[cond].cs, axis=1)
-        print("Traj costs: %s " % traj_sum)
-        print("Expected cost E[l(tau)]: %f" % np.average(traj_sum))
-        print('$$$$$$$')
-        self.avg_cost_local_policies[self.iteration_count, :] = traj_sum
 
     def _advance_iteration_variables(self):
         """
@@ -896,6 +911,3 @@ class GPS(RLAlgorithm):
             fcv[t, :] = (cv[t, :] + PKLv[t, :] * eta) / (eta + multiplier)
 
         return fCm, fcv
-
-    def get_avg_local_policy_costs(self):
-        return self.avg_cost_local_policies
