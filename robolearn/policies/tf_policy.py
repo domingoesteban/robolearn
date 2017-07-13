@@ -8,6 +8,7 @@ import uuid
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.python.framework import ops
 
 from robolearn.policies.policy import Policy
 
@@ -115,7 +116,6 @@ class TfPolicy(Policy):
         For when we only need to load a policy for the forward pass. For instance, to run on the robot from
         a checkpointed policy.
         """
-        from tensorflow.python.framework import ops
         ops.reset_default_graph()  # we need to destroy the default graph before re_init or checkpoint won't restore.
         pol_dict = pickle.load(open(policy_dict_path, "rb"))
         tf_map = tf_generator(dim_input=pol_dict['deg_obs'], dim_output=pol_dict['deg_action'],

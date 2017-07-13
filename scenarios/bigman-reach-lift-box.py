@@ -105,7 +105,7 @@ print("\nCreating Bigman environment...")
 
 # Robot configuration
 interface = 'ros'
-body_part_active = 'LA'
+body_part_active = 'BA'
 command_type = 'effort'
 file_save_restore = "models/bigman_agent_vars.ckpt"
 
@@ -115,7 +115,7 @@ observation_active = [{'name': 'joint_state',
                        # 'fields': ['link_position', 'link_velocity', 'effort'],
                        'fields': ['link_position', 'link_velocity'],
                        # 'joints': bigman_params['joint_ids']['UB']},
-                       'joints': bigman_params['joint_ids']['LA']},
+                       'joints': bigman_params['joint_ids']['BA']},
 
                       # {'name': 'ft_left_arm',
                       #  'type': 'ft_sensor',
@@ -152,7 +152,7 @@ observation_active = [{'name': 'joint_state',
 state_active = [{'name': 'joint_state',
                  'type': 'joint_state',
                  'fields': ['link_position', 'link_velocity'],
-                 'joints': bigman_params['joint_ids']['LA']},
+                 'joints': bigman_params['joint_ids']['BA']},
 
                 {'name': 'optitrack',
                  'type': 'optitrack',
@@ -277,31 +277,8 @@ act_cost = {
 #     'wp_final_multiplier': 20,
 #     'state_idx': bigman_env.get_state_info(name='link_position')['idx']
 # }
-#left_hand_rel_pose = create_quat_pose(pos_x=0, pos_y=box_size[1]/2-0.02, pos_z=0, rot_roll=0, rot_pitch=0, rot_yaw=0)
-left_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
-                                               hand_x=0.0, hand_y=box_size[1]/2-0.02, hand_z=0.0, hand_yaw=0)
-left_hand_rel_pose[:] = left_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
-LAfk_cost = {
-    'type': CostFKRelative,
-    'ramp_option': RAMP_LINEAR,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
-    'target_rel_pose': left_hand_rel_pose,
-    'rel_data_type': 'observation',  # 'state' or 'observation'
-    #'rel_data_name': 'optitrack',  # Name of the state/observation
-    'rel_idx': bigman_env.get_obs_info(name='optitrack')['idx'],
-    'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
-    'end_effector_name': LH_name,
-    'end_effector_offset': l_soft_hand_offset,
-    'joint_ids': bigman_params['joint_ids']['LA'],
-    'robot_model': robot_model,
-    #'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'wp': np.array([0.5, 0.5, 0.5, 3.0, 3.0, 1.5]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'l1': 0.1,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
-    'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
-    'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
-    'wp_final_multiplier': 5,
-}
 
-# right_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=-box_size[1]/2+0.02, hand_z=0, hand_yaw=0)
+#right_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=-box_size[1]/2+0.02, hand_z=0, hand_yaw=0)
 # RAfk_cost = {
 #     'type': CostFK,
 #     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
@@ -317,36 +294,61 @@ LAfk_cost = {
 #     'wp_final_multiplier': 20,
 #     'state_idx': bigman_env.get_state_info(name='link_position')['idx']
 # }
-#right_hand_rel_pose = create_quat_pose(pos_x=0, pos_y=-box_size[1]/2+0.02, pos_z=0, rot_roll=0, rot_pitch=0, rot_yaw=0)
-# right_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
-#                                                 hand_x=0.0, hand_y=-box_size[1]/2+0.02, hand_z=0.0, hand_yaw=0)
-# right_hand_rel_pose[:] = right_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
-# RAfk_cost = {
-#     'type': CostFKRelative,
-#     'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
-#     'target_rel_pose': right_hand_rel_pose,
-#     'rel_data_type': 'state',  # 'state' or 'observation'
-#     #'rel_data_name': 'optitrack',  # Name of the state/observation
-#     'rel_idx': bigman_env.get_state_info(name='optitrack')['idx'],
-#     'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
-#     'end_effector_name': RH_name,
-#     'end_effector_offset': r_soft_hand_offset,
-#     'joint_ids': bigman_params['joint_ids']['BA'],
-#     'robot_model': robot_model,
-#     'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
-#     'l1': 0.1,  # Weight for l1 norm
-#     'l2': 1.0,  # Weight for l2 norm
-#     'alpha': 1e-5,  # Constant added in square root in l1 norm
-#     'wp_final_multiplier': 5,
-# }
+
+
+left_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
+                                               hand_x=0.0, hand_y=box_size[1]/2-0.02, hand_z=0.0, hand_yaw=0)
+left_hand_rel_pose[:] = left_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
+LAfk_cost = {
+    'type': CostFKRelative,
+    'ramp_option': RAMP_LINEAR,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'target_rel_pose': left_hand_rel_pose,
+    'rel_data_type': 'observation',  # 'state' or 'observation'
+    #'rel_data_name': 'optitrack',  # Name of the state/observation
+    'rel_idx': bigman_env.get_obs_info(name='optitrack')['idx'],
+    'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
+    'end_effector_name': LH_name,
+    'end_effector_offset': l_soft_hand_offset,
+    'joint_ids': bigman_params['joint_ids']['BA'],
+    'robot_model': robot_model,
+    #'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([0.5, 0.5, 0.5, 3.0, 3.0, 1.5]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'l1': 0.1,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+    'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
+    'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 5,
+}
+
+right_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
+                                                hand_x=0.0, hand_y=-box_size[1]/2+0.02, hand_z=0.0, hand_yaw=0)
+right_hand_rel_pose[:] = right_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
+RAfk_cost = {
+    'type': CostFKRelative,
+    'ramp_option': RAMP_LINEAR,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
+    'target_rel_pose': right_hand_rel_pose,
+    'rel_data_type': 'observation',  # 'state' or 'observation'
+    #'rel_data_name': 'optitrack',  # Name of the state/observation
+    'rel_idx': bigman_env.get_obs_info(name='optitrack')['idx'],
+    'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
+    'end_effector_name': RH_name,
+    'end_effector_offset': r_soft_hand_offset,
+    'joint_ids': bigman_params['joint_ids']['BA'],
+    'robot_model': robot_model,
+    #'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([0.5, 0.5, 0.5, 3.0, 3.0, 1.5]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'l1': 0.1,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+    'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
+    'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 5,
+}
 
 cost_sum = {
     'type': CostSum,
     #'costs': [act_cost, state_cost, LAfk_cost, RAfk_cost],
-    'costs': [act_cost, LAfk_cost],
+    'costs': [act_cost, LAfk_cost, RAfk_cost],
     #'weights': [0.1, 5.0, 8.0, 8.0],
     #'weights': [1.0, 0.0, 2.0, 2.0],
-    'weights': [1.0e-2, 1.0e-0],
+    'weights': [1.0e-2, 1.0e-0, 1.0e-0],
     # 'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
     # 'weights': [0.1, 5.0],
 }
@@ -367,13 +369,13 @@ q0[25] = np.deg2rad(-40)
 q0[27] = np.deg2rad(-75)
 #q0[24:24+7] = [0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633]
 box_pose0 = box_relative_pose.copy()
-condition0 = create_bigman_box_condition(q0, box_pose0, joint_idxs=bigman_params['joint_ids']['LA'])
+condition0 = create_bigman_box_condition(q0, box_pose0, joint_idxs=bigman_params['joint_ids']['BA'])
 #condition0 = np.r_[q0[bigman_params['joint_ids']['LA']], np.zeros_like(bigman_params['joint_ids']['LA'])]
 bigman_env.add_condition(condition0)
 
 q1 = q0.copy()
 box_pose1 = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
-condition1 = create_bigman_box_condition(q1, box_pose1, joint_idxs=bigman_params['joint_ids']['LA'])
+condition1 = create_bigman_box_condition(q1, box_pose1, joint_idxs=bigman_params['joint_ids']['BA'])
 bigman_env.add_condition(condition1)
 
 
@@ -472,8 +474,8 @@ change_print_color.change('YELLOW')
 print("\nConfiguring learning algorithm...\n")
 
 # Learning params
-resume_training_itr = 2 - 1  # 40 - 1  # Resume from previous training iteration
-data_files_dir = 'GPS_2017-07-12_11:16:35'  # 'GPS_2017-07-11_17:41:28'  # In case we want to resume from previous training
+resume_training_itr = None  # 16 - 1  # 40 - 1  # Resume from previous training iteration
+data_files_dir = None  # 'GPS_2017-07-12_11:16:35'  # 'GPS_2017-07-11_17:41:28'  # In case we want to resume from previous training
 
 traj_opt_method = {'type': TrajOptLQR,
                    'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
@@ -511,11 +513,11 @@ traj_opt_method = {'type': TrajOptLQR,
 #                    'init_gains': 1.0/np.array([5000.0, 8000.0, 5000.0, 5000.0, 300.0, 2000.0, 300.0]),  # dU vector(np.array) of gains, default ones.
 #                    }
 init_traj_distr = {'type': init_pd,
-                   'init_var': np.ones(7)*0.1e-1,  # Initial variance (Default:10)
+                   'init_var': np.ones(len(bigman_params['joint_ids']['BA']))*0.3e-1,  # Initial variance (Default:10)
                    'pos_gains': 0.001,  # Position gains (Default:10)
                    'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
                    'init_action_offset': None,
-                   'dQ': len(bigman_params['joint_ids']['LA']),  # Total joints in state
+                   'dQ': len(bigman_params['joint_ids']['BA']),  # Total joints in state
                    }
 
 learned_dynamics = {'type': DynamicsLRPrior,
@@ -543,8 +545,9 @@ gps_algo_hyperparams = {'init_pol_wt': 0.01,  # TODO: remove need for init_pol_w
 gps_hyperparams = {
     'T': int(EndTime/Ts),  # Total points
     'dt': Ts,
-    'iterations': 45,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
-    'test_after_iter': False,  # If test the learned policy after an iteration in the RL algorithm
+    'iterations': 20,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
+    'test_after_iter': True,  # If test the learned policy after an iteration in the RL algorithm
+    'test_samples': 5,  # Samples from learned policy after an iteration (only if 'test_after_iter':True)
     # Samples
     'num_samples': 20,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
@@ -585,14 +588,6 @@ if training_successful:
 else:
     print("Learning Algorithm has finished WITH ERRORS!")
 
-avg_local_policy_costs = learn_algo.get_avg_local_policy_costs()
-
-np.save('avg_local_policy_costsVALUES'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))+'.npy',
-        avg_local_policy_costs)
-t = np.arange(avg_local_policy_costs.shape[0])
-plt.plot(t, np.average(avg_local_policy_costs, axis=1))
-plt.fill_between(t, np.min(avg_local_policy_costs, axis=1), np.max(avg_local_policy_costs, axis=1), alpha=0.5)
-plt.show(block=False)
 
 # ############################## #
 # ############################## #
