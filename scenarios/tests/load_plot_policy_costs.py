@@ -4,7 +4,9 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import pickle
 
-gps_directory_name = 'GPS_2017-07-13_11:30:33'
+# gps_directory_name = 'GPS_2017-07-13_11:30:33'
+# gps_directory_name = 'GPS_2017-07-13_17:07:10'
+gps_directory_name = 'GPS_2017-07-14_10:05:47'
 
 init_traj_sample_itr = 0
 final_traj_sample_itr = 0  # 15

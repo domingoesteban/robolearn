@@ -87,7 +87,8 @@ def reset_bigman_box_gazebo(bigman_box_pose, box_size=None):
     #delete_gazebo_model('box')
     #delete_gazebo_model('box_support')
 
-    spawn_box_gazebo(bigman_box_pose, box_size=box_size)
+    #spawn_box_gazebo(bigman_box_pose, box_size=box_size)
+    set_box_gazebo_pose(bigman_box_pose, box_size=box_size)
 
 
 def spawn_box_gazebo(bigman_box_pose, box_size=None):
@@ -97,7 +98,7 @@ def spawn_box_gazebo(bigman_box_pose, box_size=None):
         box_size = [0.4, 0.5, 0.3]  # FOR NOW WE ARE FIXING IT
 
     #TODO: Apparently spawn gazebo is spawning considering the bottom of the box, then we substract the difference in Z
-    bigman_box_pose[2] -= box_size[2]/2.
+    #bigman_box_pose[2] -= box_size[2]/2.
 
     bigman_pose = get_gazebo_model_pose('bigman', 'map')
     bigman_matrix = homogeneous_matrix(pos=[bigman_pose.position.x, bigman_pose.position.x, bigman_pose.position.z],
@@ -122,6 +123,35 @@ def spawn_box_gazebo(bigman_box_pose, box_size=None):
 
     spawn_gazebo_model('box_support', box_support_sdf, box_support_pose)
     spawn_gazebo_model('box', box_sdf, box_pose)
+
+
+def set_box_gazebo_pose(bigman_box_pose, box_size=None):
+    box_pose = np.zeros(7)
+    box_support_pose = np.zeros(7)
+    if box_size is None:
+        box_size = [0.4, 0.5, 0.3]  # FOR NOW WE ARE FIXING IT
+
+    ##TODO: Apparently spawn gazebo is spawning considering the bottom of the box, then we substract the difference in Z
+    #bigman_box_pose[2] -= box_size[2]/2.
+
+    bigman_pose = get_gazebo_model_pose('bigman', 'map')
+    bigman_matrix = homogeneous_matrix(pos=[bigman_pose.position.x, bigman_pose.position.x, bigman_pose.position.z],
+                                       rot=tf.transformations.quaternion_matrix([bigman_pose.orientation.x,
+                                                                                 bigman_pose.orientation.y,
+                                                                                 bigman_pose.orientation.z,
+                                                                                 bigman_pose.orientation.w]))
+
+    bigman_box_pose = homogeneous_matrix(pos=bigman_box_pose[:3],
+                                         rot=tf.transformations.quaternion_matrix(bigman_box_pose[3:]))
+
+    box_matrix = bigman_matrix.dot(bigman_box_pose)
+    box_pose[:3] = tf.transformations.translation_from_matrix(box_matrix)
+    box_pose[3:] = tf.transformations.quaternion_from_matrix(box_matrix)
+
+    box_support_pose[:] = box_pose[:]
+    box_support_pose[2] = 0
+    set_gazebo_model_pose('box_support', box_support_pose)
+    set_gazebo_model_pose('box', box_pose)
 
 
 def generate_reach_joints_trajectories(box_relative_pose, box_size, T, q_init, option=0, dt=1):

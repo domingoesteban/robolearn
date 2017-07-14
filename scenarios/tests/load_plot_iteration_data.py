@@ -8,19 +8,21 @@ from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distri
 from robolearn.algos.gps.gps_utils import IterationData
 import scipy.stats
 
-gps_directory_name = 'GPS_2017-07-13_11:30:33'
+# gps_directory_name = 'GPS_2017-07-13_11:30:33'
+# gps_directory_name = 'GPS_2017-07-13_17:07:10'
+gps_directory_name = 'GPS_2017-07-14_10:05:47'
 
-init_itr = 15
+init_itr = 0
 final_itr = 100
 
 plot_eta = False
 plot_step_mult = False
-plot_cs = False
+plot_cs = True
 plot_sample_list_actions = False
 plot_sample_list_states = False
 plot_sample_list_obs = False
 plot_policy_output = False
-plot_traj_distr = True
+plot_traj_distr = False
 
 eta_color = 'black'
 cs_color = 'red'
@@ -34,7 +36,7 @@ iteration_data_list = list()
 iteration_ids = list()
 for pp in range(init_itr, final_itr):
     if os.path.isfile(gps_path+'/MDGPS_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
-        print('Loading GPS iteration data from iteration %d' % pp)
+        print('Loading GPS iteration_data from iteration %d' % pp)
         iteration_data_list.append(pickle.load(open(gps_path+'/MDGPS_iteration_data_itr_'+str('%02d' % pp)+'.pkl',
                                                     'rb')))
         iteration_ids.append(pp)
@@ -284,6 +286,7 @@ def lqr_forward(traj_distr, traj_info):
 if plot_traj_distr:
     traj_distr_confidence = 0.95
     plot_confidence_interval = False
+    plot_legend = False
     for cond in range(total_cond):
         dX = iteration_data_list[-1][cond].traj_distr.dX
         dU = iteration_data_list[-1][cond].traj_distr.dU
@@ -300,6 +303,7 @@ if plot_traj_distr:
             ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
             ax = axs_state[ii/sample_list_cols, ii % sample_list_cols]
             ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
+
         for itr in range(total_itr):
             traj_distr = iteration_data_list[itr][cond].traj_distr
             traj_info = iteration_data_list[itr][cond].traj_info
@@ -312,10 +316,11 @@ if plot_traj_distr:
             u_idxs = range(dX, dX+dU)
             mins = np.zeros_like(mu)
             maxs = np.zeros_like(mu)
-            for tt in range(T):
-                sigma_diag = np.diag(sigma[tt, :, :])
-                mins[tt, :], maxs[tt, :] = scipy.stats.norm.interval(traj_distr_confidence, loc=mu[tt, :],
-                                                                     scale=sigma_diag[:])
+            if plot_confidence_interval:
+                for tt in range(T):
+                    sigma_diag = np.diag(sigma[tt, :, :])
+                    mins[tt, :], maxs[tt, :] = scipy.stats.norm.interval(traj_distr_confidence, loc=mu[tt, :],
+                                                                         scale=sigma_diag[:])
 
             for ii in range(axs_act.size):
                 ax = axs_act[ii/sample_list_cols, ii % sample_list_cols]
@@ -324,8 +329,9 @@ if plot_traj_distr:
                     ax.plot(mu[:, u_idxs[ii]], label=("itr %d" % iteration_ids[itr]))
                     if plot_confidence_interval:
                         ax.fill_between(T, mins[:, ii], maxs[:, ii], alpha=0.5)
-                    legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
-                    legend.get_frame().set_alpha(0.4)
+                    if plot_legend:
+                        legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                        legend.get_frame().set_alpha(0.4)
                 else:
                     plt.setp(ax, visible=False)
 
@@ -336,11 +342,14 @@ if plot_traj_distr:
                     ax.plot(mu[:, x_idxs[ii]], label=("itr %d" % iteration_ids[itr]))
                     if plot_confidence_interval:
                         ax.fill_between(T, mins[:, ii], maxs[:, ii], alpha=0.5)
-                    legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
-                    legend.get_frame().set_alpha(0.4)
+                    if plot_legend:
+                        legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                        legend.get_frame().set_alpha(0.4)
                 else:
                     plt.setp(ax, visible=False)
 
 plt.show(block=False)
+
+print(iteration_data_list[-1][-1].traj_distr.chol_pol_covar.shape)
 
 raw_input('Showing plots. Press a key to close...')

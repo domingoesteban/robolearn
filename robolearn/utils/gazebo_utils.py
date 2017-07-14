@@ -3,7 +3,9 @@ import tf
 from gazebo_msgs.srv import DeleteModel
 from gazebo_msgs.srv import SpawnModel
 from gazebo_msgs.srv import GetModelState
-from geometry_msgs.msg import Pose
+from gazebo_msgs.srv import SetModelState
+from gazebo_msgs.msg import ModelState
+from geometry_msgs.msg import Pose, Twist
 from gazebo_msgs.msg import ModelStates
 
 
@@ -71,7 +73,26 @@ def get_gazebo_model_pose(model_name, relative_name=None):
         else:
             return None
     except rospy.ServiceException as exc:
-        print("/gazebo/spawn_sdf_model service call failed: %s" % str(exc))
+        print("/gazebo/get_model_state service call failed: %s" % str(exc))
+
+
+def set_gazebo_model_pose(model_name, model_pose, relative_name=None):
+    if relative_name is None:
+        relative_name = 'world'
+    if not isinstance(type(model_pose), Pose):
+        model_pose = pose_to_geometry_msg(model_pose)
+
+    rospy.wait_for_service('gazebo/set_model_state')
+    set_model_state_proxy = rospy.ServiceProxy('gazebo/set_model_state', SetModelState)
+    #message fields cannot be None, assign default values for those that are
+    model_state = ModelState()
+    model_state.model_name = model_name
+    model_state.pose = model_pose
+    model_state.reference_frame = relative_name
+    try:
+        ans = set_model_state_proxy(model_state)
+    except rospy.ServiceException as exc:
+        print("/gazebo/set_model_state service call failed: %s" % str(exc))
 
 
 def spawn_gazebo_model(model_name, model_sdf, model_pose, relative_name=None):
@@ -86,7 +107,6 @@ def spawn_gazebo_model(model_name, model_sdf, model_pose, relative_name=None):
     #    if model_name in model_state_msg.name:
     #        print("Model %s already exists. Not spawning anything." % model_name)
     #        return
-
     print("Spawning '%s' gazebo model..." % model_name)
     rospy.wait_for_service('gazebo/spawn_sdf_model')
     spawn_model_proxy = rospy.ServiceProxy('gazebo/spawn_sdf_model', SpawnModel)
@@ -94,7 +114,6 @@ def spawn_gazebo_model(model_name, model_sdf, model_pose, relative_name=None):
         spawn_model_proxy(model_name, model_sdf, model_name, model_pose, relative_name)
     except rospy.ServiceException as exc:
         print("/gazebo/spawn_sdf_model service call failed: %s" % str(exc))
-
 
 def delete_gazebo_model(model_name):
     print("Deleting '%s' gazebo model..." % model_name)

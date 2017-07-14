@@ -12,13 +12,8 @@ import scipy as sp
 
 from robolearn.utils.traj_opt.traj_opt import TrajOpt
 from robolearn.utils.traj_opt.config import default_traj_opt_lqr_hyperparams
-from robolearn.utils.traj_opt.traj_opt_utils import \
-        DGD_MAX_ITER, DGD_MAX_LS_ITER, DGD_MAX_GD_ITER, \
-        ALPHA, BETA1, BETA2, EPS, \
-        traj_distr_kl, traj_distr_kl_alt
-
-#from gps.algorithm.algorithm_badmm import AlgorithmBADMM
-#from gps.algorithm.algorithm_mdgps import AlgorithmMDGPS
+from robolearn.utils.traj_opt.traj_opt_utils import DGD_MAX_ITER, DGD_MAX_LS_ITER, DGD_MAX_GD_ITER, \
+                                                    ALPHA, BETA1, BETA2, EPS, traj_distr_kl, traj_distr_kl_alt
 
 
 LOGGER = logging.getLogger(__name__)
@@ -30,7 +25,7 @@ LOGGER.addHandler(ch)
 
 
 class TrajOptLQR(TrajOpt):
-    """ LQR trajectory optimization, Python implementation. """
+    """ LQR trajectory optimization """
     def __init__(self, hyperparams):
         config = copy.deepcopy(default_traj_opt_lqr_hyperparams)
         config.update(hyperparams)
@@ -43,7 +38,13 @@ class TrajOptLQR(TrajOpt):
 
     # TODO - Add arg and return spec on this function.
     def update(self, m, algorithm):
-        """ Run dual gradient decent to optimize trajectories. """
+        """
+        Run dual gradient descent to optimize trajectories.
+        It returns (optimized) new trajectory and eta.
+        :param m: Condition number
+        :param algorithm: GPS algorithm to get info
+        :return: traj_distr, eta
+        """
         T = algorithm.T
         eta = algorithm.cur[m].eta
         if self.cons_per_step and type(eta) in (int, float):
@@ -51,7 +52,7 @@ class TrajOptLQR(TrajOpt):
         step_mult = algorithm.cur[m].step_mult
         traj_info = algorithm.cur[m].traj_info
 
-        if algorithm.gps_algo == 'mdgps':
+        if algorithm.gps_algo.lower() == 'mdgps':
             # For MDGPS, constrain to previous NN linearization
             prev_traj_distr = algorithm.cur[m].pol_info.traj_distr()
         else:
@@ -67,66 +68,54 @@ class TrajOptLQR(TrajOpt):
         if not self.cons_per_step:
             min_eta = self._hyperparams['min_eta']
             max_eta = self._hyperparams['max_eta']
-            LOGGER.debug("Running DGD for trajectory %d, eta: %f", m, eta)
+            LOGGER.debug("Running DGD for trajectory(condition) %d, eta: %f", m, eta)
         else:
             min_eta = np.ones(T) * self._hyperparams['min_eta']
             max_eta = np.ones(T) * self._hyperparams['max_eta']
             LOGGER.debug("Running DGD for trajectory %d, avg eta: %f", m,
                          np.mean(eta[:-1]))
 
-        max_itr = (DGD_MAX_LS_ITER if self.cons_per_step else
-                   DGD_MAX_ITER)
+        max_itr = (DGD_MAX_LS_ITER if self.cons_per_step else DGD_MAX_ITER)  # Less iterations if cons_per_step=True
         for itr in range(max_itr):
             if not self.cons_per_step:
-                LOGGER.debug("Iteration %d, bracket: (%.2e , %.2e , %.2e)", itr,
-                             min_eta, eta, max_eta)
+                LOGGER.debug("Iteration %d, bracket: (%.2e , %.2e , %.2e)", itr, min_eta, eta, max_eta)
 
             # Run fwd/bwd pass, note that eta may be updated.
             # Compute KL divergence constraint violation.
-            traj_distr, eta = self.backward(prev_traj_distr, traj_info,
-                                            eta, algorithm, m)
+            traj_distr, eta = self.backward(prev_traj_distr, traj_info, eta, algorithm, m)
 
             if not self._use_prev_distr:
                 new_mu, new_sigma = self.forward(traj_distr, traj_info)
-                kl_div = traj_distr_kl(
-                        new_mu, new_sigma, traj_distr, prev_traj_distr,
-                        tot=(not self.cons_per_step)
-                )
+                kl_div = traj_distr_kl(new_mu, new_sigma, traj_distr, prev_traj_distr,
+                                       tot=(not self.cons_per_step))
             else:
                 prev_mu, prev_sigma = self.forward(prev_traj_distr, traj_info)
-                kl_div = traj_distr_kl_alt(
-                        prev_mu, prev_sigma, traj_distr, prev_traj_distr,
-                        tot=(not self.cons_per_step)
-                )
+                kl_div = traj_distr_kl_alt(prev_mu, prev_sigma, traj_distr, prev_traj_distr,
+                                           tot=(not self.cons_per_step))
 
             con = kl_div - kl_step
 
             # Convergence check - constraint satisfaction.
             if self._conv_check(con, kl_step):
                 if not self.cons_per_step:
-                    LOGGER.debug("KL: %f / %f, converged iteration %d", kl_div,
-                                 kl_step, itr)
+                    LOGGER.debug("KL: %f / %f, converged iteration %d", kl_div, kl_step, itr)
                 else:
                     LOGGER.debug(
-                            "KL: %f / %f, converged iteration %d",
-                            np.mean(kl_div[:-1]), np.mean(kl_step[:-1]), itr
-                    )
+                            "KL: %f / %f, converged iteration %d", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]), itr)
                 break
 
             if not self.cons_per_step:
                 # Choose new eta (bisect bracket or multiply by constant)
-                if con < 0: # Eta was too big.
+                if con < 0:  # Eta was too big.
                     max_eta = eta
                     geom = np.sqrt(min_eta*max_eta)  # Geometric mean.
                     new_eta = max(geom, 0.1*max_eta)
-                    LOGGER.debug("KL: %f / %f, eta too big, new eta: %f",
-                                 kl_div, kl_step, new_eta)
-                else: # Eta was too small.
+                    LOGGER.debug("KL: %f / %f, eta too big, new eta: %f", kl_div, kl_step, new_eta)
+                else:  # Eta was too small.
                     min_eta = eta
                     geom = np.sqrt(min_eta*max_eta)  # Geometric mean.
                     new_eta = min(geom, 10.0*min_eta)
-                    LOGGER.debug("KL: %f / %f, eta too small, new eta: %f",
-                                 kl_div, kl_step, new_eta)
+                    LOGGER.debug("KL: %f / %f, eta too small, new eta: %f", kl_div, kl_step, new_eta)
 
                 # Logarithmic mean: log_mean(x,y) = (y - x)/(log(y) - log(x))
                 eta = new_eta
@@ -141,37 +130,27 @@ class TrajOptLQR(TrajOpt):
                         geom = np.sqrt(min_eta[t]*max_eta[t])
                         eta[t] = min(geom, 10.0*min_eta[t])
                 if itr % 10 == 0:
-                    LOGGER.debug("avg KL: %f / %f, avg new eta: %f",
-                                 np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
+                    LOGGER.debug("avg KL: %f / %f, avg new eta: %f", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
                                  np.mean(eta[:-1]))
 
         if self.cons_per_step and not self._conv_check(con, kl_step):
             m_b, v_b = np.zeros(T-1), np.zeros(T-1)
 
             for itr in range(DGD_MAX_GD_ITER):
-                traj_distr, eta = self.backward(prev_traj_distr, traj_info,
-                                                eta, algorithm, m)
+                traj_distr, eta = self.backward(prev_traj_distr, traj_info, eta, algorithm, m)
 
                 if not self._use_prev_distr:
                     new_mu, new_sigma = self.forward(traj_distr, traj_info)
-                    kl_div = traj_distr_kl(
-                            new_mu, new_sigma, traj_distr, prev_traj_distr,
-                            tot=False
-                    )
+                    kl_div = traj_distr_kl(new_mu, new_sigma, traj_distr, prev_traj_distr, tot=False)
                 else:
                     prev_mu, prev_sigma = self.forward(prev_traj_distr,
                                                        traj_info)
-                    kl_div = traj_distr_kl_alt(
-                            prev_mu, prev_sigma, traj_distr, prev_traj_distr,
-                            tot=False
-                    )
+                    kl_div = traj_distr_kl_alt(prev_mu, prev_sigma, traj_distr, prev_traj_distr, tot=False)
 
                 con = kl_div - kl_step
                 if self._conv_check(con, kl_step):
-                    LOGGER.debug(
-                            "KL: %f / %f, converged iteration %d",
-                            np.mean(kl_div[:-1]), np.mean(kl_step[:-1]), itr
-                    )
+                    LOGGER.debug("KL: %f / %f, converged iteration %d", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
+                                 itr)
                     break
 
                 m_b = (BETA1 * m_b + (1-BETA1) * con[:-1])
@@ -185,15 +164,12 @@ class TrajOptLQR(TrajOpt):
                 )
 
                 if itr % 10 == 0:
-                    LOGGER.debug("avg KL: %f / %f, avg new eta: %f",
-                                 np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
+                    LOGGER.debug("avg KL: %f / %f, avg new eta: %f", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
                                  np.mean(eta[:-1]))
 
         if (np.mean(kl_div) > np.mean(kl_step) and
             not self._conv_check(con, kl_step)):
-            LOGGER.warning(
-                    "Final KL divergence after DGD convergence is too high."
-            )
+            LOGGER.warning("Final KL divergence after DGD convergence is too high.")
         return traj_distr, eta
 
     def estimate_cost(self, traj_distr, traj_info):
@@ -218,8 +194,7 @@ class TrajOptLQR(TrajOpt):
     @staticmethod
     def forward(traj_distr, traj_info):
         """
-        Perform LQR forward pass. Computes state-action marginals from
-        dynamics and policy.
+        Perform LQR forward pass. Computes state-action marginals from dynamics and policy.
         Args:
             traj_distr: A linear Gaussian policy object.
             traj_info: A TrajectoryInfo object.
@@ -275,19 +250,16 @@ class TrajOptLQR(TrajOpt):
 
     def backward(self, prev_traj_distr, traj_info, eta, algorithm, m):
         """
-        Perform LQR backward pass. This computes a new linear Gaussian
-        policy object.
+        Perform LQR backward pass. This computes a new linear Gaussian policy object.
         Args:
-            prev_traj_distr: A linear Gaussian policy object from
-                previous iteration.
+            prev_traj_distr: A linear Gaussian policy object from previous iteration.
             traj_info: A TrajectoryInfo object.
             eta: Dual variable.
             algorithm: Algorithm object needed to compute costs.
             m: Condition number.
         Returns:
             traj_distr: A new linear Gaussian policy.
-            new_eta: The updated dual variable. Updates happen if the
-                Q-function is not PD.
+            new_eta: The updated dual variable. Updates happen if the Q-function is not PD.
         """
         # Constants.
         T = prev_traj_distr.T
@@ -299,8 +271,13 @@ class TrajOptLQR(TrajOpt):
         else:
             traj_distr = prev_traj_distr.copy()
 
+        if algorithm.gps_algo.lower() == 'mdgps':
+            compute_cost_fcn = algorithm.compute_costs_mdgps
+        else:
+            compute_cost_fcn = algorithm.compute_costs
+
         # Store pol_wt if necessary
-        if algorithm.gps_algo == 'BADMM':
+        if algorithm.gps_algo.lower() == 'badmm':
             pol_wt = algorithm.cur[m].pol_info.pol_wt
 
         idx_x = slice(dX)
@@ -332,9 +309,8 @@ class TrajOptLQR(TrajOpt):
                 new_pS = np.zeros((T, dU, dU))
                 new_ipS, new_cpS = np.zeros((T, dU, dU)), np.zeros((T, dU, dU))
 
-            fCm, fcv = algorithm.compute_costs(
-                    m, eta, augment=(not self.cons_per_step)
-            )
+            # Compute cost defined in RL algorithm
+            fCm, fcv = compute_cost_fcn(m, eta, augment=(not self.cons_per_step))
 
             # Compute state-action-state function at each time step.
             for t in range(T - 1, -1, -1):

@@ -85,17 +85,14 @@ class PolicyInfo(BundleType):
         BundleType.__init__(self, variables)
 
     def traj_distr(self):
-        """ Create a trajectory distribution object from policy info. """
+        """ Create a trajectory distribution object from policy info (Policy linearization) """
         T, dU, dX = self.pol_K.shape
         # Compute inverse policy covariances.
         inv_pol_S = np.empty_like(self.chol_pol_S)
         for t in range(T):
-            inv_pol_S[t, :, :] = np.linalg.solve(
-                self.chol_pol_S[t, :, :],
-                np.linalg.solve(self.chol_pol_S[t, :, :].T, np.eye(dU))
-            )
-        return LinearGaussianPolicy(self.pol_K, self.pol_k, self.pol_S,
-                                    self.chol_pol_S, inv_pol_S)
+            inv_pol_S[t, :, :] = np.linalg.solve(self.chol_pol_S[t, :, :],
+                                                 np.linalg.solve(self.chol_pol_S[t, :, :].T, np.eye(dU)))
+        return LinearGaussianPolicy(self.pol_K, self.pol_k, self.pol_S, self.chol_pol_S, inv_pol_S)
 
 
 def estimate_moments(X, mu, covar):

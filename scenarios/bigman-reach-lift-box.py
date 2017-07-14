@@ -40,6 +40,7 @@ from robolearn.policies.computed_torque_policy import ComputedTorquePolicy
 from robolearn.utils.lift_box_utils import create_box_relative_pose
 from robolearn.utils.lift_box_utils import reset_condition_bigman_box_gazebo
 from robolearn.utils.lift_box_utils import spawn_box_gazebo
+from robolearn.utils.lift_box_utils import set_box_gazebo_pose
 from robolearn.utils.lift_box_utils import create_bigman_box_condition
 from robolearn.utils.lift_box_utils import create_hand_relative_pose
 from robolearn.utils.lift_box_utils import generate_reach_joints_trajectories
@@ -230,36 +231,37 @@ act_cost = {
     'target': None,   # Target action value
 }
 
-# # State Cost
-# target_state = box_relative_pose[[3, 4, 5, 6, 0, 1, 2]]
-# state_cost = {
-#     'type': CostState,
-#     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
-#     'l1': 0.0,  # Weight for l1 norm
-#     'l2': 1.0,  # Weight for l2 norm
-#     'alpha': 1e-5,  # Constant added in square root in l1 norm
-#     'wp_final_multiplier': 5.0,  # Weight multiplier on final time step.
-#     'data_types': {
-#         'optitrack': {
-#             'wp': np.ones_like(target_state),  # State weights - must be set.
-#             'target_state': target_state,  # Target state - must be set.
-#             'average': None,  # (12, 3),
-#             'data_idx': bigman_env.get_state_info(name='optitrack')['idx']
-#         },
-#         # 'link_position': {
-#         #     'wp': np.ones_like(target_pos),  # State weights - must be set.
-#         #     'target_state': target_pos,  # Target state - must be set.
-#         #     'average': None,  #(12, 3),
-#         #     'data_idx': bigman_env.get_state_info(name='link_position')['idx']
-#         # },
-#         # 'link_velocity': {
-#         #     'wp': np.ones_like(target_vel),  # State weights - must be set.
-#         #     'target_state': target_vel,  # Target state - must be set.
-#         #     'average': None,  #(12, 3),
-#         #     'data_idx': bigman_env.get_state_info(name='link_velocity')['idx']
-#         # },
-#     },
-# }
+# State Cost
+target_state = box_relative_pose[[3, 4, 5, 6, 0, 1, 2]]
+state_cost = {
+    'type': CostState,
+    'ramp_option': RAMP_LINEAR,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'l1': 0.0,  # Weight for l1 norm
+    'l2': 1.0,  # Weight for l2 norm
+    'alpha': 1e-5,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 5.0,  # Weight multiplier on final time step.
+    'data_types': {
+        'optitrack': {
+            #'wp': np.ones_like(target_state),  # State weights - must be set.
+            'wp': np.array([1.0, 1.0, 1.0, 1.0, 3.0, 3.0, 1.0]),  # State weights - must be set.
+            'target_state': target_state,  # Target state - must be set.
+            'average': None,  # (12, 3),
+            'data_idx': bigman_env.get_state_info(name='optitrack')['idx']
+        },
+        # 'link_position': {
+        #     'wp': np.ones_like(target_pos),  # State weights - must be set.
+        #     'target_state': target_pos,  # Target state - must be set.
+        #     'average': None,  #(12, 3),
+        #     'data_idx': bigman_env.get_state_info(name='link_position')['idx']
+        # },
+        # 'link_velocity': {
+        #     'wp': np.ones_like(target_vel),  # State weights - must be set.
+        #     'target_state': target_vel,  # Target state - must be set.
+        #     'average': None,  #(12, 3),
+        #     'data_idx': bigman_env.get_state_info(name='link_velocity')['idx']
+        # },
+    },
+}
 
 # left_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=box_size[1]/2-0.02, hand_z=0, hand_yaw=0)
 # LAfk_cost = {
@@ -345,10 +347,10 @@ RAfk_cost = {
 cost_sum = {
     'type': CostSum,
     #'costs': [act_cost, state_cost, LAfk_cost, RAfk_cost],
-    'costs': [act_cost, LAfk_cost, RAfk_cost],
+    'costs': [act_cost, LAfk_cost, RAfk_cost, state_cost],
     #'weights': [0.1, 5.0, 8.0, 8.0],
     #'weights': [1.0, 0.0, 2.0, 2.0],
-    'weights': [1.0e-2, 1.0e-0, 1.0e-0],
+    'weights': [1.0e-2, 1.0e-0, 1.0e-0, 5.0e-1],
     # 'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
     # 'weights': [0.1, 5.0],
 }
@@ -370,7 +372,6 @@ q0[27] = np.deg2rad(-75)
 #q0[24:24+7] = [0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633]
 box_pose0 = box_relative_pose.copy()
 condition0 = create_bigman_box_condition(q0, box_pose0, joint_idxs=bigman_params['joint_ids']['BA'])
-#condition0 = np.r_[q0[bigman_params['joint_ids']['LA']], np.zeros_like(bigman_params['joint_ids']['LA'])]
 bigman_env.add_condition(condition0)
 
 q1 = q0.copy()
@@ -378,25 +379,49 @@ box_pose1 = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y, box_z=box_z,
 condition1 = create_bigman_box_condition(q1, box_pose1, joint_idxs=bigman_params['joint_ids']['BA'])
 bigman_env.add_condition(condition1)
 
+q2 = q0.copy()
+box_pose2 = create_box_relative_pose(box_x=box_x-0.02, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
+condition2 = create_bigman_box_condition(q2, box_pose2, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition2)
 
-# ################################ #
-# ################################ #
-# ## SAMPLE FROM DEMONSTRATIONS ## #
-# ################################ #
-# ################################ #
-change_print_color.change('GREEN')
-n_samples = 4
-noisy = False
-sampler_hyperparams = {
-    'noisy': noisy,
-    'noise_var_scale': 0.001,  # It can be a np.array() with dim=dU
-    'smooth_noise': False,  # Whether or not to perform smoothing of noise
-    'smooth_noise_var': 0.0001,  # If smooth=True, applies a Gaussian filter with this variance. E.g. 0.01
-    'smooth_noise_renormalize': False,  # If smooth=True, renormalizes data to have variance 1 after smoothing.
-    'T': int(EndTime/Ts),  # Total points
-    'dt': Ts
-    }
+q3 = q0.copy()
+box_pose3 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw+5)
+condition3 = create_bigman_box_condition(q3, box_pose3, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition3)
 
+q4 = q0.copy()
+box_pose4 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw-5)
+condition4 = create_bigman_box_condition(q4, box_pose4, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition4)
+
+q5 = q0.copy()
+box_pose5 = create_box_relative_pose(box_x=box_x, box_y=box_y+0.02, box_z=box_z, box_yaw=box_yaw)
+condition5 = create_bigman_box_condition(q5, box_pose5, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition5)
+
+q6 = q0.copy()
+box_pose6 = create_box_relative_pose(box_x=box_x, box_y=box_y-0.02, box_z=box_z, box_yaw=box_yaw)
+condition6 = create_bigman_box_condition(q6, box_pose6, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition5)
+
+
+# # ################################ #
+# # ################################ #
+# # ## SAMPLE FROM DEMONSTRATIONS ## #
+# # ################################ #
+# # ################################ #
+# change_print_color.change('GREEN')
+# n_samples = 4
+# noisy = False
+# sampler_hyperparams = {
+#     'noisy': noisy,
+#     'noise_var_scale': 0.001,  # It can be a np.array() with dim=dU
+#     'smooth_noise': False,  # Whether or not to perform smoothing of noise
+#     'smooth_noise_var': 0.0001,  # If smooth=True, applies a Gaussian filter with this variance. E.g. 0.01
+#     'smooth_noise_renormalize': False,  # If smooth=True, renormalizes data to have variance 1 after smoothing.
+#     'T': int(EndTime/Ts),  # Total points
+#     'dt': Ts
+#     }
 # # Generate joints trajectories
 # print("Generating joints trajectories..")
 # # Expand conditions:
@@ -513,7 +538,9 @@ traj_opt_method = {'type': TrajOptLQR,
 #                    'init_gains': 1.0/np.array([5000.0, 8000.0, 5000.0, 5000.0, 300.0, 2000.0, 300.0]),  # dU vector(np.array) of gains, default ones.
 #                    }
 init_traj_distr = {'type': init_pd,
-                   'init_var': np.ones(len(bigman_params['joint_ids']['BA']))*0.3e-1,  # Initial variance (Default:10)
+                   #'init_var': np.ones(len(bigman_params['joint_ids']['BA']))*0.3e-1,  # Initial variance (Default:10)
+                   'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
+                                         3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1]),  # Initial variance (Default:10)
                    'pos_gains': 0.001,  # Position gains (Default:10)
                    'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
                    'init_action_offset': None,
@@ -545,14 +572,14 @@ gps_algo_hyperparams = {'init_pol_wt': 0.01,  # TODO: remove need for init_pol_w
 gps_hyperparams = {
     'T': int(EndTime/Ts),  # Total points
     'dt': Ts,
-    'iterations': 20,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
+    'iterations': 40,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
     'test_after_iter': True,  # If test the learned policy after an iteration in the RL algorithm
     'test_samples': 5,  # Samples from learned policy after an iteration (only if 'test_after_iter':True)
     # Samples
-    'num_samples': 20,  # 20  # Samples for exploration trajs --> N samples
+    'num_samples': 5,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
-    'noise_var_scale': 1.0e+0,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
+    'noise_var_scale': 1.0e-0,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
     'smooth_noise': True,  # Apply Gaussian filter to noise generated
     'smooth_noise_var': 3.0e+0,  # Variance to apply to Gaussian Filter
     'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
@@ -564,7 +591,7 @@ gps_hyperparams = {
     # KL step (epsilon)
     'kl_step': 0.2,  # Kullback-Leibler step (base_step)
     'min_step_mult': 0.01,  # Min possible value of step multiplier (multiplies kl_step in LQR)
-    'max_step_mult': 10.0,  # Max possible value of step multiplier (multiplies kl_step in LQR)
+    'max_step_mult': 3,  # 10.0,  # Max possible value of step multiplier (multiplies kl_step in LQR)
     # Others
     'gps_algo': gps_algo,
     'gps_algo_hyperparams': gps_algo_hyperparams,
@@ -572,6 +599,7 @@ gps_hyperparams = {
     'fit_dynamics': True,
     'dynamics': learned_dynamics,
     'traj_opt': traj_opt_method,
+    'max_ent_traj': 0.0,  # Weight of maximum entropy term in trajectory optimization
     'data_files_dir': data_files_dir
 }
 
@@ -605,7 +633,7 @@ if training_successful:
         'smooth_noise': False,  # Whether or not to perform smoothing of noise
         'smooth_noise_var': 0.01,   # If smooth=True, applies a Gaussian filter with this variance. E.g. 0.01
         'smooth_noise_renormalize': False,  # If smooth=True, renormalizes data to have variance 1 after smoothing.
-        'T': int(EndTime/Ts),  # Total points
+        'T': int(EndTime*2/Ts),  # Total points
         'dt': Ts
         }
     sampler = Sampler(bigman_agent.policy, bigman_env, **sampler_hyperparams)
@@ -614,6 +642,8 @@ if training_successful:
         raw_input("\nSampling %d times from condition%d and with policy:%s (noisy:%s). \n Press a key to continue..." %
               (n_samples, cond_idx, type(bigman_agent.policy), noisy))
         sampler.take_samples(n_samples, cond=cond_idx, noisy=noisy)
+
+    bigman_env.reset(time=1, cond=0)
 
 print("The script has finished!")
 os._exit(0)

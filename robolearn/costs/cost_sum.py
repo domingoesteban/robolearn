@@ -1,4 +1,7 @@
-""" This file defines a cost sum of arbitrary other costs. """
+"""
+This file defines a cost sum of arbitrary other costs.
+Author: C. Finn et al. Code in https://github.com/cbfinn/gps
+"""
 import copy
 
 from robolearn.costs.config import COST_SUM
@@ -25,6 +28,7 @@ class CostSum(Cost):
             sample:  A single sample
         """
         l, lx, lu, lxx, luu, lux = self._costs[0].eval(sample)
+        # print("Cost 00: %f" % sum(l))
 
         # Compute weighted sum of each cost value and derivatives.
         weight = self._weights[0]
@@ -36,6 +40,7 @@ class CostSum(Cost):
         lux = lux * weight
         for i in range(1, len(self._costs)):
             pl, plx, plu, plxx, pluu, plux = self._costs[i].eval(sample)
+            # print("Cost %d: %f" % (i, sum(pl)))
             weight = self._weights[i]
             l = l + pl * weight
             lx = lx + plx * weight

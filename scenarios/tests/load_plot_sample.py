@@ -3,17 +3,24 @@ import matplotlib.pyplot as plt
 import pickle
 from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distribution, plot_sample
 
-gps_directory_name = 'GPS_2017-07-13_11:30:33'
-gps_itr = 1  # GPS Iteration number
+# gps_directory_name = 'GPS_2017-07-13_11:30:33'
+gps_directory_name = 'GPS_2017-07-14_10:05:47'
+
+gps_itr = 5  # GPS Iteration number
 sample_number = 0  # If None, plot all the samples and show their mean, min and max
+pol_sample = True  # If false, load the traj_sample
 
 plot_states = True
 plot_actions = True
 plot_obs = False
 
+
 gps_path = '/home/desteban/workspace/robolearn/scenarios/' + gps_directory_name
 
-sample_list = pickle.load(open(gps_path+'/traj_sample_itr_'+str('%02d' % gps_itr)+'.pkl', 'rb'))
+if pol_sample:
+    sample_list = pickle.load(open(gps_path+'/pol_sample_itr_'+str('%02d' % gps_itr)+'.pkl', 'rb'))
+else:
+    sample_list = pickle.load(open(gps_path+'/traj_sample_itr_'+str('%02d' % gps_itr)+'.pkl', 'rb'))
 
 total_conditions = len(sample_list)
 

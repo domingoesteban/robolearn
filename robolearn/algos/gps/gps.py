@@ -204,7 +204,7 @@ class GPS(RLAlgorithm):
 
                 if self._hyperparams['test_after_iter']:
                     pol_sample_lists = self._take_policy_samples(N=self._hyperparams['test_samples'])
-                    pol_sample_lists_costs = self._eval_sample_list_cost(pol_sample_lists)
+                    pol_sample_lists_costs = self._eval_conditions_sample_list_cost(pol_sample_lists)
 
                 else:
                     pol_sample_lists = None
@@ -428,20 +428,31 @@ class GPS(RLAlgorithm):
 
         return [SampleList(samples) for samples in pol_samples]
 
-    def _eval_sample_list_cost(self, sample_list):
+    def _eval_conditions_sample_list_cost(self, cond_sample_list):
         # costs = [list() for _ in range(len(sample_list))]
         # # Collect samples
         # for cond in range(len(sample_list)):
         #     for n_sample in range(len(sample_list[cond])):
         #         costs[cond].append(self.cost_function[cond].eval(sample_list[cond][n_sample])[0])
         costs = list()
-        # Collect samples
-        for cond in range(len(sample_list)):
-            cost = np.zeros((len(sample_list[cond]), self.T))
-            for n_sample in range(len(sample_list[cond])):
-                cost[n_sample, :] = self.cost_function[cond].eval(sample_list[cond][n_sample])[0]
-            costs.append(cost)
+        total_cond = len(cond_sample_list)
+        for cond in range(total_cond):
+            N = len(cond_sample_list[cond])
+            cs = np.zeros((N, self.T))
+            for n in range(N):
+                sample = cond_sample_list[cond][n]
+                # Get costs.
+                cs[n, :] = self.cost_function[cond].eval(sample)[0]
+            costs.append(cs)
         return costs
+        #costs = list()
+        ## Collect samples
+        #for cond in range(len(sample_list)):
+        #    cost = np.zeros((len(sample_list[cond]), self.T))
+        #    for n_sample in range(len(sample_list[cond])):
+        #        cost[n_sample, :] = self.cost_function[cond].eval(sample_list[cond][n_sample])[0]
+        #    costs.append(cost)
+        #return costs
 
     def _log_data(self, itr, traj_sample_lists, pol_sample_lists=None, pol_sample_lists_costs=None):
         """
@@ -589,6 +600,8 @@ class GPS(RLAlgorithm):
         # TODO: change IterationData to reflect new stuff better
         for m in range(self.M):
             self.prev[m].new_traj_distr = self.new_traj_distr[m]
+
+        # NEW IterationData object, and remove new_traj_distr
         self.cur = [IterationData() for _ in range(self.M)]
         for m in range(self.M):
             self.cur[m].traj_info = TrajectoryInfo()
@@ -596,7 +609,6 @@ class GPS(RLAlgorithm):
             self.cur[m].step_mult = self.prev[m].step_mult
             self.cur[m].eta = self.prev[m].eta
             self.cur[m].traj_distr = self.new_traj_distr[m]
-
         self.new_traj_distr = None
 
     def _set_new_mult(self, predicted_impr, actual_impr, m):
@@ -609,13 +621,10 @@ class GPS(RLAlgorithm):
         # Optimize I w.r.t. KL: 0 = predicted_dI + 2 * penalty * KL =>
         # KL' = (-predicted_dI)/(2*penalty) = (pred/2*(pred-act)) * KL.
         # Therefore, the new multiplier is given by pred/2*(pred-act).
-        new_mult = predicted_impr / (2.0 * max(1e-4,
-                                               predicted_impr - actual_impr))
+        new_mult = predicted_impr / (2.0 * max(1e-4, predicted_impr - actual_impr))
         new_mult = max(0.1, min(5.0, new_mult))
-        new_step = max(
-            min(new_mult * self.cur[m].step_mult,
-                self._hyperparams['max_step_mult']),
-            self._hyperparams['min_step_mult']
+        new_step = max(min(new_mult * self.cur[m].step_mult, self._hyperparams['max_step_mult']),
+                       self._hyperparams['min_step_mult']
         )
         self.cur[m].step_mult = new_step
 
@@ -876,10 +885,8 @@ class GPS(RLAlgorithm):
         for m in range(self.M):
             self._set_new_mult(predicted_impr, actual_impr, m)
 
-    def compute_costs(self, m, eta, augment=True):
+    def compute_costs_mdgps(self, m, eta, augment=True):
         """ Compute cost estimates used in the LQR backward pass. """
-        if not self.gps_algo in ['pigps', 'mdgps']:
-            NotImplementedError("Function not implemented for %s gps" % self.gps_algo)
 
         traj_info, traj_distr = self.cur[m].traj_info, self.cur[m].traj_distr
         if not augment:  # Whether to augment cost with term to penalize KL
@@ -895,18 +902,15 @@ class GPS(RLAlgorithm):
         fCm, fcv = np.zeros(Cm.shape), np.zeros(cv.shape)
         for t in range(T):
             # Policy KL-divergence terms.
-            inv_pol_S = np.linalg.solve(
-                pol_info.chol_pol_S[t, :, :],
-                np.linalg.solve(pol_info.chol_pol_S[t, :, :].T, np.eye(dU))
-            )
+            inv_pol_S = np.linalg.solve(pol_info.chol_pol_S[t, :, :],
+                                        np.linalg.solve(pol_info.chol_pol_S[t, :, :].T, np.eye(dU)))
             KB, kB = pol_info.pol_K[t, :, :], pol_info.pol_k[t, :]
             PKLm[t, :, :] = np.vstack([
-                np.hstack([KB.T.dot(inv_pol_S).dot(KB), -KB.T.dot(inv_pol_S)]),
-                np.hstack([-inv_pol_S.dot(KB), inv_pol_S])
-            ])
-            PKLv[t, :] = np.concatenate([
-                KB.T.dot(inv_pol_S).dot(kB), -inv_pol_S.dot(kB)
-            ])
+                                       np.hstack([KB.T.dot(inv_pol_S).dot(KB), -KB.T.dot(inv_pol_S)]),
+                                       np.hstack([-inv_pol_S.dot(KB), inv_pol_S])
+                                      ])
+            PKLv[t, :] = np.concatenate([KB.T.dot(inv_pol_S).dot(kB),
+                                         -inv_pol_S.dot(kB)])
             fCm[t, :, :] = (Cm[t, :, :] + PKLm[t, :, :] * eta) / (eta + multiplier)
             fcv[t, :] = (cv[t, :] + PKLv[t, :] * eta) / (eta + multiplier)
 
