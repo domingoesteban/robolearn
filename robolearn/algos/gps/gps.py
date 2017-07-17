@@ -332,6 +332,7 @@ class GPS(RLAlgorithm):
 
         ros_rate = rospy.Rate(int(1/self.dt))  # hz
         # Collect history
+        print("Sampling! ...")
         for t in range(self.T):
             if verbose:
                 if on_policy:
@@ -347,7 +348,7 @@ class GPS(RLAlgorithm):
             obs = self.env.get_observation()
             state = self.env.get_state()
             # action = policy.eval(state, obs, t, noise[t, :])
-            action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # Avoid TF policy writes in obs
+            action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # TODO: Avoid TF policy writes in obs
             # print(action)
             # action[3] = -0.15707963267948966
             self.env.send_action(action)
@@ -361,6 +362,7 @@ class GPS(RLAlgorithm):
 
         # Stop environment
         self.env.stop()
+        print("Generating sample data...")
 
         all_actions = np.array([hist[1] for hist in history])
         all_states = np.array([hist[0] for hist in history])
@@ -444,8 +446,6 @@ class GPS(RLAlgorithm):
                 sample = cond_sample_list[cond][n]
                 # Get costs.
                 cs[n, :] = self.cost_function[cond].eval(sample)[0]
-            print('global policy, cond:%d' % cond)
-            print(np.sum(cs, axis=1))
             costs.append(cs)
         return costs
         #costs = list()
@@ -567,8 +567,6 @@ class GPS(RLAlgorithm):
             l, lx, lu, lxx, luu, lux = self.cost_function[cond].eval(sample)
             cc[n, :] = l
             cs[n, :] = l
-            print('local policy, cond:%d' % n)
-            print(np.sum(cs, axis=1))
 
             # Assemble matrix and vector.
             cv[n, :, :] = np.c_[lx, lu]

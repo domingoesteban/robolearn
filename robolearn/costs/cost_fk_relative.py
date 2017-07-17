@@ -66,11 +66,18 @@ class CostFKRelative(Cost):
         x = sample.get_states()[:, self._hyperparams['data_idx']]
 
         dist = np.zeros((T, 6))
-        Jx = np.zeros((T, 6, len(self._hyperparams['data_idx'])))
         jtemp = np.zeros((6, robot_model.qdot_size))
         q = np.zeros(robot_model.q_size)
+        # Jx = np.zeros((T, 6, len(self._hyperparams['data_idx'])))
 
-        temp_idx = np.ix_(range(6), self._hyperparams['data_idx'])
+        # TODO: Adding rel_pose Jacobian
+        Jx = np.zeros((T, 6, len(self._hyperparams['data_idx'])+len(self._hyperparams['rel_idx'])))
+        temp_rel_jacobian = np.zeros((6, len(self._hyperparams['rel_idx'])))
+        temp_rel_jacobian[0, 0] = temp_rel_jacobian[1, 1] = temp_rel_jacobian[2, 2] = -1
+        temp_rel_jacobian[-1, -1] = temp_rel_jacobian[-2, -2] = temp_rel_jacobian[-3, -3] = -1
+        rel_idx = np.ix_(range(6), range(-7, 0))
+
+        data_idx = np.ix_(range(6), self._hyperparams['data_idx'])
         for ii in range(T):
             tgt = pose_transform(data_pose[ii, :], rel_pose)
             q[joint_ids] = x[ii, :]
@@ -100,8 +107,12 @@ class CostFKRelative(Cost):
             #     print('++++')
             #     raw_input('waaaaa')
 
-            #Jx[ii, temp_idx[0], temp_idx[1]] = -jtemp[:, joint_ids]
-            Jx[ii, temp_idx[0], temp_idx[1]] = jtemp[:, joint_ids]
+            #Jx[ii, data_idx[0], data_idx[1]] = -jtemp[:, joint_ids]
+            Jx[ii, data_idx[0], data_idx[1]] = jtemp[:, joint_ids]
+
+            # TODO: Adding rel_pose Jacobian
+            Jx[ii, rel_idx[0], rel_idx[1]] = temp_rel_jacobian[:, :]
+
 
         # Evaluate penalty term. Use estimated Jacobians and no higher
         # order terms.
@@ -113,9 +124,12 @@ class CostFKRelative(Cost):
         )
 
         # Add to current terms.
-        lx[:, self._hyperparams['data_idx']] = ls
-        temp_idx = np.ix_(self._hyperparams['data_idx'], self._hyperparams['data_idx'])
-        lxx[:, temp_idx[0], temp_idx[1]] = lss
+        # lx[:, self._hyperparams['data_idx']] = ls
+        lx[:, self._hyperparams['data_idx'] + self._hyperparams['rel_idx']] = ls
+        # data_idx = np.ix_(self._hyperparams['data_idx'], self._hyperparams['data_idx'] + self._hyperparams['rel_idx'])
+        data_idx = np.ix_(self._hyperparams['data_idx'] + self._hyperparams['rel_idx'],
+                          self._hyperparams['data_idx'] + self._hyperparams['rel_idx'])
+        lxx[:, data_idx[0], data_idx[1]] = lss
         #sample.agent.pack_data_x(lx, ls, data_types=[JOINT_ANGLES])
         #sample.agent.pack_data_x(lxx, lss,
         #                         data_types=[JOINT_ANGLES, JOINT_ANGLES])

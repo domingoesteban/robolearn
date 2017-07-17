@@ -77,10 +77,11 @@ def copy_class_attr(objfrom, objto, attribute_names):
         if isinstance(objfrom, RelativePose):
             if hasattr(objfrom, 'pose'):
                 new_pose = getattr(objfrom, 'pose')
-                if hasattr(new_pose, n):
-                    v = getattr(new_pose, n)
-                    setattr(objto.pose, n, v)
-                    # setattr(objto, 'wrench', wrench)
+                for body_idx, body_pose in enumerate(new_pose):
+                    if hasattr(body_pose, n):
+                        v = getattr(body_pose, n)
+                        setattr(objto.pose[body_idx], n, v)
+                        # setattr(objto, 'wrench', wrench)
         elif isinstance(objfrom, WrenchStamped):
             if hasattr(objfrom, 'wrench'):
                 new_wrench = getattr(objfrom, 'wrench')

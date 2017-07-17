@@ -79,7 +79,7 @@ Tlift = 0
 EndTime = Treach + Tlift  # Using final time to define the horizon
 
 # BOX
-box_x = 0.75-0.05
+box_x = 0.70
 box_y = 0.00
 box_z = 0.0184
 box_yaw = 0  # Degrees
@@ -232,7 +232,10 @@ act_cost = {
 }
 
 # State Cost
-target_state = box_relative_pose[[3, 4, 5, 6, 0, 1, 2]]
+# target_state = box_relative_pose[[3, 4, 5, 6, 0, 1, 2]]
+# target_state[-1] += 0.1
+target_state = box_relative_pose.copy()
+target_state[-1] += 0.1
 state_cost = {
     'type': CostState,
     'ramp_option': RAMP_LINEAR,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
@@ -280,7 +283,7 @@ state_cost = {
 #     'state_idx': bigman_env.get_state_info(name='link_position')['idx']
 # }
 
-#right_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=-box_size[1]/2+0.02, hand_z=0, hand_yaw=0)
+# right_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=-box_size[1]/2+0.02, hand_z=0, hand_yaw=0)
 # RAfk_cost = {
 #     'type': CostFK,
 #     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
@@ -298,16 +301,17 @@ state_cost = {
 # }
 
 
-left_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
+left_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0],
                                                hand_x=0.0, hand_y=box_size[1]/2-0.02, hand_z=0.0, hand_yaw=0)
-left_hand_rel_pose[:] = left_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
+# left_hand_rel_pose[:] = left_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
 LAfk_cost = {
     'type': CostFKRelative,
     'ramp_option': RAMP_LINEAR,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
     'target_rel_pose': left_hand_rel_pose,
-    'rel_data_type': 'observation',  # 'state' or 'observation'
+    'rel_data_type': 'state',  # 'state' or 'observation'
     #'rel_data_name': 'optitrack',  # Name of the state/observation
-    'rel_idx': bigman_env.get_obs_info(name='optitrack')['idx'],
+    #'rel_idx': bigman_env.get_obs_info(name='optitrack')['idx'],
+    'rel_idx': bigman_env.get_state_info(name='optitrack')['idx'],
     'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
     'end_effector_name': LH_name,
     'end_effector_offset': l_soft_hand_offset,
@@ -321,9 +325,9 @@ LAfk_cost = {
     'wp_final_multiplier': 5,
 }
 
-right_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
+right_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0],
                                                 hand_x=0.0, hand_y=-box_size[1]/2+0.02, hand_z=0.0, hand_yaw=0)
-right_hand_rel_pose[:] = right_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
+# right_hand_rel_pose[:] = right_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
 RAfk_cost = {
     'type': CostFKRelative,
     'ramp_option': RAMP_LINEAR,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
@@ -379,30 +383,30 @@ box_pose1 = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y, box_z=box_z,
 condition1 = create_bigman_box_condition(q1, box_pose1, joint_idxs=bigman_params['joint_ids']['BA'])
 bigman_env.add_condition(condition1)
 
-# q2 = q0.copy()
-# box_pose2 = create_box_relative_pose(box_x=box_x-0.02, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
-# condition2 = create_bigman_box_condition(q2, box_pose2, joint_idxs=bigman_params['joint_ids']['BA'])
-# bigman_env.add_condition(condition2)
+q2 = q0.copy()
+box_pose2 = create_box_relative_pose(box_x=box_x-0.02, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
+condition2 = create_bigman_box_condition(q2, box_pose2, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition2)
 
-# q3 = q0.copy()
-# box_pose3 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw+5)
-# condition3 = create_bigman_box_condition(q3, box_pose3, joint_idxs=bigman_params['joint_ids']['BA'])
-# bigman_env.add_condition(condition3)
-#
-# q4 = q0.copy()
-# box_pose4 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw-5)
-# condition4 = create_bigman_box_condition(q4, box_pose4, joint_idxs=bigman_params['joint_ids']['BA'])
-# bigman_env.add_condition(condition4)
-#
-# q5 = q0.copy()
-# box_pose5 = create_box_relative_pose(box_x=box_x, box_y=box_y+0.02, box_z=box_z, box_yaw=box_yaw)
-# condition5 = create_bigman_box_condition(q5, box_pose5, joint_idxs=bigman_params['joint_ids']['BA'])
-# bigman_env.add_condition(condition5)
-#
-# q6 = q0.copy()
-# box_pose6 = create_box_relative_pose(box_x=box_x, box_y=box_y-0.02, box_z=box_z, box_yaw=box_yaw)
-# condition6 = create_bigman_box_condition(q6, box_pose6, joint_idxs=bigman_params['joint_ids']['BA'])
-# bigman_env.add_condition(condition5)
+q3 = q0.copy()
+box_pose3 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw+5)
+condition3 = create_bigman_box_condition(q3, box_pose3, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition3)
+
+q4 = q0.copy()
+box_pose4 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw-5)
+condition4 = create_bigman_box_condition(q4, box_pose4, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition4)
+
+q5 = q0.copy()
+box_pose5 = create_box_relative_pose(box_x=box_x, box_y=box_y+0.02, box_z=box_z, box_yaw=box_yaw)
+condition5 = create_bigman_box_condition(q5, box_pose5, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition5)
+
+q6 = q0.copy()
+box_pose6 = create_box_relative_pose(box_x=box_x, box_y=box_y-0.02, box_z=box_z, box_yaw=box_yaw)
+condition6 = create_bigman_box_condition(q6, box_pose6, joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition5)
 
 
 # # ################################ #
@@ -574,9 +578,9 @@ gps_hyperparams = {
     'dt': Ts,
     'iterations': 3,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
     'test_after_iter': True,  # If test the learned policy after an iteration in the RL algorithm
-    'test_samples': 2,  # Samples from learned policy after an iteration (only if 'test_after_iter':True)
+    'test_samples': 5,  # Samples from learned policy after an iteration (only if 'test_after_iter':True)
     # Samples
-    'num_samples': 2,  # 20  # Samples for exploration trajs --> N samples
+    'num_samples': 5,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
     'noise_var_scale': 1.0e-0,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
