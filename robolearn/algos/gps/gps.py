@@ -53,9 +53,10 @@ class GPS(RLAlgorithm):
 
         if 'data_files_dir' in self._hyperparams:
             if self._hyperparams['data_files_dir'] is None:
-                self._data_files_dir = 'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
+                self._data_files_dir = 'robolearn_log/' + \
+                                       'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
             else:
-                self._data_files_dir = self._hyperparams['data_files_dir']
+                self._data_files_dir = 'robolearn_log/' + self._hyperparams['data_files_dir']
         else:
             self._data_files_dir = 'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
         self.data_logger = DataLogger(self._data_files_dir)
@@ -345,9 +346,9 @@ class GPS(RLAlgorithm):
                                                                                t+1, self.T))
             obs = self.env.get_observation()
             state = self.env.get_state()
-            action = policy.eval(state, obs, t, noise[t, :])
+            # action = policy.eval(state, obs, t, noise[t, :])
+            action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # Avoid TF policy writes in obs
             # print(action)
-            # action = np.zeros_like(action)
             # action[3] = -0.15707963267948966
             self.env.send_action(action)
             obs_hist[t] = (obs, action)
@@ -443,6 +444,8 @@ class GPS(RLAlgorithm):
                 sample = cond_sample_list[cond][n]
                 # Get costs.
                 cs[n, :] = self.cost_function[cond].eval(sample)[0]
+            print('global policy, cond:%d' % cond)
+            print(np.sum(cs, axis=1))
             costs.append(cs)
         return costs
         #costs = list()
@@ -564,6 +567,8 @@ class GPS(RLAlgorithm):
             l, lx, lu, lxx, luu, lux = self.cost_function[cond].eval(sample)
             cc[n, :] = l
             cs[n, :] = l
+            print('local policy, cond:%d' % n)
+            print(np.sum(cs, axis=1))
 
             # Assemble matrix and vector.
             cv[n, :, :] = np.c_[lx, lu]

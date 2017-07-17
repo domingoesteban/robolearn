@@ -10,18 +10,19 @@ import scipy.stats
 
 # gps_directory_name = 'GPS_2017-07-13_11:30:33'
 # gps_directory_name = 'GPS_2017-07-13_17:07:10'
-gps_directory_name = 'GPS_2017-07-14_10:05:47'
+# gps_directory_name = 'GPS_2017-07-14_10:05:47'
+gps_directory_name = 'GPS_2017-07-14_16:49:21'
 
 init_itr = 0
 final_itr = 100
 
 plot_eta = False
 plot_step_mult = False
-plot_cs = True
+plot_cs = False
 plot_sample_list_actions = False
 plot_sample_list_states = False
 plot_sample_list_obs = False
-plot_policy_output = False
+plot_policy_output = True
 plot_traj_distr = False
 
 eta_color = 'black'

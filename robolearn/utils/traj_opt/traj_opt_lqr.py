@@ -41,7 +41,7 @@ class TrajOptLQR(TrajOpt):
         """
         Run dual gradient descent to optimize trajectories.
         It returns (optimized) new trajectory and eta.
-        :param m: Condition number
+        :param m: Condition number.
         :param algorithm: GPS algorithm to get info
         :return: traj_distr, eta
         """
@@ -121,13 +121,13 @@ class TrajOptLQR(TrajOpt):
                 eta = new_eta
             else:
                 for t in range(T):
-                    if con[t] < 0:
+                    if con[t] < 0:  # Eta was too big.
                         max_eta[t] = eta[t]
-                        geom = np.sqrt(min_eta[t]*max_eta[t])
+                        geom = np.sqrt(min_eta[t]*max_eta[t])  # Geometric mean.
                         eta[t] = max(geom, 0.1*max_eta[t])
                     else:
                         min_eta[t] = eta[t]
-                        geom = np.sqrt(min_eta[t]*max_eta[t])
+                        geom = np.sqrt(min_eta[t]*max_eta[t])  # Geometric mean.
                         eta[t] = min(geom, 10.0*min_eta[t])
                 if itr % 10 == 0:
                     LOGGER.debug("avg KL: %f / %f, avg new eta: %f", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
@@ -157,11 +157,9 @@ class TrajOptLQR(TrajOpt):
                 m_u = m_b / (1 - BETA1 ** (itr+1))
                 v_b = (BETA2 * v_b + (1-BETA2) * np.square(con[:-1]))
                 v_u = v_b / (1 - BETA2 ** (itr+1))
-                eta[:-1] = np.minimum(
-                        np.maximum(eta[:-1] + ALPHA * m_u / (np.sqrt(v_u) + EPS),
-                                   self._hyperparams['min_eta']),
-                        self._hyperparams['max_eta']
-                )
+                eta[:-1] = np.minimum(np.maximum(eta[:-1] + ALPHA * m_u / (np.sqrt(v_u) + EPS),
+                                                 self._hyperparams['min_eta']),
+                                      self._hyperparams['max_eta'])
 
                 if itr % 10 == 0:
                     LOGGER.debug("avg KL: %f / %f, avg new eta: %f", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
@@ -320,7 +318,7 @@ class TrajOptLQR(TrajOpt):
 
                 # Add in the value function from the next time step.
                 if t < T - 1:
-                    if algorithm.gps_algo == 'BADMM':
+                    if algorithm.gps_algo.lower() == 'badmm':
                         multiplier = (pol_wt[t+1] + eta)/(pol_wt[t] + eta)
                     else:
                         multiplier = 1.0
@@ -436,9 +434,8 @@ class TrajOptLQR(TrajOpt):
                 if fail_check:
                     if np.any(np.isnan(Fm)) or np.any(np.isnan(fv)):
                         raise ValueError('NaNs encountered in dynamics!')
-                    raise ValueError('Failed to find PD solution even for very \
-                            large eta (check that dynamics and cost are \
-                            reasonably well conditioned)!')
+                    raise ValueError('Failed to find PD solution even for very large eta \
+                                     (check that dynamics and cost are reasonably well conditioned)!')
         return traj_distr, eta
 
     def _conv_check(self, con, kl_step):

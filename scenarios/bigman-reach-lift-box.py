@@ -379,30 +379,30 @@ box_pose1 = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y, box_z=box_z,
 condition1 = create_bigman_box_condition(q1, box_pose1, joint_idxs=bigman_params['joint_ids']['BA'])
 bigman_env.add_condition(condition1)
 
-q2 = q0.copy()
-box_pose2 = create_box_relative_pose(box_x=box_x-0.02, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
-condition2 = create_bigman_box_condition(q2, box_pose2, joint_idxs=bigman_params['joint_ids']['BA'])
-bigman_env.add_condition(condition2)
+# q2 = q0.copy()
+# box_pose2 = create_box_relative_pose(box_x=box_x-0.02, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
+# condition2 = create_bigman_box_condition(q2, box_pose2, joint_idxs=bigman_params['joint_ids']['BA'])
+# bigman_env.add_condition(condition2)
 
-q3 = q0.copy()
-box_pose3 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw+5)
-condition3 = create_bigman_box_condition(q3, box_pose3, joint_idxs=bigman_params['joint_ids']['BA'])
-bigman_env.add_condition(condition3)
-
-q4 = q0.copy()
-box_pose4 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw-5)
-condition4 = create_bigman_box_condition(q4, box_pose4, joint_idxs=bigman_params['joint_ids']['BA'])
-bigman_env.add_condition(condition4)
-
-q5 = q0.copy()
-box_pose5 = create_box_relative_pose(box_x=box_x, box_y=box_y+0.02, box_z=box_z, box_yaw=box_yaw)
-condition5 = create_bigman_box_condition(q5, box_pose5, joint_idxs=bigman_params['joint_ids']['BA'])
-bigman_env.add_condition(condition5)
-
-q6 = q0.copy()
-box_pose6 = create_box_relative_pose(box_x=box_x, box_y=box_y-0.02, box_z=box_z, box_yaw=box_yaw)
-condition6 = create_bigman_box_condition(q6, box_pose6, joint_idxs=bigman_params['joint_ids']['BA'])
-bigman_env.add_condition(condition5)
+# q3 = q0.copy()
+# box_pose3 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw+5)
+# condition3 = create_bigman_box_condition(q3, box_pose3, joint_idxs=bigman_params['joint_ids']['BA'])
+# bigman_env.add_condition(condition3)
+#
+# q4 = q0.copy()
+# box_pose4 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw-5)
+# condition4 = create_bigman_box_condition(q4, box_pose4, joint_idxs=bigman_params['joint_ids']['BA'])
+# bigman_env.add_condition(condition4)
+#
+# q5 = q0.copy()
+# box_pose5 = create_box_relative_pose(box_x=box_x, box_y=box_y+0.02, box_z=box_z, box_yaw=box_yaw)
+# condition5 = create_bigman_box_condition(q5, box_pose5, joint_idxs=bigman_params['joint_ids']['BA'])
+# bigman_env.add_condition(condition5)
+#
+# q6 = q0.copy()
+# box_pose6 = create_box_relative_pose(box_x=box_x, box_y=box_y-0.02, box_z=box_z, box_yaw=box_yaw)
+# condition6 = create_bigman_box_condition(q6, box_pose6, joint_idxs=bigman_params['joint_ids']['BA'])
+# bigman_env.add_condition(condition5)
 
 
 # # ################################ #
@@ -499,8 +499,8 @@ change_print_color.change('YELLOW')
 print("\nConfiguring learning algorithm...\n")
 
 # Learning params
-resume_training_itr = None  # 16 - 1  # 40 - 1  # Resume from previous training iteration
-data_files_dir = None  # 'GPS_2017-07-12_11:16:35'  # 'GPS_2017-07-11_17:41:28'  # In case we want to resume from previous training
+resume_training_itr = None  # 40 - 1  # Resume from previous training iteration
+data_files_dir = None  # 'GPS_2017-07-14_16:49:21'  # None  # In case we want to resume from previous training
 
 traj_opt_method = {'type': TrajOptLQR,
                    'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
@@ -572,11 +572,11 @@ gps_algo_hyperparams = {'init_pol_wt': 0.01,  # TODO: remove need for init_pol_w
 gps_hyperparams = {
     'T': int(EndTime/Ts),  # Total points
     'dt': Ts,
-    'iterations': 40,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
+    'iterations': 3,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
     'test_after_iter': True,  # If test the learned policy after an iteration in the RL algorithm
-    'test_samples': 5,  # Samples from learned policy after an iteration (only if 'test_after_iter':True)
+    'test_samples': 2,  # Samples from learned policy after an iteration (only if 'test_after_iter':True)
     # Samples
-    'num_samples': 5,  # 20  # Samples for exploration trajs --> N samples
+    'num_samples': 2,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
     'noise_var_scale': 1.0e-0,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
