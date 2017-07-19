@@ -9,7 +9,7 @@ def check_list_and_convert(the_object):
 
 
 class TfMap:
-    """ a container for inputs, outputs, and loss in a tf graph. This object exists only
+    """ A container for inputs, outputs, and loss in a tf graph. This object exists only
     to make well-defined the tf inputs, outputs, and losses used in the policy_opt_tf class."""
 
     def __init__(self, input_tensor, target_output_tensor,
@@ -133,14 +133,15 @@ class TfSolver:
         final_value = np.concatenate([values[i] for i in range(len(values))])
         return final_value
 
-    def get_var_values(self, sess, var, feed_dict, num_values, batch_size):
+    @staticmethod
+    def get_var_values(sess, var, feed_dict, num_values, batch_size):
         i = 0
         values = []
         while i < num_values:
             batch_dict = {}
             start = i
             end = min(i+batch_size, num_values)
-            for k,v in feed_dict.iteritems():
+            for k, v in feed_dict.iteritems():
                 batch_dict[k] = v[start:end]
             batch_vals = sess.run(var, batch_dict)
             values.append(batch_vals)

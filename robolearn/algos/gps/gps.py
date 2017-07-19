@@ -196,7 +196,6 @@ class GPS(RLAlgorithm):
                 #     plot_sample_list(traj_sample_lists[hh], data_to_plot='actions', block=False, cols=3)
                 #     plot_sample_list(traj_sample_lists[hh], data_to_plot='states', block=False, cols=3)
                 #     plot_sample_list(traj_sample_lists[hh], data_to_plot='obs', block=False, cols=3)
-                # raw_input('waaa')
 
                 # Clear agent samples.
                 self.agent.clear_samples()  # TODO: Check if it is better to 'remember' these samples
@@ -828,11 +827,9 @@ class GPS(RLAlgorithm):
         policy_prior.update(samples, self.policy_opt, mode)
 
         # Fit linearization and store in pol_info.
-        pol_info.pol_K, pol_info.pol_k, pol_info.pol_S = \
-            policy_prior.fit(X, pol_mu, pol_sig)
+        pol_info.pol_K, pol_info.pol_k, pol_info.pol_S = policy_prior.fit(X, pol_mu, pol_sig)
         for t in range(T):
-            pol_info.chol_pol_S[t, :, :] = \
-                sp.linalg.cholesky(pol_info.pol_S[t, :, :])
+            pol_info.chol_pol_S[t, :, :] = sp.linalg.cholesky(pol_info.pol_S[t, :, :])
 
     def advance_iteration_variables_mdgps(self):
         """

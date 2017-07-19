@@ -30,7 +30,7 @@ from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
 
 from robolearn.algos.gps.gps import GPS
 from robolearn.policies.lin_gauss_init import init_lqr, init_pd
-from robolearn.policies.policy_prior import PolicyPrior  # For MDGPS
+from robolearn.policies.policy_prior import ConstantPolicyPrior  # For MDGPS
 
 from robolearn.utils.sampler import Sampler
 from robolearn.policies.traj_reprod_policy import TrajectoryReproducerPolicy
@@ -73,7 +73,7 @@ signal.signal(signal.SIGINT, kill_everything)
 # ################## #
 # Task parameters
 Ts = 0.01
-Treach = 0.5
+Treach = 5
 Tlift = 0
 # EndTime = 4  # Using final time to define the horizon
 EndTime = Treach + Tlift  # Using final time to define the horizon
@@ -208,7 +208,7 @@ policy_params = {
     },
     # Initialization.
     'init_var': 0.1,  # Initial policy variance.
-    'ent_reg': 0.0,  # Entropy regularizer.
+    'ent_reg': 0.0,  # Entropy regularizer (Used to update policy variance)
     # Solver hyperparameters.
     'iterations': 1000,  # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
     'batch_size': 15,
@@ -221,6 +221,7 @@ policy_params = {
     'use_gpu': 1,  # Whether or not to use the GPU for training.
     'gpu_id': 0,
     'random_seed': 1,
+    'fc_only_iterations': 0,  # TODO: Only forwardcontrol? if it is CNN??
     # 'weights_file_prefix': EXP_DIR + 'policy',
 }
 policy_opt = {
@@ -257,7 +258,7 @@ state_cost = {
     'wp_final_multiplier': 5.0,  # Weight multiplier on final time step.
     'data_types': {
         'optitrack': {
-            #'wp': np.ones_like(target_state),  # State weights - must be set.
+            # 'wp': np.ones_like(target_state),  # State weights - must be set.
             'wp': np.array([1.0, 1.0, 1.0, 1.0, 3.0, 3.0, 1.0]),  # State weights - must be set.
             'target_state': target_state,  # Target state - must be set.
             'average': None,  # (12, 3),
@@ -577,20 +578,22 @@ learned_dynamics = {'type': DynamicsLRPrior,
 #                         'policy_sample_mode': 'add'
 #                         }
 gps_algo = 'mdgps'
-gps_algo_hyperparams = {'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS
+gps_algo_hyperparams = {'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
                         'policy_sample_mode': 'add',
                         'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
-                        'policy_prior': {'type': PolicyPrior},
+                        'policy_prior': {'type': ConstantPolicyPrior,
+                                         'strength': 1e-4,
+                                         },
                         }
 
 gps_hyperparams = {
     'T': int(EndTime/Ts),  # Total points
     'dt': Ts,
-    'iterations': 2,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
+    'iterations': 30,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
     'test_after_iter': True,  # If test the learned policy after an iteration in the RL algorithm
     'test_samples': 1,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
     # Samples
-    'num_samples': 2,  # 20  # Samples for exploration trajs --> N samples
+    'num_samples': 10,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
     'noise_var_scale': 1.0e-0,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)

@@ -1,4 +1,7 @@
-""" This file defines the constant prior for policy linearization. """
+"""
+This file defines the constant prior for policy linearization.
+Author: C. Finn et al. Original code in: https://github.com/cbfinn/gps
+"""
 import copy
 import numpy as np
 
@@ -10,7 +13,7 @@ POLICY_PRIOR = {
 }
 
 
-class PolicyPrior(object):
+class ConstantPolicyPrior(object):
     """ Constant policy prior. """
     def __init__(self, hyperparams):
         config = copy.deepcopy(POLICY_PRIOR)
@@ -23,16 +26,20 @@ class PolicyPrior(object):
         pass
 
     def eval(self, Ts, Ps):
-        """ Evaluate the policy prior. """
+        """ Evaluate the policy prior.
+            Returns:
+                mu0:
+                Phi:
+                mm:
+                n0:
+        """
         dX, dU = Ts.shape[-1], Ps.shape[-1]
         prior_fd = np.zeros((dU, dX))
         prior_cond = 1e-5 * np.eye(dU)
         sig = np.eye(dX)
-        Phi = self._hyperparams['strength'] * np.vstack([
-            np.hstack([sig, sig.dot(prior_fd.T)]),
-            np.hstack([prior_fd.dot(sig),
-                       prior_fd.dot(sig).dot(prior_fd.T) + prior_cond])
-        ])
+        Phi = self._hyperparams['strength'] * np.vstack([np.hstack([sig, sig.dot(prior_fd.T)]),
+                                                         np.hstack([prior_fd.dot(sig),
+                                                                    prior_fd.dot(sig).dot(prior_fd.T) + prior_cond])])
         return np.zeros(dX+dU), Phi, 0, self._hyperparams['strength']
 
     def fit(self, X, pol_mu, pol_sig):
@@ -49,8 +56,7 @@ class PolicyPrior(object):
         if N == 1:
             raise ValueError("Cannot fit dynamics on 1 sample")
 
-        # Collapse policy covariances. (This is only correct because
-        # the policy doesn't depend on state).
+        # Collapse policy covariances. (This is only correct because the policy doesn't depend on state).
         pol_sig = np.mean(pol_sig, axis=0)
 
         # Allocate.
@@ -72,5 +78,5 @@ class PolicyPrior(object):
                 sig_reg[:dX, :dX] = 1e-8
             pol_K[t, :, :], pol_k[t, :], pol_S[t, :, :] = gauss_fit_joint_prior(Ys, mu0, Phi, mm, n0, dwts,
                                                                                 dX, dU, sig_reg)
-        pol_S += pol_sig
+        pol_S += pol_sig  # Add policy covariances mean
         return pol_K, pol_k, pol_S

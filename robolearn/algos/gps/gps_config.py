@@ -8,7 +8,7 @@ from robolearn.utils.traj_opt.traj_opt_lqr import TrajOptLQR
 from robolearn.utils.traj_opt.traj_opt_pi2 import TrajOptPI2
 
 from robolearn.policies.lin_gauss_init import init_lqr, init_pd
-from robolearn.policies.policy_prior import PolicyPrior
+from robolearn.policies.policy_prior import ConstantPolicyPrior
 
 # Algorithm
 default_gps_hyperparams = {
@@ -122,7 +122,8 @@ default_mdgps_hyperparams = {
     'policy_sample_mode': 'add',
     # Whether to use 'laplace' or 'mc' cost in step adjustment
     'step_rule': 'laplace',
-    'policy_prior': {'type': PolicyPrior},
+    'policy_prior': {'type': ConstantPolicyPrior,
+                     'strenght': 1e-4},
 }
 
 # PIGPS

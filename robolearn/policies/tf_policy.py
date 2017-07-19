@@ -24,7 +24,7 @@ class TfPolicy(Policy):
     Args:
         obs_tensor: tensor representing tf observation. Used in feed dict for forward pass.
         act_op: tf op to execute the forward pass. Use sess.run on this op.
-        feat_opt: TODO
+        feat_opt: tf op to get image features 
         var: Du-dimensional noise variance vector.
         sess: tf session.
         device_string: tf device string for running on either gpu or cpu.
@@ -51,7 +51,7 @@ class TfPolicy(Policy):
 
             self.copy_params_assign_ops = [tf.assign(self.copy_params[i],
                                                      self.copy_params_assign_placeholders[i])
-                                             for i in range(len(self.copy_params))]
+                                           for i in range(len(self.copy_params))]
 
     def eval(self, state=None, obs=None, t=None, noise=None):
         """

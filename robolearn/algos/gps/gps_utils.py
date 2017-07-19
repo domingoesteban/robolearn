@@ -1,6 +1,6 @@
 """
 This file defines utility classes and functions for algorithms.
-# Original code from Finn et al in github.com/cbfinn/gps
+Author: C. Finn et al. Original code in: https://github.com/cbfinn/gps
 """
 import numpy as np
 
@@ -114,7 +114,19 @@ def estimate_moments(X, mu, covar):
 
 
 def gauss_fit_joint_prior(pts, mu0, Phi, m, n0, dwts, dX, dU, sig_reg):
-    """ Perform Gaussian fit to data with a prior. """
+    """
+    Perform Gaussian fit to data with a prior.
+    :param pts: 
+    :param mu0: 
+    :param Phi: 
+    :param m: 
+    :param n0: 
+    :param dwts: 
+    :param dX: 
+    :param dU: 
+    :param sig_reg: 
+    :return: 
+    """
     # Build weights matrix.
     D = np.diag(dwts)
     # Compute empirical mean and covariance.
@@ -125,8 +137,7 @@ def gauss_fit_joint_prior(pts, mu0, Phi, m, n0, dwts, dX, dU, sig_reg):
     # MAP estimate of joint distribution.
     N = dwts.shape[0]
     mu = mun
-    sigma = (N * empsig + Phi + (N * m) / (N + m) *
-             np.outer(mun - mu0, mun - mu0)) / (N + n0)
+    sigma = (N * empsig + Phi + (N * m) / (N + m) * np.outer(mun - mu0, mun - mu0)) / (N + n0)
     sigma = 0.5 * (sigma + sigma.T)
     # Add sigma regularization.
     sigma += sig_reg

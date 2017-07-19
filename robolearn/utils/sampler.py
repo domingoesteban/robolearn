@@ -106,7 +106,8 @@ class Sampler(object):
         sample.set_noise(noise)
 
         if save:
-            name_file = self.data_logger.pickle('/cosa', sample)
+            name_file = self.data_logger.pickle(('cond_%02d_sample_%02d.pkl' % (cond, i)),
+                                                sample)
             print("Sample saved in %s" % name_file)
         #if save:  # Save sample in agent
         #    self.agent._samples[cond].append(sample)  # TODO: Do this with a method

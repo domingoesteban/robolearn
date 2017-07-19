@@ -1,4 +1,7 @@
-""" This file defines the base policy optimization class. """
+"""
+This file defines the base policy optimization class.
+Author: C. Finn et al. Original code in: https://github.com/cbfinn/gps
+"""
 import abc
 
 
@@ -12,6 +15,6 @@ class PolicyOpt(object):
         self._dU = dU
 
     @abc.abstractmethod
-    def update(self):
+    def update(self, *args):
         """ Update policy. """
         raise NotImplementedError("Must be implemented in subclass.")

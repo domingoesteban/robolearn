@@ -18,35 +18,36 @@ def init_bias(shape, name=None):
 
 def batched_matrix_vector_multiply(vector, matrix):
     """ computes x^T A in mini-batches. """
-    vector_batch_as_matricies = tf.expand_dims(vector, [1])
-    #mult_result = tf.batch_matmul(vector_batch_as_matricies, matrix)
-    mult_result = tf.matmul(vector_batch_as_matricies, matrix)
+    vector_batch_as_matrices = tf.expand_dims(vector, [1])
+    # mult_result = tf.batch_matmul(vector_batch_as_matricies, matrix)
+    mult_result = tf.matmul(vector_batch_as_matrices, matrix)
     squeezed_result = tf.squeeze(mult_result, [1])
     return squeezed_result
 
 
-def euclidean_loss_layer(a, b, precision, batch_size):
+def euclidean_loss_layer(action, mlp_out, precision, batch_size):
     """ Math:  out = (action - mlp_out)'*precision*(action-mlp_out)
                     = (u-uhat)'*A*(u-uhat)"""
     scale_factor = tf.constant(2*batch_size, dtype='float')
-    uP = batched_matrix_vector_multiply(a-b, precision)
-    uPu = tf.reduce_sum(uP*(a-b))  # this last dot product is then summed, so we just the sum all at once.
+    uP = batched_matrix_vector_multiply(action-mlp_out, precision)
+    uPu = tf.reduce_sum(uP*(action-mlp_out))  # this last dot product is then summed, so we just the sum all at once.
     return uPu/scale_factor
 
 
 def get_input_layer(dim_input, dim_output):
-    """produce the placeholder inputs that are used to run ops forward and backwards.
-        net_input: usually an observation.
-        action: mu, the ground truth actions we're trying to learn.
-        precision: precision matrix used to commpute loss."""
-    net_input = tf.placeholder("float", [None, dim_input], name='nn_input')
+    """ Produce the placeholder inputs that are used to run ops forward and backwards.
+        Return:
+            net_input: usually an observation.
+            action: mu, the ground truth actions we're trying to learn.
+            precision: precision matrix used to compute loss."""
+    net_input = tf.placeholder('float', [None, dim_input], name='nn_input')
     action = tf.placeholder('float', [None, dim_output], name='action')
     precision = tf.placeholder('float', [None, dim_output, dim_output], name='precision')
     return net_input, action, precision
 
 
 def get_mlp_layers(mlp_input, number_layers, dimension_hidden):
-    """compute MLP with specified number of layers.
+    """ Compute MLP with specified number of layers.
         math: sigma(Wx + b)
         for each layer, where sigma is by default relu"""
     cur_top = mlp_input
@@ -68,7 +69,7 @@ def get_mlp_layers(mlp_input, number_layers, dimension_hidden):
 
 def get_loss_layer(mlp_out, action, precision, batch_size):
     """The loss layer used for the MLP network is obtained through this class."""
-    return euclidean_loss_layer(a=action, b=mlp_out, precision=precision, batch_size=batch_size)
+    return euclidean_loss_layer(action, mlp_out, precision=precision, batch_size=batch_size)
 
 
 def tf_network(dim_input=27, dim_output=7, batch_size=25, network_config=None):

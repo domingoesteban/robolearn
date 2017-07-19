@@ -52,13 +52,17 @@ class PolicyOptTf(PolicyOpt):
             self.device_string = "/gpu:" + str(self.gpu_device)
 
         self.act_op = None  # mu_hat
-        self.feat_op = None  # features
+        self.feat_op = None  # feature from obs operation
         self.loss_scalar = None
         self.obs_tensor = None
         self.precision_tensor = None
         self.action_tensor = None  # mu true
         self.solver = None
-        self.feat_vals = None
+        self.feat_vals = None  # Feature values
+        self.fc_vars = None
+        self.last_conv_vars = None
+        self.grads = None
+        self.saver = None
         self.init_network()
         self.init_solver()
         self.var = self._hyperparams['init_var'] * np.ones(dU)
@@ -75,7 +79,6 @@ class PolicyOptTf(PolicyOpt):
         # TODO: Commented by DOMINGO!!
         #if 'obs_image_data' not in self._hyperparams['network_params']:
         #    self._hyperparams['network_params'].update({'obs_image_data': []})
-
         #for sensor in self._hyperparams['network_params']['obs_include']:
         #    dim = self._hyperparams['network_params']['sensor_dims'][sensor]
         #    if sensor in self._hyperparams['network_params']['obs_image_data']:
@@ -134,7 +137,7 @@ class PolicyOptTf(PolicyOpt):
                                weight_decay=self._hyperparams['weight_decay'],
                                fc_vars=self.fc_vars,
                                last_conv_vars=self.last_conv_vars)
-        self.saver = tf.train.Saver(write_version = saver_pb2.SaverDef.V1)
+        self.saver = tf.train.Saver(write_version=saver_pb2.SaverDef.V1)
 
     def update(self, obs, tgt_mu, tgt_prc, tgt_wt):
         """
@@ -174,15 +177,13 @@ class PolicyOptTf(PolicyOpt):
 
         # TODO: Find entries with very low weights?
 
-        # Normalize obs, but only compute normalzation at the beginning.
+        # TODO: DOM, CHECK IF THERE IS ANY PROBLEM WITH OBS NORMALIZATION IS DONE ONLY AT THE BEGINNING
+        # Normalize obs, but only compute normalization at the beginning.
         if self.policy.scale is None or self.policy.bias is None:
             self.policy.x_idx = self.x_idx
-            # 1e-3 to avoid infs if some state dimensions don't change in the
-            # first batch of samples
-            self.policy.scale = np.diag(
-                1.0 / np.maximum(np.std(obs[:, self.x_idx], axis=0), 1e-3))
-            self.policy.bias = - np.mean(
-                obs[:, self.x_idx].dot(self.policy.scale), axis=0)
+            # 1e-3 to avoid infs if some state dimensions don't change in the first batch of samples
+            self.policy.scale = np.diag(1.0 / np.maximum(np.std(obs[:, self.x_idx], axis=0), 1e-3))
+            self.policy.bias = -np.mean(obs[:, self.x_idx].dot(self.policy.scale), axis=0)
         obs[:, self.x_idx] = obs[:, self.x_idx].dot(self.policy.scale) + self.policy.bias
 
         # Assuming that N*T >= self.batch_size.
@@ -195,7 +196,7 @@ class PolicyOptTf(PolicyOpt):
             feed_dict = {self.obs_tensor: obs}
             num_values = obs.shape[0]
             conv_values = self.solver.get_last_conv_values(self.sess, feed_dict, num_values, self.batch_size)
-            for i in range(self._hyperparams['fc_only_iterations'] ):
+            for i in range(self._hyperparams['fc_only_iterations']):
                 start_idx = int(i * self.batch_size %
                                 (batches_per_epoch * self.batch_size))
                 idx_i = idx[start_idx:start_idx+self.batch_size]
@@ -206,16 +207,14 @@ class PolicyOptTf(PolicyOpt):
                 average_loss += train_loss
 
                 if (i+1) % 500 == 0:
-                    LOGGER.info('tensorflow iteration %d, average loss %f',
-                                    i+1, average_loss / 500)
+                    LOGGER.info('tensorflow iteration %d, average loss %f', i+1, average_loss/500)
                     average_loss = 0
             average_loss = 0
 
-        # actual training.
+        # Actual training.
         for i in range(self._hyperparams['iterations']):
             # Load in data for this batch.
-            start_idx = int(i * self.batch_size %
-                            (batches_per_epoch * self.batch_size))
+            start_idx = int(i * self.batch_size % (batches_per_epoch * self.batch_size))
             idx_i = idx[start_idx:start_idx+self.batch_size]
             feed_dict = {self.obs_tensor: obs[idx_i],
                          self.action_tensor: tgt_mu[idx_i],
@@ -224,20 +223,21 @@ class PolicyOptTf(PolicyOpt):
 
             average_loss += train_loss
             if (i+1) % 50 == 0:
-                LOGGER.info('tensorflow iteration %d, average loss %f',
-                             i+1, average_loss / 50)
+                LOGGER.info('tensorflow iteration %d, average loss %f', i+1, average_loss/50)
                 average_loss = 0
 
         feed_dict = {self.obs_tensor: obs}
         num_values = obs.shape[0]
+        print(num_values)
+        # Get features from obs (if the policy consider images)
         if self.feat_op is not None:
             self.feat_vals = self.solver.get_var_values(self.sess, self.feat_op, feed_dict, num_values, self.batch_size)
+
         # Keep track of tensorflow iterations for loading solver states.
         self.tf_iter += self._hyperparams['iterations']
 
         # Optimize variance.
-        A = np.sum(tgt_prc_orig, 0) + 2 * N * T * \
-                self._hyperparams['ent_reg'] * np.ones((dU, dU))
+        A = np.sum(tgt_prc_orig, 0) + 2 * N * T * self._hyperparams['ent_reg'] * np.ones((dU, dU))
         A = A / np.sum(tgt_wt)
 
         # TODO - Use dense covariance?
@@ -259,8 +259,7 @@ class PolicyOptTf(PolicyOpt):
         if self.policy.scale is not None:
             # TODO: Should prob be called before update?
             for n in range(N):
-                obs[n, :, self.x_idx] = (obs[n, :, self.x_idx].T.dot(self.policy.scale)
-                                         + self.policy.bias).T
+                obs[n, :, self.x_idx] = (obs[n, :, self.x_idx].T.dot(self.policy.scale) + self.policy.bias).T
 
         output = np.zeros((N, T, dU))
 
