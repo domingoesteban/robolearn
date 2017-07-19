@@ -1,6 +1,7 @@
 import numpy as np
 import tf
 import os
+import time
 from robolearn.utils.gazebo_utils import *
 from robolearn.utils.transformations import homogeneous_matrix
 from robolearn.utils.iit.robot_poses.bigman.poses import bigman_pose
@@ -89,6 +90,9 @@ def reset_bigman_box_gazebo(bigman_box_pose, box_size=None):
 
     #spawn_box_gazebo(bigman_box_pose, box_size=box_size)
     set_box_gazebo_pose(bigman_box_pose, box_size=box_size)
+
+    # TODO: Wait a little
+    time.sleep(2)
 
 
 def spawn_box_gazebo(bigman_box_pose, box_size=None):

@@ -11,7 +11,7 @@ from robolearn.envs import BigmanEnv
 from robolearn.agents import GPSAgent
 
 from robolearn.policies.policy_opt.policy_opt_tf import PolicyOptTf
-from robolearn.policies.policy_opt.tf_model_example import tf_network
+from robolearn.policies.policy_opt.tf_models import tf_network
 
 from robolearn.utils.sample import Sample
 from robolearn.utils.sample_list import SampleList
@@ -73,7 +73,7 @@ signal.signal(signal.SIGINT, kill_everything)
 # ################## #
 # Task parameters
 Ts = 0.01
-Treach = 5
+Treach = 0.5
 Tlift = 0
 # EndTime = 4  # Using final time to define the horizon
 EndTime = Treach + Tlift  # Using final time to define the horizon
@@ -192,13 +192,11 @@ print("\nCreating Bigman Agent...")
 
 policy_params = {
     'network_model': tf_network,  # tf_network, multi_modal_network, multi_modal_network_fp
-    'iterations': 1000,  # Inner iteration (Default:5000). Recommended: 1000?
     'network_params': {
         'n_layers': 1,  # Hidden layers??
         'dim_hidden': [40],  # List of size per n_layers
         'obs_names': bigman_env.get_obs_info()['names'],
         'obs_dof': bigman_env.get_obs_info()['dimensions'],  # DoF for observation data tensor
-        'batch_size': 15,  # TODO: Check if this value is OK (same than n_samples?)
         # 'num_filters': [5, 10],
         # 'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, RGB_IMAGE],  # Deprecated from original GPS code
         # 'obs_vector_data': [JOINT_ANGLES, JOINT_VELOCITIES],  # Deprecated from original GPS code
@@ -207,7 +205,22 @@ policy_params = {
         # 'image_width': IMAGE_WIDTH (80),  # For multi_modal_network
         # 'image_height': IMAGE_HEIGHT (64),  # For multi_modal_network
         # 'image_channels': IMAGE_CHANNELS (3),  # For multi_modal_network
-    }
+    },
+    # Initialization.
+    'init_var': 0.1,  # Initial policy variance.
+    'ent_reg': 0.0,  # Entropy regularizer.
+    # Solver hyperparameters.
+    'iterations': 1000,  # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
+    'batch_size': 15,
+    'lr': 0.001,  # Base learning rate (by default it's fixed).
+    'lr_policy': 'fixed',  # Learning rate policy.
+    'momentum': 0.9,  # Momentum.
+    'weight_decay': 0.005,  # Weight decay.
+    'solver_type': 'Adam',  # Solver type (e.g. 'SGD', 'Adam', etc.).
+    # set gpu usage.
+    'use_gpu': 1,  # Whether or not to use the GPU for training.
+    'gpu_id': 0,
+    'random_seed': 1,
     # 'weights_file_prefix': EXP_DIR + 'policy',
 }
 policy_opt = {
@@ -233,7 +246,6 @@ act_cost = {
 
 # State Cost
 # target_state = box_relative_pose[[3, 4, 5, 6, 0, 1, 2]]
-# target_state[-1] += 0.1
 target_state = box_relative_pose.copy()
 target_state[-1] += 0.1
 state_cost = {
@@ -378,35 +390,33 @@ box_pose0 = box_relative_pose.copy()
 condition0 = create_bigman_box_condition(q0, box_pose0, joint_idxs=bigman_params['joint_ids']['BA'])
 bigman_env.add_condition(condition0)
 
+#q1 = np.zeros(31)
 q1 = q0.copy()
-box_pose1 = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
+q1[15] = np.deg2rad(25)
+q1[18] = np.deg2rad(-25)
+q1[24] = np.deg2rad(25)
+q1[27] = np.deg2rad(-25)
+box_pose1 = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y+0.02, box_z=box_z, box_yaw=box_yaw+5)
 condition1 = create_bigman_box_condition(q1, box_pose1, joint_idxs=bigman_params['joint_ids']['BA'])
 bigman_env.add_condition(condition1)
 
-q2 = q0.copy()
-box_pose2 = create_box_relative_pose(box_x=box_x-0.02, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
-condition2 = create_bigman_box_condition(q2, box_pose2, joint_idxs=bigman_params['joint_ids']['BA'])
-bigman_env.add_condition(condition2)
+# q2 = q0.copy()
+# q2[16] = np.deg2rad(50)
+# q2[18] = np.deg2rad(-50)
+# q2[25] = np.deg2rad(-50)
+# q2[27] = np.deg2rad(-50)
+# box_pose2 = create_box_relative_pose(box_x=box_x-0.02, box_y=box_y-0.02, box_z=box_z, box_yaw=box_yaw-5)
+# condition2 = create_bigman_box_condition(q2, box_pose2, joint_idxs=bigman_params['joint_ids']['BA'])
+# bigman_env.add_condition(condition2)
 
-q3 = q0.copy()
-box_pose3 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw+5)
-condition3 = create_bigman_box_condition(q3, box_pose3, joint_idxs=bigman_params['joint_ids']['BA'])
-bigman_env.add_condition(condition3)
-
-q4 = q0.copy()
-box_pose4 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw-5)
-condition4 = create_bigman_box_condition(q4, box_pose4, joint_idxs=bigman_params['joint_ids']['BA'])
-bigman_env.add_condition(condition4)
-
-q5 = q0.copy()
-box_pose5 = create_box_relative_pose(box_x=box_x, box_y=box_y+0.02, box_z=box_z, box_yaw=box_yaw)
-condition5 = create_bigman_box_condition(q5, box_pose5, joint_idxs=bigman_params['joint_ids']['BA'])
-bigman_env.add_condition(condition5)
-
-q6 = q0.copy()
-box_pose6 = create_box_relative_pose(box_x=box_x, box_y=box_y-0.02, box_z=box_z, box_yaw=box_yaw)
-condition6 = create_bigman_box_condition(q6, box_pose6, joint_idxs=bigman_params['joint_ids']['BA'])
-bigman_env.add_condition(condition5)
+# q3 = q0.copy()
+# box_pose3 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw+5)
+# condition3 = create_bigman_box_condition(q3, box_pose3, joint_idxs=bigman_params['joint_ids']['BA'])
+# bigman_env.add_condition(condition3)
+# q4 = q0.copy()
+# box_pose4 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw-5)
+# condition4 = create_bigman_box_condition(q4, box_pose4, joint_idxs=bigman_params['joint_ids']['BA'])
+# bigman_env.add_condition(condition4)
 
 
 # # ################################ #
@@ -503,8 +513,8 @@ change_print_color.change('YELLOW')
 print("\nConfiguring learning algorithm...\n")
 
 # Learning params
-resume_training_itr = None  # 40 - 1  # Resume from previous training iteration
-data_files_dir = None  # 'GPS_2017-07-14_16:49:21'  # None  # In case we want to resume from previous training
+resume_training_itr = None  # Resume from previous training iteration
+data_files_dir = None #'GPS_2017-07-19_10:59:23'  # In case we want to resume from previous training
 
 traj_opt_method = {'type': TrajOptLQR,
                    'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
@@ -576,11 +586,11 @@ gps_algo_hyperparams = {'init_pol_wt': 0.01,  # TODO: remove need for init_pol_w
 gps_hyperparams = {
     'T': int(EndTime/Ts),  # Total points
     'dt': Ts,
-    'iterations': 3,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
+    'iterations': 2,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
     'test_after_iter': True,  # If test the learned policy after an iteration in the RL algorithm
-    'test_samples': 5,  # Samples from learned policy after an iteration (only if 'test_after_iter':True)
+    'test_samples': 1,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
     # Samples
-    'num_samples': 5,  # 20  # Samples for exploration trajs --> N samples
+    'num_samples': 2,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
     'noise_var_scale': 1.0e-0,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
@@ -627,9 +637,9 @@ else:
 # ############################## #
 # ############################## #
 if training_successful:
-    conditions_to_sample = [0]
+    conditions_to_sample = gps_hyperparams['test_conditions']
     change_print_color.change('GREEN')
-    n_samples = 4
+    n_samples = 1
     noisy = False
     sampler_hyperparams = {
         'noisy': noisy,
@@ -637,7 +647,7 @@ if training_successful:
         'smooth_noise': False,  # Whether or not to perform smoothing of noise
         'smooth_noise_var': 0.01,   # If smooth=True, applies a Gaussian filter with this variance. E.g. 0.01
         'smooth_noise_renormalize': False,  # If smooth=True, renormalizes data to have variance 1 after smoothing.
-        'T': int(EndTime*2/Ts),  # Total points
+        'T': int(EndTime/Ts)*2,  # Total points
         'dt': Ts
         }
     sampler = Sampler(bigman_agent.policy, bigman_env, **sampler_hyperparams)

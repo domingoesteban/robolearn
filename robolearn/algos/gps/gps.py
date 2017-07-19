@@ -250,6 +250,7 @@ class GPS(RLAlgorithm):
             return 0
         else:
             print('Loading previous GPS from iteration %d!' % itr_load)
+            itr_load -= 1
             algorithm_file = '%s_algorithm_itr_%02d.pkl' % (self.gps_algo.upper(), itr_load)
             prev_algorithm = self.data_logger.unpickle(algorithm_file)
             if prev_algorithm is None:
@@ -258,6 +259,7 @@ class GPS(RLAlgorithm):
             else:
                 self.__dict__.update(prev_algorithm.__dict__)
 
+            print('Loading agent_itr...')
             agent_file = 'agent_itr_%02d.pkl' % itr_load
             prev_agent = self.data_logger.unpickle(agent_file)
             if prev_agent is None:
@@ -266,15 +268,16 @@ class GPS(RLAlgorithm):
             else:
                 self.agent.__dict__.update(prev_agent.__dict__)
 
+                print('Loading policy_opt_itr...')
                 traj_opt_file = 'policy_opt_itr_%02d.pkl' % itr_load
-                self.agent.traj_opt = self.data_logger.unpickle(traj_opt_file)
-                if self.agent.traj_opt is None:
+                prev_policy_opt = self.data_logger.unpickle(traj_opt_file)
+                if prev_policy_opt is None:
                     print("Error: cannot find '%s.'" % traj_opt_file)
                     os._exit(1)
                 else:
-                    self.agent.__dict__.update(prev_agent.__dict__)
-
+                    self.agent.policy_opt.__dict__.update(prev_policy_opt.__dict__)
                 self.agent.policy = self.agent.policy_opt.policy
+
 
             # self.algorithm = self.data_logger.unpickle(algorithm_file)
             # if self.algorithm is None:
@@ -413,7 +416,7 @@ class GPS(RLAlgorithm):
 
         pol_samples = [list() for _ in range(len(self._test_cond_idx))]
 
-        itr = self.iteration_count
+        itr = self.iteration_count - 1  # Because it is called after self._advance_iteration_variables()
 
         # Collect samples
         for cond in self._test_cond_idx:
@@ -476,6 +479,11 @@ class GPS(RLAlgorithm):
             ('policy_opt_itr_%02d.pkl' % itr),
             self.agent.policy_opt
         )
+        print("Logging Policy... ")
+        self.agent.policy_opt.policy.pickle_policy(self.dO, self.dU,
+                                                   self.data_logger.dir_path + '/' + ('policy_itr_%02d' % itr),
+                                                   goal_state=None,
+                                                   should_hash=False)
 
         print("Logging GPS algorithm state... ")
         self.data_logger.pickle(
@@ -658,6 +666,8 @@ class GPS(RLAlgorithm):
             state.pop('_hyperparams')
         if 'max_iterations' in state:
             state.pop('max_iterations')
+        if 'policy_opt' in state:
+            state.pop('policy_opt')
         return state
 
     # For unpickling.

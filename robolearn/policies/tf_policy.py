@@ -1,6 +1,7 @@
 """
 This file defines the TfPolicy class.
 Author: C. Finn et al. Original code in: https://github.com/cbfinn/gps
+Adapted by robolearn collaborators
 """
 import pickle
 import os
@@ -17,17 +18,20 @@ GPU_MEM_PERCENTAGE = 0.4
 
 class TfPolicy(Policy):
     """
-    A neural network policy implemented in tensor flow. The network output is
+    A neural network policy implemented in tensor flow. The network output is 
     taken to be the mean, and Gaussian noise is added on top of it.
     U = net.forward(obs) + noise, where noise ~ N(0, diag(var))
     Args:
         obs_tensor: tensor representing tf observation. Used in feed dict for forward pass.
         act_op: tf op to execute the forward pass. Use sess.run on this op.
+        feat_opt: TODO
         var: Du-dimensional noise variance vector.
         sess: tf session.
         device_string: tf device string for running on either gpu or cpu.
+        copy_param_scope: TODO
     """
     def __init__(self, dU, obs_tensor, act_op, feat_op, var, sess, device_string, copy_param_scope=None):
+        print('Creating TfPolicy')
         Policy.__init__(self)
         self.dU = dU
         self.obs_tensor = obs_tensor
@@ -37,8 +41,8 @@ class TfPolicy(Policy):
         self.device_string = device_string
         self.chol_pol_covar = np.diag(np.sqrt(var))
         self.scale = None  # must be set from elsewhere based on observations
-        self.bias = None
-        self.x_idx = None
+        self.bias = None  # must be set from elsewhere based on observations
+        self.x_idx = None  # must be set from elsewhere based on observations
 
         if copy_param_scope:
             self.copy_params = tf.get_collection(tf.GraphKeys.VARIABLES, scope=copy_param_scope)
@@ -86,23 +90,31 @@ class TfPolicy(Policy):
 
     def get_copy_params(self):
         param_values = self.sess.run(self.copy_params)
-        return {self.copy_params[i].name:param_values[i] for i in range(len(self.copy_params))}
+        return {self.copy_params[i].name: param_values[i] for i in range(len(self.copy_params))}
 
     def set_copy_params(self, param_values):
         value_list = [param_values[self.copy_params[i].name] for i in range(len(self.copy_params))]
         feeds = {self.copy_params_assign_placeholders[i]:value_list[i] for i in range(len(self.copy_params))}
         self.sess.run(self.copy_params_assign_ops, feed_dict=feeds)
 
-    def pickle_policy(self, deg_obs, deg_action, checkpoint_path, goal_state=None, should_hash=False):
+    def get_params(self):
+        return self.get_copy_params()
+
+    # def pickle_policy(self, deg_obs, deg_action, checkpoint_path, goal_state=None, should_hash=False):
+    def pickle_policy(self, deg_obs, deg_action, policy_dict_path, goal_state=None, should_hash=False):
         """
         We can save just the policy if we are only interested in running forward at a later point
         without needing a policy optimization class. Useful for debugging and deploying.
         """
+        checkpoint_path = policy_dict_path
         if should_hash is True:
             hash_str = str(uuid.uuid4())
+            #checkpoint_path += hash_str
             checkpoint_path += hash_str
-        os.mkdir(checkpoint_path + '/')
-        checkpoint_path += '/_pol'
+        # os.mkdir(checkpoint_path + '/')
+        if not os.path.exists(checkpoint_path):
+            os.makedirs(checkpoint_path)
+        checkpoint_path += '/tf_pol'
         pickled_pol = {'deg_obs': deg_obs, 'deg_action': deg_action, 'chol_pol_covar': self.chol_pol_covar,
                        'checkpoint_path_tf': checkpoint_path + '_tf_data', 'scale': self.scale, 'bias': self.bias,
                        'device_string': self.device_string, 'goal_state': goal_state, 'x_idx': self.x_idx}

@@ -1,4 +1,7 @@
-""" This file provides an example tensorflow network used to define a policy. """
+"""
+This file provides tensorflow networks used to define a policy.
+Author: C. Finn et al. Original code as 'tf_model_example.py' in: https://github.com/cbfinn/gps
+"""
 
 import tensorflow as tf
 from robolearn.policies.policy_opt.tf_utils import TfMap
@@ -165,6 +168,7 @@ def multi_modal_network(dim_input=27, dim_output=7, batch_size=25, network_confi
 
     loss = euclidean_loss_layer(a=action, b=fc_output, precision=precision, batch_size=batch_size)
     return TfMap.init_from_lists([nn_input, action, precision], [fc_output], [loss])
+
 
 def multi_modal_network_fp(dim_input=27, dim_output=7, batch_size=25, network_config=None):
     """

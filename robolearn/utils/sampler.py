@@ -94,6 +94,9 @@ class Sampler(object):
 
             ros_rate.sleep()
 
+        # Stop environment
+        self.env.stop()
+
         all_actions = np.array([hist[1] for hist in history])
         all_states = np.array([hist[0] for hist in history])
         all_obs = np.array([hist[0] for hist in obs_hist])

@@ -50,3 +50,4 @@ class DataLogger(object):
         except IOError:
             print('Unpickle error. Cannot find file: %s', filename)
             return None
+

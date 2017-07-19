@@ -66,7 +66,8 @@ class PolicyOptTf(PolicyOpt):
         config.gpu_options.per_process_gpu_memory_fraction = GPU_MEM_PERCENTAGE
         self.sess = tf.Session(config=config)
         self.policy = TfPolicy(dU, self.obs_tensor, self.act_op, self.feat_op,
-                               np.zeros(dU), self.sess, self.device_string, copy_param_scope=self._hyperparams['copy_param_scope'])
+                               np.zeros(dU), self.sess, self.device_string,
+                               copy_param_scope=self._hyperparams['copy_param_scope'])
 
         # List of indices for state (vector) data and image (tensor) data in observation.
         self.x_idx, self.img_idx, i = [], [], 0
