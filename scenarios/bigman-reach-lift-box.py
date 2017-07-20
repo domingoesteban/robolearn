@@ -197,14 +197,6 @@ policy_params = {
         'dim_hidden': [40],  # List of size per n_layers
         'obs_names': bigman_env.get_obs_info()['names'],
         'obs_dof': bigman_env.get_obs_info()['dimensions'],  # DoF for observation data tensor
-        # 'num_filters': [5, 10],
-        # 'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, RGB_IMAGE],  # Deprecated from original GPS code
-        # 'obs_vector_data': [JOINT_ANGLES, JOINT_VELOCITIES],  # Deprecated from original GPS code
-        # 'obs_image_data': [RGB_IMAGE],  # Deprecated from original GPS code
-        # 'sensor_dims': SENSOR_DIMS,  # Deprecated from original GPS code
-        # 'image_width': IMAGE_WIDTH (80),  # For multi_modal_network
-        # 'image_height': IMAGE_HEIGHT (64),  # For multi_modal_network
-        # 'image_channels': IMAGE_CHANNELS (3),  # For multi_modal_network
     },
     # Initialization.
     'init_var': 0.1,  # Initial policy variance.
@@ -279,41 +271,6 @@ state_cost = {
     },
 }
 
-# left_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=box_size[1]/2-0.02, hand_z=0, hand_yaw=0)
-# LAfk_cost = {
-#     'type': CostFK,
-#     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
-#     'target_end_effector': left_hand_pose,
-#     'end_effector_name': LH_name,
-#     'end_effector_offset': l_soft_hand_offset,
-#     'joint_ids': bigman_params['joint_ids']['BA'],
-#     'robot_model': robot_model,
-#     'wp': np.array([1.2, 0, 0.8, 1, 1.2, 0.8]),  # one less because 'quat' error | 1)orient 2)pos
-#     'l1': 0.1,  # Weight for l1 norm
-#     'l2': 10.0,  # Weight for l2 norm
-#     'alpha': 1e-5,  # Constant added in square root in l1 norm
-#     'wp_final_multiplier': 20,
-#     'state_idx': bigman_env.get_state_info(name='link_position')['idx']
-# }
-
-# right_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=-box_size[1]/2+0.02, hand_z=0, hand_yaw=0)
-# RAfk_cost = {
-#     'type': CostFK,
-#     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
-#     'target_end_effector': right_hand_pose,
-#     'end_effector_name': RH_name,
-#     'end_effector_offset': r_soft_hand_offset,
-#     'joint_ids': bigman_params['joint_ids']['BA'],
-#     'robot_model': robot_model,
-#     'wp': np.array([1.2, 0, 0.8, 1, 1.2, 0.8]),  # one dim less because 'quat' error | 1)orient 2)pos
-#     'l1': 0.1,  # Weight for l1 norm
-#     'l2': 10.0,  # Weight for l2 norm
-#     'alpha': 1e-5,  # Constant added in square root in l1 norm
-#     'wp_final_multiplier': 20,
-#     'state_idx': bigman_env.get_state_info(name='link_position')['idx']
-# }
-
-
 left_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0],
                                                hand_x=0.0, hand_y=box_size[1]/2-0.02, hand_z=0.0, hand_yaw=0)
 # left_hand_rel_pose[:] = left_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
@@ -343,7 +300,7 @@ right_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0],
 # right_hand_rel_pose[:] = right_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
 RAfk_cost = {
     'type': CostFKRelative,
-    'ramp_option': RAMP_LINEAR,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
+    'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
     'target_rel_pose': right_hand_rel_pose,
     'rel_data_type': 'observation',  # 'state' or 'observation'
     #'rel_data_name': 'optitrack',  # Name of the state/observation
@@ -363,10 +320,9 @@ RAfk_cost = {
 
 cost_sum = {
     'type': CostSum,
-    #'costs': [act_cost, state_cost, LAfk_cost, RAfk_cost],
-    'costs': [act_cost, LAfk_cost, RAfk_cost, state_cost],
-    #'weights': [0.1, 5.0, 8.0, 8.0],
-    #'weights': [1.0, 0.0, 2.0, 2.0],
+    # 'costs': [act_cost, LAfk_cost, RAfk_cost, state_cost],
+    # 'weights': [1.0e-2, 1.0e-0, 1.0e-0],
+    'costs': [act_cost, LAfk_cost, RAfk_cost],
     'weights': [1.0e-2, 1.0e-0, 1.0e-0, 5.0e-1],
     # 'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
     # 'weights': [0.1, 5.0],
@@ -411,98 +367,18 @@ bigman_env.add_condition(condition1)
 # bigman_env.add_condition(condition2)
 
 # q3 = q0.copy()
+# q3[16] = np.deg2rad(0)
+# q3[18] = np.deg2rad(0)
+# q3[25] = np.deg2rad(0)
+# q3[27] = np.deg2rad(0)
 # box_pose3 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw+5)
 # condition3 = create_bigman_box_condition(q3, box_pose3, joint_idxs=bigman_params['joint_ids']['BA'])
 # bigman_env.add_condition(condition3)
+
 # q4 = q0.copy()
 # box_pose4 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw-5)
 # condition4 = create_bigman_box_condition(q4, box_pose4, joint_idxs=bigman_params['joint_ids']['BA'])
 # bigman_env.add_condition(condition4)
-
-
-# # ################################ #
-# # ################################ #
-# # ## SAMPLE FROM DEMONSTRATIONS ## #
-# # ################################ #
-# # ################################ #
-# change_print_color.change('GREEN')
-# n_samples = 4
-# noisy = False
-# sampler_hyperparams = {
-#     'noisy': noisy,
-#     'noise_var_scale': 0.001,  # It can be a np.array() with dim=dU
-#     'smooth_noise': False,  # Whether or not to perform smoothing of noise
-#     'smooth_noise_var': 0.0001,  # If smooth=True, applies a Gaussian filter with this variance. E.g. 0.01
-#     'smooth_noise_renormalize': False,  # If smooth=True, renormalizes data to have variance 1 after smoothing.
-#     'T': int(EndTime/Ts),  # Total points
-#     'dt': Ts
-#     }
-# # Generate joints trajectories
-# print("Generating joints trajectories..")
-# # Expand conditions:
-# init_cond = bigman_env.get_conditions()
-# joints_trajectories = list()
-# joint_idx = bigman_params['joint_ids']['BA']
-# state_info = bigman_env.get_state_info()
-# q0 = np.zeros(robot_model.q_size)
-# for cond in init_cond:
-#     if Treach > 0:
-#         arms_des = cond[state_info['idx'][state_info['names'].index('link_position')]]
-#         q0[joint_idx] = arms_des
-#         qs_reach, qdots_reach, qddots_reach = generate_reach_joints_trajectories(box_relative_pose, box_size, Treach,
-#                                                                                  q0, option=0, dt=Ts)
-#         #joints_to_plot = bigman_params['joint_ids']['LA']
-#         #joint_names = [bigman_params['joints_names'][idx] for idx in joints_to_plot]
-#         #plot_joint_info(joints_to_plot, qs_reach, joint_names, data='position', block=False)
-#         #plot_joint_info(joints_to_plot, qdots_reach, joint_names, data='velocity', block=False)
-#         #plot_joint_info(joints_to_plot, qddots_reach, joint_names, data='acceleration', block=False)
-#         #raw_input("Plotting reaching... Press a key to continue")
-#     if Tlift > 0:
-#         qs_lift, qdots_lift, qddots_lift = generate_lift_joints_trajectories(box_relative_pose, box_size, Tlift, q0,
-#                                                                              option=0, dt=Ts)
-#         #joints_to_plot = bigman_params['joint_ids']['LA']
-#         #joint_names = [bigman_params['joints_names'][idx] for idx in joints_to_plot]
-#         #plot_joint_info(joints_to_plot, qs_lift, joint_names, data='position', block=False)
-#         #plot_joint_info(joints_to_plot, qdots_lift, joint_names, data='velocity', block=False)
-#         #plot_joint_info(joints_to_plot, qddots_lift, joint_names, data='acceleration', block=False)
-#         #raw_input("Plotting lifting... Press a key to continue")
-#     # Concatenate reach and lift trajectories
-#     if Treach > 0 and Tlift > 0:
-#         qs = np.r_[qs_reach, qs_lift]
-#         qdot_s = np.r_[qdots_reach, qdots_lift]
-#         qddot_s = np.r_[qddots_reach, qddots_lift]
-#     elif Treach > 0 and not Tlift > 0:
-#         qs = qs_reach
-#         qdot_s = qdots_reach
-#         qddot_s = qddots_reach
-#     elif Treach > 0 and not Tlift > 0:
-#         qs = qs_lift
-#         qdot_s = qdots_lift
-#         qddot_s = qddots_lift
-#     else:
-#         raise ValueError("Both Treach and Tlift not defined!!")
-#     joints_trajectories.append([qs, qdot_s, qddot_s])
-# computed_torque_policy = ComputedTorquePolicy(robot_model.model)
-# sampler_hyperparams['act_idx'] = bigman_params['joint_ids']['BA']
-# sampler_hyperparams['joints_idx'] = bigman_params['joint_ids']['BA']
-# sampler_hyperparams['state_pos_idx'] = bigman_env.get_state_info(name='link_position')['idx']
-# sampler_hyperparams['state_vel_idx'] = bigman_env.get_state_info(name='link_velocity')['idx']
-# sampler_hyperparams['q_size'] = robot_model.q_size
-# sampler_hyperparams['qdot_size'] = robot_model.qdot_size
-# sampler_hyperparams['joints_trajectories'] = joints_trajectories
-# sampler = JointSpaceControlSampler(computed_torque_policy, bigman_env, **sampler_hyperparams)
-# #raw_input("Press a key for sampling from Sampler")
-# for cond_idx, _ in enumerate(init_cond):
-#     print("\nSampling %d times from condition%d and with policy:%s (noisy:%s)" % (n_samples, cond_idx,
-#                                                                                  type(computed_torque_policy), noisy))
-#     sampler.take_samples(n_samples, cond=cond_idx, noisy=noisy, save=False)
-
-
-# #traj_files = ['trajectories/traj1'+'_x'+str(box_x)+'_y'+str(box_y)+'_Y'+str(box_yaw)+'_m0_reach.npy',
-# #              'trajectories/traj1'+'_x'+str(box_x)+'_y'+str(box_y)+'_Y'+str(box_yaw)+'_m1_lift.npy']
-# traj_files = ['trajectories/traj1'+'_x'+str(box_x)+'_y'+str(box_y)+'_Y'+str(box_yaw)+'_m0_reach.npy']
-# traj_rep_policy = TrajectoryReproducerPolicy(traj_files, act_idx=bigman_params['joint_ids']['BA'])
-# sampler = Sampler(traj_rep_policy, bigman_env, **sampler_hyperparams)
 
 
 # ######################## #
@@ -514,8 +390,8 @@ change_print_color.change('YELLOW')
 print("\nConfiguring learning algorithm...\n")
 
 # Learning params
-resume_training_itr = None  # Resume from previous training iteration
-data_files_dir = None #'GPS_2017-07-19_10:59:23'  # In case we want to resume from previous training
+resume_training_itr = None  # 30  # Resume from previous training iteration
+data_files_dir = None  # 'GPS_2017-07-19_18:24:29'  # In case we want to resume from previous training
 
 traj_opt_method = {'type': TrajOptLQR,
                    'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
@@ -650,13 +526,13 @@ if training_successful:
         'smooth_noise': False,  # Whether or not to perform smoothing of noise
         'smooth_noise_var': 0.01,   # If smooth=True, applies a Gaussian filter with this variance. E.g. 0.01
         'smooth_noise_renormalize': False,  # If smooth=True, renormalizes data to have variance 1 after smoothing.
-        'T': int(EndTime/Ts)*2,  # Total points
+        'T': int(EndTime/Ts)*1,  # Total points
         'dt': Ts
         }
     sampler = Sampler(bigman_agent.policy, bigman_env, **sampler_hyperparams)
     print("Sampling from final policy!!!")
     for cond_idx in conditions_to_sample:
-        raw_input("\nSampling %d times from condition%d and with policy:%s (noisy:%s). \n Press a key to continue..." %
+        raw_input("\nSampling %d times from condition %d and with policy:%s (noisy:%s). \n Press a key to continue..." %
               (n_samples, cond_idx, type(bigman_agent.policy), noisy))
         sampler.take_samples(n_samples, cond=cond_idx, noisy=noisy)
 
