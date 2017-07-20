@@ -4,18 +4,15 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import pickle
 
-# gps_directory_name = 'GPS_2017-07-13_11:30:33'
-# gps_directory_name = 'GPS_2017-07-13_17:07:10'
 # gps_directory_name = 'GPS_2017-07-14_10:05:47'
-gps_directory_name = 'GPS_2017-07-14_16:49:21'
+# gps_directory_name = 'GPS_2017-07-14_16:49:21'
+gps_directory_name = 'GPS_2017-07-17_18:18:47'
 
-init_traj_sample_itr = 0
-final_traj_sample_itr = 0  # 15
 init_pol_sample_itr = 0
 final_pol_sample_itr = 100
 data_color = 'blue'
 
-gps_path = '/home/desteban/workspace/robolearn/scenarios/' + gps_directory_name
+gps_path = '/home/desteban/workspace/robolearn/scenarios/robolearn_log/' + gps_directory_name
 
 pol_sample_lists_costs = list()
 for pp in range(init_pol_sample_itr, final_pol_sample_itr):

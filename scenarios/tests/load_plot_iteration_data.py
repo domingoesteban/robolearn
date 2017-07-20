@@ -8,13 +8,11 @@ from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distri
 from robolearn.algos.gps.gps_utils import IterationData
 import scipy.stats
 
-# gps_directory_name = 'GPS_2017-07-13_11:30:33'
-# gps_directory_name = 'GPS_2017-07-13_17:07:10'
-# gps_directory_name = 'GPS_2017-07-14_10:05:47'
-gps_directory_name = 'GPS_2017-07-14_16:49:21'
+gps_directory_name = 'GPS_2017-07-19_18:24:29'
 
-init_itr = 0
+init_itr = 29
 final_itr = 100
+samples_idx = None  # List of samples / None: all samples
 
 plot_eta = False
 plot_step_mult = False
@@ -22,8 +20,8 @@ plot_cs = False
 plot_sample_list_actions = False
 plot_sample_list_states = False
 plot_sample_list_obs = False
-plot_policy_output = True
-plot_traj_distr = False
+plot_policy_output = False
+plot_traj_distr = True
 
 eta_color = 'black'
 cs_color = 'red'
@@ -31,7 +29,7 @@ step_mult_color = 'red'
 sample_list_cols = 3
 plot_sample_list_max_min = False
 
-gps_path = '/home/desteban/workspace/robolearn/scenarios/' + gps_directory_name
+gps_path = '/home/desteban/workspace/robolearn/scenarios/robolearn_log/' + gps_directory_name
 
 iteration_data_list = list()
 iteration_ids = list()
@@ -93,7 +91,7 @@ if plot_cs:
 
 if plot_sample_list_actions:
     for cond in range(total_cond):
-        dData = iteration_data_list[0][cond].sample_list.get_actions().shape[-1]
+        dData = iteration_data_list[0][cond].sample_list.get_actions(samples_idx).shape[-1]
         fig, axs = plt.subplots(int(math.ceil(float(dData)/sample_list_cols)), sample_list_cols)
         fig.subplots_adjust(hspace=0)
         fig.canvas.set_window_title('Actions | Condition %d' % cond)
@@ -102,7 +100,7 @@ if plot_sample_list_actions:
             ax = axs[ii/sample_list_cols, ii % sample_list_cols]
             ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
         for itr in range(total_itr):
-            actions = iteration_data_list[itr][cond].sample_list.get_actions()
+            actions = iteration_data_list[itr][cond].sample_list.get_actions(samples_idx)
             for ii in range(axs.size):
                 ax = axs[ii/sample_list_cols, ii % sample_list_cols]
                 if ii < dData:
@@ -118,7 +116,7 @@ if plot_sample_list_actions:
 
 if plot_sample_list_states:
     for cond in range(total_cond):
-        dData = iteration_data_list[0][cond].sample_list.get_states().shape[-1]
+        dData = iteration_data_list[0][cond].sample_list.get_states(samples_idx).shape[-1]
         fig, axs = plt.subplots(int(math.ceil(float(dData)/sample_list_cols)), sample_list_cols)
         fig.subplots_adjust(hspace=0)
         fig.canvas.set_window_title('States | Condition %d' % cond)
@@ -127,7 +125,7 @@ if plot_sample_list_states:
             ax = axs[ii/sample_list_cols, ii % sample_list_cols]
             ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
         for itr in range(total_itr):
-            states = iteration_data_list[itr][cond].sample_list.get_states()
+            states = iteration_data_list[itr][cond].sample_list.get_states(samples_idx)
             for ii in range(axs.size):
                 ax = axs[ii/sample_list_cols, ii % sample_list_cols]
                 if ii < dData:
@@ -143,7 +141,7 @@ if plot_sample_list_states:
 
 if plot_sample_list_obs:
     for cond in range(total_cond):
-        dData = iteration_data_list[0][cond].sample_list.get_obs().shape[-1]
+        dData = iteration_data_list[0][cond].sample_list.get_obs(samples_idx).shape[-1]
         fig, axs = plt.subplots(int(math.ceil(float(dData)/sample_list_cols)), sample_list_cols)
         fig.subplots_adjust(hspace=0)
         fig.canvas.set_window_title('Observations | Condition %d' % cond)
@@ -152,7 +150,7 @@ if plot_sample_list_obs:
             ax = axs[ii/sample_list_cols, ii % sample_list_cols]
             ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
         for itr in range(total_itr):
-            obs = iteration_data_list[itr][cond].sample_list.get_obs()
+            obs = iteration_data_list[itr][cond].sample_list.get_obs(samples_idx)
             for ii in range(axs.size):
                 ax = axs[ii/sample_list_cols, ii % sample_list_cols]
                 if ii < dData:
@@ -165,7 +163,6 @@ if plot_sample_list_obs:
                     legend.get_frame().set_alpha(0.4)
                 else:
                     plt.setp(ax, visible=False)
-
 
 if plot_policy_output:
     pol_sample_to_vis = -1
