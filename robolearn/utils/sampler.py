@@ -88,6 +88,9 @@ class Sampler(object):
             obs = self.env.get_observation()
             state = self.env.get_state()
             action = self.policy.eval(state=state, obs=obs, t=t, noise=noise[t, :])
+            #if t >= 500:
+            #    action = np.zeros_like(action)
+            print(action)
             self.env.send_action(action)
             obs_hist[t] = (obs, action)
             history[t] = (state, action)

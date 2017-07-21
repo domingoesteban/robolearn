@@ -52,7 +52,6 @@ def polynomial5_interpolation(N, xf, x0=None, dxf=None, dx0=None, ddxf=None, ddx
                       [0,  0,  0, 1, 0, 0],
                       [0,  0,  0, 0, 1, 0],
                       [0,  0,  0, 0, 0, 1]], dtype=np.float64)
-
         A *= x_n[-1, :]
         b = np.array([xf[ii], dxf[ii], ddxf[ii], ddx0[ii], dx0[ii], x0[ii]])
         coeffs = np.linalg.solve(A, b)

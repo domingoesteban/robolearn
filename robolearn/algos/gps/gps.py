@@ -815,7 +815,7 @@ class GPS(RLAlgorithm):
         samples = self.cur[cond].sample_list
         N = len(samples)
         pol_info = self.cur[cond].pol_info
-        X = samples.get_states()
+        X = samples.get_states().copy()
         obs = samples.get_obs().copy()
         pol_mu, pol_sig = self.policy_opt.prob(obs)[:2]
         pol_info.pol_mu, pol_info.pol_sig = pol_mu, pol_sig
@@ -915,10 +915,8 @@ class GPS(RLAlgorithm):
             inv_pol_S = np.linalg.solve(pol_info.chol_pol_S[t, :, :],
                                         np.linalg.solve(pol_info.chol_pol_S[t, :, :].T, np.eye(dU)))
             KB, kB = pol_info.pol_K[t, :, :], pol_info.pol_k[t, :]
-            PKLm[t, :, :] = np.vstack([
-                                       np.hstack([KB.T.dot(inv_pol_S).dot(KB), -KB.T.dot(inv_pol_S)]),
-                                       np.hstack([-inv_pol_S.dot(KB), inv_pol_S])
-                                      ])
+            PKLm[t, :, :] = np.vstack([np.hstack([KB.T.dot(inv_pol_S).dot(KB), -KB.T.dot(inv_pol_S)]),
+                                       np.hstack([-inv_pol_S.dot(KB), inv_pol_S])])
             PKLv[t, :] = np.concatenate([KB.T.dot(inv_pol_S).dot(kB),
                                          -inv_pol_S.dot(kB)])
             fCm[t, :, :] = (Cm[t, :, :] + PKLm[t, :, :] * eta) / (eta + multiplier)

@@ -21,6 +21,7 @@ from robolearn.utils.plot_utils import plot_joint_info
 from robolearn.utils.plot_utils import plot_desired_sensed_data
 from robolearn.utils.plot_utils import plot_joint_multi_info
 from robolearn.utils.lift_box_utils import create_box_relative_pose, create_hand_relative_pose
+from robolearn.utils.lift_box_utils import reset_bigman_box_gazebo
 
 from robolearn.utils.robot_model import RobotModel
 
@@ -35,18 +36,18 @@ torques_saved_filename = 'torques_init_traj.npy'
 T_init = 5  # Time to move from current position to T_init
 T_traj = 5  # Time to execute the trajectory
 freq = 100  # Frequency  (1/Ts)
+Nrunning = int(np.ceil((T_traj + 2)*freq))
 
 # BOX
-box_x = 0.75-0.05
+box_x = 0.70
 box_y = 0.00
 box_z = 0.0184
 box_yaw = 0  # Degrees
 box_size = [0.4, 0.5, 0.3]
-box_relative_pose = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
+#box_relative_pose = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
+box_relative_pose = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y+0.02, box_z=box_z, box_yaw=box_yaw+5)
 final_left_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=box_size[1]/2-0.02, hand_z=0, hand_yaw=0)
-final_left_hand_pose = final_left_hand_pose[[3, 4, 5, 6, 0, 1, 2]]  # First orientation, then position
 final_right_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=-box_size[1]/2+0.02, hand_z=0, hand_yaw=0)
-final_right_hand_pose = final_right_hand_pose[[3, 4, 5, 6, 0, 1, 2]]  # First orientation, then position
 
 
 # ROBOT MODEL for trying ID
@@ -130,13 +131,20 @@ des_cmd.name = bigman_params['joints_names']
 q_init = np.zeros(robot_rbdl_model.q_size)
 q_init[15] = np.deg2rad(25)
 q_init[16] = np.deg2rad(40)
-q_init[17] = np.deg2rad(0)
-q_init[18] = np.deg2rad(-75)
-# ----
+q_init[18] = np.deg2rad(-45)
 q_init[24] = np.deg2rad(25)
 q_init[25] = np.deg2rad(-40)
-q_init[26] = np.deg2rad(0)
-q_init[27] = np.deg2rad(-75)
+q_init[27] = np.deg2rad(-45)
+# q_init[15] = np.deg2rad(25)
+# q_init[16] = np.deg2rad(40)
+# q_init[17] = np.deg2rad(0)
+# q_init[18] = np.deg2rad(-75)
+# # ----
+# q_init[24] = np.deg2rad(25)
+# q_init[25] = np.deg2rad(-40)
+# q_init[26] = np.deg2rad(0)
+# q_init[27] = np.deg2rad(-75)
+
 # q_init = np.array([0.,  0.,  0.,  0.,  0.,  0.,
 #                    0.,  0.,  0.,  0.,  0.,  0.,
 #                    0.,  0.,  0.,
@@ -154,6 +162,10 @@ for ii in range(N):
     des_cmd.damping = default_joint_damping
     publisher.publish(des_cmd)
     pub_rate.sleep()
+
+# print("Spawning/Moving box")
+# reset_bigman_box_gazebo(box_relative_pose, box_size=None)
+
 
 # PAUSE:
 print("Sleeping some seconds..")
@@ -186,8 +198,8 @@ joint_traj_ddots = np.zeros((N, robot_rbdl_model.qdot_size))
 
 # Joint space interpolation
 # -------------------------
-final_left_hand_pose = init_left_hand_pose.copy()
-final_right_hand_pose = init_right_hand_pose.copy()
+# final_left_hand_pose = init_left_hand_pose.copy()
+# final_right_hand_pose = init_right_hand_pose.copy()
 # op_matrix = tf.transformations.quaternion_matrix(final_left_hand_pose[:4])
 # op_matrix = op_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 0, 1]))
 # final_left_hand_pose[:4] = tf.transformations.quaternion_from_matrix(op_matrix)
@@ -196,11 +208,11 @@ final_right_hand_pose = init_right_hand_pose.copy()
 # final_right_hand_pose[:4] = tf.transformations.quaternion_from_matrix(op_matrix)
 # final_left_hand_pose[6] += 0.2
 # final_right_hand_pose[6] += 0.2
-print(init_left_hand_pose)
-print(final_left_hand_pose)
-print(init_right_hand_pose)
-print(final_right_hand_pose)
-print('&^%&^%&^%')
+print("Initial LH pose %s" % init_left_hand_pose)
+print("Final LH pose %s" % final_left_hand_pose)
+print("Initial RH pose %s" % init_right_hand_pose)
+print("Final RH pose %s" % final_right_hand_pose)
+print('#'*10)
 
 q_reach = robot_model.ik(LH_name, final_left_hand_pose, body_offset=l_soft_hand_offset,
                          mask_joints=bigman_params['joint_ids']['TO'], joints_limits=bigman_params['joints_limits'],
@@ -234,11 +246,13 @@ q_reach[bigman_params['joint_ids']['RA']] = robot_model.ik(RH_name, final_right_
 # -------------
 # Interpolation
 # -------------
-interpolation_type = 0
+interpolation_type = 1
 if interpolation_type == 0:
     # Interpolation type 0: First task_space interp, then joint_space
     # ---------------------------------------------------------------
     print('Create task_space trajectory...')
+    print(final_left_hand_pose[4:])
+    print(init_left_hand_pose[4:])
     left_task_space_traj[:, 4:], left_task_space_traj_dots[:, 3:], left_task_space_traj_ddots[:, 3:] = \
         polynomial5_interpolation(N, final_left_hand_pose[4:], init_left_hand_pose[4:])
     left_task_space_traj[:, :4], left_task_space_traj_dots[:, :3], left_task_space_traj_ddots[:, :3] = \
@@ -399,7 +413,11 @@ inf_limits = np.array([bigman_params['joints_limits'][ii][0] for ii in range(rob
 max_limits = np.array([bigman_params['joints_limits'][ii][1] for ii in range(robot_model.qdot_size)])
 
 des_cmd.position = q_init[joints_to_move]
-for ii in range(N):
+for ii in range(Nrunning):
+
+    temp_ii = ii
+    if ii >= N:
+        ii = N - 1
 
     # Get current(sensed) joints values
     current_joint_pos = joint_pos_state.copy()
@@ -493,6 +511,7 @@ for ii in range(N):
     q_error_left = np.zeros_like(current_joint_pos)
     q_error_right = np.zeros_like(current_joint_pos)
     q0 = q_reach
+    q0 = joint_traj[ii, :]
     #q0 = joint_traj[ii, :]
     #q0 = q_init
     #q0 = np.array(current_joint_pos.copy())
@@ -520,12 +539,12 @@ for ii in range(N):
     right_projection_null_times_torque_null = (np.eye(robot_model.qdot_size) - J_right.T.dot(J_right_bar.T)).dot(torque_null_right)
 
     tau_left = M_left.dot(J_left_bar).dot(x_left_ddot_r - J_left_dot_q_dot*0 + J_left.dot(np.linalg.inv(M_left)).dot(g)*0)\
-               + left_projection_null_times_torque_null*0
+               + left_projection_null_times_torque_null
     tau_right = M_right.dot(J_right_bar).dot(x_right_ddot_r - J_right_dot_q_dot*0 + J_right.dot(np.linalg.inv(M_right)).dot(g)*0)\
-                + right_projection_null_times_torque_null*0
+                + right_projection_null_times_torque_null
     # Multitask controller
     #tau = alpha_left*tau_left*0 + alpha_right*tau_right*0 + c_plus_g
-    tau = alpha_left*tau_left*0 + alpha_right*tau_right*0 + g
+    tau = alpha_left*tau_left + alpha_right*tau_right + g
 
     # # Nakanishi: Dynamical Decoupling Controller Variation 2
     # # (With Null Space Pre-multiplication of M, and Compensation of C and g in Joint Space)
@@ -606,6 +625,7 @@ for ii in range(N):
     # \mu = \prod(\sigma_i) where \sigma_i is the i singular value
     singu_distance_left = np.prod(s_l)
     singu_distance_right = np.prod(s_r)
+    print(temp_ii)
     print('%.4f -- %.4f' % (singu_distance_left, singu_distance_right))
     singu_distance_left = np.min(s_l)
     singu_distance_right = np.min(s_r)
@@ -613,7 +633,6 @@ for ii in range(N):
     print('---')
     left_singu_distances[ii] = singu_distance_left
     right_singu_distances[ii] = singu_distance_right
-    #raw_input('nonononono')
 
     # Uncomment to send torque references
     des_cmd.position = []
@@ -640,6 +659,9 @@ for ii in range(N):
     multi_taus_traj[3, ii, :] = c_plus_g
     multi_taus_traj[4, ii, :] = g
     pub_rate.sleep()
+
+    if temp_ii >= N:
+        ii = temp_ii
 
 # Return to position control
 print("Changing to position control!")
