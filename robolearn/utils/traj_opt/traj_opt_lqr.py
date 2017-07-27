@@ -434,8 +434,8 @@ class TrajOptLQR(TrajOpt):
                 if fail_check:
                     if np.any(np.isnan(Fm)) or np.any(np.isnan(fv)):
                         raise ValueError('NaNs encountered in dynamics!')
-                    raise ValueError('Failed to find PD solution even for very large eta \
-                                     (check that dynamics and cost are reasonably well conditioned)!')
+                    raise ValueError('Failed to find PD solution even for very large eta '
+                                     '(check that dynamics and cost are reasonably well conditioned)!')
         return traj_distr, eta
 
     def _conv_check(self, con, kl_step):

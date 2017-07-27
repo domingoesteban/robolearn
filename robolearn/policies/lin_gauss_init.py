@@ -188,7 +188,8 @@ def init_demos(hyperparams):
     pol_sig = np.zeros((N, T, dU, dU))
 
     for t in range(T):
-        pol_sig[:, t, :, :] = np.tile(np.cov(U[:, t, :].T), (N, 1, 1))
+        # Using only diagonal covariances
+        pol_sig[:, t, :, :] = np.tile(np.diag(np.diag(np.cov(U[:, t, :].T))), (N, 1, 1))
 
     # Collapse policy covariances. (This is only correct because the policy doesn't depend on state).
     pol_sig = np.mean(pol_sig, axis=0)

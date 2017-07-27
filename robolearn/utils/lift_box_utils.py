@@ -309,10 +309,14 @@ def task_space_torque_control_demos(**kwargs):
     Kp_task = np.eye(6)*np.r_[K_ori, K_pos]
     Kd_task = np.sqrt(Kp_task)
 
+    # left_hand_base_pose = create_hand_relative_pose(box_relative_pose,
+    #                                                 hand_x=0.02, hand_y=box_size[1]/2-0.08, hand_z=-0.02, hand_yaw=0)
+    # right_hand_base_pose = create_hand_relative_pose(box_relative_pose,
+    #                                                  hand_x=0.02, hand_y=-box_size[1]/2+0.08, hand_z=-0.02, hand_yaw=0)
     left_hand_base_pose = create_hand_relative_pose(box_relative_pose,
-                                                    hand_x=0.0, hand_y=box_size[1]/2-0.02, hand_z=0.0, hand_yaw=0)
+                                                    hand_x=0.0, hand_y=box_size[1]/2-0.02, hand_z=-0.0, hand_yaw=0)
     right_hand_base_pose = create_hand_relative_pose(box_relative_pose,
-                                                     hand_x=0.0, hand_y=-box_size[1]/2+0.02, hand_z=0.0, hand_yaw=0)
+                                                     hand_x=0.0, hand_y=-box_size[1]/2+0.02, hand_z=-0.0, hand_yaw=0)
     left_hand_base_pose_lift = left_hand_base_pose.copy()
     left_hand_base_pose_lift[-1] += final_box_height
     right_hand_base_pose_lift = right_hand_base_pose.copy()

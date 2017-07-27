@@ -16,6 +16,15 @@ class RLAlgorithm(Algorithm):
             raise TypeError("Wrong Environment type for environment argument")
         self.env = env
 
+    def _initialize(self, itr_load):
+        """
+        Initialize algorithm from the specified iteration.
+        Args:
+            itr_load: If specified, loads algorithm state from that
+                iteration, and resumes training at the next iteration.
+        """
+        raise NotImplementedError
+
     def run(self, **kwargs):
         """
         Run RL Algorithm.
@@ -34,11 +43,11 @@ class RLAlgorithm(Algorithm):
         """
         raise NotImplementedError
 
-    def _initialize(self, itr_load):
+    def _end(self):
         """
-        Initialize algorithm from the specified iteration.
-        Args:
-            itr_load: If specified, loads algorithm state from that
-                iteration, and resumes training at the next iteration.
+        Finish RL algorithm and exit.
+        :return: None
         """
-        raise NotImplementedError
+        print("")
+        print("RL algorithm has finished!")
+        self.env.stop()

@@ -218,22 +218,13 @@ class GPS(RLAlgorithm):
             print("#"*30)
             print("#"*30)
             print_skull()
-            print("Panic: ERROR IN GPS!!!!")
+            print("Panic: ERROR IN GPS ALGORITHM!!!!")
             print("#"*30)
             print("#"*30)
             run_successfully = False
         finally:
             self._end()
             return run_successfully
-
-    def _end(self):
-        """
-        Finish GPS and exit.
-        :return: None
-        """
-        print("")
-        print("GPS has finished!")
-        self.env.stop()
 
     def _initialize(self, itr_load):
         """
@@ -276,7 +267,6 @@ class GPS(RLAlgorithm):
                 else:
                     self.agent.policy_opt.__dict__.update(prev_policy_opt.__dict__)
                 self.agent.policy = self.agent.policy_opt.policy
-
 
             # self.algorithm = self.data_logger.unpickle(algorithm_file)
             # if self.algorithm is None:
@@ -518,8 +508,7 @@ class GPS(RLAlgorithm):
 
     def _update_dynamics(self):
         """
-        Instantiate dynamics objects and update prior. Fit dynamics to
-        current samples.
+        Instantiate dynamics objects and update prior. Fit dynamics to current samples.
         """
         for m in range(self.M):
             cur_data = self.cur[m].sample_list
@@ -601,8 +590,7 @@ class GPS(RLAlgorithm):
 
     def _advance_iteration_variables(self):
         """
-        Move all 'cur' variables to 'prev', and advance iteration
-        counter.
+        Move all 'cur' variables to 'prev', and advance iteration counter.
         :return: None
         """
         self.iteration_count += 1
@@ -623,8 +611,7 @@ class GPS(RLAlgorithm):
 
     def _set_new_mult(self, predicted_impr, actual_impr, m):
         """
-        Adjust step size multiplier according to the predicted versus
-        actual improvement.
+        Adjust step size multiplier according to the predicted versus actual improvement.
         """
         # Model improvement as I = predicted_dI * KL + penalty * KL^2,
         # where predicted_dI = pred/KL and penalty = (act-pred)/(KL^2).
@@ -833,8 +820,7 @@ class GPS(RLAlgorithm):
 
     def advance_iteration_variables_mdgps(self):
         """
-        Move all 'cur' variables to 'prev', reinitialize 'cur'
-        variables, and advance iteration counter.
+        Move all 'cur' variables to 'prev', reinitialize 'cur' variables, and advance iteration counter.
         :return: None
         """
         self._advance_iteration_variables()
