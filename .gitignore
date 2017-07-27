@@ -2,3 +2,5 @@
 *.pyc
 robolearn.egg-info
 scenarios/robolearn_log
+TASKSPACE_TORQUE_CTRL_DEMO_*
+LOG_2017-*
