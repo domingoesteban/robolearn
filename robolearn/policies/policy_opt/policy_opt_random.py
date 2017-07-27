@@ -27,7 +27,7 @@ class PolicyOptRandom(PolicyOpt):
         Returns:
             A random policy with updated parameters.
         """
-        #TODO: Check if we can implemented
+        #TODO: Check if we can implement it
         return self.policy
 
     def prob(self, obs):
