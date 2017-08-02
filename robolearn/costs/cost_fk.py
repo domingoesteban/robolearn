@@ -40,8 +40,8 @@ class CostFK(Cost):
 
         # IK model terms
         robot_model = self._hyperparams['robot_model']
-        end_effector_name = self._hyperparams['end_effector_name']
-        end_effector_offset = self._hyperparams['end_effector_offset']
+        tgt_name = self._hyperparams['tgt_name']
+        tgt_offset = self._hyperparams['tgt_offset']
         joint_ids = self._hyperparams['joint_ids']
 
         # Initialize terms.
@@ -53,27 +53,41 @@ class CostFK(Cost):
         lux = np.zeros((T, dU, dX))
 
         # Choose target.
-        tgt = self._hyperparams['target_end_effector'][[3, 4, 5, 6, 0, 1, 2]]
-        x = sample.get_states('link_position')
+        tgt = self._hyperparams['target_pose']
+        if self._hyperparams['tgt_data_type'] == 'state':
+            dist_measured = sample.get_states()[:, self._hyperparams['tgt_idx']]
+        elif self._hyperparams['tgt_data_type'] == 'observation':
+            dist_measured = sample.get_obs()[:, self._hyperparams['tgt_idx']]
+        else:
+            raise ValueError("Wrong 'tgt_data_type' hyperparameter. It is not neither state or observation")
+        x = sample.get_states()[:, self._hyperparams['joints_idx']]
 
         dist = np.zeros((T, 6))
-        Jx = np.zeros((T, 6, len(self._hyperparams['state_idx'])))
         jtemp = np.zeros((6, robot_model.qdot_size))
+        jtemp_dist = np.eye(6)
         q = np.zeros(robot_model.q_size)
 
-        temp_idx = np.ix_(range(6), self._hyperparams['state_idx'])
+        Jx = np.zeros((T, 6, len(self._hyperparams['joints_idx']) + len(self._hyperparams['tgt_idx'])))
+
+        tgt_idx = np.ix_(range(6), range(-6, 0))
+        joints_idx = np.ix_(range(6), self._hyperparams['joints_idx'])
         for ii in range(T):
             q[joint_ids] = x[ii, :]
-            #dist[ii, :] = -compute_cartesian_error(tgt, robot_model.fk(end_effector_name,
-            dist[ii, :] = compute_cartesian_error(tgt, robot_model.fk(end_effector_name,
-                                                                       q=q,
-                                                                       body_offset=end_effector_offset,
-                                                                       update_kinematics=True,
-                                                                       rotation_rep='quat'))
-            robot_model.update_jacobian(jtemp, end_effector_name, q=q,
-                                        body_offset=end_effector_offset, update_kinematics=True)
+            # dist[ii, :] = compute_cartesian_error(robot_model.fk(tgt_name,
+            #                                                      q=q,
+            #                                                      body_offset=tgt_offset,
+            #                                                      update_kinematics=True,
+            #                                                      rotation_rep='quat'),
+            #                                       tgt)
+            dist[ii, :] = dist_measured[ii, :] - tgt
 
-            Jx[ii, temp_idx[0], temp_idx[1]] = jtemp[:, joint_ids]
+            robot_model.update_jacobian(jtemp, tgt_name, q=q,
+                                        body_offset=tgt_offset, update_kinematics=True)
+
+            Jx[ii, joints_idx[0], joints_idx[1]] = jtemp[:, joint_ids]
+
+            # TODO: Adding tgt Jacobian
+            Jx[ii, tgt_idx[0], tgt_idx[1]] = jtemp_dist[:, :]
 
         # Evaluate penalty term. Use estimated Jacobians and no higher
         # order terms.
@@ -84,8 +98,9 @@ class CostFK(Cost):
         )
 
         # Add to current terms.
-        lx[:, self._hyperparams['state_idx']] = ls
-        temp_idx = np.ix_(self._hyperparams['state_idx'], self._hyperparams['state_idx'])
+        lx[:, self._hyperparams['joints_idx'] + self._hyperparams['tgt_idx']] = ls
+        temp_idx = np.ix_(self._hyperparams['joints_idx'] + self._hyperparams['tgt_idx'],
+                          self._hyperparams['joints_idx'] + self._hyperparams['tgt_idx'])
         lxx[:, temp_idx[0], temp_idx[1]] = lss
         #sample.agent.pack_data_x(lx, ls, data_types=[JOINT_ANGLES])
         #sample.agent.pack_data_x(lxx, lss,

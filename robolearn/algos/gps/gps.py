@@ -342,10 +342,10 @@ class GPS(RLAlgorithm):
             # action = policy.eval(state, obs, t, noise[t, :])
             action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # TODO: Avoid TF policy writes in obs
             # action[3] = -0.15707963267948966
-            print(obs)
+            # print(obs)
             # print(state)
             # print(action)
-            print('----')
+            # print('----')
             self.env.send_action(action)
             obs_hist[t] = (obs, action)
             history[t] = (state, action)

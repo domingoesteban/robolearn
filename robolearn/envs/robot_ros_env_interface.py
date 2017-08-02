@@ -11,7 +11,7 @@ from robolearn.utils.iit.iit_robots_ros import obs_vector_ft_sensor, obs_vector_
 from robolearn.utils.iit.iit_robots_params import joint_state_fields, ft_sensor_dof, imu_sensor_dof, optitrack_dof
 from robolearn.utils.iit.iit_robots_params import centauro_params, bigman_params
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
-from robolearn.utils.transformations import compute_cartesian_error, pose_transform
+from robolearn.utils.transformations import compute_cartesian_error, pose_transform, quaternion_inner
 
 
 class RobotROSEnvInterface(ROSEnvInterface):
@@ -103,6 +103,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.distance_vectors_idx = list()
         self.distance_vectors_params = list()
         self.distance_vectors = list()
+        self.prev_quat_vectors = list()
         self.target_pose = np.zeros(7)
         self.receiving_target = False
         self.temp_subscriber = rospy.Subscriber("/optitrack/relative_poses", RelativePose,
@@ -177,6 +178,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
                                                      'target_offset': obs_to_activate['target_offset'],
                                                      'fields': obs_to_activate['fields']})
                 self.distance_vectors.append(np.zeros(obs_dof))
+                self.prev_quat_vectors.append(np.array([0, 0, 0, 1, 0, 0, 0]))
                 self.last_obs[obs_msg_id] = self.distance_vectors[-1]
 
                 print("Waiting to receive target message")
@@ -449,7 +451,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
             elif x['type'] == 'fk_pose':
                 # distance_vector_idx = self.distance_vectors_idx.index(self.get_obs_idx(name=state_to_activate['name']))
                 state[x['state_idx']] = x['ros_msg'][:]
-                print(state[x['state_idx']])
 
             else:
                 raise NotImplementedError("State type %s has not been implemented in get_state()" %
@@ -551,7 +552,8 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
         # Custom simulation reset function
         if self.mode == 'simulation' and self.reset_simulation_fcn is not None:
-            self.reset_simulation_fcn(self.conditions[cond], self.get_state_info())
+            # self.reset_simulation_fcn(self.conditions[cond], self.get_state_info())
+            self.reset_simulation_fcn(self.get_target())
 
     def set_conditions(self, conditions):
         # TODO: Check conditions size
@@ -644,12 +646,19 @@ class RobotROSEnvInterface(ROSEnvInterface):
             for hh, distance_vector in enumerate(self.distance_vectors):
                 tgt = pose_transform(self.target_pose, self.distance_vectors_params[hh]['target_offset'])
 
-                distance = compute_cartesian_error(self.robot_dyn_model.fk(self.distance_vectors_params[hh]['body_name'],
+                op_point = self.robot_dyn_model.fk(self.distance_vectors_params[hh]['body_name'],
                                                    q=q,
                                                    body_offset=self.distance_vectors_params[hh]['body_offset'],
                                                    update_kinematics=True,
-                                                   rotation_rep='quat'),
-                                                   tgt)
+                                                   rotation_rep='quat')
+
+                # Check quaternion inversion
+                if quaternion_inner(op_point[:4], self.prev_quat_vectors[hh][:4]) < 0:
+                    op_point[:4] *= -1
+                    print('CHANGINNNGG')
+                self.prev_quat_vectors[hh] = op_point[:]
+
+                distance = compute_cartesian_error(op_point, tgt)
                 prev_idx = 0
                 for ii, obs_field in enumerate(self.distance_vectors_params[hh]['fields']):
                     if obs_field == 'position':

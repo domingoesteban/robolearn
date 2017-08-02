@@ -113,6 +113,10 @@ def reset_condition_bigman_box_gazebo(condition, state_info):
         raise TypeError("No state with name '%s' in bigman environment" % state_name)
 
 
+def temp_reset_condition_bigman_box_gazebo(bigman_box_pose):
+    reset_bigman_box_gazebo(bigman_box_pose, box_size=None)
+
+
 def reset_bigman_box_gazebo(bigman_box_pose, box_size=None):
 
     #delete_gazebo_model('box')

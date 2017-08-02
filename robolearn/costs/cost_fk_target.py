@@ -6,10 +6,10 @@ import numpy as np
 from robolearn.costs.config import COST_FK_RELATIVE
 from robolearn.costs.cost import Cost
 from robolearn.costs.cost_utils import get_ramp_multiplier, evall1l2term
-from robolearn.utils.transformations import compute_cartesian_error, pose_transform, quaternion_inner
+from robolearn.utils.transformations import compute_cartesian_error, pose_transform
 
 
-class CostFKRelative(Cost):
+class CostFKTarget(Cost):
     """
     Forward kinematics cost function. Used for costs involving the end
     effector position.
@@ -78,7 +78,6 @@ class CostFKRelative(Cost):
         rel_idx = np.ix_(range(6), range(-7, 0))
 
         data_idx = np.ix_(range(6), self._hyperparams['data_idx'])
-        prev_op_point = np.array([0, 0, 0, 1, 0, 0, 0])
         for ii in range(T):
             tgt = pose_transform(data_pose[ii, :], rel_pose)
             q[joint_ids] = x[ii, :]
@@ -88,17 +87,12 @@ class CostFKRelative(Cost):
             #                                                           body_offset=end_effector_offset,
             #                                                           update_kinematics=True,
             #                                                           rotation_rep='quat'))
-
-            op_point = robot_model.fk(end_effector_name, q=q, body_offset=end_effector_offset, update_kinematics=True,
-                                      rotation_rep='quat')
-
-            if ii > 0:
-                if quaternion_inner(op_point[:4], prev_op_point[:4]) < 0:
-                    op_point[:4] *= -1
-
-            prev_op_point[:] = op_point[:]
-
-            dist[ii, :] = compute_cartesian_error(op_point, tgt)
+            dist[ii, :] = compute_cartesian_error(robot_model.fk(end_effector_name,
+                                                                 q=q,
+                                                                 body_offset=end_effector_offset,
+                                                                 update_kinematics=True,
+                                                                 rotation_rep='quat'),
+                                                  tgt)
             robot_model.update_jacobian(jtemp, end_effector_name, q=q,
                                         body_offset=end_effector_offset, update_kinematics=True)
             # if ii == 1:

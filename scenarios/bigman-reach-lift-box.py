@@ -20,6 +20,7 @@ from robolearn.costs.cost_action import CostAction
 from robolearn.costs.cost_state import CostState
 from robolearn.costs.cost_fk_relative import CostFKRelative
 from robolearn.costs.cost_fk import CostFK
+from robolearn.costs.cost_fk_target import CostFKTarget
 from robolearn.costs.cost_sum import CostSum
 from robolearn.costs.cost_utils import RAMP_QUADRATIC, RAMP_LINEAR, RAMP_FINAL_ONLY, RAMP_CONSTANT
 
@@ -38,7 +39,7 @@ from robolearn.utils.joint_space_control_sampler import JointSpaceControlSampler
 from robolearn.policies.computed_torque_policy import ComputedTorquePolicy
 
 from robolearn.utils.lift_box_utils import create_box_relative_pose
-from robolearn.utils.lift_box_utils import reset_condition_bigman_box_gazebo
+from robolearn.utils.lift_box_utils import reset_condition_bigman_box_gazebo, temp_reset_condition_bigman_box_gazebo
 from robolearn.utils.lift_box_utils import spawn_box_gazebo
 from robolearn.utils.lift_box_utils import set_box_gazebo_pose
 from robolearn.utils.lift_box_utils import create_bigman_box_condition
@@ -74,14 +75,14 @@ signal.signal(signal.SIGINT, kill_everything)
 # ################## #
 # Task parameters
 Ts = 0.01
-Treach = 0.5
+Treach = 5
 Tlift = 0  # 3.8
 Tinter = 0  # 0.5
 Tend = 0  # 0.7
 # EndTime = 4  # Using final time to define the horizon
 EndTime = Treach + Tinter + Tlift + Tend  # Using final time to define the horizon
 init_with_demos = False
-demos_dir = None # 'TASKSPACE_TORQUE_CTRL_DEMO_2017-07-21_16:32:39'
+demos_dir = None  # 'TASKSPACE_TORQUE_CTRL_DEMO_2017-07-21_16:32:39'
 
 # BOX
 box_x = 0.70
@@ -227,7 +228,8 @@ bigman_env = BigmanEnv(interface=interface, mode='simulation',
                        state_active=state_active,
                        cmd_freq=int(1/Ts),
                        robot_dyn_model=robot_model,
-                       reset_simulation_fcn=reset_condition_bigman_box_gazebo)
+                       reset_simulation_fcn=temp_reset_condition_bigman_box_gazebo)
+                       # reset_simulation_fcn=reset_condition_bigman_box_gazebo)
 
 action_dim = bigman_env.get_action_dim()
 state_dim = bigman_env.get_state_dim()
@@ -293,50 +295,42 @@ act_cost = {
 }
 
 # State Cost
-# target_state = box_relative_pose[[3, 4, 5, 6, 0, 1, 2]]
-target_state = box_relative_pose.copy()
-target_state[-1] += final_box_height
-state_cost = {
+target_distance_left_arm = np.zeros(6)
+target_distance_right_arm = np.zeros(6)
+state_cost_distance = {
     'type': CostState,
-    'ramp_option': RAMP_LINEAR,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
-    'l1': 0.0,  # Weight for l1 norm
+    'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'l1': 0.1,  # Weight for l1 norm
     'l2': 1.0,  # Weight for l2 norm
-    'alpha': 1e-5,  # Constant added in square root in l1 norm
-    'wp_final_multiplier': 5.0,  # Weight multiplier on final time step.
+    'alpha': 1e-2,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 10.0,  # Weight multiplier on final time step.
     'data_types': {
-        'optitrack': {
+        'distance_left_arm': {
             # 'wp': np.ones_like(target_state),  # State weights - must be set.
-            'wp': np.array([1.0, 1.0, 1.0, 1.0, 3.0, 3.0, 1.0]),  # State weights - must be set.
-            'target_state': target_state,  # Target state - must be set.
+            'wp': np.array([1.0, 1.0, 1.0, 3.0, 3.0, 1.0]),  # State weights - must be set.
+            'target_state': target_distance_left_arm,  # Target state - must be set.
             'average': None,  # (12, 3),
-            'data_idx': bigman_env.get_state_info(name='optitrack')['idx']
+            'data_idx': bigman_env.get_state_info(name='distance_left_arm')['idx']
         },
-        # 'link_position': {
-        #     'wp': np.ones_like(target_pos),  # State weights - must be set.
-        #     'target_state': target_pos,  # Target state - must be set.
-        #     'average': None,  #(12, 3),
-        #     'data_idx': bigman_env.get_state_info(name='link_position')['idx']
-        # },
-        # 'link_velocity': {
-        #     'wp': np.ones_like(target_vel),  # State weights - must be set.
-        #     'target_state': target_vel,  # Target state - must be set.
-        #     'average': None,  #(12, 3),
-        #     'data_idx': bigman_env.get_state_info(name='link_velocity')['idx']
-        # },
+        'distance_right_arm': {
+            # 'wp': np.ones_like(target_state),  # State weights - must be set.
+            'wp': np.array([1.0, 1.0, 1.0, 3.0, 3.0, 1.0]),  # State weights - must be set.
+            'target_state': target_distance_right_arm,  # Target state - must be set.
+            'average': None,  # (12, 3),
+            'data_idx': bigman_env.get_state_info(name='distance_right_arm')['idx']
+        },
     },
 }
 
 LAfk_cost = {
-    'type': CostFKRelative,
+    'type': CostFK,
     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
-    'target_rel_pose': left_hand_rel_pose,
-    'rel_data_type': 'state',  # 'state' or 'observation'
-    # 'rel_data_name': 'optitrack',  # Name of the state/observation
-    # 'rel_idx': bigman_env.get_obs_info(name='optitrack')['idx'],
-    'rel_idx': bigman_env.get_state_info(name='optitrack')['idx'],
-    'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
-    'end_effector_name': LH_name,
-    'end_effector_offset': l_soft_hand_offset,
+    'target_pose': target_distance_left_arm,
+    'tgt_data_type': 'state',  # 'state' or 'observation'
+    'tgt_idx': bigman_env.get_state_info(name='distance_left_arm')['idx'],
+    'tgt_name': LH_name,
+    'tgt_offset': l_soft_hand_offset,
+    'joints_idx': bigman_env.get_state_info(name='link_position')['idx'],
     'joint_ids': bigman_params['joint_ids']['BA'],
     'robot_model': robot_model,
     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
@@ -348,15 +342,14 @@ LAfk_cost = {
 }
 
 RAfk_cost = {
-    'type': CostFKRelative,
-    'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
-    'target_rel_pose': right_hand_rel_pose,
-    'rel_data_type': 'observation',  # 'state' or 'observation'
-    # 'rel_data_name': 'optitrack',  # Name of the state/observation
-    'rel_idx': bigman_env.get_obs_info(name='optitrack')['idx'],
-    'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
-    'end_effector_name': RH_name,
-    'end_effector_offset': r_soft_hand_offset,
+    'type': CostFK,
+    'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'target_pose': target_distance_right_arm,
+    'tgt_data_type': 'state',  # 'state' or 'observation'
+    'tgt_idx': bigman_env.get_state_info(name='distance_right_arm')['idx'],
+    'tgt_name': RH_name,
+    'tgt_offset': r_soft_hand_offset,
+    'joints_idx': bigman_env.get_state_info(name='link_position')['idx'],
     'joint_ids': bigman_params['joint_ids']['BA'],
     'robot_model': robot_model,
     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
@@ -367,12 +360,87 @@ RAfk_cost = {
     'wp_final_multiplier': 10,
 }
 
+# target_state_box = box_relative_pose.copy()
+# target_state_box[-1] += final_box_height
+# state_cost = {
+#     'type': CostState,
+#     'ramp_option': RAMP_LINEAR,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+#     'l1': 0.0,  # Weight for l1 norm
+#     'l2': 1.0,  # Weight for l2 norm
+#     'alpha': 1e-5,  # Constant added in square root in l1 norm
+#     'wp_final_multiplier': 5.0,  # Weight multiplier on final time step.
+#     'data_types': {
+#         'optitrack': {
+#             # 'wp': np.ones_like(target_state),  # State weights - must be set.
+#             'wp': np.array([1.0, 1.0, 1.0, 1.0, 3.0, 3.0, 1.0]),  # State weights - must be set.
+#             'target_state': target_state_box,  # Target state - must be set.
+#             'average': None,  # (12, 3),
+#             'data_idx': bigman_env.get_state_info(name='optitrack')['idx']
+#         },
+#         # 'link_position': {
+#         #     'wp': np.ones_like(target_pos),  # State weights - must be set.
+#         #     'target_state': target_pos,  # Target state - must be set.
+#         #     'average': None,  #(12, 3),
+#         #     'data_idx': bigman_env.get_state_info(name='link_position')['idx']
+#         # },
+#         # 'link_velocity': {
+#         #     'wp': np.ones_like(target_vel),  # State weights - must be set.
+#         #     'target_state': target_vel,  # Target state - must be set.
+#         #     'average': None,  #(12, 3),
+#         #     'data_idx': bigman_env.get_state_info(name='link_velocity')['idx']
+#         # },
+#     },
+# }
+
+# LAfk_cost = {
+#     'type': CostFKRelative,
+#     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+#     'target_rel_pose': left_hand_rel_pose,
+#     'rel_data_type': 'state',  # 'state' or 'observation'
+#     # 'rel_data_name': 'optitrack',  # Name of the state/observation
+#     # 'rel_idx': bigman_env.get_obs_info(name='optitrack')['idx'],
+#     'rel_idx': bigman_env.get_state_info(name='optitrack')['idx'],
+#     'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
+#     'end_effector_name': LH_name,
+#     'end_effector_offset': l_soft_hand_offset,
+#     'joint_ids': bigman_params['joint_ids']['BA'],
+#     'robot_model': robot_model,
+#     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
+#     'wp': np.array([0.5, 0.5, 0.5, 3.0, 3.0, 1.5]),  # one dim less because 'quat' error | 1)orient 2)pos
+#     'l1': 0.1,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+#     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
+#     'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
+#     'wp_final_multiplier': 10,
+# }
+
+# RAfk_cost = {
+#     'type': CostFKRelative,
+#     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
+#     'target_rel_pose': right_hand_rel_pose,
+#     'rel_data_type': 'observation',  # 'state' or 'observation'
+#     # 'rel_data_name': 'optitrack',  # Name of the state/observation
+#     'rel_idx': bigman_env.get_obs_info(name='optitrack')['idx'],
+#     'data_idx': bigman_env.get_state_info(name='link_position')['idx'],
+#     'end_effector_name': RH_name,
+#     'end_effector_offset': r_soft_hand_offset,
+#     'joint_ids': bigman_params['joint_ids']['BA'],
+#     'robot_model': robot_model,
+#     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
+#     'wp': np.array([0.5, 0.5, 0.5, 3.0, 3.0, 1.5]),  # one dim less because 'quat' error | 1)orient 2)pos
+#     'l1': 0.1,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+#     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
+#     'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
+#     'wp_final_multiplier': 10,
+# }
+
 cost_sum = {
     'type': CostSum,
-    'costs': [act_cost, LAfk_cost, RAfk_cost, state_cost],
-    'weights': [1.0e-2, 1.0e-0, 1.0e-0, 5.0e-1],
-    # 'costs': [act_cost, LAfk_cost, RAfk_cost],
-    # 'weights': [1.0e-2, 1.0e-0, 1.0e-0],
+    # 'costs': [act_cost, state_cost_distance],
+    # 'weights': [1.0e-2, 1.0e-0],
+    # 'costs': [act_cost, LAfk_cost, RAfk_cost, state_cost],
+    # 'weights': [1.0e-2, 1.0e-0, 1.0e-0, 5.0e-1],
+    'costs': [act_cost, LAfk_cost, RAfk_cost],
+    'weights': [1.0e-2, 1.0e-0, 1.0e-0],
     # 'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
     # 'weights': [0.1, 5.0],
 }
