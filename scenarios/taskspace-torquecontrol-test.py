@@ -44,7 +44,7 @@ box_y = 0.00
 box_z = 0.0184
 box_yaw = 0  # Degrees
 box_size = [0.4, 0.5, 0.3]
-#box_relative_pose = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
+box_relative_pose = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
 box_relative_pose = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y+0.02, box_z=box_z, box_yaw=box_yaw+5)
 final_left_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=box_size[1]/2-0.02, hand_z=0, hand_yaw=0)
 final_right_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=-box_size[1]/2+0.02, hand_z=0, hand_yaw=0)
@@ -164,7 +164,7 @@ for ii in range(N):
     pub_rate.sleep()
 
 # print("Spawning/Moving box")
-# reset_bigman_box_gazebo(box_relative_pose, box_size=None)
+reset_bigman_box_gazebo(box_relative_pose, box_size=None)
 
 
 # PAUSE:

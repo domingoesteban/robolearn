@@ -143,8 +143,7 @@ class TrajOptLQR(TrajOpt):
                     new_mu, new_sigma = self.forward(traj_distr, traj_info)
                     kl_div = traj_distr_kl(new_mu, new_sigma, traj_distr, prev_traj_distr, tot=False)
                 else:
-                    prev_mu, prev_sigma = self.forward(prev_traj_distr,
-                                                       traj_info)
+                    prev_mu, prev_sigma = self.forward(prev_traj_distr, traj_info)
                     kl_div = traj_distr_kl_alt(prev_mu, prev_sigma, traj_distr, prev_traj_distr, tot=False)
 
                 con = kl_div - kl_step
@@ -344,14 +343,12 @@ class TrajOptLQR(TrajOpt):
                     K_term = (1.0 / eta[t]) * Qtt[t, idx_u, idx_x] - \
                             prev_traj_distr.inv_pol_covar[t].dot(prev_traj_distr.K[t])
 
-                # Compute Cholesky decomposition of Q function action
-                # component.
+                # Compute Cholesky decomposition of Q function action component.
                 try:
                     U = sp.linalg.cholesky(inv_term)
                     L = U.T
                 except LinAlgError as e:
-                    # Error thrown when Qtt[idx_u, idx_u] is not
-                    # symmetric positive definite.
+                    # Error thrown when Qtt[idx_u, idx_u] is not symmetric positive definite.
                     LOGGER.debug('LinAlgError: %s', e)
                     fail = t if self.cons_per_step else True
                     break

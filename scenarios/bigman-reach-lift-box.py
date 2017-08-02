@@ -74,14 +74,14 @@ signal.signal(signal.SIGINT, kill_everything)
 # ################## #
 # Task parameters
 Ts = 0.01
-Treach = 5
-Tlift = 3.8
-Tinter = 0.5
-Tend = 0.7
+Treach = 0.5
+Tlift = 0  # 3.8
+Tinter = 0  # 0.5
+Tend = 0  # 0.7
 # EndTime = 4  # Using final time to define the horizon
-EndTime = Treach + Tinter + Tlift + Tend # Using final time to define the horizon
-init_with_demos = True
-demos_dir = 'TASKSPACE_TORQUE_CTRL_DEMO_2017-07-21_16:32:39'
+EndTime = Treach + Tinter + Tlift + Tend  # Using final time to define the horizon
+init_with_demos = False
+demos_dir = None # 'TASKSPACE_TORQUE_CTRL_DEMO_2017-07-21_16:32:39'
 
 # BOX
 box_x = 0.70
@@ -89,7 +89,7 @@ box_y = 0.00
 box_z = 0.0184
 box_yaw = 0  # Degrees
 box_size = [0.4, 0.5, 0.3]
-final_box_height = 0.2
+final_box_height = 0.0
 box_relative_pose = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
 
 # Robot Model (It is used to calculate the IK cost)
@@ -116,6 +116,14 @@ body_part_active = 'BA'
 command_type = 'effort'
 file_save_restore = "models/bigman_agent_vars.ckpt"
 
+
+left_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0],
+                                               hand_x=0.0, hand_y=box_size[1]/2-0.02, hand_z=0.0, hand_yaw=0)
+# left_hand_rel_pose[:] = left_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
+right_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0],
+                                                hand_x=0.0, hand_y=-box_size[1]/2+0.02, hand_z=0.0, hand_yaw=0)
+# right_hand_rel_pose[:] = right_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
+
 observation_active = [{'name': 'joint_state',
                        'type': 'joint_state',
                        'ros_topic': '/xbotcore/bigman/joint_states',
@@ -123,6 +131,30 @@ observation_active = [{'name': 'joint_state',
                        'fields': ['link_position', 'link_velocity'],
                        # 'joints': bigman_params['joint_ids']['UB']},
                        'joints': bigman_params['joint_ids']['BA']},
+
+                      {'name': 'prev_cmd',
+                       'type': 'prev_cmd'},
+
+                      {'name': 'distance_left_arm',
+                       'type': 'fk_pose',
+                       'body_name': LH_name,
+                       'body_offset': l_soft_hand_offset,
+                       'target_offset': left_hand_rel_pose,
+                       'fields': ['orientation', 'position']},
+
+                      {'name': 'distance_right_arm',
+                       'type': 'fk_pose',
+                       'body_name': RH_name,
+                       'body_offset': r_soft_hand_offset,
+                       'target_offset': right_hand_rel_pose,
+                       'fields': ['orientation', 'position']},
+
+                      # {'name': 'ft_left_arm',
+                      #  'type': 'fk_vel',
+                      #  'ros_topic': None,
+                      #  'body_name': LH_name,
+                      #  'body_offset': l_soft_hand_offset,
+                      #  'fields': ['orientation', 'position']},
 
                       # {'name': 'ft_left_arm',
                       #  'type': 'ft_sensor',
@@ -149,11 +181,11 @@ observation_active = [{'name': 'joint_state',
                       #  'ros_topic': '/xbotcore/bigman/imu/imu_link',
                       #  'fields': ['orientation', 'angular_velocity', 'linear_acceleration']},
 
-                      {'name': 'optitrack',
-                       'type': 'optitrack',
-                       'ros_topic': '/optitrack/relative_poses',
-                       'fields': ['orientation', 'position'],
-                       'bodies': ['box']},
+                      # {'name': 'optitrack',
+                      #  'type': 'optitrack',
+                      #  'ros_topic': '/optitrack/relative_poses',
+                      #  'fields': ['orientation', 'position'],
+                      #  'bodies': ['box']},
                       ]
 
 state_active = [{'name': 'joint_state',
@@ -161,10 +193,27 @@ state_active = [{'name': 'joint_state',
                  'fields': ['link_position', 'link_velocity'],
                  'joints': bigman_params['joint_ids']['BA']},
 
-                {'name': 'optitrack',
-                 'type': 'optitrack',
-                 'fields': ['orientation', 'position'],
-                 'bodies': ['box']}  # check if it is better relative position with EE(EEs)
+                {'name': 'prev_cmd',
+                 'type': 'prev_cmd'},
+
+                {'name': 'distance_left_arm',
+                 'type': 'fk_pose',
+                 'body_name': LH_name,
+                 'body_offset': l_soft_hand_offset,
+                 'target_offset': left_hand_rel_pose,
+                 'fields': ['orientation', 'position']},
+
+                {'name': 'distance_right_arm',
+                 'type': 'fk_pose',
+                 'body_name': RH_name,
+                 'body_offset': r_soft_hand_offset,
+                 'target_offset': right_hand_rel_pose,
+                 'fields': ['orientation', 'position']},
+
+                # {'name': 'optitrack',
+                #  'type': 'optitrack',
+                #  'fields': ['orientation', 'position'],
+                #  'bodies': ['box']}  # check if it is better relative position with EE(EEs)
                 ]
 
 
@@ -277,9 +326,6 @@ state_cost = {
     },
 }
 
-left_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0],
-                                               hand_x=0.0, hand_y=box_size[1]/2-0.02, hand_z=0.0, hand_yaw=0)
-# left_hand_rel_pose[:] = left_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
 LAfk_cost = {
     'type': CostFKRelative,
     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
@@ -298,12 +344,9 @@ LAfk_cost = {
     'l1': 0.1,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
-    'wp_final_multiplier': 20,
+    'wp_final_multiplier': 10,
 }
 
-right_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0],
-                                                hand_x=0.0, hand_y=-box_size[1]/2+0.02, hand_z=0.0, hand_yaw=0)
-# right_hand_rel_pose[:] = right_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
 RAfk_cost = {
     'type': CostFKRelative,
     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT,LINEAR, QUADRATIC, FINAL_ONLY
@@ -321,7 +364,7 @@ RAfk_cost = {
     'l1': 0.1,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
-    'wp_final_multiplier': 20,
+    'wp_final_multiplier': 10,
 }
 
 cost_sum = {
@@ -350,7 +393,8 @@ q0[25] = np.deg2rad(-40)
 q0[27] = np.deg2rad(-75)
 #q0[24:24+7] = [0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633]
 box_pose0 = box_relative_pose.copy()
-condition0 = create_bigman_box_condition(q0, box_pose0, joint_idxs=bigman_params['joint_ids']['BA'])
+condition0 = create_bigman_box_condition(q0, box_pose0, bigman_env.get_state_info(),
+                                         joint_idxs=bigman_params['joint_ids']['BA'])
 bigman_env.add_condition(condition0)
 
 #q1 = np.zeros(31)
@@ -360,17 +404,19 @@ q1[18] = np.deg2rad(-45)
 q1[24] = np.deg2rad(25)
 q1[27] = np.deg2rad(-45)
 box_pose1 = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y+0.02, box_z=box_z, box_yaw=box_yaw+5)
-condition1 = create_bigman_box_condition(q1, box_pose1, joint_idxs=bigman_params['joint_ids']['BA'])
+condition1 = create_bigman_box_condition(q1, box_pose1, bigman_env.get_state_info(),
+                                         joint_idxs=bigman_params['joint_ids']['BA'])
 bigman_env.add_condition(condition1)
 
-# q2 = q0.copy()
-# q2[16] = np.deg2rad(50)
-# q2[18] = np.deg2rad(-50)
-# q2[25] = np.deg2rad(-50)
-# q2[27] = np.deg2rad(-50)
-# box_pose2 = create_box_relative_pose(box_x=box_x-0.02, box_y=box_y-0.02, box_z=box_z, box_yaw=box_yaw-5)
-# condition2 = create_bigman_box_condition(q2, box_pose2, joint_idxs=bigman_params['joint_ids']['BA'])
-# bigman_env.add_condition(condition2)
+q2 = q0.copy()
+q2[16] = np.deg2rad(50)
+q2[18] = np.deg2rad(-50)
+q2[25] = np.deg2rad(-50)
+q2[27] = np.deg2rad(-50)
+box_pose2 = create_box_relative_pose(box_x=box_x-0.02, box_y=box_y-0.02, box_z=box_z, box_yaw=box_yaw-5)
+condition2 = create_bigman_box_condition(q2, box_pose2, bigman_env.get_state_info(),
+                                         joint_idxs=bigman_params['joint_ids']['BA'])
+bigman_env.add_condition(condition2)
 
 # q3 = q0.copy()
 # q3[16] = np.deg2rad(0)
@@ -378,12 +424,14 @@ bigman_env.add_condition(condition1)
 # q3[25] = np.deg2rad(0)
 # q3[27] = np.deg2rad(0)
 # box_pose3 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw+5)
-# condition3 = create_bigman_box_condition(q3, box_pose3, joint_idxs=bigman_params['joint_ids']['BA'])
+# condition3 = create_bigman_box_condition(q3, box_pose3, bigman_env.get_state_info(),
+#                                          joint_idxs=bigman_params['joint_ids']['BA'])
 # bigman_env.add_condition(condition3)
 
 # q4 = q0.copy()
 # box_pose4 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw-5)
-# condition4 = create_bigman_box_condition(q4, box_pose4, joint_idxs=bigman_params['joint_ids']['BA'])
+# condition4 = create_bigman_box_condition(q4, box_pose4, bigman_env.get_state_info(),
+#                                          joint_idxs=bigman_params['joint_ids']['BA'])
 # bigman_env.add_condition(condition4)
 
 
@@ -433,8 +481,8 @@ change_print_color.change('YELLOW')
 print("\nConfiguring learning algorithm...\n")
 
 # Learning params
-resume_training_itr = None # 30  # Resume from previous training iteration
-data_files_dir = None #'GPS_2017-07-20_19:13:13' # In case we want to resume from previous training
+resume_training_itr = None  # 46  # Resume from previous training iteration
+data_files_dir = None  # In case we want to resume from previous training
 
 traj_opt_method = {'type': TrajOptLQR,
                    'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
@@ -475,7 +523,7 @@ if demos_samples is None:
     init_traj_distr = {'type': init_pd,
                        #'init_var': np.ones(len(bigman_params['joint_ids']['BA']))*0.3e-1,  # Initial variance (Default:10)
                        'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
-                                             3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1]),  # Initial variance (Default:10)
+                                             3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*0.5,  # Initial variance (Default:10)
                        'pos_gains': 0.001,  # Position gains (Default:10)
                        'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
                        'init_action_offset': None,
@@ -513,12 +561,12 @@ gps_algo_hyperparams = {'init_pol_wt': 0.01,  # TODO: remove need for init_pol_w
 gps_hyperparams = {
     'T': int(EndTime/Ts),  # Total points
     'dt': Ts,
-    'iterations': 30,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
+    'iterations': 46,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
     'test_after_iter': True,  # If test the learned policy after an iteration in the RL algorithm
-    'test_samples': 1,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
+    'test_samples': 2,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
     # Samples
     'num_samples': 5,  # 20  # Samples for exploration trajs --> N samples
-    'noisy_samples': False,
+    'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
     'noise_var_scale': 1.0e-0,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
     'smooth_noise': True,  # Apply Gaussian filter to noise generated
@@ -575,7 +623,7 @@ if training_successful:
         'smooth_noise': False,  # Whether or not to perform smoothing of noise
         'smooth_noise_var': 0.01,   # If smooth=True, applies a Gaussian filter with this variance. E.g. 0.01
         'smooth_noise_renormalize': False,  # If smooth=True, renormalizes data to have variance 1 after smoothing.
-        'T': int(EndTime/Ts)*5,  # Total points
+        'T': int(EndTime/Ts)*3,  # Total points
         'dt': Ts
         }
     sampler = Sampler(bigman_agent.policy, bigman_env, **sampler_hyperparams)

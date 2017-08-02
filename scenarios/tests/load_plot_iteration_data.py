@@ -8,20 +8,20 @@ from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distri
 from robolearn.algos.gps.gps_utils import IterationData
 import scipy.stats
 
-gps_directory_name = 'GPS_2017-07-19_18:24:29'
+gps_directory_name = 'GPS_2017-07-31_10:14:15'
 
-init_itr = 29
+init_itr = 0
 final_itr = 100
 samples_idx = None  # List of samples / None: all samples
 
-plot_eta = False
+plot_eta = True
 plot_step_mult = False
 plot_cs = False
 plot_sample_list_actions = False
 plot_sample_list_states = False
 plot_sample_list_obs = False
 plot_policy_output = False
-plot_traj_distr = True
+plot_traj_distr = False
 
 eta_color = 'black'
 cs_color = 'red'

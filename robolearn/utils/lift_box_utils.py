@@ -33,16 +33,35 @@ torso_joints = bigman_params['joint_ids']['TO']
 bigman_righ_left_sign = np.array([1, -1, -1, 1, -1, 1, -1])
 
 
-def create_bigman_box_condition(q, bigman_box_pose, joint_idxs=None):
+def create_bigman_box_condition(q, bigman_box_pose, state_info, joint_idxs=None):
     if isinstance(q, str):
         if q not in bigman_pose.keys():
             raise ValueError("Pose %s has not been defined in Bigman!" % q)
         q = bigman_pose[q]
 
+    print('TODO create_bigman_box_cond')
+    print(state_info['names'])
+
+#     distance = compute_cartesian_error(self.robot_dyn_model.fk(self.distance_vectors_params[hh]['body_name'],
+#                                                                q=q,
+#                                                                body_offset=self.distance_vectors_params[hh]['body_offset'],
+#                                                                update_kinematics=True,
+#                                                                rotation_rep='quat'),
+#                                        box_pose)
+
     if joint_idxs is not None:
         q = q[joint_idxs]
 
-    return np.hstack((q, np.zeros_like(q), bigman_box_pose))
+    condition = np.zeros(sum(state_info['dimensions']))
+
+    joint_state_idx = state_info['idx'][state_info['names'].index('link_position')]
+    condition[joint_state_idx] = q
+
+    if 'optitrack' in state_info['names']:
+        optitrack_idx = state_info['idx'][state_info['names'].index('optitrack')]
+        condition[optitrack_idx] = bigman_box_pose
+
+    return condition
 
 
 def create_box_relative_pose(box_x=0.75, box_y=0.00, box_z=0.0184, box_yaw=0):

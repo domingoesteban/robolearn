@@ -80,8 +80,11 @@ class ROSEnvInterface(EnvInterface):
         :return: Index of the observation topic in the observation_subs list.
         """
         obs_id = len(self.observation_subs)
-        self.observation_subs.append(rospy.Subscriber(topic_name, topic_type, self.callback_observation,
-                                                      (obs_id, attribute_names)))
+        if topic_name is None:
+            self.observation_subs.append(None)
+        else:
+            self.observation_subs.append(rospy.Subscriber(topic_name, topic_type, self.callback_observation,
+                                                          (obs_id, attribute_names)))
         self.last_obs.append(None)
         return obs_id
 

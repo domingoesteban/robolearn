@@ -341,8 +341,11 @@ class GPS(RLAlgorithm):
             state = self.env.get_state()
             # action = policy.eval(state, obs, t, noise[t, :])
             action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # TODO: Avoid TF policy writes in obs
-            # print(action)
             # action[3] = -0.15707963267948966
+            print(obs)
+            # print(state)
+            # print(action)
+            print('----')
             self.env.send_action(action)
             obs_hist[t] = (obs, action)
             history[t] = (state, action)
@@ -374,27 +377,6 @@ class GPS(RLAlgorithm):
 
         return sample
 
-    def _take_iteration(self, itr, sample_lists):
-        """
-        One iteration of the RL algorithm.
-        Args:
-            itr : Iteration to start from
-            sample_lists : A list of samples collected from exploration
-        Returns: None
-        """
-        print("")
-        total_samples = sum([len(sample) for sample in sample_lists])
-        print("%s iteration %d | Using %d samples in total." % (self.gps_algo.upper(), itr+1, total_samples))
-
-        if self.gps_algo == 'pigps':
-            self.iteration_pigps(sample_lists)
-
-        elif self.gps_algo == 'mdgps':
-            self.iteration_mdgps(sample_lists)
-
-        else:
-            raise NotImplementedError("GPS algorithm:'%s' NOT IMPLEMENTED!" % self.gps_algo)
-
     def _take_policy_samples(self, N=1, verbose=True):
         """
         Take samples from the global policy.
@@ -422,6 +404,27 @@ class GPS(RLAlgorithm):
                                                            verbose=False))
 
         return [SampleList(samples) for samples in pol_samples]
+
+    def _take_iteration(self, itr, sample_lists):
+        """
+        One iteration of the RL algorithm.
+        Args:
+            itr : Iteration to start from
+            sample_lists : A list of samples collected from exploration
+        Returns: None
+        """
+        print("")
+        total_samples = sum([len(sample) for sample in sample_lists])
+        print("%s iteration %d | Using %d samples in total." % (self.gps_algo.upper(), itr+1, total_samples))
+
+        if self.gps_algo == 'pigps':
+            self.iteration_pigps(sample_lists)
+
+        elif self.gps_algo == 'mdgps':
+            self.iteration_mdgps(sample_lists)
+
+        else:
+            raise NotImplementedError("GPS algorithm:'%s' NOT IMPLEMENTED!" % self.gps_algo)
 
     def _eval_conditions_sample_list_cost(self, cond_sample_list):
         # costs = [list() for _ in range(len(sample_list))]
@@ -544,7 +547,7 @@ class GPS(RLAlgorithm):
 
     def _eval_cost(self, cond):
         """
-        Evaluate costs for all samples for a condition.
+        Evaluate costs for all current samples for a condition.
         Args:
             cond: Condition to evaluate cost on.
         """
@@ -744,10 +747,10 @@ class GPS(RLAlgorithm):
             self.update_policy_fit_mdgps(m)
 
         # C-step
-        print('->| C-step |<-')
         if self.iteration_count > 0:
-            print('-->Adjust step size multiplier (epsilon)...')
+            print('-->Adjust step size (epsilon) multiplier...')
             self.stepadjust_mdgps()
+        print('->| C-step |<-')
         self._update_trajectories()
 
         # S-step

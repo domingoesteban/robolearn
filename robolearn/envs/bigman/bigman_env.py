@@ -83,3 +83,5 @@ class BigmanEnv(Environment):
     def stop(self):
         return self.interface.stop()
 
+    def get_target(self):
+        return self.interface.get_target()

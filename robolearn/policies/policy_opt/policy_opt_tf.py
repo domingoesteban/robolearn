@@ -96,7 +96,6 @@ class PolicyOptTf(PolicyOpt):
                 self.x_idx = self.x_idx + list(range(i, i+dim))
             i += dim
 
-        #init_op = tf.initialize_all_variables()
         init_op = tf.global_variables_initializer()
 
         self.sess.run(init_op)
@@ -228,7 +227,7 @@ class PolicyOptTf(PolicyOpt):
 
         feed_dict = {self.obs_tensor: obs}
         num_values = obs.shape[0]
-        print(num_values)
+
         # Get features from obs (if the policy consider images)
         if self.feat_op is not None:
             self.feat_vals = self.solver.get_var_values(self.sess, self.feat_op, feed_dict, num_values, self.batch_size)

@@ -11,6 +11,7 @@ from robolearn.utils.iit.iit_robots_ros import obs_vector_ft_sensor, obs_vector_
 from robolearn.utils.iit.iit_robots_params import joint_state_fields, ft_sensor_dof, imu_sensor_dof, optitrack_dof
 from robolearn.utils.iit.iit_robots_params import centauro_params, bigman_params
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
+from robolearn.utils.transformations import compute_cartesian_error, pose_transform
 
 
 class RobotROSEnvInterface(ROSEnvInterface):
@@ -48,6 +49,66 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.act_joint_ids = get_indexes_from_list(self.joint_names, self.act_joint_names)
         self.act_dof = len(self.act_joint_names)
 
+        # ####### #
+        # ACTIONS #
+        # ####### #
+
+        #Action 1: Joint1:JointN, 100Hz
+        self.cmd_freq = cmd_freq
+        self.set_action_topic("/xbotcore/"+self.robot_name+"/command", CommandAdvr, self.cmd_freq)  # TODO: Check if 100 is OK
+        if cmd_type == 'position':
+            init_cmd_vals = self.initial_config[0][self.get_joints_indexes(body_part_active)]  # TODO: TEMPORAL SOLUTION
+            self.cmd_type = cmd_type
+        elif cmd_type == 'velocity':
+            init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indexes(body_part_active)])
+            self.cmd_type = cmd_type
+            cmd_type = 'position'  # TEMPORAL
+        elif cmd_type == 'effort':
+            # TODO: Check if initiate with zeros_like is a good idea
+            init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indexes(body_part_active)])
+            self.cmd_type = cmd_type
+            cmd_type = 'effort'  # TEMPORAL
+        else:
+            raise NotImplementedError("Only position command has been implemented!")
+
+        act_idx = range(self.act_dof)
+        action_id = self.set_action_type(init_cmd_vals, cmd_type, act_idx, act_joint_names=self.act_joint_names)
+
+        # After all actions have been configured
+        self.set_initial_acts(initial_acts=[action_type['ros_msg'] for action_type in self.action_types])  # TODO: Check if it is useful or not
+        self.act_dim = self.get_total_action_dof()
+        self.act_vector = np.zeros(self.act_dim)
+        self.prev_act = np.zeros(self.act_dim)
+
+        # ######## #
+        # TEMPORAL #
+        # ######## #
+        self.temp_joint_pos_state = np.zeros(self.robot_dyn_model.qdot_size)  # Assuming joint state only gives actuated joints state
+        self.temp_joint_vel_state = np.zeros(self.robot_dyn_model.qdot_size)
+        self.temp_joint_effort_state = np.zeros(self.robot_dyn_model.qdot_size)
+        self.temp_joint_stiffness_state = np.zeros(self.robot_dyn_model.qdot_size)
+        self.temp_joint_damping_state = np.zeros(self.robot_dyn_model.qdot_size)
+        self.temp_joint_effort_reference = np.zeros(self.robot_dyn_model.qdot_size)
+        self.temp_joint_state_id = []
+        self.temp_subscriber = rospy.Subscriber("/xbotcore/bigman/joint_states", JointStateAdvr,
+                                                self.temp_state_callback, (self.temp_joint_state_id,
+                                                                           self.temp_joint_pos_state,
+                                                                           self.temp_joint_vel_state,
+                                                                           self.temp_joint_effort_state,
+                                                                           self.temp_joint_stiffness_state,
+                                                                           self.temp_joint_damping_state,
+                                                                           self.temp_joint_effort_reference))
+
+
+        self.distance_vectors_idx = list()
+        self.distance_vectors_params = list()
+        self.distance_vectors = list()
+        self.target_pose = np.zeros(7)
+        self.receiving_target = False
+        self.temp_subscriber = rospy.Subscriber("/optitrack/relative_poses", RelativePose,
+                                                self.temp_target_callback)
+
+
         # ############ #
         # OBSERVATIONS #
         # ############ #
@@ -79,6 +140,21 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 self.obs_optitrack_bodies = obs_to_activate['bodies']
                 obs_dof = sum([optitrack_dof[x]*len(self.obs_optitrack_bodies) for x in obs_to_activate['fields']])
 
+            elif obs_to_activate['type'] == 'prev_cmd':
+                obs_dof = self.act_dim
+                obs_to_activate['ros_topic'] = None
+                obs_to_activate['fields'] = None
+                ros_topic_type = 'prev_cmd'
+
+            elif obs_to_activate['type'] == 'fk_pose':
+                obs_dof = 0
+                if 'orientation' in obs_to_activate['fields']:
+                    obs_dof += 3
+                if 'position' in obs_to_activate['fields']:
+                    obs_dof += 3
+                obs_to_activate['ros_topic'] = None
+                ros_topic_type = 'fk_pose'
+
             else:
                 raise NotImplementedError("observation %s is not supported!!" % obs_to_activate['type'])
 
@@ -88,6 +164,25 @@ class RobotROSEnvInterface(ROSEnvInterface):
             else:
                 obs_msg_id = self.set_observation_topic(obs_to_activate['ros_topic'], ros_topic_type,
                                                         obs_to_activate['fields'])
+
+            # TODO: Find a better way
+            if obs_to_activate['type'] == 'prev_cmd':
+                self.last_obs[obs_msg_id] = self.prev_act
+
+            # TODO: Find a better way
+            if obs_to_activate['type'] == 'fk_pose':
+                self.distance_vectors_idx.append(obs_msg_id)
+                self.distance_vectors_params.append({'body_name': obs_to_activate['body_name'],
+                                                     'body_offset': obs_to_activate['body_offset'],
+                                                     'target_offset': obs_to_activate['target_offset'],
+                                                     'fields': obs_to_activate['fields']})
+                self.distance_vectors.append(np.zeros(obs_dof))
+                self.last_obs[obs_msg_id] = self.distance_vectors[-1]
+
+                print("Waiting to receive target message")
+                while self.receiving_target is False:
+                    pass
+
 
             obs_idx = range(obs_idx[-1] + 1, obs_idx[-1] + 1 + obs_dof)
 
@@ -136,8 +231,25 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 state_dof = len(self.state_optitrack_bodies)*sum([optitrack_dof[x] for x in self.state_optitrack_fields])
                 state_idx = range(state_idx[-1] + 1, state_idx[-1] + 1 + state_dof)
                 state_id = self.set_state_type('optitrack',  # State name
-                                               self.get_obs_idx(name='optitrack'),  # Obs_type ID
+                                               self.get_obs_idx(name='optitrack'),  # Obs_type Name
                                                'optitrack',  # State type
+                                               state_idx)  # State indexes
+
+            elif state_to_activate['type'] == 'prev_cmd':
+                state_dof = len(self.prev_act)
+                state_idx = range(state_idx[-1] + 1, state_idx[-1] + 1 + state_dof)
+                state_id = self.set_state_type('prev_cmd',  # State name
+                                               self.get_obs_idx(name='prev_cmd'),  # Obs_type Name
+                                               'prev_cmd',  # State type
+                                               state_idx)  # State indexes
+
+            elif state_to_activate['type'] == 'fk_pose':
+                distance_vector_idx = self.distance_vectors_idx.index(self.get_obs_idx(name=state_to_activate['name']))
+                state_dof = len(self.distance_vectors[distance_vector_idx])
+                state_idx = range(state_idx[-1] + 1, state_idx[-1] + 1 + state_dof)
+                state_id = self.set_state_type(state_to_activate['name'],  # State name
+                                               self.get_obs_idx(name=state_to_activate['name']),  # Obs_type Name
+                                               state_to_activate['type'],  # State type
                                                state_idx)  # State indexes
 
             else:
@@ -146,35 +258,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.state_dim = self.get_total_state_dof()
 
 
-        # ####### #
-        # ACTIONS #
-        # ####### #
-
-        #Action 1: Joint1:JointN, 100Hz
-        self.cmd_freq = cmd_freq
-        self.set_action_topic("/xbotcore/"+self.robot_name+"/command", CommandAdvr, self.cmd_freq)  # TODO: Check if 100 is OK
-        if cmd_type == 'position':
-            init_cmd_vals = self.initial_config[0][self.get_joints_indexes(body_part_active)]  # TODO: TEMPORAL SOLUTION
-            self.cmd_type = cmd_type
-        elif cmd_type == 'velocity':
-            init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indexes(body_part_active)])
-            self.cmd_type = cmd_type
-            cmd_type = 'position'  # TEMPORAL
-        elif cmd_type == 'effort':
-            # TODO: Check if initiate with zeros_like is a good idea
-            init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indexes(body_part_active)])
-            self.cmd_type = cmd_type
-            cmd_type = 'effort'  # TEMPORAL
-        else:
-            raise NotImplementedError("Only position command has been implemented!")
-
-        act_idx = range(self.act_dof)
-        action_id = self.set_action_type(init_cmd_vals, cmd_type, act_idx, act_joint_names=self.act_joint_names)
-
-        # After all actions have been configured
-        self.set_initial_acts(initial_acts=[action_type['ros_msg'] for action_type in self.action_types])  # TODO: Check if it is useful or not
-        self.act_dim = self.get_total_action_dof()
-        self.act_vector = np.zeros(self.act_dim)
 
 
         ## ##### #
@@ -192,19 +275,6 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
 
         # TEMPORAL
-        self.temp_joint_pos_state = np.zeros(self.robot_dyn_model.qdot_size)  # Assuming joint state only gives actuated joints state
-        self.temp_joint_vel_state = np.zeros(self.robot_dyn_model.qdot_size)
-        self.temp_joint_effort_state = np.zeros(self.robot_dyn_model.qdot_size)
-        self.temp_joint_stiffness_state = np.zeros(self.robot_dyn_model.qdot_size)
-        self.temp_joint_damping_state = np.zeros(self.robot_dyn_model.qdot_size)
-        self.temp_joint_state_id = []
-        self.temp_subscriber = rospy.Subscriber("/xbotcore/bigman/joint_states", JointStateAdvr,
-                                                self.temp_state_callback, (self.temp_joint_state_id,
-                                                                           self.temp_joint_pos_state,
-                                                                           self.temp_joint_vel_state,
-                                                                           self.temp_joint_effort_state,
-                                                                           self.temp_joint_stiffness_state,
-                                                                          self.temp_joint_damping_state))
         self.temp_publisher = rospy.Publisher("/xbotcore/bigman/command", CommandAdvr, queue_size=10)
         self.pub_rate = rospy.Rate(100)
         self.des_cmd = CommandAdvr()
@@ -248,6 +318,8 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.act_vector[:] = action[:]
         for ii, des_action in enumerate(self.action_types):
             if des_action['type'] in ['position', 'velocity', 'effort']:
+                self.prev_act[:] = action[:]  # TODO: TEMPORAL, ASSUMING ONLY ADVR_COMMAND IS IN PREV_ACT
+
                 if self.cmd_type == 'velocity':  # TODO: TEMPORAL HACK / Velocity not implemented
                     # current_pos = state_vector_joint_state(['link_position'], self.act_joint_names,
                     #                                        self.get_obs_ros_msg(name='joint_state')).ravel()
@@ -274,6 +346,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 update_advr_command(des_action['ros_msg'], des_action['type'], self.act_vector[des_action['act_idx']])
             else:
                 raise NotImplementedError("Only Advr commands: position, velocity or effort available!")
+
 
         # Start publishing in ROS
         self.publish_action = True
@@ -325,7 +398,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
     def get_observation(self):
         observation = np.empty(self.obs_dim)
 
-        for obs in self.obs_types:
+        for oo, obs in enumerate(self.obs_types):
             if obs['type'] == 'joint_state':
                 observation[obs['obs_idx']] = obs_vector_joint_state(self.obs_joint_fields,
                                                                      self.obs_joint_names,
@@ -343,6 +416,14 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 observation[obs['obs_idx']] = obs_vector_optitrack(self.obs_optitrack_fields,
                                                                    self.obs_optitrack_bodies,
                                                                    obs['ros_msg'])
+
+            elif obs['type'] == 'prev_cmd':
+                observation[obs['obs_idx']] = self.prev_act.copy()
+
+            elif obs['type'] == 'fk_pose':
+                fk_pose_idx = self.distance_vectors_idx.index(oo)
+                observation[obs['obs_idx']] = self.distance_vectors[fk_pose_idx].copy()
+
             else:
                 raise NotImplementedError("Observation type %s has not been implemented in get_observation()" %
                                           obs['type'])
@@ -352,7 +433,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
     def get_state(self):
         state = np.empty(self.state_dim)
 
-        for x in self.state_types:
+        for xx, x in enumerate(self.state_types):
             if x['type'] in joint_state_fields:
                 state[x['state_idx']] = \
                     get_advr_sensor_data(x['ros_msg'], x['type'])[get_indexes_from_list(x['ros_msg'].name,
@@ -361,6 +442,14 @@ class RobotROSEnvInterface(ROSEnvInterface):
             elif x['type'] == 'optitrack':
                 state[x['state_idx']] = obs_vector_optitrack(self.state_optitrack_fields,
                                                              self.state_optitrack_bodies, x['ros_msg'])
+
+            elif x['type'] == 'prev_cmd':
+                state[x['state_idx']] = self.prev_act[:]#.copy()
+
+            elif x['type'] == 'fk_pose':
+                # distance_vector_idx = self.distance_vectors_idx.index(self.get_obs_idx(name=state_to_activate['name']))
+                state[x['state_idx']] = x['ros_msg'][:]
+                print(state[x['state_idx']])
 
             else:
                 raise NotImplementedError("State type %s has not been implemented in get_state()" %
@@ -499,6 +588,8 @@ class RobotROSEnvInterface(ROSEnvInterface):
         :return: None
         """
         self.publish_action = False  # Stop sending
+        self.prev_act[:] = 0
+
         time = 1
         freq = 100
         N = int(np.ceil(time*freq))
@@ -525,6 +616,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         joint_effort = params[3]
         joint_stiffness = params[4]
         joint_damping = params[5]
+        joint_effort_reference = params[6]
         # if not joint_ids:
         #     joint_ids[:] = [bigman_params['joints_names'].index(name) for name in data.name]
         joint_ids[:] = [bigman_params['joints_names'].index(name) for name in data.name]
@@ -533,3 +625,41 @@ class RobotROSEnvInterface(ROSEnvInterface):
         joint_vel[joint_ids] = data.link_velocity
         joint_stiffness[joint_ids] = data.stiffness
         joint_damping[joint_ids] = data.damping
+        joint_effort_reference[joint_ids] = data.effort_reference
+
+    def temp_target_callback(self, data):
+        self.receiving_target = True
+        box_idx = data.name.index('box')
+        self.target_pose[0] = data.pose[box_idx].orientation.x
+        self.target_pose[1] = data.pose[box_idx].orientation.x
+        self.target_pose[2] = data.pose[box_idx].orientation.y
+        self.target_pose[3] = data.pose[box_idx].orientation.w
+        self.target_pose[4] = data.pose[box_idx].position.x
+        self.target_pose[5] = data.pose[box_idx].position.y
+        self.target_pose[6] = data.pose[box_idx].position.z
+
+        q = self.temp_joint_pos_state
+
+        if self.distance_vectors:
+            for hh, distance_vector in enumerate(self.distance_vectors):
+                tgt = pose_transform(self.target_pose, self.distance_vectors_params[hh]['target_offset'])
+
+                distance = compute_cartesian_error(self.robot_dyn_model.fk(self.distance_vectors_params[hh]['body_name'],
+                                                   q=q,
+                                                   body_offset=self.distance_vectors_params[hh]['body_offset'],
+                                                   update_kinematics=True,
+                                                   rotation_rep='quat'),
+                                                   tgt)
+                prev_idx = 0
+                for ii, obs_field in enumerate(self.distance_vectors_params[hh]['fields']):
+                    if obs_field == 'position':
+                        self.distance_vectors[hh][prev_idx:prev_idx+3] = distance[-3:]
+                        prev_idx += 3
+                    elif obs_field == 'orientation':
+                        self.distance_vectors[hh][prev_idx:prev_idx+3] = distance[:3]
+                        prev_idx += 3
+                    else:
+                        raise ValueError("Wrong fk_pose field")
+
+    def get_target(self):
+        return self.target_pose.copy()
