@@ -13,7 +13,7 @@ from tensorflow.python.framework import ops
 
 from robolearn.policies.policy import Policy
 
-GPU_MEM_PERCENTAGE = 0.4
+GPU_MEM_PERCENTAGE = 0.2
 
 
 class TfPolicy(Policy):

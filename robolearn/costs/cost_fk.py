@@ -32,16 +32,14 @@ class CostFK(Cost):
         dX = sample.dX
         dU = sample.dU
 
-        wpm = get_ramp_multiplier(
-            self._hyperparams['ramp_option'], T,
-            wp_final_multiplier=self._hyperparams['wp_final_multiplier']
-        )
+        wpm = get_ramp_multiplier(self._hyperparams['ramp_option'], T,
+                                  wp_final_multiplier=self._hyperparams['wp_final_multiplier'])
         wp = self._hyperparams['wp'] * np.expand_dims(wpm, axis=-1)
 
         # IK model terms
         robot_model = self._hyperparams['robot_model']
-        tgt_name = self._hyperparams['tgt_name']
-        tgt_offset = self._hyperparams['tgt_offset']
+        op_point_name = self._hyperparams['op_point_name']
+        op_point_offset = self._hyperparams['op_point_offset']
         joint_ids = self._hyperparams['joint_ids']
 
         # Initialize terms.
@@ -60,11 +58,11 @@ class CostFK(Cost):
             dist_measured = sample.get_obs()[:, self._hyperparams['tgt_idx']]
         else:
             raise ValueError("Wrong 'tgt_data_type' hyperparameter. It is not neither state or observation")
-        x = sample.get_states()[:, self._hyperparams['joints_idx']]
+        joints_sensed = sample.get_states()[:, self._hyperparams['joints_idx']]
 
         dist = np.zeros((T, 6))
-        jtemp = np.zeros((6, robot_model.qdot_size))
-        jtemp_dist = np.eye(6)
+        jtemp = np.zeros((6, robot_model.qdot_size))  # Joints Jacobian
+        jtemp_dist = np.eye(6)  # Distance Jacobian
         q = np.zeros(robot_model.q_size)
 
         Jx = np.zeros((T, 6, len(self._hyperparams['joints_idx']) + len(self._hyperparams['tgt_idx'])))
@@ -72,17 +70,17 @@ class CostFK(Cost):
         tgt_idx = np.ix_(range(6), range(-6, 0))
         joints_idx = np.ix_(range(6), self._hyperparams['joints_idx'])
         for ii in range(T):
-            q[joint_ids] = x[ii, :]
-            # dist[ii, :] = compute_cartesian_error(robot_model.fk(tgt_name,
+            q[joint_ids] = joints_sensed[ii, :]
+            # dist[ii, :] = compute_cartesian_error(robot_model.fk(op_point_name,
             #                                                      q=q,
-            #                                                      body_offset=tgt_offset,
+            #                                                      body_offset=op_point_offset,
             #                                                      update_kinematics=True,
             #                                                      rotation_rep='quat'),
             #                                       tgt)
             dist[ii, :] = dist_measured[ii, :] - tgt
 
-            robot_model.update_jacobian(jtemp, tgt_name, q=q,
-                                        body_offset=tgt_offset, update_kinematics=True)
+            robot_model.update_jacobian(jtemp, op_point_name, q=q,
+                                        body_offset=op_point_offset, update_kinematics=True)
 
             Jx[ii, joints_idx[0], joints_idx[1]] = jtemp[:, joint_ids]
 
@@ -92,10 +90,14 @@ class CostFK(Cost):
         # Evaluate penalty term. Use estimated Jacobians and no higher
         # order terms.
         jxx_zeros = np.zeros((T, dist.shape[1], Jx.shape[2], Jx.shape[2]))
-        l, ls, lss = self._hyperparams['evalnorm'](
-            wp, dist, Jx, jxx_zeros, self._hyperparams['l1'],
-            self._hyperparams['l2'], self._hyperparams['alpha']
-        )
+        l, ls, lss = self._hyperparams['evalnorm'](wp, dist, Jx, jxx_zeros, self._hyperparams['l1'],
+                                                   self._hyperparams['l2'], self._hyperparams['alpha'])
+        # print('------')
+        # print(l)
+        # print('......')
+        # import matplotlib.pyplot as plt
+        # plt.plot(l)
+        # plt.show()
 
         # Add to current terms.
         lx[:, self._hyperparams['joints_idx'] + self._hyperparams['tgt_idx']] = ls

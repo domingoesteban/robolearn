@@ -40,8 +40,8 @@ class CostFKRelative(Cost):
 
         # IK model terms
         robot_model = self._hyperparams['robot_model']
-        end_effector_name = self._hyperparams['end_effector_name']
-        end_effector_offset = self._hyperparams['end_effector_offset']
+        op_point_name = self._hyperparams['op_point_name']
+        op_point_offset = self._hyperparams['op_point_offset']
         joint_ids = self._hyperparams['joint_ids']
 
         # Initialize terms.
@@ -82,14 +82,14 @@ class CostFKRelative(Cost):
         for ii in range(T):
             tgt = pose_transform(data_pose[ii, :], rel_pose)
             q[joint_ids] = x[ii, :]
-            # dist[ii, :] = -compute_cartesian_error(tgt, robot_model.fk(end_effector_name,
-            # dist[ii, :] = compute_cartesian_error(tgt, robot_model.fk(end_effector_name,
+            # dist[ii, :] = -compute_cartesian_error(tgt, robot_model.fk(op_point_name,
+            # dist[ii, :] = compute_cartesian_error(tgt, robot_model.fk(op_point_name,
             #                                                           q=q,
-            #                                                           body_offset=end_effector_offset,
+            #                                                           body_offset=op_point_offset,
             #                                                           update_kinematics=True,
             #                                                           rotation_rep='quat'))
 
-            op_point = robot_model.fk(end_effector_name, q=q, body_offset=end_effector_offset, update_kinematics=True,
+            op_point = robot_model.fk(op_point_name, q=q, body_offset=op_point_offset, update_kinematics=True,
                                       rotation_rep='quat')
 
             if ii > 0:
@@ -99,13 +99,13 @@ class CostFKRelative(Cost):
             prev_op_point[:] = op_point[:]
 
             dist[ii, :] = compute_cartesian_error(op_point, tgt)
-            robot_model.update_jacobian(jtemp, end_effector_name, q=q,
-                                        body_offset=end_effector_offset, update_kinematics=True)
+            robot_model.update_jacobian(jtemp, op_point_name, q=q,
+                                        body_offset=op_point_offset, update_kinematics=True)
             # if ii == 1:
             #     print('****')
             #     print(sample.get_states()[1, :])
             #     print(self._hyperparams['data_idx'])
-            #     print(end_effector_name)
+            #     print(op_point_name)
             #     print(x[ii, :])
             #     print(q[joint_ids])
             #     print(tgt)

@@ -38,10 +38,12 @@ class CostSum(Cost):
         lxx = lxx * weight
         luu = luu * weight
         lux = lux * weight
+
         for i in range(1, len(self._costs)):
             pl, plx, plu, plxx, pluu, plux = self._costs[i].eval(sample)
             # print("Cost %d: %f" % (i, sum(pl)))
             weight = self._weights[i]
+
             l = l + pl * weight
             lx = lx + plx * weight
             lu = lu + plu * weight

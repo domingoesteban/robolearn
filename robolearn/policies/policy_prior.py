@@ -26,12 +26,15 @@ class ConstantPolicyPrior(object):
         pass
 
     def eval(self, Ts, Ps):
-        """ Evaluate the policy prior.
-            Returns:
-                mu0:
-                Phi:
-                mm:
-                n0:
+        """
+        Evaluate the policy prior. 
+        :param Ts: 
+        :param Ps: 
+        :return: 
+            - mu0:
+            - Phi:
+            - mm:
+            - n0:
         """
         dX, dU = Ts.shape[-1], Ps.shape[-1]
         prior_fd = np.zeros((dU, dX))

@@ -655,7 +655,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 # Check quaternion inversion
                 if quaternion_inner(op_point[:4], self.prev_quat_vectors[hh][:4]) < 0:
                     op_point[:4] *= -1
-                    print('CHANGINNNGG')
+                    # print('CHANGING QUATERNION TRANSFORMATION!!!')
                 self.prev_quat_vectors[hh] = op_point[:]
 
                 distance = compute_cartesian_error(op_point, tgt)

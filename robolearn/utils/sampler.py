@@ -5,6 +5,7 @@ from robolearn.agents.agent import Agent
 from robolearn.policies.policy import Policy
 from robolearn.envs.environment import Environment
 from robolearn.utils.sample import Sample
+from robolearn.utils.sample_list import SampleList
 from robolearn.utils.plot_utils import *
 from robolearn.utils.data_logger import DataLogger
 from robolearn.agents.agent_utils import generate_noise
@@ -53,8 +54,13 @@ class Sampler(object):
     def take_samples(self, n_samples, cond=0, noisy=False, save=True):
         self.n_samples = n_samples
 
+        sample_list = list()
+
         for ii in range(n_samples):
-            self._take_sample(ii, cond, noisy=noisy, save=save)
+            sample = self._take_sample(ii, cond, noisy=noisy, save=save)
+            sample_list.append(sample)
+
+        return SampleList(sample_list)
 
     def _take_sample(self, i, cond, verbose=True, save=True, noisy=False):
         """
@@ -103,6 +109,12 @@ class Sampler(object):
         all_actions = np.array([hist[1] for hist in history])
         all_states = np.array([hist[0] for hist in history])
         all_obs = np.array([hist[0] for hist in obs_hist])
+
+        # print('BORRAR ESTOOOOOOOOOOOOOOOOOOOOOOOOOOOO')
+        # all_actions = np.zeros_like(all_actions)
+        # all_states = np.tile(np.expand_dims(np.linspace(0.5, 0, self.T), axis=1), (1, self.dX))
+        # all_obs = np.tile(np.expand_dims(np.linspace(0.5, 0, self.T), axis=1), (1, self.dX))
+
         sample.set_acts(all_actions)  # Set all actions at the same time
         sample.set_obs(all_obs)  # Set all obs at the same time
         sample.set_states(all_states)  # Set all states at the same time
