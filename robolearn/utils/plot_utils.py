@@ -335,24 +335,38 @@ def plot_joint_multi_info(joints_to_plot, data_to_plot,  joint_names, data='posi
     return fig, axs
 
 
-def plot_multi_info(data_list, block=True, cols=3, legend=True):
+def plot_multi_info(data_list, block=True, cols=3, legend=True, labels=None):
     dData = data_list[0].shape[1]
     fig, axs = plt.subplots(int(math.ceil(float(dData)/cols)), cols)
     fig.set_facecolor((1, 1, 1))
+    lines = list()
+    if labels is None:
+        labels = list()
     for ii in range(axs.size):
         ax1 = axs[ii/cols, ii % cols]
         if ii < dData:
             ax1.set_title("Dimension %d" % (ii+1))
             for jj in range(len(data_list)):
-                ax1.plot(data_list[jj][:, ii], label=('Data %d' % jj))
-            #ax1.set_ylabel('Torque (Nm)', color='k')
+                if len(labels) > jj:
+                    label = labels[jj]
+                else:
+                    label = 'Data %d' % jj
+                line = ax1.plot(data_list[jj][:, ii], label=label)[0]
+
+                if ii == 0:
+                    lines.append(line)
+                    labels.append(label)
+
             ax1.tick_params('y', colors='k')
             ax1.tick_params(direction='in')
-            if legend:
-                legend = ax1.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
-                legend.get_frame().set_alpha(0.4)
         else:
             plt.setp(ax1, visible=False)
+
+
+    if legend:
+        # One legend for all figures
+        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0., borderaxespad=0.)
+        legend.get_frame().set_alpha(0.4)
 
     fig.subplots_adjust(hspace=0)
     plt.show(block=block)

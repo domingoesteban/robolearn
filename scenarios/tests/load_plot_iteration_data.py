@@ -9,23 +9,29 @@ from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distri
 from robolearn.algos.gps.gps_utils import IterationData
 import scipy.stats
 
-gps_directory_name = 'GPS_2017-08-04_09:40:59'
+#gps_directory_name = 'GPS_2017-08-04_20:32:12'  # l1: 1.0, l2: 1.0e-3
+#gps_directory_name = 'GPS_2017-08-07_16:05:32'  # l1: 1.0, l2: 0.0
+gps_directory_name = 'GPS_2017-08-07_19:35:58'  # l1: 1.0, l2: 1.0
 
 init_itr = 0
 final_itr = 100
-samples_idx = None  # List of samples / None: all samples
+samples_idx = [-1]  # List of samples / None: all samples
 max_traj_plots = None  # None, plot all
 last_n_iters = 5  # None, plot all iterations
 
 plot_eta = False
-plot_step_mult = False  # If linearized policy(and then policy) is worse, epsilon is reduced.
+plot_step_mult = False  # If linearized policy(then NN policy) is worse, epsilon is reduced.
 plot_cs = False
 plot_sample_list_actions = False
 plot_sample_list_states = False
 plot_sample_list_obs = False
 plot_policy_output = False
-plot_traj_distr = True
-plot_3d_traj = False
+plot_policy_actions = False
+plot_policy_states = True
+plot_policy_obs = False
+plot_traj_distr = False
+plot_3d_traj = True
+plot_3d_pol_traj = True
 
 eta_color = 'black'
 cs_color = 'red'
@@ -48,7 +54,7 @@ if max_available_itr is not None:
     print("Max available iterations: %d" % max_available_itr)
 
     if last_n_iters is not None:
-        init_itr = max_available_itr - last_n_iters
+        init_itr = max(max_available_itr - last_n_iters + 1, 0)
 
     if max_traj_plots is not None:
         if max_available_itr > max_traj_plots:
@@ -126,20 +132,39 @@ if plot_sample_list_actions:
         for ii in range(axs.size):
             ax = axs[ii/sample_list_cols, ii % sample_list_cols]
             ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
+
+        lines = list()
+        labels = list()
         for itr in range(total_itr):
             actions = iteration_data_list[itr][cond].sample_list.get_actions(samples_idx)
             for ii in range(axs.size):
                 ax = axs[ii/sample_list_cols, ii % sample_list_cols]
                 if ii < dData:
                     ax.set_title("Action %d" % (ii+1))
-                    ax.plot(actions.mean(axis=0)[:, ii], label=("itr %d" % iteration_ids[itr]))
+                    label = "itr %d" % iteration_ids[itr]
+                    line = ax.plot(actions.mean(axis=0)[:, ii], label=label)[0]
+
+                    if ii == 0:
+                        lines.append(line)
+                        labels.append(label)
+
+                    if itr == 0:
+                        ax.tick_params(axis='both', direction='in')
+                        #ax.set_xlim([0, actions.shape[2]])
+                        #ax.set_ylim([ymin, ymax])
+
                     if plot_sample_list_max_min:
                         ax.fill_between(range(actions.mean(axis=0).shape[0]), actions.min(axis=0)[:, ii],
                                         actions.max(axis=0)[:, ii], alpha=0.5)
-                    legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
-                    legend.get_frame().set_alpha(0.4)
+                    # # One legend for each ax
+                    # legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                    # legend.get_frame().set_alpha(0.4)
                 else:
                     plt.setp(ax, visible=False)
+
+        # One legend for all figures
+        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0., borderaxespad=0.)
+        legend.get_frame().set_alpha(0.4)
 
 if plot_sample_list_states:
     for cond in range(total_cond):
@@ -151,20 +176,37 @@ if plot_sample_list_states:
         for ii in range(axs.size):
             ax = axs[ii/sample_list_cols, ii % sample_list_cols]
             ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
+
+        lines = list()
+        labels = list()
         for itr in range(total_itr):
             states = iteration_data_list[itr][cond].sample_list.get_states(samples_idx)
             for ii in range(axs.size):
                 ax = axs[ii/sample_list_cols, ii % sample_list_cols]
                 if ii < dData:
                     ax.set_title("State %d" % (ii+1))
-                    ax.plot(states.mean(axis=0)[:, ii], label=("itr %d" % iteration_ids[itr]))
+                    label = "itr %d" % iteration_ids[itr]
+                    line = ax.plot(states.mean(axis=0)[:, ii], label=label)[0]
+
+                    if ii == 0:
+                        lines.append(line)
+                        labels.append(label)
+
+                    if itr == 0:
+                        ax.tick_params(axis='both', direction='in')
+
                     if plot_sample_list_max_min:
                         ax.fill_between(range(states.mean(axis=0).shape[0]), states.min(axis=0)[:, ii],
                                         states.max(axis=0)[:, ii], alpha=0.5)
-                    legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
-                    legend.get_frame().set_alpha(0.4)
+                    # # One legend for each ax
+                    # legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                    # legend.get_frame().set_alpha(0.4)
                 else:
                     plt.setp(ax, visible=False)
+
+        # One legend for all figures
+        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0., borderaxespad=0.)
+        legend.get_frame().set_alpha(0.4)
 
 if plot_sample_list_obs:
     for cond in range(total_cond):
@@ -176,20 +218,37 @@ if plot_sample_list_obs:
         for ii in range(axs.size):
             ax = axs[ii/sample_list_cols, ii % sample_list_cols]
             ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
+
+        lines = list()
+        labels = list()
         for itr in range(total_itr):
             obs = iteration_data_list[itr][cond].sample_list.get_obs(samples_idx)
             for ii in range(axs.size):
                 ax = axs[ii/sample_list_cols, ii % sample_list_cols]
                 if ii < dData:
                     ax.set_title("Observation %d" % (ii+1))
-                    ax.plot(obs.mean(axis=0)[:, ii], label=("itr %d" % iteration_ids[itr]))
+                    label = "itr %d" % iteration_ids[itr]
+                    line = ax.plot(obs.mean(axis=0)[:, ii], label=label)[0]
+
+                    if ii == 0:
+                        lines.append(line)
+                        labels.append(label)
+
+                    if itr == 0:
+                        ax.tick_params(axis='both', direction='in')
+
                     if plot_sample_list_max_min:
                         ax.fill_between(range(states.mean(axis=0).shape[0]), states.min(axis=0)[:, ii],
                                         states.max(axis=0)[:, ii], alpha=0.5)
-                    legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
-                    legend.get_frame().set_alpha(0.4)
+                    # # One legend for each ax
+                    # legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                    # legend.get_frame().set_alpha(0.4)
                 else:
                     plt.setp(ax, visible=False)
+
+        # One legend for all figures
+        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0., borderaxespad=0.)
+        legend.get_frame().set_alpha(0.4)
 
 if plot_policy_output:
     pol_sample_to_vis = -1
@@ -226,9 +285,138 @@ if plot_policy_output:
                 else:
                     plt.setp(ax, visible=False)
 
+if plot_policy_actions:
+    for cond in range(total_cond):
+        dData = iteration_data_list[0][cond].pol_info.policy_samples.get_actions(samples_idx).shape[-1]
+        fig, axs = plt.subplots(int(math.ceil(float(dData)/sample_list_cols)), sample_list_cols)
+        fig.subplots_adjust(hspace=0)
+        fig.canvas.set_window_title('Policy Actions | Condition %d' % cond)
+        fig.set_facecolor((1, 1, 1))
+        for ii in range(axs.size):
+            ax = axs[ii/sample_list_cols, ii % sample_list_cols]
+            ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
 
-def plot_3d_gaussian(ax, mu, sigma, edges=100, linestyle='-.',
-                     linewidth=1.0, color='black', alpha=0.1, label=''):
+        lines = list()
+        labels = list()
+        for itr in range(total_itr):
+            actions = iteration_data_list[itr][cond].pol_info.policy_samples.get_actions(samples_idx)
+            for ii in range(axs.size):
+                ax = axs[ii/sample_list_cols, ii % sample_list_cols]
+                if ii < dData:
+                    ax.set_title("Action %d" % (ii+1))
+                    label = "itr %d" % iteration_ids[itr]
+                    line = ax.plot(actions.mean(axis=0)[:, ii], label=label)[0]
+
+                    if ii == 0:
+                        lines.append(line)
+                        labels.append(label)
+
+                    if itr == 0:
+                        ax.tick_params(axis='both', direction='in')
+                        #ax.set_xlim([0, actions.shape[2]])
+                        #ax.set_ylim([ymin, ymax])
+
+                    if plot_sample_list_max_min:
+                        ax.fill_between(range(actions.mean(axis=0).shape[0]), actions.min(axis=0)[:, ii],
+                                        actions.max(axis=0)[:, ii], alpha=0.5)
+                        # # One legend for each ax
+                        # legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                        # legend.get_frame().set_alpha(0.4)
+                else:
+                    plt.setp(ax, visible=False)
+
+        # One legend for all figures
+        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0., borderaxespad=0.)
+        legend.get_frame().set_alpha(0.4)
+
+
+if plot_policy_states:
+    for cond in range(total_cond):
+        dData = iteration_data_list[0][cond].pol_info.policy_samples.get_states(samples_idx).shape[-1]
+        fig, axs = plt.subplots(int(math.ceil(float(dData)/sample_list_cols)), sample_list_cols)
+        fig.subplots_adjust(hspace=0)
+        fig.canvas.set_window_title('Policy States | Condition %d' % cond)
+        fig.set_facecolor((1, 1, 1))
+        for ii in range(axs.size):
+            ax = axs[ii/sample_list_cols, ii % sample_list_cols]
+            ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
+
+        lines = list()
+        labels = list()
+        for itr in range(total_itr):
+            states = iteration_data_list[itr][cond].pol_info.policy_samples.get_states(samples_idx)
+            for ii in range(axs.size):
+                ax = axs[ii/sample_list_cols, ii % sample_list_cols]
+                if ii < dData:
+                    ax.set_title("State %d" % (ii+1))
+                    label = "itr %d" % iteration_ids[itr]
+                    line = ax.plot(states.mean(axis=0)[:, ii], label=label)[0]
+
+                    if ii == 0:
+                        lines.append(line)
+                        labels.append(label)
+
+                    if itr == 0:
+                        ax.tick_params(axis='both', direction='in')
+
+                    if plot_sample_list_max_min:
+                        ax.fill_between(range(states.mean(axis=0).shape[0]), states.min(axis=0)[:, ii],
+                                        states.max(axis=0)[:, ii], alpha=0.5)
+                        # # One legend for each ax
+                        # legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                        # legend.get_frame().set_alpha(0.4)
+                else:
+                    plt.setp(ax, visible=False)
+
+        # One legend for all figures
+        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0., borderaxespad=0.)
+        legend.get_frame().set_alpha(0.4)
+
+if plot_policy_obs:
+    for cond in range(total_cond):
+        dData = iteration_data_list[0][cond].pol_info.policy_samples.get_obs(samples_idx).shape[-1]
+        fig, axs = plt.subplots(int(math.ceil(float(dData)/sample_list_cols)), sample_list_cols)
+        fig.subplots_adjust(hspace=0)
+        fig.canvas.set_window_title('Policy Observations | Condition %d' % cond)
+        fig.set_facecolor((1, 1, 1))
+        for ii in range(axs.size):
+            ax = axs[ii/sample_list_cols, ii % sample_list_cols]
+            ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
+
+        lines = list()
+        labels = list()
+        for itr in range(total_itr):
+            obs = iteration_data_list[itr][cond].pol_info.policy_samples.get_obs(samples_idx)
+            for ii in range(axs.size):
+                ax = axs[ii/sample_list_cols, ii % sample_list_cols]
+                if ii < dData:
+                    ax.set_title("Observation %d" % (ii+1))
+                    label = "itr %d" % iteration_ids[itr]
+                    line = ax.plot(obs.mean(axis=0)[:, ii], label=label)[0]
+
+                    if ii == 0:
+                        lines.append(line)
+                        labels.append(label)
+
+                    if itr == 0:
+                        ax.tick_params(axis='both', direction='in')
+
+                    if plot_sample_list_max_min:
+                        ax.fill_between(range(states.mean(axis=0).shape[0]), states.min(axis=0)[:, ii],
+                                        states.max(axis=0)[:, ii], alpha=0.5)
+                    # # One legend for each ax
+                    # legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                    # legend.get_frame().set_alpha(0.4)
+                else:
+                    plt.setp(ax, visible=False)
+
+        # One legend for all figures
+        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0., borderaxespad=0.)
+        legend.get_frame().set_alpha(0.4)
+
+
+def plot_3d_gaussian(ax, mu, sigma, edges=100, sigma_axes='XY', linestyle='-.', linewidth=1.0, color='black', alpha=0.1,
+                     label='', markeredgewidth=1.0):
     """
     Plots ellipses in the xy plane representing the Gaussian distributions 
     specified by mu and sigma.
@@ -241,12 +429,24 @@ def plot_3d_gaussian(ax, mu, sigma, edges=100, linestyle='-.',
     xy_ellipse = np.c_[np.cos(p), np.sin(p)]
     T = mu.shape[0]
 
-    sigma_xy = np.clip(sigma[:, 0:2, 0:2], 0, 0.05)
-    u, s, v = np.linalg.svd(sigma_xy)
+    if sigma_axes == 'XY':
+        axes = [0, 1]
+    elif sigma_axes == 'XZ':
+        axes = [0, 2]
+    elif sigma_axes == 'YZ':
+        axes = [1, 2]
+    else:
+        raise AttributeError("Wrong sigma_axes")
+
+    xyz_idx = np.ix_(axes)
+    sigma_idx = np.ix_(axes, axes)
+
+    sigma_axes = np.clip(sigma[:, sigma_idx[0], sigma_idx[1]], 0, 0.05)
+    u, s, v = np.linalg.svd(sigma_axes)
 
     for t in range(T):
         xyz = np.repeat(mu[t, :].reshape((1, 3)), edges, axis=0)
-        xyz[:, 0:2] += np.dot(xy_ellipse, np.dot(np.diag(np.sqrt(s[t, :])), u[t, :, :].T))
+        xyz[:, xyz_idx[0]] += np.dot(xy_ellipse, np.dot(np.diag(np.sqrt(s[t, :])), u[t, :, :].T))
         ax.plot(xyz[:, 0], xyz[:, 1], xyz[:, 2], linestyle=linestyle, linewidth=linewidth, marker=marker,
                 markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha, color=color, label=label)
 
@@ -367,78 +567,192 @@ if plot_traj_distr:
                 else:
                     plt.setp(ax, visible=False)
 
-if True:
+if plot_3d_traj:
     distance_idxs = [24, 25, 26]  # NOT TO USE -1, -2, etc because it will get the mu and variance of u !!!
-
     linestyle = '-'
     linewidth = 1.0
     marker = None
     markersize = 5.0
     markeredgewidth = 1.0
     alpha = 1.0
-    #azim = 37.
-    #elev = 16.
 
-    # XY
-    azim = 0.
-    elev = 90.
+    gauss_linestyle = ':'
+    gauss_linewidth = 0.2
+    gauss_marker = None
+    gauss_markersize = 2.0
+    gauss_markeredgewidth = 0.2
+    gauss_alpha = 0.3
 
-    # # XZ
-    # azim = 90.
-    # elev = 0.
+    views = ['XY', 'XZ']
 
     des_colormap = [colormap(i) for i in np.linspace(0, 1, total_itr)]
 
-    for cond in range(2):
+    for cond in range(total_cond):
         fig_3d_traj = plt.figure()
-        ax_3d_traj = fig_3d_traj.add_subplot(111, projection='3d')
-        ax_3d_traj.set_prop_cycle('color', des_colormap)
-        plot = ax_3d_traj.plot([0], [0], [0], color='black', marker='x', markersize=10)
+        lines = list()
+        labels = list()
 
-        fig_3d_traj.canvas.set_window_title("Expected Trajectories | Condition %d" % cond)
-        # ax_3d_traj.set_title("Expected Trajectories | Condition %d" % cond)
-        # ax_3d_traj.title.set_fontsize(10)
-        ax_3d_traj.set_xlabel('X')
-        ax_3d_traj.set_ylabel('Y')
-        ax_3d_traj.set_zlabel('Z')
-        ax_3d_traj.view_init(elev=elev, azim=azim)
+        for vv, view in enumerate(views):
+            ax_3d_traj = fig_3d_traj.add_subplot(1, len(views), vv+1, projection='3d')
+            ax_3d_traj.set_prop_cycle('color', des_colormap)
+            plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
+            plot = ax_3d_traj.plot([0], [0], [0], color='green', marker='o', markersize=10)
 
-        for itr in range(total_itr):
-            traj_distr = iteration_data_list[itr][cond].traj_distr
-            traj_info = iteration_data_list[itr][cond].traj_info
+            fig_3d_traj.canvas.set_window_title("Expected Trajectories | Condition %d" % cond)
+            ax_3d_traj.set_xlabel('X')
+            ax_3d_traj.set_ylabel('Y')
+            ax_3d_traj.set_zlabel('Z')
 
-            mu, sigma = lqr_forward(traj_distr, traj_info)
+            if view == 'XY':
+                azim = 0.
+                elev = 90.
+            elif view == 'XZ':
+                azim = 90.
+                elev = 0.
+            elif view == 'YZ':
+                azim = 90.
+                elev = 90.
+            else:
+                raise AttributeError("Wrong view %s" % view)
 
-            xs = np.linspace(5, 0, 100)
-            plot = ax_3d_traj.plot(mu[:, distance_idxs[0]],
-                                   mu[:, distance_idxs[1]],
-                                   zs=mu[:, distance_idxs[2]],
-                                   linestyle=linestyle, linewidth=linewidth, marker=marker, markersize=markersize,
-                                   markeredgewidth=markeredgewidth, alpha=alpha, color=des_colormap[itr],
-                                   label=("itr %d" % iteration_ids[itr]))[0]
+            ax_3d_traj.view_init(elev=elev, azim=azim)
 
-            sigma_idx = np.ix_(distance_idxs, distance_idxs)
-            plot_3d_gaussian(ax_3d_traj, mu[:, distance_idxs], sigma[:, sigma_idx[0], sigma_idx[1]], edges=100,
-                             linestyle=':', linewidth=1.0, color=des_colormap[itr], alpha=0.1, label='')
+            for itr in range(total_itr):
+                traj_distr = iteration_data_list[itr][cond].traj_distr
+                traj_info = iteration_data_list[itr][cond].traj_info
 
-            X = np.append(mu[:, distance_idxs[0]], 0)
-            Y = np.append(mu[:, distance_idxs[1]], 0)
-            Z = np.append(mu[:, distance_idxs[2]], 0)
-            mid_x = (X.max() + X.min()) * 0.5
-            mid_y = (Y.max() + Y.min()) * 0.5
-            mid_z = (Z.max() + Z.min()) * 0.5
-            max_range = np.array([X.max()-X.min(), Y.max()-Y.min(), Z.max()-Z.min()]).max() / 2.0
+                mu, sigma = lqr_forward(traj_distr, traj_info)
 
-            ax_3d_traj.set_xlim(mid_x - max_range, mid_x + max_range)
-            ax_3d_traj.set_ylim(mid_y - max_range, mid_y + max_range)
-            ax_3d_traj.set_zlim(mid_z - max_range, mid_z + max_range)
+                label = "itr %d" % iteration_ids[itr]
 
+                xs = np.linspace(5, 0, 100)
+                plot = ax_3d_traj.plot(mu[:, distance_idxs[0]],
+                                       mu[:, distance_idxs[1]],
+                                       zs=mu[:, distance_idxs[2]],
+                                       linestyle=linestyle, linewidth=linewidth, marker=marker, markersize=markersize,
+                                       markeredgewidth=markeredgewidth, alpha=alpha, color=des_colormap[itr],
+                                       label=label)[0]
 
+                if vv == 0:
+                    lines.append(plot)
+                    labels.append(label)
 
-        legend = ax_3d_traj.legend(ncol=2, mode='expand', fontsize=10, loc='lower right', borderaxespad=0.0)
+                sigma_idx = np.ix_(distance_idxs, distance_idxs)
+                plot_3d_gaussian(ax_3d_traj, mu[:, distance_idxs], sigma[:, sigma_idx[0], sigma_idx[1]],
+                                 sigma_axes=view, edges=100, linestyle=gauss_linestyle, linewidth=gauss_linewidth,
+                                 color=des_colormap[itr], alpha=gauss_alpha, label='',
+                                 markeredgewidth=gauss_markeredgewidth)
+
+                X = np.append(mu[:, distance_idxs[0]], 0)
+                Y = np.append(mu[:, distance_idxs[1]], 0)
+                Z = np.append(mu[:, distance_idxs[2]], 0)
+                mid_x = (X.max() + X.min()) * 0.5
+                mid_y = (Y.max() + Y.min()) * 0.5
+                mid_z = (Z.max() + Z.min()) * 0.5
+                max_range = np.array([X.max()-X.min(), Y.max()-Y.min(), Z.max()-Z.min()]).max() / 2.0
+
+                ax_3d_traj.set_xlim(mid_x - max_range, mid_x + max_range)
+                ax_3d_traj.set_ylim(mid_y - max_range, mid_y + max_range)
+                ax_3d_traj.set_zlim(mid_z - max_range, mid_z + max_range)
+
+        # One legend for all figures
+        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0.)
         legend.get_frame().set_alpha(0.4)
 
+if plot_3d_pol_traj:
+    distance_idxs = [24, 25, 26]  # NOT TO USE -1, -2, etc because it will get the mu and variance of u !!!
+    linestyle = '-'
+    linewidth = 1.0
+    marker = None
+    markersize = 5.0
+    markeredgewidth = 1.0
+    alpha = 1.0
 
+    gauss_linestyle = ':'
+    gauss_linewidth = 0.2
+    gauss_marker = None
+    gauss_markersize = 2.0
+    gauss_markeredgewidth = 0.2
+    gauss_alpha = 0.3
+
+    views = ['XY', 'XZ']
+
+    des_colormap = [colormap(i) for i in np.linspace(0, 1, total_itr)]
+
+    samples_idx = -1
+
+    for cond in range(total_cond):
+        fig_3d_traj = plt.figure()
+        lines = list()
+        labels = list()
+
+        for vv, view in enumerate(views):
+            ax_3d_traj = fig_3d_traj.add_subplot(1, len(views), vv+1, projection='3d')
+            ax_3d_traj.set_prop_cycle('color', des_colormap)
+            plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
+            plot = ax_3d_traj.plot([0], [0], [0], color='green', marker='o', markersize=10)
+
+            fig_3d_traj.canvas.set_window_title("Expected Trajectories | Condition %d" % cond)
+            ax_3d_traj.set_xlabel('X')
+            ax_3d_traj.set_ylabel('Y')
+            ax_3d_traj.set_zlabel('Z')
+
+            if view == 'XY':
+                azim = 0.
+                elev = 90.
+            elif view == 'XZ':
+                azim = 90.
+                elev = 0.
+            elif view == 'YZ':
+                azim = 90.
+                elev = 90.
+            else:
+                raise AttributeError("Wrong view %s" % view)
+
+            ax_3d_traj.view_init(elev=elev, azim=azim)
+
+            for itr in range(total_itr):
+                # traj_distr = iteration_data_list[itr][cond].traj_distr
+                # traj_info = iteration_data_list[itr][cond].traj_info
+                # mu, sigma = lqr_forward(traj_distr, traj_info)
+
+                mu = iteration_data_list[itr][cond].pol_info.policy_samples.get_states()[samples_idx, :, :]
+
+                label = "itr %d" % iteration_ids[itr]
+
+                xs = np.linspace(5, 0, 100)
+                plot = ax_3d_traj.plot(mu[:, distance_idxs[0]],
+                                       mu[:, distance_idxs[1]],
+                                       zs=mu[:, distance_idxs[2]],
+                                       linestyle=linestyle, linewidth=linewidth, marker=marker, markersize=markersize,
+                                       markeredgewidth=markeredgewidth, alpha=alpha, color=des_colormap[itr],
+                                       label=label)[0]
+
+                if vv == 0:
+                    lines.append(plot)
+                    labels.append(label)
+
+                # sigma_idx = np.ix_(distance_idxs, distance_idxs)
+                # plot_3d_gaussian(ax_3d_traj, mu[:, distance_idxs], sigma[:, sigma_idx[0], sigma_idx[1]],
+                #                  sigma_axes=view, edges=100, linestyle=gauss_linestyle, linewidth=gauss_linewidth,
+                #                  color=des_colormap[itr], alpha=gauss_alpha, label='',
+                #                  markeredgewidth=gauss_markeredgewidth)
+
+                X = np.append(mu[:, distance_idxs[0]], 0)
+                Y = np.append(mu[:, distance_idxs[1]], 0)
+                Z = np.append(mu[:, distance_idxs[2]], 0)
+                mid_x = (X.max() + X.min()) * 0.5
+                mid_y = (Y.max() + Y.min()) * 0.5
+                mid_z = (Z.max() + Z.min()) * 0.5
+                max_range = np.array([X.max()-X.min(), Y.max()-Y.min(), Z.max()-Z.min()]).max() / 2.0
+
+                ax_3d_traj.set_xlim(mid_x - max_range, mid_x + max_range)
+                ax_3d_traj.set_ylim(mid_y - max_range, mid_y + max_range)
+                ax_3d_traj.set_zlim(mid_z - max_range, mid_z + max_range)
+
+        # One legend for all figures
+        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0.)
+        legend.get_frame().set_alpha(0.4)
 
 plt.show(block=False)
 

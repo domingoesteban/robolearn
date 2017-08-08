@@ -204,6 +204,9 @@ class GPS(RLAlgorithm):
 
                 if self._hyperparams['test_after_iter']:
                     pol_sample_lists = self._take_policy_samples(N=self._hyperparams['test_samples'])
+                    print(self.cur[-1].pol_info.policy_samples)
+                    print(self.prev[-1].pol_info.policy_samples)
+
                     pol_sample_lists_costs = self._eval_conditions_sample_list_cost(pol_sample_lists)
 
                 else:
@@ -403,7 +406,12 @@ class GPS(RLAlgorithm):
                 pol_samples[cond].append(self._take_sample(itr, cond, i, on_policy=True, noisy=False, save=False,
                                                            verbose=False))
 
-        return [SampleList(samples) for samples in pol_samples]
+        sample_lists = [SampleList(samples) for samples in pol_samples]
+
+        for cond, sample_list in enumerate(sample_lists):
+            self.prev[cond].pol_info.policy_samples = sample_list  # prev because it is called after advance_iteration_variables
+
+        return sample_lists
 
     def _take_iteration(self, itr, sample_lists):
         """
@@ -828,8 +836,7 @@ class GPS(RLAlgorithm):
         """
         self._advance_iteration_variables()
         for m in range(self.M):
-            self.cur[m].traj_info.last_kl_step = \
-                self.prev[m].traj_info.last_kl_step
+            self.cur[m].traj_info.last_kl_step = self.prev[m].traj_info.last_kl_step
             self.cur[m].pol_info = copy.deepcopy(self.prev[m].pol_info)
 
     def stepadjust_mdgps(self):

@@ -113,8 +113,19 @@ def reset_condition_bigman_box_gazebo(condition, state_info):
         raise TypeError("No state with name '%s' in bigman environment" % state_name)
 
 
-def temp_reset_condition_bigman_box_gazebo(bigman_box_pose):
-    reset_bigman_box_gazebo(bigman_box_pose, box_size=None)
+class Reset_condition_bigman_box_gazebo(object):
+    def __init__(self):
+        self.bigman_box_poses = list()
+
+    def add_reset_poses(self, bigman_box_pose):
+        self.bigman_box_poses.append(bigman_box_pose)
+
+    def reset(self, condition):
+        if self.bigman_box_poses:
+            bigman_box_pose = self.bigman_box_poses[condition]
+            reset_bigman_box_gazebo(bigman_box_pose, box_size=None)
+        else:
+            print ('No box_bigman pose configured in Reset_condition function')
 
 
 def reset_bigman_box_gazebo(bigman_box_pose, box_size=None):
@@ -172,6 +183,7 @@ def set_box_gazebo_pose(bigman_box_pose, box_size=None):
         box_size = [0.4, 0.5, 0.3]  # FOR NOW WE ARE FIXING IT
 
     ##TODO: Apparently spawn gazebo is spawning considering the bottom of the box, then we substract the difference in Z
+    bigman_box_pose = bigman_box_pose.copy()
     bigman_box_pose[-1] -= box_size[2]/2.
 
     bigman_pose = get_gazebo_model_pose('bigman', 'map')

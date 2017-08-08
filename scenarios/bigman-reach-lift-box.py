@@ -39,7 +39,7 @@ from robolearn.utils.joint_space_control_sampler import JointSpaceControlSampler
 from robolearn.policies.computed_torque_policy import ComputedTorquePolicy
 
 from robolearn.utils.lift_box_utils import create_box_relative_pose
-from robolearn.utils.lift_box_utils import reset_condition_bigman_box_gazebo, temp_reset_condition_bigman_box_gazebo
+from robolearn.utils.lift_box_utils import reset_condition_bigman_box_gazebo, Reset_condition_bigman_box_gazebo
 from robolearn.utils.lift_box_utils import spawn_box_gazebo
 from robolearn.utils.lift_box_utils import set_box_gazebo_pose
 from robolearn.utils.lift_box_utils import create_bigman_box_condition
@@ -124,7 +124,6 @@ interface = 'ros'
 body_part_active = 'LA'
 body_part_sensed = 'LA'
 command_type = 'effort'
-file_save_restore = "models/bigman_agent_vars.ckpt"
 
 
 left_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0],
@@ -133,6 +132,8 @@ left_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0],
 right_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0],
                                                 hand_x=0.0, hand_y=-box_size[1]/2+0.02, hand_z=0.0, hand_yaw=0)
 # right_hand_rel_pose[:] = right_hand_rel_pose[[3, 4, 5, 6, 0, 1, 2]]  # Changing from 'pos+orient' to 'orient+pos'
+
+reset_condition_bigman_box_gazebo_fcn = Reset_condition_bigman_box_gazebo()
 
 observation_active = [{'name': 'joint_state',
                        'type': 'joint_state',
@@ -237,7 +238,7 @@ bigman_env = BigmanEnv(interface=interface, mode='simulation',
                        state_active=state_active,
                        cmd_freq=int(1/Ts),
                        robot_dyn_model=robot_model,
-                       reset_simulation_fcn=temp_reset_condition_bigman_box_gazebo)
+                       reset_simulation_fcn=reset_condition_bigman_box_gazebo_fcn)
                        # reset_simulation_fcn=reset_condition_bigman_box_gazebo)
 
 action_dim = bigman_env.get_action_dim()
@@ -344,8 +345,8 @@ LAfk_cost = {
     'robot_model': robot_model,
     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
     'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
-    'l2': 1.0e-3,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
+    'l1': 1.0,  # 1.0,  # 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+    'l2': 1.0,  # 1.0,  #1.0e-3,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
     'wp_final_multiplier': 1,  # 10
 }
@@ -381,8 +382,8 @@ LAfk_final_cost = {
     'joint_ids': bigman_params['joint_ids']['LA'],
     'robot_model': robot_model,
     'wp': np.array([1.0, 1.0, 1.0, 8.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
-    'l2': 0.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
+    'l1': 0.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+    'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
     'wp_final_multiplier': 10,
 }
@@ -510,6 +511,7 @@ box_pose0 = box_relative_pose.copy()
 condition0 = create_bigman_box_condition(q0, box_pose0, bigman_env.get_state_info(),
                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
 bigman_env.add_condition(condition0)
+reset_condition_bigman_box_gazebo_fcn.add_reset_poses(box_pose0)
 
 #q1 = np.zeros(31)
 q1 = q0.copy()
@@ -521,6 +523,7 @@ box_pose1 = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y+0.02, box_z=b
 condition1 = create_bigman_box_condition(q1, box_pose1, bigman_env.get_state_info(),
                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
 bigman_env.add_condition(condition1)
+reset_condition_bigman_box_gazebo_fcn.add_reset_poses(box_pose1)
 
 q2 = q0.copy()
 q2[16] = np.deg2rad(50)
@@ -531,6 +534,7 @@ box_pose2 = create_box_relative_pose(box_x=box_x-0.02, box_y=box_y-0.02, box_z=b
 condition2 = create_bigman_box_condition(q2, box_pose2, bigman_env.get_state_info(),
                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
 bigman_env.add_condition(condition2)
+reset_condition_bigman_box_gazebo_fcn.add_reset_poses(box_pose2)
 
 # q3 = q0.copy()
 # q3[16] = np.deg2rad(0)
@@ -541,12 +545,18 @@ bigman_env.add_condition(condition2)
 # condition3 = create_bigman_box_condition(q3, box_pose3, bigman_env.get_state_info(),
 #                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
 # bigman_env.add_condition(condition3)
+# reset_condition_bigman_box_gazebo_fcn.add_reset_poses(box_pose3)
 
 # q4 = q0.copy()
 # box_pose4 = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw-5)
 # condition4 = create_bigman_box_condition(q4, box_pose4, bigman_env.get_state_info(),
 #                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
 # bigman_env.add_condition(condition4)
+# reset_condition_bigman_box_gazebo_fcn.add_reset_poses(box_pose4)
+
+
+
+
 
 
 # #################### #
@@ -639,7 +649,7 @@ if demos_samples is None:
                        'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0,
                        # 'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
                        #                       3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0,  # Initial variance (Default:10)
-                       'pos_gains': 0.001,  # Position gains (Default:10)
+                       'pos_gains': 0.1,  # 0.001,  # Position gains (Default:10)
                        'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
                        'init_action_offset': None,
                        'dQ': len(bigman_params['joint_ids'][body_part_sensed]),  # Total joints in state
@@ -685,8 +695,8 @@ gps_hyperparams = {
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
     'noise_var_scale': 1.0e-0,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
     'smooth_noise': True,  # Apply Gaussian filter to noise generated
-    'smooth_noise_var': 3.0e+0,  # Variance to apply to Gaussian Filter
-    'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
+    'smooth_noise_var': 5.0e+0,  # Variance to apply to Gaussian Filter
+    'smooth_noise_renormalize': False,  # Renormalize smooth noise to have variance=1
     'cost': cost_sum,
     # Conditions
     'conditions': len(bigman_env.get_conditions()),  # Total number of initial conditions

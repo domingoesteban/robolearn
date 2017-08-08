@@ -105,6 +105,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.distance_vectors = list()
         self.prev_quat_vectors = list()
         self.target_pose = np.zeros(7)
+        self.robot_pose = np.zeros(7)
         self.receiving_target = False
         self.temp_subscriber = rospy.Subscriber("/optitrack/relative_poses", RelativePose,
                                                 self.temp_target_callback)
@@ -553,7 +554,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         # Custom simulation reset function
         if self.mode == 'simulation' and self.reset_simulation_fcn is not None:
             # self.reset_simulation_fcn(self.conditions[cond], self.get_state_info())
-            self.reset_simulation_fcn(self.get_target())
+            self.reset_simulation_fcn.reset(cond)
 
     def set_conditions(self, conditions):
         # TODO: Check conditions size
@@ -640,6 +641,15 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.target_pose[5] = data.pose[box_idx].position.y
         self.target_pose[6] = data.pose[box_idx].position.z
 
+        robot_idx = data.name.index('base_link')
+        self.robot_pose[0] = data.pose[robot_idx].orientation.x
+        self.robot_pose[1] = data.pose[robot_idx].orientation.x
+        self.robot_pose[2] = data.pose[robot_idx].orientation.y
+        self.robot_pose[3] = data.pose[robot_idx].orientation.w
+        self.robot_pose[4] = data.pose[robot_idx].position.x
+        self.robot_pose[5] = data.pose[robot_idx].position.y
+        self.robot_pose[6] = data.pose[robot_idx].position.z
+
         q = self.temp_joint_pos_state
 
         if self.distance_vectors:
@@ -670,5 +680,8 @@ class RobotROSEnvInterface(ROSEnvInterface):
                     else:
                         raise ValueError("Wrong fk_pose field")
 
-    def get_target(self):
+    def get_target_pose(self):
         return self.target_pose.copy()
+
+    def get_robot_pose(self):
+        return self.robot_pose.copy()
