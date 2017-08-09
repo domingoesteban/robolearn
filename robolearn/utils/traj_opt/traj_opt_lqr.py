@@ -14,7 +14,7 @@ from robolearn.utils.traj_opt.traj_opt import TrajOpt
 from robolearn.utils.traj_opt.config import default_traj_opt_lqr_hyperparams
 from robolearn.utils.traj_opt.traj_opt_utils import DGD_MAX_ITER, DGD_MAX_LS_ITER, DGD_MAX_GD_ITER, \
                                                     ALPHA, BETA1, BETA2, EPS, traj_distr_kl, traj_distr_kl_alt
-
+from robolearn.utils.print_utils import ProgressBar
 
 LOGGER = logging.getLogger(__name__)
 # Logging into console AND file
@@ -96,19 +96,23 @@ class TrajOptLQR(TrajOpt):
                 LOGGER.debug("Running DGD for local agent %d, trajectory %d, avg eta: %f", a, m, np.mean(eta[:-1]))
 
         max_itr = (DGD_MAX_LS_ITER if self.cons_per_step else DGD_MAX_ITER)  # Less iterations if cons_per_step=True
+
         for itr in range(max_itr):
             if not self.cons_per_step:
                 LOGGER.debug("Iteration %d, bracket: (%.2e , %.2e , %.2e)", itr, min_eta, eta, max_eta)
 
             # Run fwd/bwd pass, note that eta may be updated.
             # Compute KL divergence constraint violation.
+            print("Backward pass..")
             traj_distr, eta = self.backward(prev_traj_distr, traj_info, eta, algorithm, m, a)
 
             if not self._use_prev_distr:
+                print("Forward pass..")
                 new_mu, new_sigma = self.forward(traj_distr, traj_info)
                 kl_div = traj_distr_kl(new_mu, new_sigma, traj_distr, prev_traj_distr,
                                        tot=(not self.cons_per_step))
             else:
+                print("Forward pass..")
                 prev_mu, prev_sigma = self.forward(prev_traj_distr, traj_info)
                 kl_div = traj_distr_kl_alt(prev_mu, prev_sigma, traj_distr, prev_traj_distr,
                                            tot=(not self.cons_per_step))

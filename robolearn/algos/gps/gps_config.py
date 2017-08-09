@@ -169,3 +169,6 @@ default_msgps_pilqr_hyperparams = {
     'max_mult': np.linspace(5.0, 2.0, 100),
     'min_mult': np.linspace(0.1, 0.5, 100),
 }
+
+default_multi_mdgps_hyperparams = {
+}

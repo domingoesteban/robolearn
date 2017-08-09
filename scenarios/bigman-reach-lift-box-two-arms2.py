@@ -29,7 +29,7 @@ from robolearn.utils.traj_opt.traj_opt_lqr import TrajOptLQR
 from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
 from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
 
-from robolearn.algos.gps.multi_mdgps import MultiMDGPS
+from robolearn.algos.gps.multi_mdgps2 import MultiMDGPS
 from robolearn.policies.lin_gauss_init import init_lqr, init_pd, init_demos
 from robolearn.policies.policy_prior import ConstantPolicyPrior  # For MDGPS
 
@@ -75,7 +75,7 @@ signal.signal(signal.SIGINT, kill_everything)
 # ################## #
 # Task parameters
 Ts = 0.01
-Treach = 5
+Treach = 0.1
 Tlift = 0  # 3.8
 Tinter = 0  # 0.5
 Tend = 0  # 0.7
@@ -226,7 +226,7 @@ policy_params = {
     'init_var': 0.1,  # Initial policy variance.
     'ent_reg': 0.0,  # Entropy regularizer (Used to update policy variance)
     # Solver hyperparameters.
-    'iterations': 5000,  # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
+    'iterations': 1000,  # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
     'batch_size': 15,
     'lr': 0.001,  # Base learning rate (by default it's fixed).
     'lr_policy': 'fixed',  # Learning rate policy.
@@ -428,16 +428,16 @@ condition1 = create_bigman_box_condition(q1, box_pose1, bigman_env.get_state_inf
 bigman_env.add_condition(condition1)
 reset_condition_bigman_box_gazebo_fcn.add_reset_poses(box_pose1)
 
-q2 = q0.copy()
-q2[16] = np.deg2rad(50)
-q2[18] = np.deg2rad(-50)
-q2[25] = np.deg2rad(-50)
-q2[27] = np.deg2rad(-50)
-box_pose2 = create_box_relative_pose(box_x=box_x-0.02, box_y=box_y-0.02, box_z=box_z, box_yaw=box_yaw-5)
-condition2 = create_bigman_box_condition(q2, box_pose2, bigman_env.get_state_info(),
-                                         joint_idxs=bigman_params['joint_ids'][body_part_sensed])
-bigman_env.add_condition(condition2)
-reset_condition_bigman_box_gazebo_fcn.add_reset_poses(box_pose2)
+# q2 = q0.copy()
+# q2[16] = np.deg2rad(50)
+# q2[18] = np.deg2rad(-50)
+# q2[25] = np.deg2rad(-50)
+# q2[27] = np.deg2rad(-50)
+# box_pose2 = create_box_relative_pose(box_x=box_x-0.02, box_y=box_y-0.02, box_z=box_z, box_yaw=box_yaw-5)
+# condition2 = create_bigman_box_condition(q2, box_pose2, bigman_env.get_state_info(),
+#                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
+# bigman_env.add_condition(condition2)
+# reset_condition_bigman_box_gazebo_fcn.add_reset_poses(box_pose2)
 
 # q3 = q0.copy()
 # q3[16] = np.deg2rad(0)
@@ -508,8 +508,8 @@ change_print_color.change('YELLOW')
 print("\nConfiguring learning algorithm...\n")
 
 # Learning params
-resume_training_itr = 8  # Resume from previous training iteration
-data_files_dir = 'GPS_2017-08-09_14:11:15'  # In case we want to resume from previous training
+resume_training_itr = None  # Resume from previous training iteration
+data_files_dir = None  # 'GPS_2017-08-04_09:40:59'  # In case we want to resume from previous training
 
 traj_opt_method = {'type': TrajOptLQR,
                    'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
@@ -559,7 +559,7 @@ if demos_samples is None:
                         'pos_gains': 0.1,  # 0.001,  # Position gains (Default:10)
                         'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
                         'init_action_offset': None,
-                        'dQ': len(bigman_params['joint_ids']['LA']),  # Total joints in state
+                        'dQ': len(bigman_params['joint_ids']['RA']),  # Total joints in state
                         },
                        ]
 else:
@@ -578,19 +578,6 @@ learned_dynamics = {'type': DynamicsLRPrior,
                         },
                     }
 
-# gps_algo = 'pigps'
-# gps_algo_hyperparams = {'init_pol_wt': 0.01,
-#                         'policy_sample_mode': 'add'
-#                         }
-gps_algo = 'mdgps'
-gps_algo_hyperparams = {'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
-                        'policy_sample_mode': 'add',
-                        'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
-                        'policy_prior': {'type': ConstantPolicyPrior,
-                                         'strength': 1e-4,
-                                         },
-                        }
-
 left_arm_state_idx = bigman_env.get_state_info(name='link_position')['idx'][:7] + \
                      bigman_env.get_state_info(name='link_velocity')['idx'][:7] + \
                      bigman_env.get_state_info(name='prev_cmd')['idx'][:7] + \
@@ -608,7 +595,7 @@ gps_hyperparams = {
     'test_after_iter': True,  # If test the learned policy after an iteration in the RL algorithm
     'test_samples': 2,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
     # Samples
-    'num_samples': 5,  # 20  # Samples for exploration trajs --> N samples
+    'num_samples': 3,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
     'noise_var_scale': 1.0e-0,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
@@ -625,8 +612,6 @@ gps_hyperparams = {
     'min_step_mult': 0.01,  # Min possible value of step multiplier (multiplies kl_step in LQR)
     'max_step_mult': 3,  # 10.0,  # Max possible value of step multiplier (multiplies kl_step in LQR)
     # Others
-    'gps_algo': gps_algo,
-    'gps_algo_hyperparams': gps_algo_hyperparams,
     'init_traj_distr': init_traj_distr,
     'fit_dynamics': True,
     'dynamics': learned_dynamics,
@@ -634,6 +619,13 @@ gps_hyperparams = {
     'traj_opt': traj_opt_method,
     'max_ent_traj': 0.0,  # Weight of maximum entropy term in trajectory optimization
     'data_files_dir': data_files_dir,
+    # MDGPS
+    'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
+    'policy_sample_mode': 'add',
+    'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
+    'policy_prior': {'type': ConstantPolicyPrior,
+                     'strength': 1e-4,
+                     },
     # Multi MDGPS
     'local_agent_state_masks': [left_arm_state_idx, right_arm_state_idx],
     'local_agent_action_masks': [range(7), range(7, 14)],

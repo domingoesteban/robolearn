@@ -1,7 +1,6 @@
 """
-GPS
-Authors: Finn et al
-Adapted by robolearn collaborators
+Multi MDGPS
+Authors: Robolearn Collaborators
 """
 
 import os
@@ -27,69 +26,47 @@ from robolearn.utils.data_logger import DataLogger
 from robolearn.utils.print_utils import *
 from robolearn.utils.plot_utils import *
 
-import logging
-LOGGER = logging.getLogger(__name__)
-# Logging into console AND file
-LOGGER.setLevel(logging.DEBUG)
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.DEBUG)
-LOGGER.addHandler(ch)
-
 
 class MultiMDGPS(RLAlgorithm):
     def __init__(self, agent, env, **kwargs):
         super(MultiMDGPS, self).__init__(agent, env, default_gps_hyperparams, kwargs)
 
-        # Number of initial conditions
+        # Initial conditions
         self.M = self._hyperparams['conditions']
+        self._train_cond_idx = self._hyperparams['train_conditions']
+        self._test_cond_idx = self._hyperparams['test_conditions']
 
         # Number of Local Agents
         self.local_agent_state_masks = self._hyperparams['local_agent_state_masks']
         self.local_agent_action_masks = self._hyperparams['local_agent_action_masks']
         self.n_local_agents = len(self.local_agent_action_masks)
 
-        if 'train_conditions' in self._hyperparams and self._hyperparams['train_conditions'] is not None:
-            self._train_cond_idx = self._hyperparams['train_conditions']
-            self._test_cond_idx = self._hyperparams['test_conditions']
+        # Data Logger
+        if self._hyperparams['data_files_dir'] is None:
+            self._data_files_dir = 'robolearn_log/' + 'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
         else:
-            self._train_cond_idx = self._test_cond_idx = range(self.M)
-            self._hyperparams['train_conditions'] = self._train_cond_idx
-            self._hyperparams['test_conditions'] = self._test_cond_idx
-
-        if 'data_files_dir' in self._hyperparams:
-            if self._hyperparams['data_files_dir'] is None:
-                self._data_files_dir = 'robolearn_log/' + \
-                                       'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
-            else:
-                self._data_files_dir = 'robolearn_log/' + self._hyperparams['data_files_dir']
-        else:
-            self._data_files_dir = 'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
-
+            self._data_files_dir = 'robolearn_log/' + self._hyperparams['data_files_dir']
         self.data_logger = DataLogger(self._data_files_dir)
 
-        self.max_iterations = self._hyperparams['iterations']
+        # Training hyperparameters
+        self.max_iterations = self._hyperparams['iterations']  # TODO: Move this to run
         self.iteration_count = 0
 
         # Get some values from the environment.
-        self.dU = self._hyperparams['dU'] = env.get_action_dim()
-        self.dX = self._hyperparams['dX'] = env.get_state_dim()
-        self.dO = self._hyperparams['dO'] = env.get_obs_dim()
+        self.dU = env.get_action_dim()
+        self.dX = env.get_state_dim()
+        self.dO = env.get_obs_dim()
 
         # Get time values from 'hyperparams'
         self.T = self._hyperparams['T']
         self.dt = self._hyperparams['dt']
 
-        # IterationData objects for each condition.
+        # Previous and Current IterationData objects for each local agent and condition
         self.cur = [[IterationData() for _ in range(self.M)] for _ in range(self.n_local_agents)]
         self.prev = [[IterationData() for _ in range(self.M)] for _ in range(self.n_local_agents)]
 
-        # Trajectory Info #
-        # --------------- #
-        # Traj. Info: Trajectory related variables:
-        if self._hyperparams['fit_dynamics']:
-            # Add dynamics if the algorithm requires fit_dynamics (Same type for all the conditions)
-            dynamics_hyperparams = self._hyperparams['dynamics']
-
+        # Trajectory Distribution
+        dynamics_hyperparams = self._hyperparams['dynamics']  # Same dynamics for all local agents and conditions
         for a in range(self.n_local_agents):
             # Local Agent initial trajectory hyperparams for all conditions
             local_agent_init_traj_distr_hyperparams = self._hyperparams['init_traj_distr'][a]
@@ -110,18 +87,13 @@ class MultiMDGPS(RLAlgorithm):
                 # Instantiate Trajectory Distribution: init_lqr or init_pd
                 self.cur[a][m].traj_distr = init_traj_distr_hyperparams['type'](init_traj_distr_hyperparams)
 
-        self.new_traj_distr = [None for _ in range(self.n_local_agents)]  # Last trajectory distribution optimized in C-step
+        # Last trajectory distribution optimized in C-step
+        self.new_traj_distr = [None for _ in range(self.n_local_agents)]
 
-        # Traj Opt (Local policy opt) method #
-        # ---------------------------------- #
-        # Options: LQR, PI2
+        # Traj Opt (Local policy opt) method (LQR or PI2)
         self.traj_opt = self._hyperparams['traj_opt']['type'](self._hyperparams['traj_opt'])
 
-        # Cost function #
-        # ------------- #
-        if self._hyperparams['cost'] is None:
-            raise AttributeError("Cost function has not been defined")
-
+        # Cost function
         if isinstance(type(self._hyperparams['cost']), list):
             # One cost function type for each condition
             self.cost_function = [self._hyperparams['cost'][i]['type'](self._hyperparams['cost'][i])
@@ -131,6 +103,7 @@ class MultiMDGPS(RLAlgorithm):
             self.cost_function = [self._hyperparams['cost']['type'](self._hyperparams['cost'])
                                   for _ in range(self.M)]
 
+        # Local Agents cost functions
         self.local_agent_costs = list()
         for a in range(self.n_local_agents):
             if isinstance(type(self._hyperparams['local_agent_costs'][a]), list):
@@ -142,39 +115,22 @@ class MultiMDGPS(RLAlgorithm):
                 self.local_agent_costs.append([self._hyperparams['local_agent_costs'][a]['type'](self._hyperparams['local_agent_costs'][a])
                                       for _ in range(self.M)])
 
-        # KL step #
-        # ------- #
+        # Base KL step
         self.base_kl_step = self._hyperparams['kl_step']
 
-        # ############# #
-        # GPS Algorithm #
-        # ############# #
-        self.gps_algo = self._hyperparams['gps_algo']
+        # MDGPS variables
+        policy_prior_hyperparams = self._hyperparams['policy_prior']
+        for a in range(self.n_local_agents):
+            pol_info_hyperparams = {'T': self._hyperparams['T'],
+                                    'dU': len(self.local_agent_action_masks[a]),
+                                    'dX': len(self.local_agent_state_masks[a]),
+                                    'init_pol_wt': self._hyperparams['init_pol_wt']}
+            for m in range(self.M):
+                # Same policy prior type for all conditions and local agents
+                self.cur[a][m].pol_info = PolicyInfo(pol_info_hyperparams)
+                self.cur[a][m].pol_info.policy_prior = policy_prior_hyperparams['type'](policy_prior_hyperparams)
 
-        if self.gps_algo == 'pigps':
-            gps_algo_hyperparams = default_pigps_hyperparams.copy()
-            gps_algo_hyperparams.update(self._hyperparams['gps_algo_hyperparams'])
-            self._hyperparams.update(gps_algo_hyperparams)
-
-        if self.gps_algo in ['pigps', 'mdgps']:
-            gps_algo_hyperparams = default_mdgps_hyperparams.copy()
-            gps_algo_hyperparams.update(self._hyperparams['gps_algo_hyperparams'])
-            self._hyperparams.update(gps_algo_hyperparams)
-
-            # Policy Prior #
-            # ------------ #
-            policy_prior = self._hyperparams['policy_prior']
-            for a in range(self.n_local_agents):
-                pol_info_hyperparams = {'T': self._hyperparams['T'], 'dU': len(self.local_agent_action_masks[a]),
-                                        'dX': len(self.local_agent_state_masks[a]),
-                                        'init_pol_wt': self._hyperparams['init_pol_wt']}
-                for m in range(self.M):
-                    # Same policy prior type for all conditions
-                    self.cur[a][m].pol_info = PolicyInfo(pol_info_hyperparams)
-                    self.cur[a][m].pol_info.policy_prior = policy_prior['type'](policy_prior)
-
-        # Global Policy #
-        # ------------- #
+        # Global Policy
         self.policy_opt = self.agent.policy_opt
 
     def run(self, itr_load=None):
@@ -233,10 +189,8 @@ class MultiMDGPS(RLAlgorithm):
         except Exception as e:
             traceback.print_exception(*sys.exc_info())
             print("#"*30)
-            print("#"*30)
             print_skull()
             print("Panic: ERROR IN GPS ALGORITHM!!!!")
-            print("#"*30)
             print("#"*30)
             run_successfully = False
         finally:
@@ -253,7 +207,7 @@ class MultiMDGPS(RLAlgorithm):
             itr_start: Iteration to start from.
         """
         if itr_load is None:
-            print('Starting GPS from zero!')
+            print('Starting MDGPS from zero!')
             return 0
         else:
             print('Loading previous GPS from iteration %d!' % itr_load)
