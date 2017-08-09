@@ -17,10 +17,16 @@ class DynamicsLRPrior(Dynamics):
         self.dyn_covar = None
         self.prior = self._hyperparams['prior']['type'](self._hyperparams['prior'])
 
-    def update_prior(self, samples):
+    def update_prior(self, samples, state_idx=None, action_idx=None):
         """ Update dynamics prior. """
-        X = samples.get_states()
-        U = samples.get_actions()
+        if state_idx is None:
+            X = samples.get_states()
+        else:
+            X = samples.get_states()[:, :, state_idx]
+        if action_idx is None:
+            U = samples.get_actions()
+        else:
+            U = samples.get_actions()[:, :, action_idx]
         self.prior.update(X, U)
 
     def get_prior(self):

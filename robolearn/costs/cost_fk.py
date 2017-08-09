@@ -67,8 +67,10 @@ class CostFK(Cost):
 
         Jx = np.zeros((T, 6, len(self._hyperparams['joints_idx']) + len(self._hyperparams['tgt_idx'])))
 
-        tgt_idx = np.ix_(range(6), range(-6, 0))
-        joints_idx = np.ix_(range(6), self._hyperparams['joints_idx'])
+        tgt_idx = np.ix_(range(6), range(-len(self._hyperparams['tgt_idx']), 0))
+        #joints_idx = np.ix_(range(6), self._hyperparams['joints_idx'])
+        joints_idx = np.ix_(range(6), range(len(self._hyperparams['joints_idx'])))
+
         for ii in range(T):
             q[joint_ids] = joints_sensed[ii, :]
             # dist[ii, :] = compute_cartesian_error(robot_model.fk(op_point_name,

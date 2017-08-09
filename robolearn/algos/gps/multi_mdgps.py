@@ -36,12 +36,17 @@ ch.setLevel(logging.DEBUG)
 LOGGER.addHandler(ch)
 
 
-class GPS(RLAlgorithm):
+class MultiMDGPS(RLAlgorithm):
     def __init__(self, agent, env, **kwargs):
-        super(GPS, self).__init__(agent, env, default_gps_hyperparams, kwargs)
+        super(MultiMDGPS, self).__init__(agent, env, default_gps_hyperparams, kwargs)
 
         # Number of initial conditions
         self.M = self._hyperparams['conditions']
+
+        # Number of Local Agents
+        self.local_agent_state_masks = self._hyperparams['local_agent_state_masks']
+        self.local_agent_action_masks = self._hyperparams['local_agent_action_masks']
+        self.n_local_agents = len(self.local_agent_action_masks)
 
         if 'train_conditions' in self._hyperparams and self._hyperparams['train_conditions'] is not None:
             self._train_cond_idx = self._hyperparams['train_conditions']
@@ -59,10 +64,10 @@ class GPS(RLAlgorithm):
                 self._data_files_dir = 'robolearn_log/' + self._hyperparams['data_files_dir']
         else:
             self._data_files_dir = 'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
+
         self.data_logger = DataLogger(self._data_files_dir)
 
         self.max_iterations = self._hyperparams['iterations']
-
         self.iteration_count = 0
 
         # Get some values from the environment.
@@ -74,17 +79,10 @@ class GPS(RLAlgorithm):
         self.T = self._hyperparams['T']
         self.dt = self._hyperparams['dt']
 
-        # Initial trajectory hyperparams
-        init_traj_distr = self._hyperparams['init_traj_distr']
-        init_traj_distr['x0'] = env.get_conditions()  # TODO: Check if it is better get_x0() or get_state()
-        init_traj_distr['dX'] = self.dX
-        init_traj_distr['dU'] = self.dU
-        init_traj_distr['dt'] = self.dt
-        init_traj_distr['T'] = self.T
 
         # IterationData objects for each condition.
-        self.cur = [IterationData() for _ in range(self.M)]
-        self.prev = [IterationData() for _ in range(self.M)]
+        self.cur = [[IterationData() for _ in range(self.M)] for _ in range(self.n_local_agents)]
+        self.prev = [[IterationData() for _ in range(self.M)] for _ in range(self.n_local_agents)]
 
         # Trajectory Info #
         # --------------- #
@@ -93,19 +91,30 @@ class GPS(RLAlgorithm):
             # Add dynamics if the algorithm requires fit_dynamics (Same type for all the conditions)
             dynamics = self._hyperparams['dynamics']
 
-        for m in range(self.M):
-            self.cur[m].traj_info = TrajectoryInfo()
+        for a in range(self.n_local_agents):
+            # Initial trajectory hyperparams
+            init_traj_distr = self._hyperparams['init_traj_distr'][a]
+            init_traj_distr['x0'] = env.get_conditions()  # TODO: Check if it is better get_x0() or get_state()
+            init_traj_distr['dX'] = len(self.local_agent_state_masks[a])
+            init_traj_distr['dU'] = len(self.local_agent_action_masks[a])
+            init_traj_distr['dt'] = self.dt
+            init_traj_distr['T'] = self.T
 
-            if self._hyperparams['fit_dynamics']:
-                self.cur[m].traj_info.dynamics = dynamics['type'](dynamics)
+            for m in range(self.M):
+                self.cur[a][m].traj_info = TrajectoryInfo()
 
-            # Get the initial trajectory distribution hyperparams
-            init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'], self._train_cond_idx[m])
+                if self._hyperparams['fit_dynamics']:
+                    print(dynamics['type'])
+                    self.cur[a][m].traj_info.dynamics = dynamics['type'](dynamics)
 
-            # Instantiate Trajectory Distribution: init_lqr or init_pd
-            self.cur[m].traj_distr = init_traj_distr['type'](init_traj_distr)
+                # Get the initial trajectory distribution hyperparams
+                init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'][a], self._train_cond_idx[m])
+                init_traj_distr['x0'] = [init_traj_distr['x0'][ii] for ii in self.local_agent_state_masks[a]]
 
-        self.new_traj_distr = None  # Last trajectory distribution optimized in C-step
+                # Instantiate Trajectory Distribution: init_lqr or init_pd
+                self.cur[a][m].traj_distr = init_traj_distr['type'](init_traj_distr)
+
+        self.new_traj_distr = [None for _ in range(self.n_local_agents)]  # Last trajectory distribution optimized in C-step
 
         # Traj Opt (Local policy opt) method #
         # ---------------------------------- #
@@ -116,6 +125,7 @@ class GPS(RLAlgorithm):
         # ------------- #
         if self._hyperparams['cost'] is None:
             raise AttributeError("Cost function has not been defined")
+
         if isinstance(type(self._hyperparams['cost']), list):
             # One cost function type for each condition
             self.cost_function = [self._hyperparams['cost'][i]['type'](self._hyperparams['cost'][i])
@@ -124,6 +134,17 @@ class GPS(RLAlgorithm):
             # Same cost function type for all conditions
             self.cost_function = [self._hyperparams['cost']['type'](self._hyperparams['cost'])
                                   for _ in range(self.M)]
+
+        self.local_agent_costs = list()
+        for a in range(self.n_local_agents):
+            if isinstance(type(self._hyperparams['local_agent_costs'][a]), list):
+                # One cost function type for each condition
+                self.local_agent_costs.append([self._hyperparams['local_agent_costs'][a][i]['type'](self._hyperparams['local_agent_costs'][a][i])
+                                      for i in range(self.M)])
+            else:
+                # Same cost function type for all conditions
+                self.local_agent_costs.append([self._hyperparams['local_agent_costs'][a]['type'](self._hyperparams['local_agent_costs'][a])
+                                      for _ in range(self.M)])
 
         # KL step #
         # ------- #
@@ -147,10 +168,14 @@ class GPS(RLAlgorithm):
             # Policy Prior #
             # ------------ #
             policy_prior = self._hyperparams['policy_prior']
-            for m in range(self.M):
-                # Same policy prior type for all conditions
-                self.cur[m].pol_info = PolicyInfo(self._hyperparams)
-                self.cur[m].pol_info.policy_prior = policy_prior['type'](policy_prior)
+            for a in range(self.n_local_agents):
+                pol_info_hyperparams = {'T': self._hyperparams['T'], 'dU': len(self.local_agent_action_masks[a]),
+                                        'dX': len(self.local_agent_state_masks[a]),
+                                        'init_pol_wt': self._hyperparams['init_pol_wt']}
+                for m in range(self.M):
+                    # Same policy prior type for all conditions
+                    self.cur[a][m].pol_info = PolicyInfo(pol_info_hyperparams)
+                    self.cur[a][m].pol_info.policy_prior = policy_prior['type'](policy_prior)
 
         # Global Policy #
         # ------------- #
@@ -199,8 +224,6 @@ class GPS(RLAlgorithm):
 
                 if self._hyperparams['test_after_iter']:
                     pol_sample_lists = self._take_policy_samples(N=self._hyperparams['test_samples'])
-                    print(self.cur[-1].pol_info.policy_samples)
-                    print(self.prev[-1].pol_info.policy_samples)
 
                     pol_sample_lists_costs = self._eval_conditions_sample_list_cost(pol_sample_lists)
 
@@ -299,11 +322,13 @@ class GPS(RLAlgorithm):
         # On-policy or Off-policy
         if on_policy and (self.iteration_count > 0 or
                      ('sample_pol_first_itr' in self._hyperparams and self._hyperparams['sample_pol_first_itr'])):
-            policy = self.agent.policy  # DOM: Instead self.opt_pol.policy
+            policy = self.agent.policy
             print("On-policy sampling: %s!" % type(policy))
         else:
-            policy = self.cur[cond].traj_distr
-            print("Off-policy sampling: %s!" % type(policy))
+            policy = list()
+            for a in range(self.n_local_agents):
+                policy.append(self.cur[a][cond].traj_distr)
+                print("Off-policy sampling for local agent %d: %s!" % (a, type(policy[a])))
 
         if noisy:
             noise = generate_noise(self.T, self.dU, self._hyperparams)
@@ -335,15 +360,23 @@ class GPS(RLAlgorithm):
                                                                                cond+1, len(self._train_cond_idx),
                                                                                i+1, self._hyperparams['num_samples'],
                                                                                t+1, self.T))
-            obs = self.env.get_observation()
-            state = self.env.get_state()
+            obs = self.env.get_observation().copy()  # TODO: Avoid TF policy writes in obs
+            state = self.env.get_state().copy()
             # action = policy.eval(state, obs, t, noise[t, :])
-            action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # TODO: Avoid TF policy writes in obs
+            if isinstance(policy, list):
+                action = np.zeros(self.dU)
+                for a in range(self.n_local_agents):
+                    local_agent_state = state[self.local_agent_state_masks[a]]
+                    local_agent_noise = noise[t, self.local_agent_action_masks[a]].copy()
+                    action[self.local_agent_action_masks[a]] = policy[a].eval(local_agent_state, obs, t, local_agent_noise)
+            else:
+                action = policy.eval(state, obs, t, noise[t, :].copy())
             # action[3] = -0.15707963267948966
             # print(obs)
             # print(state)
             # print(action)
             # print('----')
+            #raw_input('TODAVIA NADAAA')
             self.env.send_action(action)
             obs_hist[t] = (obs, action)
             history[t] = (state, action)
@@ -403,8 +436,9 @@ class GPS(RLAlgorithm):
 
         sample_lists = [SampleList(samples) for samples in pol_samples]
 
-        for cond, sample_list in enumerate(sample_lists):
-            self.prev[cond].pol_info.policy_samples = sample_list  # prev because it is called after advance_iteration_variables
+        for a in range(self.n_local_agents):
+            for cond, sample_list in enumerate(sample_lists):
+                self.prev[a][cond].pol_info.policy_samples = sample_list  # prev because it is called after advance_iteration_variables
 
         return sample_lists
 
@@ -512,31 +546,34 @@ class GPS(RLAlgorithm):
                 copy.copy(pol_sample_lists_costs)
             )
 
-    def _update_dynamics(self):
+    def _update_dynamics(self, a):
         """
         Instantiate dynamics objects and update prior. Fit dynamics to current samples.
+        :param a: Local agent id
+        :return: 
         """
         for m in range(self.M):
-            cur_data = self.cur[m].sample_list
-            X = cur_data.get_states()
-            U = cur_data.get_actions()
+            cur_data = self.cur[a][m].sample_list
+            X = cur_data.get_states()[:, :, self.local_agent_state_masks[a]]
+            U = cur_data.get_actions()[:, :, self.local_agent_action_masks[a]]
 
             # Update prior and fit dynamics.
-            self.cur[m].traj_info.dynamics.update_prior(cur_data)
-            self.cur[m].traj_info.dynamics.fit(X, U)
+            self.cur[a][m].traj_info.dynamics.update_prior(cur_data, state_idx=self.local_agent_state_masks[a],
+                                                           action_idx=self.local_agent_action_masks[a])
+            self.cur[a][m].traj_info.dynamics.fit(X, U)
 
             # Fit x0mu/x0sigma.
             x0 = X[:, 0, :]
             x0mu = np.mean(x0, axis=0)
-            self.cur[m].traj_info.x0mu = x0mu
-            self.cur[m].traj_info.x0sigma = np.diag(np.maximum(np.var(x0, axis=0),
+            self.cur[a][m].traj_info.x0mu = x0mu
+            self.cur[a][m].traj_info.x0sigma = np.diag(np.maximum(np.var(x0, axis=0),
                                                     self._hyperparams['initial_state_var']))
 
-            prior = self.cur[m].traj_info.dynamics.get_prior()
+            prior = self.cur[a][m].traj_info.dynamics.get_prior()
             if prior:
                 mu0, Phi, priorm, n0 = prior.initial_state()
                 N = len(cur_data)
-                self.cur[m].traj_info.x0sigma += Phi + (N*priorm) / (N+priorm) * np.outer(x0mu-mu0, x0mu-mu0) / (N+n0)
+                self.cur[a][m].traj_info.x0sigma += Phi + (N*priorm) / (N+priorm) * np.outer(x0mu-mu0, x0mu-mu0) / (N+n0)
 
     def _update_trajectories(self):
         """
@@ -544,31 +581,50 @@ class GPS(RLAlgorithm):
         """
         print('-->Updating trajectories (local policies)...')
         if self.new_traj_distr is None:
-            self.new_traj_distr = [self.cur[cond].traj_distr for cond in range(self.M)]
-        for cond in range(self.M):
-            self.new_traj_distr[cond], self.cur[cond].eta = self.traj_opt.update(cond, self)
+            print('IS NONE WACAAA!!!!!')
+            self.new_traj_distr = [[self.cur[a][cond].traj_distr for cond in range(self.M)] for a in range(self.n_local_agents)]
 
-    def _eval_cost(self, cond):
+        for a in range(self.n_local_agents):
+            for cond in range(self.M):
+                self.new_traj_distr[a][cond], self.cur[a][cond].eta = self.traj_opt.update(cond, self, a)
+
+    def _eval_cost(self, cond, a):
         """
         Evaluate costs for all current samples for a condition.
         Args:
             cond: Condition to evaluate cost on.
+            a: Local agent id
         """
         # Constants.
-        T, dX, dU = self.T, self.dX, self.dU
-        N = len(self.cur[cond].sample_list)
+        T = self.T
+
+        N = len(self.cur[a][cond].sample_list)
+        dX = len(self.local_agent_state_masks[a])
+        dU = len(self.local_agent_action_masks[a])
 
         # Compute cost.
         cs = np.zeros((N, T))
         cc = np.zeros((N, T))
         cv = np.zeros((N, T, dX+dU))
         Cm = np.zeros((N, T, dX+dU, dX+dU))
+
+
+        act_idx = np.ix_(self.local_agent_action_masks[a], self.local_agent_action_masks[a])
+        state_idx = np.ix_(self.local_agent_state_masks[a], self.local_agent_state_masks[a])
         for n in range(N):
-            sample = self.cur[cond].sample_list[n]
+            sample = self.cur[a][cond].sample_list[n]
             # Get costs.
-            l, lx, lu, lxx, luu, lux = self.cost_function[cond].eval(sample)
+            #l, lx, lu, lxx, luu, lux = self.cost_function[cond].eval(sample)
+            l, lx, lu, lxx, luu, lux = self.local_agent_costs[a][cond].eval(sample)
             cc[n, :] = l
             cs[n, :] = l
+
+            # Reshape for each local policy
+            lx = lx[:, self.local_agent_state_masks[a]]
+            lu = lu[:, self.local_agent_action_masks[a]]
+            lxx = lxx[:, state_idx[0], state_idx[1]]
+            luu = luu[:, act_idx[0], act_idx[1]]
+            lux = lux[:, act_idx[0], state_idx[1]]
 
             # Assemble matrix and vector.
             cv[n, :, :] = np.c_[lx, lu]
@@ -578,8 +634,8 @@ class GPS(RLAlgorithm):
             )
 
             # Adjust for expanding cost around a sample.
-            X = sample.get_states()
-            U = sample.get_acts()
+            X = sample.get_states()[:, self.local_agent_state_masks[a]]
+            U = sample.get_acts()[:, self.local_agent_action_masks[a]]
             yhat = np.c_[X, U]
             rdiff = -yhat
             rdiff_expand = np.expand_dims(rdiff, axis=2)
@@ -588,11 +644,11 @@ class GPS(RLAlgorithm):
             cv[n, :, :] += cv_update
 
         # Fill in cost estimate.
-        self.cur[cond].traj_info.cc = np.mean(cc, 0)  # Constant term (scalar).
-        self.cur[cond].traj_info.cv = np.mean(cv, 0)  # Linear term (vector).
-        self.cur[cond].traj_info.Cm = np.mean(Cm, 0)  # Quadratic term (matrix).
+        self.cur[a][cond].traj_info.cc = np.mean(cc, 0)  # Constant term (scalar).
+        self.cur[a][cond].traj_info.cv = np.mean(cv, 0)  # Linear term (vector).
+        self.cur[a][cond].traj_info.Cm = np.mean(Cm, 0)  # Quadratic term (matrix).
 
-        self.cur[cond].cs = cs  # True value of cost.
+        self.cur[a][cond].cs = cs  # True value of cost.
 
     def _advance_iteration_variables(self):
         """
@@ -602,20 +658,22 @@ class GPS(RLAlgorithm):
         self.iteration_count += 1
         self.prev = copy.deepcopy(self.cur)
         # TODO: change IterationData to reflect new stuff better
-        for m in range(self.M):
-            self.prev[m].new_traj_distr = self.new_traj_distr[m]
+        for a in range(self.n_local_agents):
+            for m in range(self.M):
+                self.prev[a][m].new_traj_distr = self.new_traj_distr[a][m]
 
         # NEW IterationData object, and remove new_traj_distr
-        self.cur = [IterationData() for _ in range(self.M)]
-        for m in range(self.M):
-            self.cur[m].traj_info = TrajectoryInfo()
-            self.cur[m].traj_info.dynamics = copy.deepcopy(self.prev[m].traj_info.dynamics)
-            self.cur[m].step_mult = self.prev[m].step_mult
-            self.cur[m].eta = self.prev[m].eta
-            self.cur[m].traj_distr = self.new_traj_distr[m]
+        self.cur = [[IterationData() for _ in range(self.M)] for _ in range(self.n_local_agents)]
+        for a in range(self.n_local_agents):
+            for m in range(self.M):
+                self.cur[a][m].traj_info = TrajectoryInfo()
+                self.cur[a][m].traj_info.dynamics = copy.deepcopy(self.prev[a][m].traj_info.dynamics)
+                self.cur[a][m].step_mult = self.prev[a][m].step_mult
+                self.cur[a][m].eta = self.prev[a][m].eta
+                self.cur[a][m].traj_distr = self.new_traj_distr[a][m]
         self.new_traj_distr = None
 
-    def _set_new_mult(self, predicted_impr, actual_impr, m):
+    def _set_new_mult(self, predicted_impr, actual_impr, m, a):
         """
         Adjust step size multiplier according to the predicted versus actual improvement.
         """
@@ -626,10 +684,9 @@ class GPS(RLAlgorithm):
         # Therefore, the new multiplier is given by pred/2*(pred-act).
         new_mult = predicted_impr / (2.0 * max(1e-4, predicted_impr - actual_impr))
         new_mult = max(0.1, min(5.0, new_mult))
-        new_step = max(min(new_mult * self.cur[m].step_mult, self._hyperparams['max_step_mult']),
-                       self._hyperparams['min_step_mult']
-        )
-        self.cur[m].step_mult = new_step
+        new_step = max(min(new_mult * self.cur[a][m].step_mult, self._hyperparams['max_step_mult']),
+                       self._hyperparams['min_step_mult'])
+        self.cur[a][m].step_mult = new_step
 
         if new_mult > 1:
             LOGGER.debug('Increasing step size multiplier to %f', new_step)
@@ -660,6 +717,8 @@ class GPS(RLAlgorithm):
             state.pop('max_iterations')
         if 'policy_opt' in state:
             state.pop('policy_opt')
+        if 'local_agent_costs' in state:
+            state.pop('local_agent_costs')
         return state
 
     # For unpickling.
@@ -730,17 +789,22 @@ class GPS(RLAlgorithm):
         """
         # Store the samples and evaluate the costs.
         print('->Evaluating samples costs...')
-        for m in range(self.M):
-            self.cur[m].sample_list = sample_lists[m]
-            self._eval_cost(m)
+        for a in range(self.n_local_agents):
+            for m in range(self.M):
+                # TODO: CHECK IF IT IS A GOOD IDEA TO SAVE ALL SAMPLE_LIST
+                self.cur[a][m].sample_list = sample_lists[m]
+                self._eval_cost(m, a)
 
         # Update dynamics linearizations (linear-Gaussian dynamics).
         print('->Updating dynamics linearization...')
-        self._update_dynamics()
+        for a in range(self.n_local_agents):
+            self._update_dynamics(a)
 
         # On the first iteration, need to catch policy up to init_traj_distr.
         if self.iteration_count == 0:
-            self.new_traj_distr = [self.cur[cond].traj_distr for cond in range(self.M)]
+            self.new_traj_distr = list()
+            # for a in range(self.n_local_agents):
+            self.new_traj_distr = [[self.cur[a][cond].traj_distr for cond in range(self.M)] for a in range(self.n_local_agents)]
             print('->S-step for init_traj_distribution (iter=0)...')
             self.update_policy_mdgps()
 
@@ -771,24 +835,28 @@ class GPS(RLAlgorithm):
         print('-->Updating Global policy...')
         dU, dO, T = self.dU, self.dO, self.T
         # Compute target mean, cov(precision), and weight for each sample; and concatenate them.
-        obs_data, tgt_mu = np.zeros((0, T, dO)), np.zeros((0, T, dU))
-        tgt_prc, tgt_wt = np.zeros((0, T, dU, dU)), np.zeros((0, T))
+        obs_data = np.zeros((0, T, dO))
+        tgt_mu, tgt_prc, tgt_wt = np.zeros((0, T, dU)), np.zeros((0, T, dU, dU)), np.zeros((0, T))
         for m in range(self.M):
-            samples = self.cur[m].sample_list
-            X = samples.get_states()
-            N = len(samples)
-            traj, pol_info = self.new_traj_distr[m], self.cur[m].pol_info
-            mu = np.zeros((N, T, dU))
-            prc = np.zeros((N, T, dU, dU))
-            wt = np.zeros((N, T))
-            # Get time-indexed actions.
-            for t in range(T):
-                # Compute actions along this trajectory.
-                prc[:, t, :, :] = np.tile(traj.inv_pol_covar[t, :, :], [N, 1, 1])
-                for i in range(N):
-                    mu[i, t, :] = (traj.K[t, :, :].dot(X[i, t, :]) + traj.k[t, :])
+            for a in range(self.n_local_agents):
+                local_act_idx = np.ix_(self.local_agent_action_masks[a], self.local_agent_action_masks[a])
+                samples = self.cur[a][m].sample_list
+                X = samples.get_states()[:, :, self.local_agent_state_masks[a]]
+                N = len(samples)
+                if a == 0:
+                    mu = np.zeros((N, T, dU))
+                    prc = np.zeros((N, T, dU, dU))
+                    wt = np.zeros((N, T))
+                traj = self.new_traj_distr[a][m]
+                pol_info = self.cur[a][m].pol_info
+                # Get time-indexed actions.
+                for t in range(T):
+                    # Compute actions along this trajectory.
+                    prc[:, t, local_act_idx[0], local_act_idx[1]] = np.tile(traj.inv_pol_covar[t, :, :], [N, 1, 1])
+                    for i in range(N):
+                        mu[i, t, self.local_agent_action_masks[a]] = (traj.K[t, :, :].dot(X[i, t, :]) + traj.k[t, :])
 
-                wt[:, t].fill(pol_info.pol_wt[t])
+                    wt[:, t].fill(pol_info.pol_wt[t])  # TODO: WE NEED TO DISCOVER WHAT POL_WT DOES!!
 
             tgt_mu = np.concatenate((tgt_mu, mu))
             tgt_prc = np.concatenate((tgt_prc, prc))
@@ -803,26 +871,35 @@ class GPS(RLAlgorithm):
         :param cond: Condition
         :return: None
         """
-        dX, dU, T = self.dX, self.dU, self.T
-        # Choose samples to use.
-        samples = self.cur[cond].sample_list
-        N = len(samples)
-        pol_info = self.cur[cond].pol_info
-        X = samples.get_states().copy()
-        obs = samples.get_obs().copy()
-        pol_mu, pol_sig = self.policy_opt.prob(obs)[:2]
-        pol_info.pol_mu, pol_info.pol_sig = pol_mu, pol_sig
+        T = self.T
 
-        # Update policy prior.
-        policy_prior = pol_info.policy_prior
-        samples = SampleList(self.cur[cond].sample_list)
-        mode = self._hyperparams['policy_sample_mode']
-        policy_prior.update(samples, self.policy_opt, mode)
+        # Update for all local agents trajectories
+        for a in range(self.n_local_agents):
+            local_act_idx = np.ix_(self.local_agent_action_masks[a], self.local_agent_action_masks[a])
 
-        # Fit linearization and store in pol_info.
-        pol_info.pol_K, pol_info.pol_k, pol_info.pol_S = policy_prior.fit(X, pol_mu, pol_sig)
-        for t in range(T):
-            pol_info.chol_pol_S[t, :, :] = sp.linalg.cholesky(pol_info.pol_S[t, :, :])
+            # Choose samples to use.
+            samples = self.cur[a][cond].sample_list
+            pol_info = self.cur[a][cond].pol_info
+            X = samples.get_states()[:, :, self.local_agent_state_masks[a]].copy()
+            obs = samples.get_obs().copy()
+            pol_mu, pol_sig = self.policy_opt.prob(obs)[:2]
+
+            # Get corresponding pol_mu and pol_sigma
+            pol_mu = pol_mu[:, :, self.local_agent_action_masks[a]]
+            pol_sig = pol_sig[:, :, local_act_idx[0], local_act_idx[1]]
+
+            pol_info.pol_mu, pol_info.pol_sig = pol_mu, pol_sig
+
+            # Update policy prior.  # TODO: THIS STEPS ARE UNUSEFUL FOR CONSTPRIOR
+            policy_prior = pol_info.policy_prior
+            samples = SampleList(self.cur[a][cond].sample_list)
+            mode = self._hyperparams['policy_sample_mode']
+            policy_prior.update(samples, self.policy_opt, mode)
+
+            # Fit linearization and store in pol_info.
+            pol_info.pol_K, pol_info.pol_k, pol_info.pol_S = policy_prior.fit(X, pol_mu, pol_sig)
+            for t in range(T):
+                pol_info.chol_pol_S[t, :, :] = sp.linalg.cholesky(pol_info.pol_S[t, :, :])
 
     def advance_iteration_variables_mdgps(self):
         """
@@ -830,71 +907,72 @@ class GPS(RLAlgorithm):
         :return: None
         """
         self._advance_iteration_variables()
-        for m in range(self.M):
-            self.cur[m].traj_info.last_kl_step = self.prev[m].traj_info.last_kl_step
-            self.cur[m].pol_info = copy.deepcopy(self.prev[m].pol_info)
+        for a in range(self.n_local_agents):
+            for m in range(self.M):
+                self.cur[a][m].traj_info.last_kl_step = self.prev[a][m].traj_info.last_kl_step
+                self.cur[a][m].pol_info = copy.deepcopy(self.prev[a][m].pol_info)
 
     def stepadjust_mdgps(self):
         """
         Calculate new step sizes. This version uses the same step size for all conditions.
         """
-        # Compute previous cost and previous expected cost.
-        prev_M = len(self.prev)  # May be different in future.
-        prev_laplace = np.empty(prev_M)
-        prev_mc = np.empty(prev_M)
-        prev_predicted = np.empty(prev_M)
-        for m in range(prev_M):
-            prev_nn = self.prev[m].pol_info.traj_distr()
-            prev_lg = self.prev[m].new_traj_distr
+        for a in range(self.n_local_agents):
+            # Compute previous cost and previous expected cost.
+            prev_M = len(self.prev[a])  # May be different in future.
+            prev_laplace = np.empty(prev_M)
+            prev_mc = np.empty(prev_M)
+            prev_predicted = np.empty(prev_M)
+            for m in range(prev_M):
+                prev_nn = self.prev[a][m].pol_info.traj_distr()
+                prev_lg = self.prev[a][m].new_traj_distr
 
-            # Compute values under Laplace approximation. This is the policy that the previous samples were actually
-            # drawn from under the dynamics that were estimated from the previous samples.
-            prev_laplace[m] = self.traj_opt.estimate_cost(prev_nn, self.prev[m].traj_info).sum()
-            # This is the actual cost that we experienced.
-            prev_mc[m] = self.prev[m].cs.mean(axis=0).sum()
-            # This is the policy that we just used under the dynamics that were estimated from the prev samples (so
-            # this is the cost we thought we would have).
-            prev_predicted[m] = self.traj_opt.estimate_cost(prev_lg, self.prev[m].traj_info).sum()
+                # Compute values under Laplace approximation. This is the policy that the previous samples were actually
+                # drawn from under the dynamics that were estimated from the previous samples.
+                prev_laplace[m] = self.traj_opt.estimate_cost(prev_nn, self.prev[a][m].traj_info).sum()
+                # This is the actual cost that we experienced.
+                prev_mc[m] = self.prev[a][m].cs.mean(axis=0).sum()
+                # This is the policy that we just used under the dynamics that were estimated from the prev samples (so
+                # this is the cost we thought we would have).
+                prev_predicted[m] = self.traj_opt.estimate_cost(prev_lg, self.prev[a][m].traj_info).sum()
 
-        # Compute current cost.
-        cur_laplace = np.empty(self.M)
-        cur_mc = np.empty(self.M)
-        for m in range(self.M):
-            cur_nn = self.cur[m].pol_info.traj_distr()
-            # This is the actual cost we have under the current trajectory based on the latest samples.
-            cur_laplace[m] = self.traj_opt.estimate_cost(cur_nn, self.cur[m].traj_info).sum()
-            cur_mc[m] = self.cur[m].cs.mean(axis=0).sum()
+            # Compute current cost.
+            cur_laplace = np.empty(self.M)
+            cur_mc = np.empty(self.M)
+            for m in range(self.M):
+                cur_nn = self.cur[a][m].pol_info.traj_distr()
+                # This is the actual cost we have under the current trajectory based on the latest samples.
+                cur_laplace[m] = self.traj_opt.estimate_cost(cur_nn, self.cur[a][m].traj_info).sum()
+                cur_mc[m] = self.cur[a][m].cs.mean(axis=0).sum()
 
-        # Compute predicted and actual improvement.
-        prev_laplace = prev_laplace.mean()
-        prev_mc = prev_mc.mean()
-        prev_predicted = prev_predicted.mean()
-        cur_laplace = cur_laplace.mean()
-        cur_mc = cur_mc.mean()
-        if self._hyperparams['step_rule'] == 'laplace':
-            predicted_impr = prev_laplace - prev_predicted
-            actual_impr = prev_laplace - cur_laplace
-        elif self._hyperparams['step_rule'] == 'mc':
-            predicted_impr = prev_mc - prev_predicted
-            actual_impr = prev_mc - cur_mc
-        LOGGER.debug('Previous cost: Laplace: %f, MC: %f',
-                     prev_laplace, prev_mc)
-        LOGGER.debug('Predicted cost: Laplace: %f', prev_predicted)
-        LOGGER.debug('Actual cost: Laplace: %f, MC: %f',
-                     cur_laplace, cur_mc)
+            # Compute predicted and actual improvement.
+            prev_laplace = prev_laplace.mean()
+            prev_mc = prev_mc.mean()
+            prev_predicted = prev_predicted.mean()
+            cur_laplace = cur_laplace.mean()
+            cur_mc = cur_mc.mean()
+            if self._hyperparams['step_rule'] == 'laplace':
+                predicted_impr = prev_laplace - prev_predicted
+                actual_impr = prev_laplace - cur_laplace
+            elif self._hyperparams['step_rule'] == 'mc':
+                predicted_impr = prev_mc - prev_predicted
+                actual_impr = prev_mc - cur_mc
+            LOGGER.debug('Previous cost Local Agent %d: Laplace: %f, MC: %f', a, prev_laplace, prev_mc)
+            LOGGER.debug('Predicted cost: Laplace: %f', prev_predicted)
+            LOGGER.debug('Actual cost Local Agent %d: Laplace: %f, MC: %f', a, cur_laplace, cur_mc)
 
-        for m in range(self.M):
-            self._set_new_mult(predicted_impr, actual_impr, m)
+            for m in range(self.M):
+                self._set_new_mult(predicted_impr, actual_impr, m, a)
 
-    def compute_costs_mdgps(self, m, eta, augment=True):
+    def compute_costs_mdgps(self, a, m, eta, augment=True):
         """ Compute cost estimates used in the LQR backward pass. """
 
-        traj_info, traj_distr = self.cur[m].traj_info, self.cur[m].traj_distr
+        traj_info, traj_distr = self.cur[a][m].traj_info, self.cur[a][m].traj_distr
         if not augment:  # Whether to augment cost with term to penalize KL
             return traj_info.Cm, traj_info.cv
 
-        pol_info = self.cur[m].pol_info
+        pol_info = self.cur[a][m].pol_info
         multiplier = self._hyperparams['max_ent_traj']
+
         T, dU, dX = traj_distr.T, traj_distr.dU, traj_distr.dX
         Cm, cv = np.copy(traj_info.Cm), np.copy(traj_info.cv)
 
