@@ -24,7 +24,7 @@ def generate_noise(T, dU, hyperparams):
     if 'noise_var_scale' not in hyperparams:
         hyperparams['noise_var_scale'] = 1
 
-    if not issubclass(type(hyperparams['noise_var_scale']), list) or \
+    if not issubclass(type(hyperparams['noise_var_scale']), list) and \
             not issubclass(type(hyperparams['noise_var_scale']), np.ndarray):
         scale = np.tile(hyperparams['noise_var_scale'], dU)
     elif len(hyperparams['noise_var_scale']) == dU:

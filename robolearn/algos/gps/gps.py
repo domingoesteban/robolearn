@@ -202,14 +202,16 @@ class GPS(RLAlgorithm):
                     print(self.cur[-1].pol_info.policy_samples)
                     print(self.prev[-1].pol_info.policy_samples)
 
-                    pol_sample_lists_costs = self._eval_conditions_sample_list_cost(pol_sample_lists)
+                    pol_sample_lists_costs, pol_sample_lists_cost_compositions = self._eval_conditions_sample_list_cost(pol_sample_lists)
 
                 else:
                     pol_sample_lists = None
                     pol_sample_lists_costs = None
+                    pol_sample_lists_cost_compositions = None
 
                 # Log data
-                self._log_data(itr, traj_sample_lists, pol_sample_lists, pol_sample_lists_costs)
+                self._log_data(itr, traj_sample_lists, pol_sample_lists, pol_sample_lists_costs,
+                               pol_sample_lists_cost_compositions)
 
         except Exception as e:
             traceback.print_exception(*sys.exc_info())
@@ -322,8 +324,9 @@ class GPS(RLAlgorithm):
 
         ros_rate = rospy.Rate(int(1/self.dt))  # hz
         # Collect history
-        print("Sampling! ...")
+        sampling_bar = ProgressBar(self.T, bar_title='Sampling')
         for t in range(self.T):
+            sampling_bar.update(t)
             if verbose:
                 if on_policy:
                     print("On-policy sample itr:%d/%d, cond:%d/%d, i:%d/%d | t:%d/%d" % (itr+1, self.max_iterations,
@@ -339,6 +342,8 @@ class GPS(RLAlgorithm):
             state = self.env.get_state()
             # action = policy.eval(state, obs, t, noise[t, :])
             action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # TODO: Avoid TF policy writes in obs
+            action = np.zeros_like(action)
+            action[6] = -0.2
             # action[3] = -0.15707963267948966
             # print(obs)
             # print(state)
@@ -352,6 +357,8 @@ class GPS(RLAlgorithm):
             # sample.set_states(state[:7], state_name='link_position', t=i)  # Set action One by one
 
             ros_rate.sleep()
+
+        sampling_bar.end()
 
         # Stop environment
         self.env.stop()
@@ -436,16 +443,21 @@ class GPS(RLAlgorithm):
         #     for n_sample in range(len(sample_list[cond])):
         #         costs[cond].append(self.cost_function[cond].eval(sample_list[cond][n_sample])[0])
         costs = list()
+        cost_compositions = list()
         total_cond = len(cond_sample_list)
         for cond in range(total_cond):
             N = len(cond_sample_list[cond])
             cs = np.zeros((N, self.T))
+            cond_cost_composition = [None for _ in range(N)]
             for n in range(N):
                 sample = cond_sample_list[cond][n]
                 # Get costs.
-                cs[n, :] = self.cost_function[cond].eval(sample)[0]
+                result = np.array(self.cost_function[cond].eval(sample))
+                cs[n, :] = result[0]
+                cond_cost_composition[n] = result[-1]
             costs.append(cs)
-        return costs
+            cost_compositions.append(cond_cost_composition)
+        return costs, cost_compositions
         #costs = list()
         ## Collect samples
         #for cond in range(len(sample_list)):
@@ -455,7 +467,8 @@ class GPS(RLAlgorithm):
         #    costs.append(cost)
         #return costs
 
-    def _log_data(self, itr, traj_sample_lists, pol_sample_lists=None, pol_sample_lists_costs=None):
+    def _log_data(self, itr, traj_sample_lists, pol_sample_lists=None, pol_sample_lists_costs=None,
+                  pol_sample_lists_cost_compositions=None):
         """
         Log data and algorithm.
         :param itr: Iteration number.
@@ -512,6 +525,13 @@ class GPS(RLAlgorithm):
                 copy.copy(pol_sample_lists_costs)
             )
 
+        if pol_sample_lists_cost_compositions is not None:
+            print("Logging Global Policy samples cost compositions... ")
+            self.data_logger.pickle(
+                ('pol_sample_cost_composition_itr_%02d.pkl' % itr),
+                copy.copy(pol_sample_lists_cost_compositions)
+            )
+
     def _update_dynamics(self):
         """
         Instantiate dynamics objects and update prior. Fit dynamics to current samples.
@@ -566,7 +586,7 @@ class GPS(RLAlgorithm):
         for n in range(N):
             sample = self.cur[cond].sample_list[n]
             # Get costs.
-            l, lx, lu, lxx, luu, lux = self.cost_function[cond].eval(sample)
+            l, lx, lu, lxx, luu, lux, _ = self.cost_function[cond].eval(sample)
             cc[n, :] = l
             cs[n, :] = l
 

@@ -7,14 +7,15 @@ import scipy.ndimage as sp_ndimage
 from robolearn.utils.plot_utils import plot_multi_info
 
 # Noise hyperparams
-noise_var_scale = 1.0e-0         # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
+#noise_var_scale = 1.0e-0         # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
+noise_var_scale = np.array([5.0e-1, 5.0e-1, 5.0e-1, 5.0e-1, 5.0e-2, 5.0e-2, 5.0e-2])
 smooth_noise = True              # Apply Gaussian filter to noise generated
 smooth_noise_var = 5.0e-0        # Variance to apply to Gaussian Filter
-smooth_noise_renormalize = True  # Renormalize smooth noise to have variance=1
+smooth_noise_renormalize = False  # Renormalize smooth noise to have variance=1
 T = 500
 dU = 7
 
-if not issubclass(type(noise_var_scale), list) or not issubclass(type(noise_var_scale), np.ndarray):
+if not issubclass(type(noise_var_scale), list) and not issubclass(type(noise_var_scale), np.ndarray):
     scale = np.tile(noise_var_scale, dU)
 elif len(noise_var_scale) == dU:
     scale = noise_var_scale

@@ -143,7 +143,6 @@ class TrajOptPI2(TrajOpt):
         while fail:
             fail = False
             for t in range(T):
-
                 # Compute cost-to-go for each time step for each sample.
                 cost_to_go = np.sum(costs[:, t:T], axis=1)
 
@@ -202,8 +201,7 @@ class TrajOptPI2(TrajOpt):
     @staticmethod
     def kl_dual(eta, kl_threshold, costs):
         """
-        Dual function for optimizing the temperature eta according to the given
-        KL-divergence constraint.
+        Dual function for optimizing the temperature eta according to the given KL-divergence constraint.
         
         Args:
             eta: Temperature that has to be optimized.

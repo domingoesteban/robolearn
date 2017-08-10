@@ -103,16 +103,13 @@ class TrajOptLQR(TrajOpt):
 
             # Run fwd/bwd pass, note that eta may be updated.
             # Compute KL divergence constraint violation.
-            print("Backward pass..")
             traj_distr, eta = self.backward(prev_traj_distr, traj_info, eta, algorithm, m, a)
 
             if not self._use_prev_distr:
-                print("Forward pass..")
                 new_mu, new_sigma = self.forward(traj_distr, traj_info)
                 kl_div = traj_distr_kl(new_mu, new_sigma, traj_distr, prev_traj_distr,
                                        tot=(not self.cons_per_step))
             else:
-                print("Forward pass..")
                 prev_mu, prev_sigma = self.forward(prev_traj_distr, traj_info)
                 kl_div = traj_distr_kl_alt(prev_mu, prev_sigma, traj_distr, prev_traj_distr,
                                            tot=(not self.cons_per_step))
@@ -244,28 +241,26 @@ class TrajOptLQR(TrajOpt):
         sigma[0, idx_x, idx_x] = traj_info.x0sigma
         mu[0, idx_x] = traj_info.x0mu
 
+        forward_bar = ProgressBar(T, bar_title='Forward pass')
         for t in range(T):
-            sigma[t, :, :] = np.vstack([
-                np.hstack([
-                    sigma[t, idx_x, idx_x],
-                    sigma[t, idx_x, idx_x].dot(traj_distr.K[t, :, :].T)
-                ]),
-                np.hstack([
-                    traj_distr.K[t, :, :].dot(sigma[t, idx_x, idx_x]),
-                    traj_distr.K[t, :, :].dot(sigma[t, idx_x, idx_x]).dot(
-                        traj_distr.K[t, :, :].T
-                    ) + traj_distr.pol_covar[t, :, :]
-                ])
-            ])
-            mu[t, :] = np.hstack([
-                mu[t, idx_x],
-                traj_distr.K[t, :, :].dot(mu[t, idx_x]) + traj_distr.k[t, :]
-            ])
+            forward_bar.update(t)
+            sigma[t, :, :] = np.vstack([np.hstack([
+                                            sigma[t, idx_x, idx_x],
+                                            sigma[t, idx_x, idx_x].dot(traj_distr.K[t, :, :].T)
+                                                  ]),
+                                        np.hstack([
+                                            traj_distr.K[t, :, :].dot(sigma[t, idx_x, idx_x]),
+                                            traj_distr.K[t, :, :].dot(sigma[t, idx_x, idx_x]).dot(
+                                                traj_distr.K[t, :, :].T
+                                            ) + traj_distr.pol_covar[t, :, :]
+                                                  ])
+                                        ])
+            mu[t, :] = np.hstack([mu[t, idx_x],
+                                  traj_distr.K[t, :, :].dot(mu[t, idx_x]) + traj_distr.k[t, :]])
             if t < T - 1:
-                sigma[t+1, idx_x, idx_x] = \
-                        Fm[t, :, :].dot(sigma[t, :, :]).dot(Fm[t, :, :].T) + \
-                        dyn_covar[t, :, :]
+                sigma[t+1, idx_x, idx_x] = Fm[t, :, :].dot(sigma[t, :, :]).dot(Fm[t, :, :].T) + dyn_covar[t, :, :]
                 mu[t+1, idx_x] = Fm[t, :, :].dot(mu[t, :]) + fv[t, :]
+        forward_bar.end()
         return mu, sigma
 
     def backward(self, prev_traj_distr, traj_info, eta, algorithm, m, a=None):
@@ -285,6 +280,9 @@ class TrajOptLQR(TrajOpt):
         T = prev_traj_distr.T
         dU = prev_traj_distr.dU
         dX = prev_traj_distr.dX
+
+        backward_bar = ProgressBar(T, bar_title='Backward pass')
+        backward_bar_count = 0
 
         if self._update_in_bwd_pass:
             traj_distr = prev_traj_distr.nans_like()
@@ -340,6 +338,8 @@ class TrajOptLQR(TrajOpt):
 
             # Compute state-action-state function at each time step.
             for t in range(T - 1, -1, -1):
+                backward_bar_count = 0
+                backward_bar.update(backward_bar_count)
                 # Add in the cost.
                 Qtt[t] = fCm[t, :, :]  # (X+U) x (X+U)
                 Qt[t] = fcv[t, :]  # (X+U) x 1
@@ -351,11 +351,8 @@ class TrajOptLQR(TrajOpt):
                     else:
                         multiplier = 1.0
 
-                    Qtt[t] += multiplier * \
-                            Fm[t, :, :].T.dot(Vxx[t+1, :, :]).dot(Fm[t, :, :])
-                    Qt[t] += multiplier * \
-                            Fm[t, :, :].T.dot(Vx[t+1, :] +
-                                            Vxx[t+1, :, :].dot(fv[t, :]))
+                    Qtt[t] += multiplier * Fm[t, :, :].T.dot(Vxx[t+1, :, :]).dot(Fm[t, :, :])
+                    Qt[t] += multiplier * Fm[t, :, :].T.dot(Vx[t+1, :] + Vxx[t+1, :, :].dot(fv[t, :]))
 
                 # Symmetrize quadratic component.
                 Qtt[t] = 0.5 * (Qtt[t] + Qtt[t].T)
@@ -365,10 +362,8 @@ class TrajOptLQR(TrajOpt):
                     k_term = Qt[t, idx_u]
                     K_term = Qtt[t, idx_u, idx_x]
                 else:
-                    inv_term = (1.0 / eta[t]) * Qtt[t, idx_u, idx_u] + \
-                            prev_traj_distr.inv_pol_covar[t]
-                    k_term = (1.0 / eta[t]) * Qt[t, idx_u] - \
-                            prev_traj_distr.inv_pol_covar[t].dot(prev_traj_distr.k[t])
+                    inv_term = (1.0 / eta[t]) * Qtt[t, idx_u, idx_u] + prev_traj_distr.inv_pol_covar[t]
+                    k_term = (1.0 / eta[t]) * Qt[t, idx_u] - prev_traj_distr.inv_pol_covar[t].dot(prev_traj_distr.k[t])
                     K_term = (1.0 / eta[t]) * Qtt[t, idx_u, idx_x] - \
                             prev_traj_distr.inv_pol_covar[t].dot(prev_traj_distr.K[t])
 
@@ -410,12 +405,8 @@ class TrajOptLQR(TrajOpt):
                     )
 
                     # Compute mean terms.
-                    new_k[t, :] = -sp.linalg.solve_triangular(
-                        U, sp.linalg.solve_triangular(L, k_term, lower=True)
-                    )
-                    new_K[t, :, :] = -sp.linalg.solve_triangular(
-                        U, sp.linalg.solve_triangular(L, K_term, lower=True)
-                    )
+                    new_k[t, :] = -sp.linalg.solve_triangular(U, sp.linalg.solve_triangular(L, k_term, lower=True))
+                    new_K[t, :, :] = -sp.linalg.solve_triangular(U, sp.linalg.solve_triangular(L, K_term, lower=True))
 
                 # Compute value function.
                 if (self.cons_per_step or
@@ -428,10 +419,8 @@ class TrajOptLQR(TrajOpt):
                             traj_distr.k[t].T.dot(Qtt[t, idx_u, idx_u]).dot(traj_distr.K[t]) + \
                             Qtt[t, idx_x, idx_u].dot(traj_distr.k[t])
                 else:
-                    Vxx[t, :, :] = Qtt[t, idx_x, idx_x] + \
-                            Qtt[t, idx_x, idx_u].dot(traj_distr.K[t, :, :])
-                    Vx[t, :] = Qt[t, idx_x] + \
-                            Qtt[t, idx_x, idx_u].dot(traj_distr.k[t, :])
+                    Vxx[t, :, :] = Qtt[t, idx_x, idx_x] + Qtt[t, idx_x, idx_u].dot(traj_distr.K[t, :, :])
+                    Vx[t, :] = Qt[t, idx_x] + Qtt[t, idx_x, idx_u].dot(traj_distr.k[t, :])
                 Vxx[t, :, :] = 0.5 * (Vxx[t, :, :] + Vxx[t, :, :].T)
 
             if not self._hyperparams['update_in_bwd_pass']:
@@ -462,6 +451,7 @@ class TrajOptLQR(TrajOpt):
                         raise ValueError('NaNs encountered in dynamics!')
                     raise ValueError('Failed to find PD solution even for very large eta '
                                      '(check that dynamics and cost are reasonably well conditioned)!')
+        backward_bar.end()
         return traj_distr, eta
 
     def _conv_check(self, con, kl_step):

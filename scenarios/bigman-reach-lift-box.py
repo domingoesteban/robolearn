@@ -351,7 +351,81 @@ LAfk_cost = {
     'wp_final_multiplier': 1,  # 10
 }
 
+LAfk_l1_cost = {
+    'type': CostFK,
+    'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'target_pose': target_distance_left_arm,
+    'tgt_data_type': 'state',  # 'state' or 'observation'
+    'tgt_idx': bigman_env.get_state_info(name='distance_left_arm')['idx'],
+    'op_point_name': LH_name,
+    'op_point_offset': l_soft_hand_offset,
+    'joints_idx': bigman_env.get_state_info(name='link_position')['idx'],
+    'joint_ids': bigman_params['joint_ids']['LA'],
+    'robot_model': robot_model,
+    # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'l1': 1.0,  # 1.0,  # 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+    'l2': 0.0,  # 1.0,  #1.0e-3,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
+    'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 1,  # 10
+}
+
+LAfk_l2_cost = {
+    'type': CostFK,
+    'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'target_pose': target_distance_left_arm,
+    'tgt_data_type': 'state',  # 'state' or 'observation'
+    'tgt_idx': bigman_env.get_state_info(name='distance_left_arm')['idx'],
+    'op_point_name': LH_name,
+    'op_point_offset': l_soft_hand_offset,
+    'joints_idx': bigman_env.get_state_info(name='link_position')['idx'],
+    'joint_ids': bigman_params['joint_ids']['LA'],
+    'robot_model': robot_model,
+    # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'l1': 0.0,  # 1.0,  # 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+    'l2': 1.0,  # 1.0,  #1.0e-3,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
+    'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 1,  # 10
+}
+
 LAfk_final_cost = {
+    'type': CostFK,
+    'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'target_pose': target_distance_left_arm,
+    'tgt_data_type': 'state',  # 'state' or 'observation'
+    'tgt_idx': bigman_env.get_state_info(name='distance_left_arm')['idx'],
+    'op_point_name': LH_name,
+    'op_point_offset': l_soft_hand_offset,
+    'joints_idx': bigman_env.get_state_info(name='link_position')['idx'],
+    'joint_ids': bigman_params['joint_ids']['LA'],
+    'robot_model': robot_model,
+    'wp': np.array([1.0, 1.0, 1.0, 8.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'l1': 0.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+    'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
+    'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 10,
+}
+
+LAfk_l1_final_cost = {
+    'type': CostFK,
+    'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'target_pose': target_distance_left_arm,
+    'tgt_data_type': 'state',  # 'state' or 'observation'
+    'tgt_idx': bigman_env.get_state_info(name='distance_left_arm')['idx'],
+    'op_point_name': LH_name,
+    'op_point_offset': l_soft_hand_offset,
+    'joints_idx': bigman_env.get_state_info(name='link_position')['idx'],
+    'joint_ids': bigman_params['joint_ids']['LA'],
+    'robot_model': robot_model,
+    'wp': np.array([1.0, 1.0, 1.0, 8.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+    'l2': 0.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
+    'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 10,
+}
+
+LAfk_l2_final_cost = {
     'type': CostFK,
     'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
     'target_pose': target_distance_left_arm,
@@ -487,7 +561,9 @@ cost_sum = {
     # 'costs': [act_cost, LAfk_cost, RAfk_cost, state_cost],
     # 'weights': [1.0e-2, 1.0e-0, 1.0e-0, 5.0e-1],
     'costs': [act_cost, LAfk_cost, LAfk_final_cost],
-    'weights': [1.0e-2, 1.0e-0, 1.0e-0],
+    'weights': [1.0e-1, 1.0e-0, 1.0e-0],
+    # 'costs': [act_cost, LAfk_l1_cost, LAfk_l2_cost, LAfk_l1_final_cost, LAfk_l2_final_cost],
+    # 'weights': [1.0e-2, 1.0e-0, 1.0e-0, 1.0e-0, 1.0e-0],
     # 'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
     # 'weights': [0.1, 5.0],
 }
@@ -646,10 +722,11 @@ traj_opt_method = {'type': TrajOptLQR,
 if demos_samples is None:
     init_traj_distr = {'type': init_pd,
                        #'init_var': np.ones(len(bigman_params['joint_ids'][body_part_active]))*0.3e-1,  # Initial variance (Default:10)
-                       'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0,
+                       #'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0,
+                       'init_var': np.ones(len(bigman_params['joint_ids'][body_part_active]))*0.001,
                        # 'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
                        #                       3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0,  # Initial variance (Default:10)
-                       'pos_gains': 0.1,  # 0.001,  # Position gains (Default:10)
+                       'pos_gains': np.array([1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 5.0e-3, 5.0e-3, 5.0e-3]),  # 0.001,  # Position gains (Default:10)
                        'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
                        'init_action_offset': None,
                        'dQ': len(bigman_params['joint_ids'][body_part_sensed]),  # Total joints in state
@@ -693,7 +770,7 @@ gps_hyperparams = {
     'num_samples': 5,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
-    'noise_var_scale': 1.0e-0,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
+    'noise_var_scale': np.array([5.0e-1, 5.0e-1, 5.0e-1, 5.0e-1, 5.0e-2, 5.0e-2, 5.0e-2]),  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
     'smooth_noise': True,  # Apply Gaussian filter to noise generated
     'smooth_noise_var': 5.0e+0,  # Variance to apply to Gaussian Filter
     'smooth_noise_renormalize': False,  # Renormalize smooth noise to have variance=1

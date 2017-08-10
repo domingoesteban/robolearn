@@ -5,8 +5,10 @@ import matplotlib.pyplot as plt
 from robolearn.costs.cost_action import CostAction
 from robolearn.costs.cost_state import CostState
 from robolearn.costs.cost_fk_relative import CostFKRelative
+from robolearn.costs.cost_fk import CostFK
 from robolearn.costs.cost_sum import CostSum
 from robolearn.costs.cost_utils import RAMP_QUADRATIC, RAMP_CONSTANT, RAMP_LINEAR, RAMP_FINAL_ONLY
+from robolearn.costs.cost_utils import evallogl2term
 
 from robolearn.utils.robot_model import RobotModel
 from robolearn.utils.sample import Sample
@@ -22,9 +24,9 @@ np.set_printoptions(precision=8, suppress=True, linewidth=1000)
 # ########## #
 
 T = 100
-dX = 35
+dX = 54
 dU = 14
-dO = 35
+dO = 54
 # BOX
 box_x = 0.75-0.05
 box_y = 0.00
@@ -84,12 +86,17 @@ qLA = np.deg2rad([0, 50, 0, -75, 0, 0, 0])
 # qRA = np.array([0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633])
 qRA = np.deg2rad([0, -50, 0, -75, 0, 0, 0])
 
+dLA = [0.1, 0.1, 0.1, -0.1, 0.1, 0.1]
+dRA = [0.1, 0.1, 0.1, -0.1, 0.1, 0.1]
+
 all_actions = np.ones((T, dU))*1
 all_obs = np.zeros((T, dO))
 all_states = np.zeros((T, dX))
 all_states[:, :7] = np.tile(qLA, (T, 1))
 all_states[:, 7:14] = np.tile(qRA, (T, 1))
-all_states[:, -7:] = np.tile(box_relative_pose[[3, 4, 5, 6, 0, 1, 2]], (T, 1))
+#all_states[:, -7:] = np.tile(box_relative_pose[[3, 4, 5, 6, 0, 1, 2]], (T, 1))
+all_states[:, 42:48] = np.tile(dLA, (T, 1))
+all_states[:, 48:54] = np.tile(dLA, (T, 1))
 
 sample.set_acts(all_actions)  # Set all actions at the same time
 sample.set_obs(all_obs)  # Set all obs at the same time
@@ -136,8 +143,8 @@ LAfk_cost = {
     #'rel_data_name': 'optitrack',  # Name of the state/observation
     'rel_idx': range(28, 35),
     'data_idx': range(0, 14),
-    'end_effector_name': LH_name,
-    'end_effector_offset': l_soft_hand_offset,
+    'op_point_name': LH_name,
+    'op_point_offset': l_soft_hand_offset,
     'joint_ids': bigman_params['joint_ids']['BA'],
     'robot_model': robot_model,
     #'wp': np.array([1.2, 0, 0.8, 1, 1.2, 0.8]),  # one dim less because 'quat' error | 1)orient 2)pos
@@ -148,6 +155,28 @@ LAfk_cost = {
     'alpha': 1e-5,  # Constant added in square root in l1 norm
     'wp_final_multiplier': 1,
 }
+
+
+target_distance_left_arm = np.zeros(6)
+LAfk_final_cost = {
+    'type': CostFK,
+    'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'target_pose': target_distance_left_arm,
+    'tgt_data_type': 'state',  # 'state' or 'observation'
+    'tgt_idx': range(42, 48),
+    'op_point_name': LH_name,
+    'op_point_offset': l_soft_hand_offset,
+    'joints_idx': range(7),
+    'joint_ids': bigman_params['joint_ids']['LA'],
+    'robot_model': robot_model,
+    'wp': np.array([1.0, 1.0, 1.0, 8.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'evalnorm': evallogl2term,
+    'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+    'l2': 0.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
+    'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 10,
+}
+
 
 
 right_hand_rel_pose = create_hand_relative_pose([0, 0, 0, 0, 0, 0, 1],
@@ -161,8 +190,8 @@ RAfk_cost = {
     #'rel_data_name': 'optitrack',  # Name of the state/observation
     'rel_idx': range(28, 35),
     'data_idx': range(0, 14),
-    'end_effector_name': RH_name,
-    'end_effector_offset': r_soft_hand_offset,
+    'op_point_name': RH_name,
+    'op_point_offset': r_soft_hand_offset,
     'joint_ids': bigman_params['joint_ids']['BA'],
     'robot_model': robot_model,
     #'wp': np.array([1.2, 0, 0.8, 1, 1.2, 0.8]),  # one dim less because 'quat' error | 1)orient 2)pos
@@ -174,26 +203,32 @@ RAfk_cost = {
     'wp_final_multiplier': 5,
 }
 
+
+
+
 cost_sum = {
     'type': CostSum,
-    'costs': [act_cost, state_cost, LAfk_cost, RAfk_cost],
-    'weights': [0.1, 5.0, 8.0, 8.0],
+    #'costs': [act_cost, state_cost, LAfk_cost, RAfk_cost],
+    #'weights': [0.1, 5.0, 8.0, 8.0],
     # 'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
     # 'weights': [0.1, 5.0],
+    'costs': [LAfk_final_cost],
+    'weights': [1.0],
 }
 
 cost1 = LAfk_cost['type'](LAfk_cost)
 cost2 = RAfk_cost['type'](RAfk_cost)
 cost3 = act_cost['type'](act_cost)
 cost4 = state_cost['type'](state_cost)
+cost5 = LAfk_final_cost['type'](LAfk_final_cost)
 #cost = cost_sum['type'](cost_sum)
 
 
 print("Evaluating sample's cost...")
-l, lx, lu, lxx, luu, lux = cost1.eval(sample)
+l, lx, lu, lxx, luu, lux = cost5.eval(sample)
 print('----')
-print(l[1])
-print(l[-1])
+print("l[1]: %f" % l[1])
+print("l[-1]: %f" % l[-1])
 # print(lx[1, :])
 # print(lx[-1, :])
 # print(lu[1, :])

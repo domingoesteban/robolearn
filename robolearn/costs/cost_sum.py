@@ -21,6 +21,10 @@ class CostSum(Cost):
         for cost in self._hyperparams['costs']:
             self._costs.append(cost['type'](cost))
 
+        if len(self._costs) != len(self._weights):
+            raise AttributeError("The number of cost types and weights do not match %d != %d" % (len(self._costs),
+                                                                                                 len(self._weights)))
+
     def eval(self, sample):
         """
         Evaluate cost function and derivatives.
@@ -39,10 +43,15 @@ class CostSum(Cost):
         luu = luu * weight
         lux = lux * weight
 
+        cost_composition = list()
+        cost_composition.append(l.copy())
+
         for i in range(1, len(self._costs)):
             pl, plx, plu, plxx, pluu, plux = self._costs[i].eval(sample)
             # print("Cost %d: %f" % (i, sum(pl)))
             weight = self._weights[i]
+
+            cost_composition.append(pl*weight)
 
             l = l + pl * weight
             lx = lx + plx * weight
@@ -50,4 +59,5 @@ class CostSum(Cost):
             lxx = lxx + plxx * weight
             luu = luu + pluu * weight
             lux = lux + plux * weight
-        return l, lx, lu, lxx, luu, lux
+
+        return l, lx, lu, lxx, luu, lux, cost_composition

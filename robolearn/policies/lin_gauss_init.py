@@ -87,8 +87,7 @@ def init_lqr(hyperparams):
     vx_t = np.zeros(dX)  # Vx = dV/dX. Derivative of value function wrt to X at time t.
     Vxx_t = np.zeros((dX, dX))  # Vxx = ddV/dXdX at time t.
 
-    #TODO: A lot of this code is repeated with traj_opt_lqr_python.py
-    #      backward pass.
+    #TODO: A lot of this code is repeated with traj_opt_lqr_python.py backward pass.
     for t in range(T - 1, -1, -1):
         # Compute Q function at this step.
         if t == (T - 1):
@@ -140,18 +139,26 @@ def init_pd(hyperparams):
     dU, dQ, dX = config['dU'], config['dQ'], config['dX']
     x0, T = config['x0'], config['T']
 
+    if not issubclass(type(config['pos_gains']), list) and not issubclass(type(config['pos_gains']), np.ndarray):
+        pos_gains = np.tile(config['pos_gains'], dU)
+    elif len(config['pos_gains']) == dU:
+        pos_gains = config['pos_gains']
+    else:
+        raise TypeError("noise_var_scale size (%d) does not match dU (%d)" % (len(config['pos_gains']), dU))
+
     # Choose initialization mode.
     Kp = 1.0
     Kv = config['vel_gains_mult']
     if dU < dQ:
-        K = -config['pos_gains'] * np.tile(np.hstack([np.eye(dU) * Kp, np.zeros((dU, dQ-dU)),
-                                                      np.eye(dU) * Kv, np.zeros((dU, dQ-dU))]),
-                                           [T, 1, 1])
+        K = -np.diag(pos_gains).dot(np.hstack([np.eye(dU) * Kp, np.zeros((dU, dQ-dU)),
+                                                  np.eye(dU) * Kv, np.zeros((dU, dQ-dU))]))
+        K = np.tile(K, [T, 1, 1])
     else:
-        K = -config['pos_gains'] * np.tile(np.hstack([np.eye(dU) * Kp, np.eye(dU) * Kv,
-                                                      np.zeros((dU, dX - dU*2))]),
-                                           [T, 1, 1])
-    k = np.tile(-K[0, :, :].dot(x0), [T, 1])
+        K = -np.diag(pos_gains).dot(np.hstack([np.eye(dU) * Kp, np.eye(dU) * Kv,
+                                                  np.zeros((dU, dX - dU*2))]))
+        K = np.tile(K, [T, 1, 1])
+
+    k = np.tile(K[0, :, :].dot(x0), [T, 1])
     PSig = config['init_var'] * np.tile(np.eye(dU), [T, 1, 1])
     cholPSig = np.sqrt(config['init_var']) * np.tile(np.eye(dU), [T, 1, 1])
     invPSig = (1.0 / config['init_var']) * np.tile(np.eye(dU), [T, 1, 1])

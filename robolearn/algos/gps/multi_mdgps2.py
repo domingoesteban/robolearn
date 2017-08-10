@@ -641,9 +641,9 @@ class MultiMDGPS(RLAlgorithm):
         self.cur[a][m].step_mult = new_step
 
         if new_mult > 1:
-            LOGGER.debug('Increasing step size multiplier to %f', new_step)
+            LOGGER.debug('Increasing step size multiplier for cond %d to %f', m, new_step)
         else:
-            LOGGER.debug('Decreasing step size multiplier to %f', new_step)
+            LOGGER.debug('Decreasing step size multiplier for cond %d to %f', m, new_step)
 
     def _measure_ent(self, m):
         """ Measure the entropy of the current trajectory. """
