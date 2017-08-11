@@ -707,29 +707,30 @@ traj_opt_method = {'type': TrajOptLQR,
 #                    'pi2_cons_per_step': True,
 #                    }
 
-# init_traj_distr values can be lists if they are different for each condition
-# init_traj_distr = {'type': init_lqr,
-#                    # Parameters to calculate initial COST function based on stiffness
-#                    'init_var': 8.0e-2,  # Initial Variance
-#                    'stiffness': 1.0e-1,  # Stiffness (multiplies q)
-#                    'stiffness_vel': 0.5,  # Stiffness_vel*stiffness (multiplies qdot)
-#                    'final_weight': 10.0,  # Multiplies cost at T
-#                    # Parameters for guessing dynamics
-#                    'init_acc': np.zeros(action_dim),  # dU vector(np.array) of accelerations, default zeros.
-#                    #'init_gains': 1.0*np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
-#                    'init_gains': 1.0/np.array([5000.0, 8000.0, 5000.0, 5000.0, 300.0, 2000.0, 300.0]),  # dU vector(np.array) of gains, default ones.
-#                    }
 if demos_samples is None:
+#      # init_traj_distr values can be lists if they are different for each condition
+#      init_traj_distr = {'type': init_lqr,
+#                         # Parameters to calculate initial COST function based on stiffness
+#                         'init_var': 3.0e-1,  # Initial Variance
+#                         'stiffness': 5.0e-1,  # Stiffness (multiplies q)
+#                         'stiffness_vel': 0.01,  # 0.5,  # Stiffness_vel*stiffness (multiplies qdot)
+#                         'final_weight': 10.0,  # Multiplies cost at T
+#                         # Parameters for guessing dynamics
+#                         'init_acc': np.zeros(action_dim),  # dU vector(np.array) of accelerations, default zeros.
+#                         #'init_gains': 1.0*np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
+#                         #'init_gains': 1.0/np.array([5000.0, 8000.0, 5000.0, 5000.0, 300.0, 2000.0, 300.0]),  # dU vector(np.array) of gains, default ones.
+#                         'init_gains': np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
+#                         }
     init_traj_distr = {'type': init_pd,
                        #'init_var': np.ones(len(bigman_params['joint_ids'][body_part_active]))*0.3e-1,  # Initial variance (Default:10)
-                       #'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0,
-                       'init_var': np.ones(len(bigman_params['joint_ids'][body_part_active]))*0.001,
+                       'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0,
+                       #'init_var': np.ones(len(bigman_params['joint_ids'][body_part_active])),  # Initial variance (Default:10)
                        # 'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
                        #                       3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0,  # Initial variance (Default:10)
-                       'pos_gains': np.array([1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 5.0e-3, 5.0e-3, 5.0e-3]),  # 0.001,  # Position gains (Default:10)
+                       'pos_gains': 0.001,  #np.array([1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 5.0e-2, 5.0e-2, 5.0e-2])*1.0e+1,  # 0.001,  # Position gains (Default:10)
                        'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
                        'init_action_offset': None,
-                       'dQ': len(bigman_params['joint_ids'][body_part_sensed]),  # Total joints in state
+                       'dJoints': len(bigman_params['joint_ids'][body_part_sensed]),  # Total joints in state
                        }
 else:
     init_traj_distr = {'type': init_demos,
@@ -770,10 +771,12 @@ gps_hyperparams = {
     'num_samples': 5,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
-    'noise_var_scale': np.array([5.0e-1, 5.0e-1, 5.0e-1, 5.0e-1, 5.0e-2, 5.0e-2, 5.0e-2]),  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
+    #'noise_var_scale': np.array([5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2]),  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
+    #'noise_var_scale': np.array([1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*10,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
     'smooth_noise': True,  # Apply Gaussian filter to noise generated
     'smooth_noise_var': 5.0e+0,  # Variance to apply to Gaussian Filter
-    'smooth_noise_renormalize': False,  # Renormalize smooth noise to have variance=1
+    'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
+    'noise_var_scale': np.ones(7),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
     'cost': cost_sum,
     # Conditions
     'conditions': len(bigman_env.get_conditions()),  # Total number of initial conditions
@@ -782,7 +785,7 @@ gps_hyperparams = {
     # KL step (epsilon)
     'kl_step': 0.2,  # Kullback-Leibler step (base_step)
     'min_step_mult': 0.01,  # Min possible value of step multiplier (multiplies kl_step in LQR)
-    'max_step_mult': 3,  # 10.0,  # Max possible value of step multiplier (multiplies kl_step in LQR)
+    'max_step_mult': 1.0, #3 # 10.0,  # Max possible value of step multiplier (multiplies kl_step in LQR)
     # Others
     'gps_algo': gps_algo,
     'gps_algo_hyperparams': gps_algo_hyperparams,

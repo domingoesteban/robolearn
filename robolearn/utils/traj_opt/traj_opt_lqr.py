@@ -47,6 +47,8 @@ class TrajOptLQR(TrajOpt):
         :return: traj_distr, eta
         """
         T = algorithm.T
+
+        # Get current eta
         if a is None:
             eta = algorithm.cur[m].eta
         else:
@@ -54,6 +56,7 @@ class TrajOptLQR(TrajOpt):
         if self.cons_per_step and type(eta) in (int, float):
             eta = np.ones(T) * eta
 
+        # Get current step_mult and traj_info
         if a is None:
             step_mult = algorithm.cur[m].step_mult
             traj_info = algorithm.cur[m].traj_info
@@ -61,6 +64,7 @@ class TrajOptLQR(TrajOpt):
             step_mult = algorithm.cur[a][m].step_mult
             traj_info = algorithm.cur[a][m].traj_info
 
+        # Get the trajectory distribution that is going to be used as constraint
         if algorithm.gps_algo.lower() == 'mdgps':
             # For MDGPS, constrain to previous NN linearization
             if a is None:
@@ -74,7 +78,7 @@ class TrajOptLQR(TrajOpt):
             else:
                 prev_traj_distr = algorithm.cur[a][m].traj_distr
 
-        # Set KL-divergence step size (epsilon).
+        # Set KL-divergence step size (epsilon) using step multiplier.
         kl_step = algorithm.base_kl_step * step_mult
         if not self.cons_per_step:
             kl_step *= T
@@ -84,6 +88,7 @@ class TrajOptLQR(TrajOpt):
             min_eta = self._hyperparams['min_eta']
             max_eta = self._hyperparams['max_eta']
             if a is None:
+                LOGGER.debug('_'*60)
                 LOGGER.debug("Running DGD for trajectory(condition) %d, eta: %f", m, eta)
             else:
                 LOGGER.debug("Running DGD for local agent %d, trajectory(condition) %d, eta: %f", a, m, eta)
@@ -187,6 +192,7 @@ class TrajOptLQR(TrajOpt):
 
         if np.mean(kl_div) > np.mean(kl_step) and not self._conv_check(con, kl_step):
             LOGGER.warning("Final KL divergence after DGD convergence is too high.")
+
         return traj_distr, eta
 
     def estimate_cost(self, traj_distr, traj_info):
@@ -272,6 +278,7 @@ class TrajOptLQR(TrajOpt):
             eta: Dual variable.
             algorithm: Algorithm object needed to compute costs.
             m: Condition number.
+            a: Local trajectory number.
         Returns:
             traj_distr: A new linear Gaussian policy.
             new_eta: The updated dual variable. Updates happen if the Q-function is not PD.

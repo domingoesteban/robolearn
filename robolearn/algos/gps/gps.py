@@ -313,7 +313,6 @@ class GPS(RLAlgorithm):
             noise = np.zeros((self.T, self.dU))
 
         # Create a sample class
-        # TODO: In original GPS code this is done with self._init_sample(self, condition, feature_fn=None) in agent
         sample = Sample(self.env, self.T)
         history = [None] * self.T
         obs_hist = [None] * self.T
@@ -342,8 +341,8 @@ class GPS(RLAlgorithm):
             state = self.env.get_state()
             # action = policy.eval(state, obs, t, noise[t, :])
             action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # TODO: Avoid TF policy writes in obs
-            action = np.zeros_like(action)
-            action[6] = -0.2
+            # action = np.zeros_like(action)
+            # action[6] = -0.2
             # action[3] = -0.15707963267948966
             # print(obs)
             # print(state)
@@ -367,9 +366,10 @@ class GPS(RLAlgorithm):
         all_actions = np.array([hist[1] for hist in history])
         all_states = np.array([hist[0] for hist in history])
         all_obs = np.array([hist[0] for hist in obs_hist])
-        sample.set_acts(all_actions)  # Set all actions at the same time
-        sample.set_obs(all_obs)  # Set all obs at the same time
+        sample.set_acts(all_actions)   # Set all actions at the same time
+        sample.set_obs(all_obs)        # Set all obs at the same time
         sample.set_states(all_states)  # Set all states at the same time
+        sample.set_noise(noise)        # Set all noise at the same time
 
         if save:  # Save sample in agent sample list
             sample_id = self.agent.add_sample(sample, cond)

@@ -49,35 +49,32 @@ class TrajOptPI2(TrajOpt):
         self._covariance_damping = self._hyperparams['covariance_damping']
         self._min_temperature = self._hyperparams['min_temperature']
     
-    def update(self, m, algorithm, use_lqr_actions=False,
-               fixed_eta=None, use_fixed_eta=False, costs=None):
+    def update(self, m, algorithm, use_lqr_actions=False, fixed_eta=None, use_fixed_eta=False, costs=None):
         """
-        Perform optimization of the feedforward controls of time-varying
-        linear-Gaussian controllers with PI2. 
+        Perform optimization of the feedforward controls of time-varying linear-Gaussian controllers with PI2. 
         Args:
             m: Current condition number.
             algorithm: Currently used algorithm.
-            use_lqr_actions: Whether or not to compute actions from LQR-updated
-                controller.
+            use_lqr_actions: Whether or not to compute actions from LQR-updated controller.
             fixed_eta: Fixed value of eta to use if use_fixed_eta is True.
             use_fixed_eta: Whether to use fixed_eta or compute using KL dual.
             costs: Costs to update with, defaults to sampled costs.
         Returns:
             traj_distr: Updated linear-Gaussian controller.
         """
-        # We only use the scalar costs.      
+        # We only use the scalar costs.
         if costs is None:
             costs = algorithm.cur[m].cs
 
         # Get sampled controls, states and old trajectory distribution.
-        cur_data = algorithm.cur[m].sample_list                
+        cur_data = algorithm.cur[m].sample_list
         prev_traj_distr = algorithm.cur[m].traj_distr
         X = cur_data.get_states()
         U = cur_data.get_actions()
         T = prev_traj_distr.T
 
         # We only optimize feedforward controls with PI2. Subtract the feedback
-        # part from the sampled controls using feedback gain matrix and states.       
+        # part from the sampled controls using feedback gain matrix and states.
         ffw_controls = np.zeros(U.shape)
         if use_lqr_actions:
             noise = cur_data.get_noise()
@@ -85,22 +82,18 @@ class TrajOptPI2(TrajOpt):
                 U_lqr = [prev_traj_distr.K[t].dot(X[i, t]) + prev_traj_distr.k[t] +
                          prev_traj_distr.chol_pol_covar[t].T.dot(noise[i, t])
                          for t in range(T)]
-                ffw_controls[i] = [U_lqr[t] - prev_traj_distr.K[t].dot(X[i, t])
-                                   for t in range(T)]
+                ffw_controls[i] = [U_lqr[t] - prev_traj_distr.K[t].dot(X[i, t]) for t in range(T)]
         else:
             for i in range(len(cur_data)):
-                ffw_controls[i] = [U[i, t] - prev_traj_distr.K[t].dot(X[i, t])
-                                   for t in range(T)]
+                ffw_controls[i] = [U[i, t] - prev_traj_distr.K[t].dot(X[i, t]) for t in range(T)]
 
         # Copy feedback gain matrix from the old trajectory distribution.                       
         traj_distr = prev_traj_distr.nans_like()
         traj_distr.K = prev_traj_distr.K
 
         # Optimize feedforward controls and covariances with PI2.
-        k, pS, ipS, cpS, eta = self.update_pi2(
-            ffw_controls, costs, prev_traj_distr.k, prev_traj_distr.pol_covar,
-            fixed_eta, use_fixed_eta
-        )
+        k, pS, ipS, cpS, eta = self.update_pi2(ffw_controls, costs, prev_traj_distr.k, prev_traj_distr.pol_covar,
+                                               fixed_eta, use_fixed_eta)
         traj_distr.k, traj_distr.pol_covar = k, pS
         traj_distr.inv_pol_covar, traj_distr.chol_pol_covar = ipS, cpS
 
@@ -113,11 +106,11 @@ class TrajOptPI2(TrajOpt):
         of the policy parameters given policy samples and their costs.
         Args:
             samples: Matrix of policy samples with dimensions: 
-                     [num_samples x num_timesteps x num_controls].
+                     [num_samples x num_timesteps x num_controls] ([N, T, dU]).
             costs: Matrix of roll-out costs with dimensions:
-                   [num_samples x num_timesteps]
+                   [num_samples x num_timesteps] ([N, T]).
             mean_old: Old policy mean.
-            cov_old: Old policy covariance.            
+            cov_old: Old policy covariance.
             fixed_eta: Fixed value of eta to use if use_fixed_eta is True.
             use_fixed_eta: Whether to use fixed_eta or compute using KL dual.
         Returns:

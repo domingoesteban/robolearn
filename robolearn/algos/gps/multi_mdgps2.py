@@ -346,9 +346,10 @@ class MultiMDGPS(RLAlgorithm):
         all_actions = np.array([hist[1] for hist in history])
         all_states = np.array([hist[0] for hist in history])
         all_obs = np.array([hist[0] for hist in obs_hist])
-        sample.set_acts(all_actions)  # Set all actions at the same time
-        sample.set_obs(all_obs)  # Set all obs at the same time
+        sample.set_acts(all_actions)   # Set all actions at the same time
+        sample.set_obs(all_obs)        # Set all obs at the same time
         sample.set_states(all_states)  # Set all states at the same time
+        sample.set_noise(noise)        # Set all noise at the same time
 
         if save:  # Save sample in agent sample list
             sample_id = self.agent.add_sample(sample, cond)

@@ -12,7 +12,7 @@ import scipy.stats
 #gps_directory_name = 'GPS_2017-08-04_20:32:12'  # l1: 1.0, l2: 1.0e-3
 #gps_directory_name = 'GPS_2017-08-07_16:05:32'  # l1: 1.0, l2: 0.0
 gps_directory_name = 'GPS_2017-08-07_19:35:58'  # l1: 1.0, l2: 1.0
-gps_directory_name = 'GPS_2017-08-10_13:08:54'  # dummy test
+gps_directory_name = 'GPS_2017-08-11_16:40:03'  # dummy test
 
 init_itr = 0
 final_itr = 100
@@ -24,15 +24,15 @@ plot_eta = False
 plot_step_mult = False  # If linearized policy(then NN policy) is worse, epsilon is reduced.
 plot_cs = False
 plot_sample_list_actions = False
-plot_sample_list_states = False
+plot_sample_list_states = True
 plot_sample_list_obs = False
 plot_policy_output = False
 plot_policy_actions = False
 plot_policy_states = True
 plot_policy_obs = False
 plot_traj_distr = False
-plot_3d_traj = True
-plot_3d_pol_traj = True
+plot_3d_traj = False
+plot_3d_pol_traj = False
 
 eta_color = 'black'
 cs_color = 'red'

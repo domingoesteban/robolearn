@@ -35,7 +35,7 @@ def generate_noise(T, dU, hyperparams):
     # np.random.seed(5)
 
     # Generate noise and scale
-    noise = np.random.randn(T, dU)*np.sqrt(scale)
+    noise = np.random.randn(T, dU)
 
     temp_noise_list = list()
     temp_noise_list.append(noise.copy())
@@ -48,9 +48,13 @@ def generate_noise(T, dU, hyperparams):
         temp_noise_list.append(noise.copy())
         if renorm:
             variance = np.var(noise, axis=0)
-            noise = noise / np.sqrt(variance)
+            noise = noise * np.sqrt(scale) / np.sqrt(variance)
 
         temp_noise_list.append(noise.copy())
+
+    else:
+        noise = noise*np.sqrt(scale)
+
 
     # plot_multi_info(temp_noise_list, block=True, cols=3, legend=True)
 
