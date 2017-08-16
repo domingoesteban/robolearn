@@ -7,18 +7,23 @@ import math
 import os
 from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distribution
 from robolearn.algos.gps.gps_utils import IterationData
+from robolearn.utils.iit.iit_robots_params import bigman_params
 import scipy.stats
 
 #gps_directory_name = 'GPS_2017-08-04_20:32:12'  # l1: 1.0, l2: 1.0e-3
 #gps_directory_name = 'GPS_2017-08-07_16:05:32'  # l1: 1.0, l2: 0.0
 gps_directory_name = 'GPS_2017-08-07_19:35:58'  # l1: 1.0, l2: 1.0
-gps_directory_name = 'GPS_2017-08-11_16:40:03'  # dummy test
+gps_directory_name = 'GPS_2017-08-14_10:35:40'  # dummy test
+gps_directory_name = 'GPS_2017-08-16_14:18:02'
 
 init_itr = 0
 final_itr = 100
+#final_itr = 30
 samples_idx = [-1]  # List of samples / None: all samples
 max_traj_plots = None  # None, plot all
 last_n_iters = 5  # None, plot all iterations
+sensed_joints = 'RA'
+method = 'ILQR'
 
 plot_eta = False
 plot_step_mult = False  # If linearized policy(then NN policy) is worse, epsilon is reduced.
@@ -28,7 +33,7 @@ plot_sample_list_states = True
 plot_sample_list_obs = False
 plot_policy_output = False
 plot_policy_actions = False
-plot_policy_states = True
+plot_policy_states = False
 plot_policy_obs = False
 plot_traj_distr = False
 plot_3d_traj = False
@@ -39,6 +44,7 @@ cs_color = 'red'
 step_mult_color = 'red'
 sample_list_cols = 3
 plot_sample_list_max_min = False
+plot_joint_limits = True
 
 gps_path = '/home/desteban/workspace/robolearn/scenarios/robolearn_log/' + gps_directory_name
 
@@ -47,8 +53,8 @@ iteration_ids = list()
 
 max_available_itr = None
 for pp in range(init_itr, final_itr):
-    if os.path.isfile(gps_path+'/MDGPS_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
-        if os.path.isfile(gps_path+'/MDGPS_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
+    if os.path.isfile(gps_path+'/' + method.upper() + '_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
+        if os.path.isfile(gps_path+'/' + method.upper() + '_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
             max_available_itr = pp
 
 if max_available_itr is not None:
@@ -68,9 +74,9 @@ if max_available_itr is not None:
 
     print("Iterations to load: %s" % itr_to_load)
     for pp in itr_to_load:
-        if os.path.isfile(gps_path+'/MDGPS_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
+        if os.path.isfile(gps_path+'/' + method.upper() +'_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
             print('Loading GPS iteration_data from iteration %d' % pp)
-            iteration_data_list.append(pickle.load(open(gps_path+'/MDGPS_iteration_data_itr_'+str('%02d' % pp)+'.pkl',
+            iteration_data_list.append(pickle.load(open(gps_path+'/' + method.upper() +'_iteration_data_itr_'+str('%02d' % pp)+'.pkl',
                                                         'rb')))
             iteration_ids.append(pp)
 
@@ -78,6 +84,9 @@ if max_available_itr is not None:
     total_itr = len(iteration_data_list)
     total_cond = len(iteration_data_list[0])
     colormap = plt.cm.rainbow  # nipy_spectral, Set1, Paired, winter
+
+joint_limits = [bigman_params['joints_limits'][ii] for ii in bigman_params['joint_ids'][sensed_joints]]
+T = iteration_data_list[-1][-1].sample_list.get_actions(samples_idx).shape[1]
 
 if plot_eta:
     for cond in range(total_cond):
@@ -202,6 +211,10 @@ if plot_sample_list_states:
                     # # One legend for each ax
                     # legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
                     # legend.get_frame().set_alpha(0.4)
+
+                    if plot_joint_limits and ii < len(joint_limits):
+                        ax.plot(np.tile(joint_limits[ii][0], [T]), color='black', linestyle='--', linewidth=1)
+                        ax.plot(np.tile(joint_limits[ii][1], [T]), color='black', linestyle='--', linewidth=1)
                 else:
                     plt.setp(ax, visible=False)
 
@@ -366,6 +379,10 @@ if plot_policy_states:
                         # # One legend for each ax
                         # legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
                         # legend.get_frame().set_alpha(0.4)
+
+                    if plot_joint_limits and ii < len(joint_limits):
+                        ax.plot(np.tile(joint_limits[ii][0], [T]), color='black', linestyle='--', linewidth=1)
+                        ax.plot(np.tile(joint_limits[ii][1], [T]), color='black', linestyle='--', linewidth=1)
                 else:
                     plt.setp(ax, visible=False)
 

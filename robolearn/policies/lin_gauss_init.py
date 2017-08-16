@@ -128,6 +128,7 @@ def init_pd(hyperparams):
 
     dU, dJoints, dX = config['dU'], config['dJoints'], config['dX']
     x0, T = config['x0'], config['T']
+    dDistance = config['dDistance']
 
     if not issubclass(type(config['pos_gains']), list) and not issubclass(type(config['pos_gains']), np.ndarray):
         pos_gains = np.tile(config['pos_gains'], dU)
@@ -147,8 +148,11 @@ def init_pd(hyperparams):
         K = -np.diag(pos_gains).dot(np.hstack([np.eye(dU) * Kp, np.eye(dU) * Kv,
                                                np.zeros((dU, dX - dU*2))]))
         K = np.tile(K, [T, 1, 1])
+    if config['state_to_pd'] == 'distance':
+        k = np.tile(-K[0, :, :].dot(x0), [T, 1])
+    else:
+        k = np.tile(-K[0, :, :].dot(x0), [T, 1])
 
-    k = np.tile(-K[0, :, :].dot(x0), [T, 1])
     #k = np.tile(K[0, :, :].dot(x0), [T, 1])
     PSig = config['init_var'] * np.tile(np.eye(dU), [T, 1, 1])
     cholPSig = np.sqrt(config['init_var']) * np.tile(np.eye(dU), [T, 1, 1])

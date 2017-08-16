@@ -31,7 +31,7 @@ LOGGER.addHandler(ch)
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
-GPU_MEM_PERCENTAGE = 0.2
+GPU_MEM_PERCENTAGE = 0.4
 
 
 class PolicyOptTf(PolicyOpt):

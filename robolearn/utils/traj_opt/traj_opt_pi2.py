@@ -136,6 +136,7 @@ class TrajOptPI2(TrajOpt):
         while fail:
             fail = False
             for t in range(T):
+                print(etas[:5])
                 # Compute cost-to-go for each time step for each sample.
                 cost_to_go = np.sum(costs[:, t:T], axis=1)
 
@@ -184,7 +185,7 @@ class TrajOptPI2(TrajOpt):
                     old_eta = eta
                     eta = fixed_eta if use_fixed_eta else etas
                     eta[t] += del_[t]
-                    LOGGER.debug('Increasing eta %d: %f -> %f', t, old_eta, eta[t])
+                    #LOGGER.debug('Increasing eta %d: %f -> %f', t, old_eta, eta[t])
                     del_[t] *= 2
                     if eta[t] >= 1e16:
                         raise ValueError

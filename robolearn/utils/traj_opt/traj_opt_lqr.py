@@ -296,10 +296,7 @@ class TrajOptLQR(TrajOpt):
         else:
             traj_distr = prev_traj_distr.copy()
 
-        if algorithm.gps_algo.lower() == 'mdgps':
-            compute_cost_fcn = algorithm.compute_costs_mdgps
-        else:
-            compute_cost_fcn = algorithm.compute_costs
+        compute_cost_fcn = algorithm.compute_costs
 
         # Store pol_wt if necessary
         if algorithm.gps_algo.lower() == 'badmm':

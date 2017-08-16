@@ -41,7 +41,7 @@ class LinearGaussianPolicy(Policy):
         self.chol_pol_covar = chol_pol_covar
         self.inv_pol_covar = inv_pol_covar
 
-    def eval(self, x, obs, t, noise=None):
+    def eval(self, state=None, obs=None, t=None, noise=None):
         """
         Return an action for a state.
         :param x: State vector. 
@@ -50,6 +50,7 @@ class LinearGaussianPolicy(Policy):
         :param noise: Action noise. This will be scaled by the variance.
         :return: Action u.
         """
+        x = state
         u = self.K[t].dot(x) + self.k[t]
         u += self.chol_pol_covar[t].T.dot(noise)
         return u

@@ -8,15 +8,16 @@ import pickle
 #gps_directory_name = 'GPS_2017-08-07_16:05:32'  # l1: 1.0, l2: 0.0
 #gps_directory_name = 'GPS_2017-08-07_19:35:58'  # l1: 1.0, l2: 1.0
 #gps_directory_name = 'GPS_2017-08-09_14:11:15'  # 2 arms
-gps_directory_name = 'GPS_2017-08-10_13:08:54'  # dummy test
+gps_directory_name = 'GPS_2017-08-14_10:35:40'  # dummy test
+gps_directory_name = 'GPS_2017-08-15_17:26:51'
 
 init_pol_sample_itr = 0
 final_pol_sample_itr = 100
-plots_type = 'iteration'  # 'iteration' or 'episode'
-#plots_type = 'episode'  # 'iteration' or 'episode'
+#plots_type = 'iteration'  # 'iteration' or 'episode'
+plots_type = 'episode'  # 'iteration' or 'episode'
 include_last_T = False  # Only in iteration
-iteration_to_plot = None #-1
-plot_cost_types = False
+iteration_to_plot = -1
+plot_cost_types = True
 colormap = plt.cm.rainbow  # nipy_spectral, Set1, Paired, winter, rainbow
 
 gps_path = '/home/desteban/workspace/robolearn/scenarios/robolearn_log/' + gps_directory_name
@@ -36,6 +37,8 @@ total_cond = len(pol_sample_lists_costs[0])
 total_itr = len(pol_sample_lists_costs)
 
 if plots_type.lower() == 'iteration':
+    #marker = 'o'
+    marker = None
     for cond in range(total_cond):
         lines = list()
         labels = list()
@@ -56,7 +59,7 @@ if plots_type.lower() == 'iteration':
             std_costs[itr] = samples_cost_sum.std()
         ax.set_title('Policy Costs | Condition %d' % cond)
         label = 'Total Cost'
-        line = ax.plot(mean_costs, marker='o', label=label)[0]
+        line = ax.plot(mean_costs, marker=marker, label=label)[0]
         ax.fill_between(range(total_itr), min_costs, max_costs, alpha=0.5)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
@@ -83,7 +86,7 @@ if plots_type.lower() == 'iteration':
 
             for c in range(total_cost_types):
                 label = 'Cost type %d' % c
-                line = ax.plot(mean_cost_types[:, c], marker='o', label=label)[0]
+                line = ax.plot(mean_cost_types[:, c], marker=marker, label=label)[0]
                 ax.fill_between(range(total_itr), min_cost_types[:, c], max_cost_types[:, c], alpha=0.5)
                 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 

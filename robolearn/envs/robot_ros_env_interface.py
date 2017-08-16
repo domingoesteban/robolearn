@@ -17,7 +17,7 @@ from robolearn.utils.transformations import compute_cartesian_error, pose_transf
 class RobotROSEnvInterface(ROSEnvInterface):
     def __init__(self, robot_name=None, mode='simulation', body_part_active='LA', cmd_type='position',
                  observation_active=None, state_active=None, cmd_freq=100, robot_dyn_model=None,
-                 reset_simulation_fcn=None):
+                 optional_env_params=None, reset_simulation_fcn=None):
         super(RobotROSEnvInterface, self).__init__(mode=mode)
 
         if robot_name is None:
@@ -37,6 +37,8 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.conditions = []  # Necessary for GPS
 
         #TODO:TEMPORAL
+        self.temp_object_name = optional_env_params['temp_object_name']
+
         self.robot_dyn_model = robot_dyn_model
         if self.robot_dyn_model is not None:
             self.temp_effort = np.zeros(self.robot_dyn_model.qdot_size)
@@ -632,7 +634,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
     def temp_target_callback(self, data):
         self.receiving_target = True
-        box_idx = data.name.index('box')
+        box_idx = data.name.index(self.temp_object_name)
         self.target_pose[0] = data.pose[box_idx].orientation.x
         self.target_pose[1] = data.pose[box_idx].orientation.x
         self.target_pose[2] = data.pose[box_idx].orientation.y

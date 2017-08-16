@@ -22,6 +22,8 @@ from robolearn.utils.plot_utils import plot_desired_sensed_data
 from robolearn.utils.plot_utils import plot_joint_multi_info
 from robolearn.utils.lift_box_utils import create_box_relative_pose, create_hand_relative_pose
 from robolearn.utils.lift_box_utils import reset_bigman_box_gazebo
+from robolearn.utils.reach_drill_utils import create_drill_relative_pose, create_hand_relative_pose
+from robolearn.utils.reach_drill_utils import reset_bigman_drill_gazebo
 
 from robolearn.utils.robot_model import RobotModel
 
@@ -36,18 +38,32 @@ torques_saved_filename = 'torques_init_traj.npy'
 T_init = 5  # Time to move from current position to T_init
 T_traj = 5  # Time to execute the trajectory
 freq = 100  # Frequency  (1/Ts)
-Nrunning = int(np.ceil((T_traj + 2)*freq))
+Nrunning = int(np.ceil((T_traj + 10)*freq))
+object_to_reach = 'drill'
 
-# BOX
-box_x = 0.70
-box_y = 0.00
-box_z = 0.0184
-box_yaw = 0  # Degrees
-box_size = [0.4, 0.5, 0.3]
-box_relative_pose = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
-box_relative_pose = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y+0.02, box_z=box_z, box_yaw=box_yaw+5)
-final_left_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=box_size[1]/2-0.02, hand_z=0, hand_yaw=0)
-final_right_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=-box_size[1]/2+0.02, hand_z=0, hand_yaw=0)
+
+if object_to_reach == 'box':
+    # BOX
+    box_x = 0.70
+    box_y = 0.00
+    box_z = 0.0184
+    box_yaw = 0  # Degrees
+    box_size = [0.4, 0.5, 0.3]
+    box_relative_pose = create_box_relative_pose(box_x=box_x, box_y=box_y, box_z=box_z, box_yaw=box_yaw)
+    box_relative_pose = create_box_relative_pose(box_x=box_x+0.02, box_y=box_y+0.02, box_z=box_z, box_yaw=box_yaw+5)
+    final_left_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=box_size[1]/2-0.02, hand_z=0, hand_yaw=0)
+    final_right_hand_pose = create_hand_relative_pose(box_relative_pose, hand_x=0, hand_y=-box_size[1]/2+0.02, hand_z=0, hand_yaw=0)
+else:
+    # DRILL
+    drill_x = 0.70
+    drill_y = 0.00
+    drill_z = 0.0184
+    drill_yaw = 0  # Degrees
+    drill_size = [0.1, 0.1, 0.3]
+    drill_relative_pose = create_drill_relative_pose(drill_x=drill_x, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw)
+    drill_relative_pose = create_drill_relative_pose(drill_x=drill_x+0.02, drill_y=drill_y+0.02, drill_z=drill_z, drill_yaw=drill_yaw+5)
+    final_left_hand_pose = create_hand_relative_pose(drill_relative_pose, hand_x=0, hand_y=drill_size[1]/2, hand_z=0, hand_yaw=0)
+    final_right_hand_pose = create_hand_relative_pose(drill_relative_pose, hand_x=0, hand_y=-drill_size[1]/2, hand_z=0, hand_yaw=0)
 
 
 # ROBOT MODEL for trying ID
@@ -129,21 +145,21 @@ des_cmd = CommandAdvr()
 # Move ALL joints from current position to INITIAL position in position control mode.
 des_cmd.name = bigman_params['joints_names']
 q_init = np.zeros(robot_rbdl_model.q_size)
-q_init[15] = np.deg2rad(25)
-q_init[16] = np.deg2rad(40)
-q_init[18] = np.deg2rad(-45)
-q_init[24] = np.deg2rad(25)
-q_init[25] = np.deg2rad(-40)
-q_init[27] = np.deg2rad(-45)
 # q_init[15] = np.deg2rad(25)
 # q_init[16] = np.deg2rad(40)
-# q_init[17] = np.deg2rad(0)
-# q_init[18] = np.deg2rad(-75)
-# # ----
+# q_init[18] = np.deg2rad(-45)
 # q_init[24] = np.deg2rad(25)
 # q_init[25] = np.deg2rad(-40)
-# q_init[26] = np.deg2rad(0)
-# q_init[27] = np.deg2rad(-75)
+# q_init[27] = np.deg2rad(-45)
+# # q_init[15] = np.deg2rad(25)
+# # q_init[16] = np.deg2rad(40)
+# # q_init[17] = np.deg2rad(0)
+# # q_init[18] = np.deg2rad(-75)
+# # # ----
+# # q_init[24] = np.deg2rad(25)
+# # q_init[25] = np.deg2rad(-40)
+# # q_init[26] = np.deg2rad(0)
+# # q_init[27] = np.deg2rad(-75)
 
 # q_init = np.array([0.,  0.,  0.,  0.,  0.,  0.,
 #                    0.,  0.,  0.,  0.,  0.,  0.,
@@ -163,8 +179,12 @@ for ii in range(N):
     publisher.publish(des_cmd)
     pub_rate.sleep()
 
-# print("Spawning/Moving box")
-reset_bigman_box_gazebo(box_relative_pose, box_size=None)
+if object_to_reach == 'box':
+    # print("Spawning/Moving box")
+    reset_bigman_box_gazebo(box_relative_pose, box_size=None)
+else:
+    # print("Spawning/Moving drill")
+    reset_bigman_drill_gazebo(drill_relative_pose, drill_size=None)
 
 
 # PAUSE:
@@ -175,7 +195,7 @@ rospy.sleep(2)
 # ------------------------------------------
 N = int(np.ceil(T_traj*freq))
 # joints_to_move = bigman_params['joint_ids']['LA']# + bigman_params['joint_ids']['TO']
-joints_to_move = bigman_params['joint_ids']['BA']# + bigman_params['joint_ids']['TO']
+joints_to_move = bigman_params['joint_ids']['RA']# + bigman_params['joint_ids']['TO']
 # joints_to_move = [bigman_params['joint_ids']['BA'][6]]
 
 # TODO: Temporal, using the current configuration as q_init
