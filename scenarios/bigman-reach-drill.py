@@ -4,6 +4,7 @@ import sys
 import os
 import signal
 import numpy as np
+import random
 import matplotlib.pyplot as plt
 
 from robolearn.utils.iit.iit_robots_params import bigman_params
@@ -77,7 +78,7 @@ signal.signal(signal.SIGINT, kill_everything)
 # ### PARAMETERS ### #
 # ################## #
 # ################## #
-learning_algorithm = 'PIGPS'
+learning_algorithm = 'MDGPS'
 # Task parameters
 Ts = 0.01
 Treach = 5
@@ -88,6 +89,10 @@ Tend = 0  # 0.7
 EndTime = Treach + Tinter + Tlift + Tend  # Using final time to define the horizon
 init_with_demos = False
 demos_dir = None  # 'TASKSPACE_TORQUE_CTRL_DEMO_2017-07-21_16:32:39'
+seed = 6
+
+random.seed(seed)
+np.random.seed(seed)
 
 # BOX
 drill_x = 0.70
@@ -362,7 +367,7 @@ fk_final_cost = {
     'joints_idx': bigman_env.get_state_info(name='link_position')['idx'],
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
-    'wp': np.array([1.0, 1.0, 1.0, 8.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
     'evalnorm': evall1l2term,
     'l1': 0.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
@@ -381,7 +386,7 @@ fk_l1_final_cost = {
     'joints_idx': bigman_env.get_state_info(name='link_position')['idx'],
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
-    'wp': np.array([1.0, 1.0, 1.0, 8.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
     'evalnorm': evall1l2term,
     'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 0.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
@@ -400,7 +405,7 @@ fk_l2_final_cost = {
     'joints_idx': bigman_env.get_state_info(name='link_position')['idx'],
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
-    'wp': np.array([1.0, 1.0, 1.0, 8.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
     'evalnorm': evall1l2term,
     'l1': 0.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
@@ -443,49 +448,49 @@ condition0 = create_bigman_drill_condition(q0, drill_pose0, bigman_env.get_state
 bigman_env.add_condition(condition0)
 reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose0)
 
-# #q1 = np.zeros(31)
-# q1 = q0.copy()
-# q1[15] = np.deg2rad(25)
-# q1[16] = np.deg2rad(40)
-# q1[18] = np.deg2rad(-45)
-# q1[20] = np.deg2rad(-5)
-# q1[24] = np.deg2rad(25)
-# q1[25] = np.deg2rad(-40)
-# q1[27] = np.deg2rad(-45)
-# q1[29] = np.deg2rad(-5)
-# drill_pose1 = create_drill_relative_pose(drill_x=drill_x+0.02, drill_y=drill_y+0.02, drill_z=drill_z, drill_yaw=drill_yaw+5)
-# condition1 = create_bigman_drill_condition(q1, drill_pose1, bigman_env.get_state_info(),
-#                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
-# bigman_env.add_condition(condition1)
-# reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose1)
+#q1 = np.zeros(31)
+q1 = q0.copy()
+q1[15] = np.deg2rad(25)
+q1[16] = np.deg2rad(40)
+q1[18] = np.deg2rad(-45)
+q1[20] = np.deg2rad(-5)
+q1[24] = np.deg2rad(25)
+q1[25] = np.deg2rad(-40)
+q1[27] = np.deg2rad(-45)
+q1[29] = np.deg2rad(-5)
+drill_pose1 = create_drill_relative_pose(drill_x=drill_x+0.02, drill_y=drill_y+0.02, drill_z=drill_z, drill_yaw=drill_yaw+5)
+condition1 = create_bigman_drill_condition(q1, drill_pose1, bigman_env.get_state_info(),
+                                         joint_idxs=bigman_params['joint_ids'][body_part_sensed])
+bigman_env.add_condition(condition1)
+reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose1)
 
-# q2 = q0.copy()
-# q2[15] = np.deg2rad(25)
-# q2[16] = np.deg2rad(30)
-# q2[18] = np.deg2rad(-50)
-# q2[21] = np.deg2rad(-45)
-# q2[24] = np.deg2rad(25)
-# q2[25] = np.deg2rad(-30)
-# q2[27] = np.deg2rad(-50)
-# q2[30] = np.deg2rad(-45)
-# drill_pose2 = create_drill_relative_pose(drill_x=drill_x-0.02, drill_y=drill_y-0.02, drill_z=drill_z, drill_yaw=drill_yaw-5)
-# condition2 = create_bigman_drill_condition(q2, drill_pose2, bigman_env.get_state_info(),
-#                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
-# bigman_env.add_condition(condition2)
-# reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose2)
+q2 = q0.copy()
+q2[15] = np.deg2rad(25)
+q2[16] = np.deg2rad(30)
+q2[18] = np.deg2rad(-50)
+q2[21] = np.deg2rad(-45)
+q2[24] = np.deg2rad(25)
+q2[25] = np.deg2rad(-30)
+q2[27] = np.deg2rad(-50)
+q2[30] = np.deg2rad(-45)
+drill_pose2 = create_drill_relative_pose(drill_x=drill_x-0.02, drill_y=drill_y-0.02, drill_z=drill_z, drill_yaw=drill_yaw-5)
+condition2 = create_bigman_drill_condition(q2, drill_pose2, bigman_env.get_state_info(),
+                                         joint_idxs=bigman_params['joint_ids'][body_part_sensed])
+bigman_env.add_condition(condition2)
+reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose2)
 
-# q3 = q0.copy()
-# q3[15] = np.deg2rad(10)
-# q3[16] = np.deg2rad(10)
-# q3[18] = np.deg2rad(-35)
-# q3[24] = np.deg2rad(10)
-# q3[25] = np.deg2rad(-10)
-# q3[27] = np.deg2rad(-35)
-# drill_pose3 = create_drill_relative_pose(drill_x=drill_x-0.06, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw+10)
-# condition3 = create_bigman_drill_condition(q3, drill_pose3, bigman_env.get_state_info(),
-#                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
-# bigman_env.add_condition(condition3)
-# reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose3)
+q3 = q0.copy()
+q3[15] = np.deg2rad(10)
+q3[16] = np.deg2rad(10)
+q3[18] = np.deg2rad(-35)
+q3[24] = np.deg2rad(10)
+q3[25] = np.deg2rad(-10)
+q3[27] = np.deg2rad(-35)
+drill_pose3 = create_drill_relative_pose(drill_x=drill_x-0.06, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw+10)
+condition3 = create_bigman_drill_condition(q3, drill_pose3, bigman_env.get_state_info(),
+                                         joint_idxs=bigman_params['joint_ids'][body_part_sensed])
+bigman_env.add_condition(condition3)
+reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose3)
 
 # q4 = q0.copy()
 # drill_pose4 = create_drill_relative_pose(drill_x=drill_x, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw-5)
@@ -493,9 +498,6 @@ reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose0)
 #                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
 # bigman_env.add_condition(condition4)
 # reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose4)
-
-
-
 
 
 
@@ -630,7 +632,8 @@ pigps_hyperparams = {'init_pol_wt': 0.01,
 ilqr_hyperparams = {'inner_iterations': 1,
                     }
 
-pi2_hyperparams = {'fit_dynamics': False,  # Dynamics fitting is not required for PI2.
+pi2_hyperparams = {'inner_iterations': 1,
+                   'fit_dynamics': False,  # Dynamics fitting is not required for PI2.
                    }
 
 
@@ -657,8 +660,8 @@ else:
 gps_hyperparams = {
     'T': int(EndTime/Ts),  # Total points
     'dt': Ts,
-    'iterations': 22,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
-    'test_after_iter': False,  # If test the learned policy after an iteration in the RL algorithm
+    'iterations': 50,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
+    'test_after_iter': True,  # If test the learned policy after an iteration in the RL algorithm
     'test_samples': 2,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
     # Samples
     'num_samples': 2,  # 20  # Samples for exploration trajs --> N samples

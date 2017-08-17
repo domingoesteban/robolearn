@@ -4,6 +4,7 @@ import sys
 import os
 import signal
 import numpy as np
+import random
 import matplotlib.pyplot as plt
 
 from robolearn.utils.iit.iit_robots_params import bigman_params
@@ -83,6 +84,10 @@ Tend = 0  # 0.7
 EndTime = Treach + Tinter + Tlift + Tend  # Using final time to define the horizon
 init_with_demos = False
 demos_dir = None  # 'TASKSPACE_TORQUE_CTRL_DEMO_2017-07-21_16:32:39'
+seed = 6
+
+random.seed(seed)
+np.random.seed(seed)
 
 # BOX
 box_x = 0.70

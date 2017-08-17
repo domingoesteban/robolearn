@@ -8,3 +8,9 @@ default_pi2_hyperparams = {
     # Dynamics fitting is not required for PI2.
     'fit_dynamics': False,
 }
+
+#
+default_moto_hyperparams = {
+
+}
+

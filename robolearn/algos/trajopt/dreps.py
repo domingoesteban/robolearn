@@ -1,18 +1,18 @@
 """
-This file defines the MOTO trajectory optimization method.
+This file defines the PI2-based trajectory optimization method.
 """
 import copy
 import numpy as np
 
 from robolearn.algos.gps.temp_gps import GPS
-from robolearn.algos.trajopt.trajopt_config import default_moto_hyperparams
+from robolearn.algos.trajopt.trajopt_config import default_pi2_hyperparams
 
 
-class MOTO(GPS):
-    """ Sample-based trajectory optimization with MOTO. """
+class PI2(GPS):
+    """ Sample-based trajectory optimization with PI2. """
     def __init__(self, agent, env, **kwargs):
-        super(MOTO, self).__init__(agent, env, **kwargs)
-        gps_algo_hyperparams = default_moto_hyperparams.copy()
+        super(PI2, self).__init__(agent, env, **kwargs)
+        gps_algo_hyperparams = default_pi2_hyperparams.copy()
         gps_algo_hyperparams.update(self._hyperparams['gps_algo_hyperparams'])
         self._hyperparams.update(gps_algo_hyperparams)
 

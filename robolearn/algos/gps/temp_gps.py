@@ -10,7 +10,6 @@ import traceback
 import numpy as np
 import scipy as sp
 import copy
-import random
 import datetime
 
 from robolearn.algos.rl_algorithm import RLAlgorithm
@@ -176,8 +175,6 @@ class GPS(RLAlgorithm):
 
                 if self._hyperparams['test_after_iter']:
                     pol_sample_lists = self._take_policy_samples(N=self._hyperparams['test_samples'])
-                    print(self.cur[-1].pol_info.policy_samples)
-                    print(self.prev[-1].pol_info.policy_samples)
 
                     pol_sample_lists_costs, pol_sample_lists_cost_compositions = self._eval_conditions_sample_list_cost(pol_sample_lists)
 

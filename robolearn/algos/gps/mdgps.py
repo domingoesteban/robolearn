@@ -57,34 +57,41 @@ class MDGPS(GPS):
         :return: None
         """
         # Store the samples and evaluate the costs.
+        print("\n"*2)
         print('->Evaluating samples costs...')
         for m in range(self.M):
             self.cur[m].sample_list = sample_lists[m]
             self._eval_cost(m)
 
         # Update dynamics linearizations (linear-Gaussian dynamics).
+        print("\n"*2)
         print('->Updating dynamics linearization...')
         self._update_dynamics()
 
         # On the first iteration, need to catch policy up to init_traj_distr.
         if self.iteration_count == 0:
             self.new_traj_distr = [self.cur[cond].traj_distr for cond in range(self.M)]
+            print("\n"*2)
             print('->S-step for init_traj_distribution (iter=0)...')
             self.update_policy()
 
         # Update global policy linearizations.
+        print("\n"*2)
         print('->Updating global policy linearization...')
         for m in range(self.M):
             self.update_policy_fit(m)
 
         # C-step
         if self.iteration_count > 0:
+            print("\n"*2)
             print('-->Adjust step size (epsilon) multiplier...')
             self.stepadjust()
+        print("\n"*2)
         print('->| C-step |<-')
         self._update_trajectories()
 
         # S-step
+        print("\n"*2)
         print('->| S-step |<-')
         self.update_policy()
 
