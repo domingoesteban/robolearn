@@ -1,14 +1,7 @@
-""" This file defines code for PI2-based trajectory optimization.
+"""
+This file defines code for DREPS-based trajectory optimization.
 
-Optimization of trajectories with PI2 and a REPS-like KL-divergence constraint. 
-Author: C. Finn et al. Code in https://github.com/cbfinn/gps
-References:
-[1] E. Theodorou, J. Buchli, and S. Schaal. A generalized path integral control 
-    approach to reinforcement learning. JMLR, 11, 2010.
-[2] F. Stulp and O. Sigaud. Path integral policy improvement with covariance 
-    matrix adaptation. In ICML, 2012.
-[3] J. Peters, K. Mulling, and Y. Altun. Relative entropy policy search. 
-    In AAAI, 2010.
+Optimization of trajectories with DREPS.
  """
 import sys
 import copy
@@ -20,7 +13,7 @@ from numpy.linalg import LinAlgError
 from scipy.optimize import minimize
 
 from robolearn.utils.traj_opt.traj_opt import TrajOpt
-from robolearn.utils.traj_opt.config import default_traj_opt_pi2_hyperparams
+from robolearn.utils.traj_opt.config import default_traj_opt_dreps_hyperparams
 
 LOGGER = logging.getLogger(__name__)
 # Logging into console AND file
@@ -30,28 +23,20 @@ ch.setLevel(logging.DEBUG)
 LOGGER.addHandler(ch)
 
 
-class TrajOptPI2(TrajOpt):
-    """ PI2 trajectory optimization.
+class TrajOptDREPS(TrajOpt):
+    """ DREPS trajectory optimization.
     Hyperparameters:
-        kl_threshold: KL-divergence threshold between old and new policies.
-        covariance_damping: If greater than zero, covariance is computed as a
-            multiple of the old covariance. Multiplier is taken to the power
-            (1 / covariance_damping). If greater than one, slows down 
-            convergence and keeps exploration noise high for more iterations.
-        min_temperature: Minimum bound of the temperature optimization for the 
-            soft-max probabilities of the policy samples.
+        epsilon: KL-divergence threshold between old and new policies.
     """
     def __init__(self, hyperparams):
-        config = copy.deepcopy(default_traj_opt_pi2_hyperparams)
+        config = copy.deepcopy(default_traj_opt_dreps_hyperparams)
         config.update(hyperparams)
         TrajOpt.__init__(self, config)
-        self._kl_threshold = self._hyperparams['kl_threshold']
-        self._covariance_damping = self._hyperparams['covariance_damping']
-        self._min_temperature = self._hyperparams['min_temperature']
-    
+        self._epsilon = self._hyperparams['epsilon']
+
     def update(self, m, algorithm, use_lqr_actions=False, fixed_eta=None, use_fixed_eta=False, costs=None):
         """
-        Perform optimization of the feedforward controls of time-varying linear-Gaussian controllers with PI2. 
+        Perform optimization of the feedforward controls of time-varying linear-Gaussian controllers with DREPS. 
         Args:
             m: Current condition number.
             algorithm: Currently used algorithm.
@@ -73,7 +58,7 @@ class TrajOptPI2(TrajOpt):
         U = cur_data.get_actions()
         T = prev_traj_distr.T
 
-        # We only optimize feedforward controls with PI2. Subtract the feedback
+        # We only optimize feedforward controls with DREPS. Subtract the feedback
         # part from the sampled controls using feedback gain matrix and states.
         ffw_controls = np.zeros(U.shape)
         if use_lqr_actions:
@@ -91,18 +76,17 @@ class TrajOptPI2(TrajOpt):
         traj_distr = prev_traj_distr.nans_like()
         traj_distr.K = prev_traj_distr.K
 
-        # Optimize feedforward controls and covariances with PI2.
-        k, pS, ipS, cpS, eta = self.update_pi2(ffw_controls, costs, prev_traj_distr.k, prev_traj_distr.pol_covar,
+        # Optimize feedforward controls and covariances with DREPS.
+        k, pS, ipS, cpS, eta = self.update_dreps(ffw_controls, costs, prev_traj_distr.k, prev_traj_distr.pol_covar,
                                                fixed_eta, use_fixed_eta)
         traj_distr.k, traj_distr.pol_covar = k, pS
         traj_distr.inv_pol_covar, traj_distr.chol_pol_covar = ipS, cpS
 
         return traj_distr, eta
 
-    def update_pi2(self, samples, costs, mean_old, cov_old,
-                   fixed_eta=None, use_fixed_eta=False):
+    def update_dreps(self, samples, costs, mean_old, cov_old, fixed_eta=None, use_fixed_eta=False):
         """
-        Perform optimization with PI2. Computes new mean and covariance matrices
+        Perform optimization with DREPS. Computes new mean and covariance matrices
         of the policy parameters given policy samples and their costs.
         Args:
             samples: Matrix of policy samples with dimensions: 
@@ -129,14 +113,13 @@ class TrajOptPI2(TrajOpt):
         etas = np.zeros(T)
 
         del_ = self._hyperparams['del0']
-        if self._hyperparams['pi2_cons_per_step']:
+        if self._hyperparams['dreps_cons_per_step']:
             del_ = np.ones(T) * del_
 
         fail = True
         while fail:
             fail = False
             for t in range(T):
-                print(etas[:5])
                 # Compute cost-to-go for each time step for each sample.
                 cost_to_go = np.sum(costs[:, t:T], axis=1)
 

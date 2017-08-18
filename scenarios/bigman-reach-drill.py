@@ -28,6 +28,7 @@ from robolearn.costs.cost_utils import evall1l2term, evallogl2term
 
 from robolearn.utils.traj_opt.traj_opt_pi2 import TrajOptPI2
 from robolearn.utils.traj_opt.traj_opt_lqr import TrajOptLQR
+from robolearn.utils.traj_opt.traj_opt_dreps import TrajOptDREPS
 from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
 from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
 
@@ -35,6 +36,7 @@ from robolearn.algos.gps.mdgps import MDGPS
 from robolearn.algos.gps.pigps import PIGPS
 from robolearn.algos.trajopt.ilqr import ILQR
 from robolearn.algos.trajopt.pi2 import PI2
+from robolearn.algos.trajopt.dreps import DREPS
 from robolearn.policies.lin_gauss_init import init_lqr, init_pd, init_demos
 from robolearn.policies.policy_prior import ConstantPolicyPrior  # For MDGPS
 
@@ -234,7 +236,7 @@ policy_params = {
     'init_var': 0.1,  # Initial policy variance.
     'ent_reg': 0.0,  # Entropy regularizer (Used to update policy variance)
     # Solver hyperparameters.
-    'iterations': 20,#5000,  # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
+    'iterations': 5000,  # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
     'batch_size': 15,
     'lr': 0.001,  # Base learning rate (by default it's fixed).
     'lr_policy': 'fixed',  # Learning rate policy.
@@ -422,7 +424,7 @@ cost_sum = {
     #'costs': [act_cost, LAfk_cost, LAfk_final_cost],
     #'weights': [1.0e-1, 1.0e-0, 1.0e-0],
     'costs': [act_cost, fk_l1_cost, fk_l2_cost, fk_l1_final_cost, fk_l2_final_cost],
-    'weights': [1.0e-1, 0.0e-0, 1.0e-0, 1.0e-0, 1.0e-0],
+    'weights': [1.0e-1, 5.0e-1, 1.0e-0, 5.0e-1, 1.0e-0],
     # 'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
     # 'weights': [0.1, 5.0],
 }
@@ -564,15 +566,22 @@ traj_opt_pi2 = {'type': TrajOptPI2,
                 'del0': 1e-4,  # Dual variable updates for non-PD Q-function.
                 'kl_threshold': 1.0,   # KL-divergence threshold between old and new policies.
                 'covariance_damping': 2.0,  # If greater than zero, covariance is computed as a multiple of the old
-                                            # covariance. Multiplier is taken to the power (1 / covariance_damping).
-                                            # If greater than one, slows down convergence and keeps exploration noise
-                                            # high for more iterations.
+                # covariance. Multiplier is taken to the power (1 / covariance_damping).
+                # If greater than one, slows down convergence and keeps exploration noise high for more iterations.
                 'min_temperature': 0.001,  # Minimum bound of the temperature optimization for the soft-max
-                                           # probabilities of the policy samples.
+                # probabilities of the policy samples.
                 'use_sumexp': False,
-                'pi2_use_dgd_eta': False,
+                'pi2_use_dgd_eta': True,  # False,
                 'pi2_cons_per_step': True,
                 }
+
+traj_opt_dreps = {'type': TrajOptDREPS,
+                  'epsilon': 1.0,   # KL-divergence threshold between old and new policies.
+                  'xi': 5.0,
+                  'chi': 2.0,
+                  'dreps_cons_per_step': True,
+                  'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
+                  }
 
 if demos_samples is None:
 #      # init_traj_distr values can be lists if they are different for each condition
@@ -636,23 +645,36 @@ pi2_hyperparams = {'inner_iterations': 1,
                    'fit_dynamics': False,  # Dynamics fitting is not required for PI2.
                    }
 
+dreps_hyperparams = {'inner_iterations': 1,
+                     }
+
 
 if learning_algorithm.upper() == 'MDGPS':
     gps_algo_hyperparams = mdgps_hyperparams
     traj_opt_method = traj_opt_lqr
+    test_after_iter = True
 
 elif learning_algorithm.upper() == 'PIGPS':
     mdgps_hyperparams.update(pigps_hyperparams)
     gps_algo_hyperparams = mdgps_hyperparams
     traj_opt_method = traj_opt_pi2
+    test_after_iter = True
 
 elif learning_algorithm.upper() == 'ILQR':
     gps_algo_hyperparams = ilqr_hyperparams
     traj_opt_method = traj_opt_lqr
+    test_after_iter = False
 
 elif learning_algorithm.upper() == 'PI2':
     gps_algo_hyperparams = pi2_hyperparams
     traj_opt_method = traj_opt_pi2
+    test_after_iter = False
+
+elif learning_algorithm.upper() == 'DREPS':
+    gps_algo_hyperparams = dreps_hyperparams
+    traj_opt_method = traj_opt_dreps
+    test_after_iter = False
+
 else:
     raise AttributeError("Wrong learning algorithm %s" % learning_algorithm.upper())
 
@@ -660,11 +682,11 @@ else:
 gps_hyperparams = {
     'T': int(EndTime/Ts),  # Total points
     'dt': Ts,
-    'iterations': 50,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
-    'test_after_iter': True,  # If test the learned policy after an iteration in the RL algorithm
+    'iterations': 100,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
+    'test_after_iter': test_after_iter,  # If test the learned policy after an iteration in the RL algorithm
     'test_samples': 2,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
     # Samples
-    'num_samples': 2,  # 20  # Samples for exploration trajs --> N samples
+    'num_samples': 5,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
     #'noise_var_scale': np.array([5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2]),  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
@@ -705,6 +727,12 @@ elif learning_algorithm.upper() == 'ILQR':
 
 elif learning_algorithm.upper() == 'PI2':
     learn_algo = PI2(agent=bigman_agent, env=bigman_env, **gps_hyperparams)
+
+elif learning_algorithm.upper() == 'DREPS':
+    learn_algo = DREPS(agent=bigman_agent, env=bigman_env, **gps_hyperparams)
+
+else:
+    raise AttributeError("Wrong learning algorithm %s" % learning_algorithm.upper())
 
 print("Learning algorithm: %s OK\n" % type(learn_algo))
 

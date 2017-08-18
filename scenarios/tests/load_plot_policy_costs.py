@@ -4,17 +4,14 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import pickle
 
-#gps_directory_name = 'GPS_2017-08-04_20:32:12'  # l1: 1.0, l2: 1.0e-3
-#gps_directory_name = 'GPS_2017-08-07_16:05:32'  # l1: 1.0, l2: 0.0
-#gps_directory_name = 'GPS_2017-08-07_19:35:58'  # l1: 1.0, l2: 1.0
-#gps_directory_name = 'GPS_2017-08-09_14:11:15'  # 2 arms
-gps_directory_name = 'GPS_2017-08-14_10:35:40'  # dummy test
-gps_directory_name = 'GPS_2017-08-15_17:26:51'
+#gps_directory_name = 'GPS_2017-08-17_09:29:05'
+gps_directory_name = 'GPS_2017-08-17_18:40:20'
+
 
 init_pol_sample_itr = 0
-final_pol_sample_itr = 100
+final_pol_sample_itr = 41
 #plots_type = 'iteration'  # 'iteration' or 'episode'
-plots_type = 'episode'  # 'iteration' or 'episode'
+plots_type = 'iteration'  # 'iteration' or 'episode'
 include_last_T = False  # Only in iteration
 iteration_to_plot = -1
 plot_cost_types = True

@@ -14,22 +14,25 @@ import scipy.stats
 #gps_directory_name = 'GPS_2017-08-07_16:05:32'  # l1: 1.0, l2: 0.0
 gps_directory_name = 'GPS_2017-08-07_19:35:58'  # l1: 1.0, l2: 1.0
 gps_directory_name = 'GPS_2017-08-14_10:35:40'  # dummy test
-gps_directory_name = 'GPS_2017-08-16_14:18:02'
+gps_directory_name = 'GPS_2017-08-18_08:41:50'  # ILQR 4 cond, 2 samples
+gps_directory_name = 'GPS_2017-08-18_15:44:31'  # PI2 1 cond, 5 samples, pi2_use_dgd_eta=False
+gps_directory_name = 'GPS_2017-08-18_16:54:52'  # PI2 1 cond, 5 samples, pi2_use_dgd_eta=True
+gps_directory_name = 'GPS_2017-08-18_17:42:42'  # ILQR 1 cond, 5 samples
 
 init_itr = 0
 final_itr = 100
 #final_itr = 30
 samples_idx = [-1]  # List of samples / None: all samples
 max_traj_plots = None  # None, plot all
-last_n_iters = 5  # None, plot all iterations
+last_n_iters = None  # None, plot all iterations
 sensed_joints = 'RA'
 method = 'ILQR'
 
 plot_eta = False
 plot_step_mult = False  # If linearized policy(then NN policy) is worse, epsilon is reduced.
-plot_cs = False
+plot_cs = True
 plot_sample_list_actions = False
-plot_sample_list_states = True
+plot_sample_list_states = False
 plot_sample_list_obs = False
 plot_policy_output = False
 plot_policy_actions = False
