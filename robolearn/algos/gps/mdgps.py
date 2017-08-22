@@ -16,7 +16,7 @@ import numpy as np
 import scipy as sp
 import copy
 
-from robolearn.algos.gps.temp_gps import GPS
+from robolearn.algos.gps.gps import GPS
 from robolearn.algos.gps.gps_config import default_mdgps_hyperparams
 from robolearn.algos.gps.gps_utils import PolicyInfo
 

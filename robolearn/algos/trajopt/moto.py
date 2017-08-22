@@ -4,7 +4,7 @@ This file defines the MOTO trajectory optimization method.
 import copy
 import numpy as np
 
-from robolearn.algos.gps.temp_gps import GPS
+from robolearn.algos.gps.gps import GPS
 from robolearn.algos.trajopt.trajopt_config import default_moto_hyperparams
 
 

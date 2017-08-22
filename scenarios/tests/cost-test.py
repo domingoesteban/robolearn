@@ -8,7 +8,7 @@ from robolearn.costs.cost_fk_relative import CostFKRelative
 from robolearn.costs.cost_fk import CostFK
 from robolearn.costs.cost_sum import CostSum
 from robolearn.costs.cost_utils import RAMP_QUADRATIC, RAMP_CONSTANT, RAMP_LINEAR, RAMP_FINAL_ONLY
-from robolearn.costs.cost_utils import evallogl2term
+from robolearn.costs.cost_utils import evallogl2term, evall1l2term
 
 from robolearn.utils.robot_model import RobotModel
 from robolearn.utils.sample import Sample
@@ -170,7 +170,7 @@ LAfk_final_cost = {
     'joint_ids': bigman_params['joint_ids']['LA'],
     'robot_model': robot_model,
     'wp': np.array([1.0, 1.0, 1.0, 8.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'evalnorm': evallogl2term,
+    'evalnorm': evall1l2term,
     'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 0.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm

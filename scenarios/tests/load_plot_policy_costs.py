@@ -6,10 +6,14 @@ import pickle
 
 #gps_directory_name = 'GPS_2017-08-17_09:29:05'
 gps_directory_name = 'GPS_2017-08-17_18:40:20'
+gps_directory_name = 'GPS_2017-08-18_19:04:25'  # MDGPS, 100iter, 5samp, max_step=1
+gps_directory_name = 'GPS_2017-08-22_07:13:33'  # MDGPS, 100iter, 5samp, max_step=1, 1cond
+
+
 
 
 init_pol_sample_itr = 0
-final_pol_sample_itr = 41
+final_pol_sample_itr = 100
 #plots_type = 'iteration'  # 'iteration' or 'episode'
 plots_type = 'iteration'  # 'iteration' or 'episode'
 include_last_T = False  # Only in iteration

@@ -3,7 +3,7 @@
 import sys
 import numpy as np
 
-from robolearn.algos.gps.temp_gps import GPS
+from robolearn.algos.gps.gps import GPS
 from robolearn.algos.trajopt.trajopt_config import default_ilqr_hyperparams
 
 

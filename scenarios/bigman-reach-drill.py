@@ -54,6 +54,7 @@ from robolearn.utils.reach_drill_utils import create_hand_relative_pose
 from robolearn.utils.reach_drill_utils import generate_reach_joints_trajectories
 from robolearn.utils.reach_drill_utils import generate_lift_joints_trajectories
 from robolearn.utils.reach_drill_utils import task_space_torque_control_demos, load_task_space_torque_control_demos
+from robolearn.utils.reach_drill_utils import task_space_torque_control_dual_demos, load_task_space_torque_control_dual_demos
 
 from robolearn.utils.robot_model import RobotModel
 from robolearn.utils.transformations import create_quat_pose
@@ -90,7 +91,9 @@ Tend = 0  # 0.7
 # EndTime = 4  # Using final time to define the horizon
 EndTime = Treach + Tinter + Tlift + Tend  # Using final time to define the horizon
 init_with_demos = False
+generate_dual_sets = True
 demos_dir = None  # 'TASKSPACE_TORQUE_CTRL_DEMO_2017-07-21_16:32:39'
+dual_dir = 'DUAL_DEMOS_2017-08-22_16:24:00'
 seed = 6
 
 random.seed(seed)
@@ -273,6 +276,9 @@ act_cost = {
 
 # State Cost
 target_distance_hand = np.zeros(6)
+# target_distance_hand[-2] = -0.02  # Yoffset
+# target_distance_hand[-1] = 0.1  # Zoffset
+
 # state_cost_distance = {
 #     'type': CostState,
 #     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
@@ -360,7 +366,7 @@ fk_l2_cost = {
 
 fk_final_cost = {
     'type': CostFK,
-    'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
     'target_pose': target_distance_hand,
     'tgt_data_type': 'state',  # 'state' or 'observation'
     'tgt_idx': bigman_env.get_state_info(name='distance_hand')['idx'],
@@ -371,7 +377,7 @@ fk_final_cost = {
     'robot_model': robot_model,
     'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
     'evalnorm': evall1l2term,
-    'l1': 0.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
+    'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
     'wp_final_multiplier': 10,
@@ -379,7 +385,7 @@ fk_final_cost = {
 
 fk_l1_final_cost = {
     'type': CostFK,
-    'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
     'target_pose': target_distance_hand,
     'tgt_data_type': 'state',  # 'state' or 'observation'
     'tgt_idx': bigman_env.get_state_info(name='distance_hand')['idx'],
@@ -398,7 +404,7 @@ fk_l1_final_cost = {
 
 fk_l2_final_cost = {
     'type': CostFK,
-    'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
     'target_pose': target_distance_hand,
     'tgt_data_type': 'state',  # 'state' or 'observation'
     'tgt_idx': bigman_env.get_state_info(name='distance_hand')['idx'],
@@ -424,7 +430,7 @@ cost_sum = {
     #'costs': [act_cost, LAfk_cost, LAfk_final_cost],
     #'weights': [1.0e-1, 1.0e-0, 1.0e-0],
     'costs': [act_cost, fk_l1_cost, fk_l2_cost, fk_l1_final_cost, fk_l2_final_cost],
-    'weights': [1.0e-1, 5.0e-1, 1.0e-0, 5.0e-1, 1.0e-0],
+    'weights': [1.0e-1, 1.0e-1, 1.0e-0, 1.0e-1, 1.0e-0],
     # 'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
     # 'weights': [0.1, 5.0],
 }
@@ -435,6 +441,8 @@ cost_sum = {
 # Conditions #
 # ########## #
 # ########## #
+drill_relative_poses = []  # Used only in dual demos
+
 q0 = np.zeros(31)
 q0[15] = np.deg2rad(25)
 q0[16] = np.deg2rad(40)
@@ -449,50 +457,54 @@ condition0 = create_bigman_drill_condition(q0, drill_pose0, bigman_env.get_state
                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
 bigman_env.add_condition(condition0)
 reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose0)
+drill_relative_poses.append(drill_pose0)
 
-#q1 = np.zeros(31)
-q1 = q0.copy()
-q1[15] = np.deg2rad(25)
-q1[16] = np.deg2rad(40)
-q1[18] = np.deg2rad(-45)
-q1[20] = np.deg2rad(-5)
-q1[24] = np.deg2rad(25)
-q1[25] = np.deg2rad(-40)
-q1[27] = np.deg2rad(-45)
-q1[29] = np.deg2rad(-5)
-drill_pose1 = create_drill_relative_pose(drill_x=drill_x+0.02, drill_y=drill_y+0.02, drill_z=drill_z, drill_yaw=drill_yaw+5)
-condition1 = create_bigman_drill_condition(q1, drill_pose1, bigman_env.get_state_info(),
-                                         joint_idxs=bigman_params['joint_ids'][body_part_sensed])
-bigman_env.add_condition(condition1)
-reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose1)
+# #q1 = np.zeros(31)
+# q1 = q0.copy()
+# q1[15] = np.deg2rad(25)
+# q1[16] = np.deg2rad(40)
+# q1[18] = np.deg2rad(-45)
+# q1[20] = np.deg2rad(-5)
+# q1[24] = np.deg2rad(25)
+# q1[25] = np.deg2rad(-40)
+# q1[27] = np.deg2rad(-45)
+# q1[29] = np.deg2rad(-5)
+# drill_pose1 = create_drill_relative_pose(drill_x=drill_x+0.02, drill_y=drill_y+0.02, drill_z=drill_z, drill_yaw=drill_yaw+5)
+# condition1 = create_bigman_drill_condition(q1, drill_pose1, bigman_env.get_state_info(),
+#                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
+# bigman_env.add_condition(condition1)
+# reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose1)
+# drill_relative_poses.append(drill_pose1)
 
-q2 = q0.copy()
-q2[15] = np.deg2rad(25)
-q2[16] = np.deg2rad(30)
-q2[18] = np.deg2rad(-50)
-q2[21] = np.deg2rad(-45)
-q2[24] = np.deg2rad(25)
-q2[25] = np.deg2rad(-30)
-q2[27] = np.deg2rad(-50)
-q2[30] = np.deg2rad(-45)
-drill_pose2 = create_drill_relative_pose(drill_x=drill_x-0.02, drill_y=drill_y-0.02, drill_z=drill_z, drill_yaw=drill_yaw-5)
-condition2 = create_bigman_drill_condition(q2, drill_pose2, bigman_env.get_state_info(),
-                                         joint_idxs=bigman_params['joint_ids'][body_part_sensed])
-bigman_env.add_condition(condition2)
-reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose2)
+# q2 = q0.copy()
+# q2[15] = np.deg2rad(25)
+# q2[16] = np.deg2rad(30)
+# q2[18] = np.deg2rad(-50)
+# q2[21] = np.deg2rad(-45)
+# q2[24] = np.deg2rad(25)
+# q2[25] = np.deg2rad(-30)
+# q2[27] = np.deg2rad(-50)
+# q2[30] = np.deg2rad(-45)
+# drill_pose2 = create_drill_relative_pose(drill_x=drill_x-0.02, drill_y=drill_y-0.02, drill_z=drill_z, drill_yaw=drill_yaw-5)
+# condition2 = create_bigman_drill_condition(q2, drill_pose2, bigman_env.get_state_info(),
+#                                            joint_idxs=bigman_params['joint_ids'][body_part_sensed])
+# bigman_env.add_condition(condition2)
+# reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose2)
+# drill_relative_poses.append(drill_pose2)
 
-q3 = q0.copy()
-q3[15] = np.deg2rad(10)
-q3[16] = np.deg2rad(10)
-q3[18] = np.deg2rad(-35)
-q3[24] = np.deg2rad(10)
-q3[25] = np.deg2rad(-10)
-q3[27] = np.deg2rad(-35)
-drill_pose3 = create_drill_relative_pose(drill_x=drill_x-0.06, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw+10)
-condition3 = create_bigman_drill_condition(q3, drill_pose3, bigman_env.get_state_info(),
-                                         joint_idxs=bigman_params['joint_ids'][body_part_sensed])
-bigman_env.add_condition(condition3)
-reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose3)
+# q3 = q0.copy()
+# q3[15] = np.deg2rad(10)
+# q3[16] = np.deg2rad(10)
+# q3[18] = np.deg2rad(-35)
+# q3[24] = np.deg2rad(10)
+# q3[25] = np.deg2rad(-10)
+# q3[27] = np.deg2rad(-35)
+# drill_pose3 = create_drill_relative_pose(drill_x=drill_x-0.06, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw+10)
+# condition3 = create_bigman_drill_condition(q3, drill_pose3, bigman_env.get_state_info(),
+#                                            joint_idxs=bigman_params['joint_ids'][body_part_sensed])
+# bigman_env.add_condition(condition3)
+# reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose3)
+# drill_relative_poses.append(drill_pose3)
 
 # q4 = q0.copy()
 # drill_pose4 = create_drill_relative_pose(drill_x=drill_x, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw-5)
@@ -500,6 +512,7 @@ reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose3)
 #                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
 # bigman_env.add_condition(condition4)
 # reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose4)
+# drill_relative_poses.append(drill_pose4)
 
 
 
@@ -509,6 +522,7 @@ reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose3)
 # #################### #
 # #################### #
 if init_with_demos is True:
+    print("")
     change_print_color.change('GREEN')
     if demos_dir is None:
         task_space_torque_control_demos_params = {
@@ -539,6 +553,63 @@ if init_with_demos is True:
 else:
     demos_samples = None
 
+# DUAL SAMPLES
+if generate_dual_sets is True:
+    print("")
+    change_print_color.change('GREEN')
+    if dual_dir is None:
+        task_space_torque_control_dual_params = {
+            'active_joints': 'RA',
+            'n_good_samples': 5,
+            'n_bad_samples': 5,
+            'conditions_to_sample': range(len(bigman_env.get_conditions())),
+            'Treach': Treach,
+            'Tlift': Tlift,
+            'Tinter': Tinter,
+            'Tend': Tend,
+            'Ts': Ts,
+            'noisy': False,
+            'noise_hyperparams': {
+                'noise_var_scale': 0.0001,  # It can be a np.array() with dim=dU
+                'smooth_noise': False,  # Whether or not to perform smoothing of noise
+                'smooth_noise_var': 0.01,   # If smooth=True, applies a Gaussian filter with this variance. E.g. 0.01
+                'smooth_noise_renormalize': False,  # If smooth=True, renormalizes data to have variance 1 after smoothing.
+            },
+            'bigman_env': bigman_env,
+            'drill_relative_poses': drill_relative_poses,  # THIS
+            'drill_relative_pose_cond_id': range(-8, -1),  # OR THIS
+            'drill_size': drill_size,
+            'final_drill_height': final_drill_height,
+            # offsets [roll, pitch, yaw, x, y, z]
+            #'good_offsets': [[0, 0, 0, 0.25, -0.25, drill_size[2]/2+0.1],
+            'good_offsets': [[-45,      0,      0,      0,      -0.13,      0.17],
+                             [0,      0,      0,      0,      -0.12,      0.17],
+                             [30,      0,      0,      0,      -0.13,      0.15],
+                             [3,      0,      0,      0,      -0.14,      0.15],
+                             [-8,      0,      0,      0,      -0.14,      0.14],
+                             ],
+            'bad_offsets': [[-10,      0,      0,      0.05,      0.1,      0.17],
+                            [2,      0,      0,      0,      0.1,      0.10],
+                            [25,      0,      -5,      0,      0.0,      0.20],
+                            [1,      10,      2,      -0.1,      0.14,      0.21],
+                            [3,      10,      40,      0.05,      0.05,      0.18],
+                            ],
+        }
+
+        good_trajs, bad_trajs = task_space_torque_control_dual_demos(**task_space_torque_control_dual_params)
+        bigman_env.reset(time=2, cond=0)
+
+    else:
+        good_trajs, bad_trajs = load_task_space_torque_control_dual_demos(dual_dir)
+        print('Good/bad dual samples has been obtained from directory %s' % dual_dir)
+
+else:
+    good_trajs = None
+    bad_trajs = None
+
+
+
+
 
 # ######################## #
 # ######################## #
@@ -565,7 +636,7 @@ traj_opt_lqr = {'type': TrajOptLQR,
 traj_opt_pi2 = {'type': TrajOptPI2,
                 'del0': 1e-4,  # Dual variable updates for non-PD Q-function.
                 'kl_threshold': 1.0,   # KL-divergence threshold between old and new policies.
-                'covariance_damping': 2.0,  # If greater than zero, covariance is computed as a multiple of the old
+                'covariance_damping': 10.0,  # 2.0,  # If greater than zero, covariance is computed as a multiple of the old
                 # covariance. Multiplier is taken to the power (1 / covariance_damping).
                 # If greater than one, slows down convergence and keeps exploration noise high for more iterations.
                 'min_temperature': 0.001,  # Minimum bound of the temperature optimization for the soft-max
@@ -580,6 +651,8 @@ traj_opt_dreps = {'type': TrajOptDREPS,
                   'xi': 5.0,
                   'chi': 2.0,
                   'dreps_cons_per_step': True,
+                  'min_eta': 0.001,  # Minimum bound of the temperature optimization for the soft-max
+                  'covariance_damping': 2.0,
                   'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
                   }
 
@@ -646,6 +719,8 @@ pi2_hyperparams = {'inner_iterations': 1,
                    }
 
 dreps_hyperparams = {'inner_iterations': 1,
+                     'good_samples': good_trajs,
+                     'bad_samples': bad_trajs,
                      }
 
 
@@ -686,7 +761,7 @@ gps_hyperparams = {
     'test_after_iter': test_after_iter,  # If test the learned policy after an iteration in the RL algorithm
     'test_samples': 2,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
     # Samples
-    'num_samples': 5,  # 20  # Samples for exploration trajs --> N samples
+    'num_samples': 1,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
     #'noise_var_scale': np.array([5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2]),  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)

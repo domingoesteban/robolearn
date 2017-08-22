@@ -136,7 +136,7 @@ class TrajOptPI2(TrajOpt):
         while fail:
             fail = False
             for t in range(T):
-                print(etas[:5])
+                # print(etas[:5])
                 # Compute cost-to-go for each time step for each sample.
                 cost_to_go = np.sum(costs[:, t:T], axis=1)
 

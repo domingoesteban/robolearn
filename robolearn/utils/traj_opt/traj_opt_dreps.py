@@ -32,7 +32,9 @@ class TrajOptDREPS(TrajOpt):
         config = copy.deepcopy(default_traj_opt_dreps_hyperparams)
         config.update(hyperparams)
         TrajOpt.__init__(self, config)
-        self._epsilon = self._hyperparams['epsilon']
+        self._epsilon = self._hyperparams['epsilon']  # kl_threshold
+        self._min_eta = self._hyperparams['min_eta']  # Min temperature
+        self._covariance_damping = self._hyperparams['covariance_damping']
 
     def update(self, m, algorithm, use_lqr_actions=False, fixed_eta=None, use_fixed_eta=False, costs=None):
         """
@@ -78,7 +80,7 @@ class TrajOptDREPS(TrajOpt):
 
         # Optimize feedforward controls and covariances with DREPS.
         k, pS, ipS, cpS, eta = self.update_dreps(ffw_controls, costs, prev_traj_distr.k, prev_traj_distr.pol_covar,
-                                               fixed_eta, use_fixed_eta)
+                                                 fixed_eta, use_fixed_eta)
         traj_distr.k, traj_distr.pol_covar = k, pS
         traj_distr.inv_pol_covar, traj_distr.chol_pol_covar = ipS, cpS
 
@@ -108,6 +110,7 @@ class TrajOptDREPS(TrajOpt):
         inv_cov_new = np.zeros(cov_old.shape)
         chol_cov_new = np.zeros(cov_old.shape)
 
+
         # Iterate over time steps.
         T = samples.shape[1]
         etas = np.zeros(T)
@@ -115,6 +118,7 @@ class TrajOptDREPS(TrajOpt):
         del_ = self._hyperparams['del0']
         if self._hyperparams['dreps_cons_per_step']:
             del_ = np.ones(T) * del_
+
 
         fail = True
         while fail:
@@ -124,15 +128,20 @@ class TrajOptDREPS(TrajOpt):
                 cost_to_go = np.sum(costs[:, t:T], axis=1)
 
                 if use_fixed_eta:
+                    print('fixed eta')
                     eta = (fixed_eta[t] if isinstance(fixed_eta, np.ndarray)
                            else fixed_eta)
                 else:
+                    print('optimizing eta')
                     # Perform REPS-like optimization of the temperature eta.
                     res = minimize(self.kl_dual, 10.0,
-                                   bounds=((self._min_temperature, None),),
-                                   args=(self._kl_threshold, cost_to_go))
+                                   bounds=((self._min_eta, None),),
+                                   args=(self._epsilon, cost_to_go))
                     etas[t] = res.x
                     eta = res.x
+                    print(etas[t])
+                    print(eta)
+                raw_input('ayayayay')
 
                 exponent = -cost_to_go
 
