@@ -45,3 +45,12 @@ default_traj_opt_dreps_hyperparams = {
     'chi': 2.0,
     'dreps_cons_per_step': True,
 }
+
+
+# TrajOptmDREPS
+default_traj_opt_mdreps_hyperparams = {
+    'epsilon': 1.0,   # KL-divergence threshold between old and new policies.
+    'xi': 5.0,
+    'chi': 2.0,
+    'dreps_cons_per_step': True,
+}

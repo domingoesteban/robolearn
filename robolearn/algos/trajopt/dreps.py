@@ -109,15 +109,20 @@ class DREPS(GPS):
         obs = samples.get_obs()
         U = samples.get_actions()
 
-        X[:, :, :] = X[2, :, :]
-        U[:, :, :] = U[2, :, :]
+        print(X[:, -1, -2])
+        X[:, :, :] = X[1, :, :]
+        U[:, :, :] = U[1, :, :]
+        print(X[:, -1, -2])
 
-        plt.plot(X[2, :, :7])
+        plt.plot(X[2, :, -3], label=['x'])
+        plt.plot(X[2, :, -2], label=['y'])
+        plt.plot(X[2, :, -1], label=['z'])
+        plt.legend()
         plt.show()
 
         N = X.shape[0]
         if N == 1:
-            raise ValueError("Cannot fit bad_policy on 1 sample")
+            raise ValueError("Cannot fit dual_policy on 1 sample")
 
         pol_mu = U
         pol_sig = np.zeros((N, self.T, self.dU, self.dU))
@@ -138,7 +143,8 @@ class DREPS(GPS):
 
         # Update policy prior.
         def eval_prior(Ts, Ps):
-            strength = 1e-4
+            #strength = 1e-4
+            strength = 1e-10
             dX, dU = Ts.shape[-1], Ps.shape[-1]
             prior_fd = np.zeros((dU, dX))
             prior_cond = 1e-5 * np.eye(dU)
@@ -146,7 +152,6 @@ class DREPS(GPS):
             Phi = strength * np.vstack([np.hstack([sig, sig.dot(prior_fd.T)]),
                                         np.hstack([prior_fd.dot(sig), prior_fd.dot(sig).dot(prior_fd.T) + prior_cond])])
             return np.zeros(dX+dU), Phi, 0, strength
-
 
         for t in range(self.T):
             # Fit linearization with least squares regression
@@ -174,7 +179,8 @@ class DREPS(GPS):
             # Slightly regularize on first timestep.
             if t == 0:
                 sig_reg[:self.dX, :self.dX] = 1e-8
-            pol_K[t, :, :], pol_k[t, :], pol_S[t, :, :] = gauss_fit_joint_prior(Ys, mu0, Phi, mm, n0, dwts, self.dX, self.dU, sig_reg)
+            pol_K[t, :, :], pol_k[t, :], pol_S[t, :, :] = gauss_fit_joint_prior(Ys, mu0, Phi, mm, n0, dwts,
+                                                                                self.dX, self.dU, sig_reg)
         pol_S += pol_sig  # Add policy covariances mean
 
         for t in range(self.T):
@@ -182,7 +188,6 @@ class DREPS(GPS):
             inv_pol_S[t, :, :] = np.linalg.inv(pol_S[t, :, :])
 
         return LinearGaussianPolicy(pol_K, pol_k, pol_S, chol_pol_S, inv_pol_S)
-
 
     def sample_from_policy(self, cond, policy, noisy=True):
         sample = Sample(self.env, self.T)
@@ -205,6 +210,7 @@ class DREPS(GPS):
             sampling_bar.update(t)
             obs = self.env.get_observation()
             state = self.env.get_state()
+            print(state[-3:])
             action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # TODO: Avoid TF policy writes in obs
             self.env.send_action(action)
             obs_hist[t] = (obs, action)

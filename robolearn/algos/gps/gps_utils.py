@@ -44,6 +44,8 @@ class IterationData(BundleType):
             'cs': None,              # Sample costs of the current iteration.
             'step_mult': 1.0,        # KL step multiplier for the current iteration.
             'eta': 1.0,              # Dual variable used in LQR backward pass.
+            'omega': 2.0,              # Dual variable used in LQR backward pass. mDREPS
+            'nu': 10.0,              # Dual variable used in LQR backward pass. mDREPS
         }
         BundleType.__init__(self, variables)
 

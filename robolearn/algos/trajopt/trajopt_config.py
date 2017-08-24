@@ -22,3 +22,11 @@ default_dreps_hyperparams = {
     'xi': 0.1,
     'chi': 0.1,
 }
+
+# mDREPS
+default_mdreps_hyperparams = {
+    'inner_iterations': 1,
+    'epsilon': 0.1,
+    'xi': 0.1,
+    'chi': 0.1,
+}

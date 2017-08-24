@@ -16,6 +16,10 @@ class GPSAgent(Agent):
         # TODO: We assume that an agent should remember his samples (experience??). Check if we include it in all agents
         self._samples = []  # List of lists, one list for each condition (sampled from a local policy)
 
+        # Good and Bad experiences
+        self._good_experience = []
+        self._bad_experience = []
+
         if policy_opt is None:
             print("Policy optimization not defined. Using default PolicyOptRandom class!")
             self.policy_opt = PolicyOptRandom({}, self.obs_dim, self.act_dim)
