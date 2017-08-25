@@ -44,8 +44,10 @@ class IterationData(BundleType):
             'cs': None,              # Sample costs of the current iteration.
             'step_mult': 1.0,        # KL step multiplier for the current iteration.
             'eta': 1.0,              # Dual variable used in LQR backward pass.
-            'omega': 2.0,              # Dual variable used in LQR backward pass. mDREPS
-            'nu': 10.0,              # Dual variable used in LQR backward pass. mDREPS
+            'omega': 0.1,              # Dual variable used in LQR backward pass. mDREPS
+            'nu': 0.5,              # Dual variable used in LQR backward pass. mDREPS
+            'good_step_mult': 1.0,        # KL step multiplier for the current iteration.
+            'bad_step_mult': 1.0,        # KL step multiplier for the current iteration.
         }
         BundleType.__init__(self, variables)
 
@@ -95,6 +97,18 @@ class PolicyInfo(BundleType):
             inv_pol_S[t, :, :] = np.linalg.solve(self.chol_pol_S[t, :, :],
                                                  np.linalg.solve(self.chol_pol_S[t, :, :].T, np.eye(dU)))
         return LinearGaussianPolicy(self.pol_K, self.pol_k, self.pol_S, self.chol_pol_S, inv_pol_S)
+
+
+class DualityInfo(BundleType):
+    """ Collection of duality-trajectory-related variables. """
+    def __init__(self):
+        variables = {
+            'sample_list': None,
+            'samples_cost': None,
+            'traj_cost': None,
+            'traj_dist': None,
+        }
+        BundleType.__init__(self, variables)
 
 
 def estimate_moments(X, mu, covar):

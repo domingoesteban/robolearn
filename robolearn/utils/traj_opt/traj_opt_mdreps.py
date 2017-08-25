@@ -72,145 +72,30 @@ class TrajOptMDREPS(TrajOpt):
         if self.cons_per_step and type(nu) in (int, float):
             nu = np.ones(T) * nu
 
-        # Get current step_mult and traj_info
-        if a is None:
-            step_mult = algorithm.cur[m].step_mult
-            traj_info = algorithm.cur[m].traj_info
-        else:
-            step_mult = algorithm.cur[a][m].step_mult
-            traj_info = algorithm.cur[a][m].traj_info
+        eta_conv = False
+        nu_conv = False
+        omega_conv = False
+        total_gradient_descent_steps = 2
+        for _ in range(total_gradient_descent_steps):
+            print('_'*20)
+            print(eta)
+            eta, eta_conv = self._gradient_descent_eta(algorithm, a, m, eta, omega, nu)
+            print(eta)
+            print('^'*20)
+            print(nu)
+            nu, nu_conv = self._gradient_descent_nu(algorithm, a, m, eta, omega, nu)
+            print(nu)
+            print('^'*20)
+            omega_conv = True
+            # omega, omega_conv = self._gradient_descent_omega(algorithm, a, m, eta, omega, nu)
 
-        # Get the trajectory distribution that is going to be used as constraint
-        if algorithm.gps_algo.lower() == 'mdgps':
-            # For MDGPS, constrain to previous NN linearization
-            if a is None:
-                prev_traj_distr = algorithm.cur[m].pol_info.traj_distr()
-            else:
-                prev_traj_distr = algorithm.cur[a][m].pol_info.traj_distr()
-        else:
-            # For BADMM/trajopt, constrain to previous LG controller
-            if a is None:
-                prev_traj_distr = algorithm.cur[m].traj_distr
-            else:
-                prev_traj_distr = algorithm.cur[a][m].traj_distr
+            print('eta_conv %d' % eta_conv)
+            print('nu_conv %d' % nu_conv)
+            print('omega_conv %d' % omega_conv)
 
-        # Set KL-divergence step size (epsilon) using step multiplier.
-        kl_step = algorithm.base_kl_step * step_mult
-        if not self.cons_per_step:
-            kl_step *= T
-
-        # We assume at min_eta, kl_div > kl_step, opposite for max_eta.
-        if not self.cons_per_step:
-            min_eta = self._hyperparams['min_eta']
-            max_eta = self._hyperparams['max_eta']
-            if a is None:
-                LOGGER.debug('_'*60)
-                LOGGER.debug("Running DGD for trajectory(condition) %d, eta: %f", m, eta)
-            else:
-                LOGGER.debug("Running DGD for local agent %d, trajectory(condition) %d, eta: %f", a, m, eta)
-        else:
-            min_eta = np.ones(T) * self._hyperparams['min_eta']
-            max_eta = np.ones(T) * self._hyperparams['max_eta']
-            if a is None:
-                LOGGER.debug("Running DGD for trajectory %d, avg eta: %f", m, np.mean(eta[:-1]))
-            else:
-                LOGGER.debug("Running DGD for local agent %d, trajectory %d, avg eta: %f", a, m, np.mean(eta[:-1]))
-
-
-        # # TODO: DO THIS IF WE MODIFY OMEGA AND NU
-        # # We assume at min_omega, kl_div > kl_good, opposite for max_omega.
-        # if not self.cons_per_step:
-        #     min_omega = self._hyperparams['min_omega']
-        #     max_omega = self._hyperparams['max_omega']
-        #     if a is None:
-        #         LOGGER.debug('_'*60)
-        #         LOGGER.debug("Running DGD for trajectory(condition) %d, omega: %f", m, omega)
-        #     else:
-        #         LOGGER.debug("Running DGD for local agent %d, trajectory(condition) %d, omega: %f", a, m, omega)
-        # else:
-        #     min_omega = np.ones(T) * self._hyperparams['min_omega']
-        #     max_omega = np.ones(T) * self._hyperparams['max_omega']
-        #     if a is None:
-        #         LOGGER.debug("Running DGD for trajectory %d, avg omega: %f", m, np.mean(omega[:-1]))
-        #     else:
-        #         LOGGER.debug("Running DGD for local agent %d, trajectory %d, avg omega: %f", a, m, np.mean(omega[:-1]))
-        # # We assume at min_nu, kl_div < kl_bad, opposite for max_nu.  #TODO: CHECK THIS!!!
-        # if not self.cons_per_step:
-        #     min_nu = self._hyperparams['min_nu']
-        #     max_nu = self._hyperparams['max_nu']
-        #     if a is None:
-        #         LOGGER.debug('_'*60)
-        #         LOGGER.debug("Running DGD for trajectory(condition) %d, nu: %f", m, nu)
-        #     else:
-        #         LOGGER.debug("Running DGD for local agent %d, trajectory(condition) %d, nu: %f", a, m, nu)
-        # else:
-        #     min_nu = np.ones(T) * self._hyperparams['min_nu']
-        #     max_nu = np.ones(T) * self._hyperparams['max_nu']
-        #     if a is None:
-        #         LOGGER.debug("Running DGD for trajectory %d, avg nu: %f", m, np.mean(nu[:-1]))
-        #     else:
-        #         LOGGER.debug("Running DGD for local agent %d, trajectory %d, avg nu: %f", a, m, np.mean(nu[:-1]))
-
-        max_itr = (DGD_MAX_LS_ITER if self.cons_per_step else DGD_MAX_ITER)  # Less iterations if cons_per_step=True
-
-        for itr in range(max_itr):
-            if not self.cons_per_step:
-                LOGGER.debug("Iteration %d, bracket: (%.2e , %.2e , %.2e)", itr, min_eta, eta, max_eta)
-
-            # Run fwd/bwd pass, note that eta may be updated.
-            # Compute KL divergence constraint violation.
-            traj_distr, eta, omega, nu = self.backward(prev_traj_distr, traj_info, eta, omega, nu, algorithm, m, a)
-
-            if not self._use_prev_distr:
-                new_mu, new_sigma = self.forward(traj_distr, traj_info)
-                kl_div = traj_distr_kl(new_mu, new_sigma, traj_distr, prev_traj_distr,
-                                       tot=(not self.cons_per_step))
-            else:
-                prev_mu, prev_sigma = self.forward(prev_traj_distr, traj_info)
-                kl_div = traj_distr_kl_alt(prev_mu, prev_sigma, traj_distr, prev_traj_distr,
-                                           tot=(not self.cons_per_step))
-
-            con = kl_div - kl_step
-
-            # Convergence check - constraint satisfaction.
-            if self._conv_check(con, kl_step):
-                if not self.cons_per_step:
-                    LOGGER.debug("KL: %f / %f, converged iteration %d", kl_div, kl_step, itr)
-                else:
-                    LOGGER.debug(
-                            "KL: %f / %f, converged iteration %d", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]), itr)
-                break
-
-            if not self.cons_per_step:
-                # Choose new eta (bisect bracket or multiply by constant)
-                if con < 0:  # Eta was too big.
-                    max_eta = eta
-                    geom = np.sqrt(min_eta*max_eta)  # Geometric mean.
-                    new_eta = max(geom, 0.1*max_eta)
-                    LOGGER.debug("KL: %f / %f, eta too big, new eta: %f", kl_div, kl_step, new_eta)
-                else:  # Eta was too small.
-                    min_eta = eta
-                    geom = np.sqrt(min_eta*max_eta)  # Geometric mean.
-                    new_eta = min(geom, 10.0*min_eta)
-                    LOGGER.debug("KL: %f / %f, eta too small, new eta: %f", kl_div, kl_step, new_eta)
-
-                # Logarithmic mean: log_mean(x,y) = (y - x)/(log(y) - log(x))
-                eta = new_eta
-            else:
-                for t in range(T):
-                    if con[t] < 0:  # Eta was too big.
-                        max_eta[t] = eta[t]
-                        geom = np.sqrt(min_eta[t]*max_eta[t])  # Geometric mean.
-                        eta[t] = max(geom, 0.1*max_eta[t])
-                    else:
-                        min_eta[t] = eta[t]
-                        geom = np.sqrt(min_eta[t]*max_eta[t])  # Geometric mean.
-                        eta[t] = min(geom, 10.0*min_eta[t])
-                if itr % 10 == 0:
-                    LOGGER.debug("avg KL: %f / %f, avg new eta: %f", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
-                                 np.mean(eta[:-1]))
-
+        raw_input('probemos_PE')
         if self.cons_per_step and not self._conv_check(con, kl_step):
+            print("IT DID NOT CONVERGED!!")
             m_b, v_b = np.zeros(T-1), np.zeros(T-1)
 
             for itr in range(DGD_MAX_GD_ITER):
@@ -241,10 +126,16 @@ class TrajOptMDREPS(TrajOpt):
                     LOGGER.debug("avg KL: %f / %f, avg new eta: %f", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
                                  np.mean(eta[:-1]))
 
-        if np.mean(kl_div) > np.mean(kl_step) and not self._conv_check(con, kl_step):
-            LOGGER.warning("Final KL divergence after DGD convergence is too high.")
+        if np.mean(kl_div) > np.mean(kl_step) and not self._conv_check(con, kl_step, con_good, kl_step_good, con_bad, kl_step_bad):
+            LOGGER.warning("Final KL_step divergence after DGD convergence is too high.")
 
-        return traj_distr, eta
+        if np.mean(kl_div_good) > np.mean(kl_step_good) and not self._conv_check(con, kl_step, con_good, kl_step_good, con_bad, kl_step_bad):
+            LOGGER.warning("Final KL_good divergence after DGD convergence is too high.")
+
+        if np.mean(kl_div_bad) < np.mean(kl_step_bad) and not self._conv_check(con, kl_step, con_good, kl_step_good, con_bad, kl_step_bad):
+            LOGGER.warning("Final KL_bad divergence after DGD convergence is too low.")
+
+        return traj_distr, eta, omega, nu
 
     def estimate_cost(self, traj_distr, traj_info):
         """ Compute Laplace approximation to expected cost. """
@@ -370,6 +261,8 @@ class TrajOptMDREPS(TrajOpt):
         if self.cons_per_step:
             del_ = np.ones(T) * del_
         eta0 = eta
+        omega0 = omega
+        nu0 = nu
 
         # Run dynamic programming.
         fail = True
@@ -391,7 +284,7 @@ class TrajOptMDREPS(TrajOpt):
             if a is None:
                 fCm, fcv = compute_cost_fcn(m, eta, omega, nu, augment=(not self.cons_per_step))
             else:
-                fCm, fcv = compute_cost_fcn(a, m, eta, augment=(not self.cons_per_step))
+                fCm, fcv = compute_cost_fcn(a, m, eta, omega, nu, augment=(not self.cons_per_step))
 
             # Compute state-action-state function at each time step.
             for t in range(T - 1, -1, -1):
@@ -404,7 +297,8 @@ class TrajOptMDREPS(TrajOpt):
                 # Add in the value function from the next time step.
                 if t < T - 1:
                     if algorithm.gps_algo.lower() == 'badmm':
-                        multiplier = (pol_wt[t+1] + eta)/(pol_wt[t] + eta)
+                        # multiplier = (pol_wt[t+1] + eta)/(pol_wt[t] + eta)
+                        raise NotImplementedError("not implemented badmm in mdreps")
                     else:
                         multiplier = 1.0
 
@@ -419,10 +313,11 @@ class TrajOptMDREPS(TrajOpt):
                     k_term = Qt[t, idx_u]
                     K_term = Qtt[t, idx_u, idx_x]
                 else:
-                    inv_term = (1.0 / eta[t]) * Qtt[t, idx_u, idx_u] + prev_traj_distr.inv_pol_covar[t]
-                    k_term = (1.0 / eta[t]) * Qt[t, idx_u] - prev_traj_distr.inv_pol_covar[t].dot(prev_traj_distr.k[t])
-                    K_term = (1.0 / eta[t]) * Qtt[t, idx_u, idx_x] - \
-                            prev_traj_distr.inv_pol_covar[t].dot(prev_traj_distr.K[t])
+                    # inv_term = (1.0 / eta[t]) * Qtt[t, idx_u, idx_u] + prev_traj_distr.inv_pol_covar[t]
+                    # k_term = (1.0 / eta[t]) * Qt[t, idx_u] - prev_traj_distr.inv_pol_covar[t].dot(prev_traj_distr.k[t])
+                    # K_term = (1.0 / eta[t]) * Qtt[t, idx_u, idx_x] - \
+                    #         prev_traj_distr.inv_pol_covar[t].dot(prev_traj_distr.K[t])
+                    raise NotImplementedError('COS_PER_STEP=TRUE, NOT IMPLEMENTED')
 
                 # Compute Cholesky decomposition of Q function action component.
                 try:
@@ -486,23 +381,37 @@ class TrajOptMDREPS(TrajOpt):
                 traj_distr.inv_pol_covar = new_ipS
                 traj_distr.chol_pol_covar = new_cpS
 
+
             # Increment eta on non-SPD Q-function.
             if fail:
                 if not self.cons_per_step:
                     old_eta = eta
                     eta = eta0 + del_
                     LOGGER.debug('Increasing eta: %f -> %f', old_eta, eta)
+                    old_nu = nu
+                    nu = nu0 + del_
+                    LOGGER.debug('Increasing nu: %f -> %f', old_nu, nu)
+                    old_omega = omega
+                    omega = omega0 + del_
+                    LOGGER.debug('Increasing omega: %f -> %f', old_omega, omega)
+
                     del_ *= 2  # Increase del_ exponentially on failure.
                 else:
                     old_eta = eta[fail]
                     eta[fail] = eta0[fail] + del_[fail]
-                    LOGGER.debug('Increasing eta %d: %f -> %f',
-                                 fail, old_eta, eta[fail])
+                    LOGGER.debug('Increasing eta %d: %f -> %f', fail, old_eta, eta[fail])
+                    old_nu = nu[fail]
+                    nu[fail] = nu0[fail] + del_[fail]
+                    LOGGER.debug('Increasing nu %d: %f -> %f', fail, old_nu, nu[fail])
+                    old_omega = omega[fail]
+                    omega[fail] = omega0[fail] + del_[fail]
+                    LOGGER.debug('Increasing omega %d: %f -> %f', fail, old_omega, omega[fail])
+
                     del_[fail] *= 2  # Increase del_ exponentially on failure.
                 if self.cons_per_step:
-                    fail_check = (eta[fail] >= 1e16)
+                    fail_check = (eta[fail] >= 1e16 or nu[fail] >= 1e16 or omega[fail] >= 1e16)
                 else:
-                    fail_check = (eta >= 1e16)
+                    fail_check = (eta >= 1e16 and nu >= 1e16 and omega >= 1e16)
                 if fail_check:
                     if np.any(np.isnan(Fm)) or np.any(np.isnan(fv)):
                         raise ValueError('NaNs encountered in dynamics!')
@@ -511,8 +420,398 @@ class TrajOptMDREPS(TrajOpt):
         backward_bar.end()
         return traj_distr, eta, omega, nu
 
-    def _conv_check(self, con, kl_step):
-        """Function that checks whether dual gradient descent has converged."""
+    def _conv_step_check(self, con, kl_step):
+        """Function that checks whether ETA dual gradient descent has converged."""
         if self.cons_per_step:
             return all([abs(con[t]) < (0.1*kl_step[t]) for t in range(con.size)])
+
+        print("Convergence check")
+        print("kl_step %d | con %f, 0.1*kl_step %f" % (abs(con) < 0.1 * kl_step, con, 0.1*kl_step))
         return abs(con) < 0.1 * kl_step
+
+    def _conv_good_check(self, con_good, kl_step_good):
+        """Function that checks whether OMEGA dual gradient descent has converged."""
+        if self.cons_per_step:
+            return all([abs(con_good[t]) < (0.1*kl_step_good[t]) for t in range(con_good.size)])
+
+        print("Convergence check")
+        print("kl_good %d | con_good %f, 0.1*kl_step_good %f" % (abs(con_good) < 0.1 * kl_step_good, con_good, 0.1*kl_step_good))
+        return abs(con_good) < 0.1 * kl_step_good
+
+    def _conv_bad_check(self, con_bad, kl_step_bad):
+        """Function that checks whether NU dual gradient descent has converged."""
+        if self.cons_per_step:
+            return all([abs(con_bad[t]) < (0.1*kl_step_bad[t]) for t in range(con_bad.size)])
+
+        print("Convergence check")
+        print("kl_bad %d | con_bad %f, 0.1*kl_step_bad %f" % (abs(con_bad) < 0.1 * kl_step_bad, con_bad, 0.1*kl_step_bad))
+        return abs(con_bad) < 0.1 * kl_step_bad
+
+    def _gradient_descent_eta(self, algorithm, a, m, eta, omega, nu):
+        T = algorithm.T
+
+        # Get current step_mult and traj_info
+        if a is None:
+            step_mult = algorithm.cur[m].step_mult
+            traj_info = algorithm.cur[m].traj_info
+        else:
+            step_mult = algorithm.cur[a][m].step_mult
+            traj_info = algorithm.cur[a][m].traj_info
+
+        # Get the trajectory distribution that is going to be used as constraint
+        if algorithm.gps_algo.lower() == 'mdgps':
+            # For MDGPS, constrain to previous NN linearization
+            if a is None:
+                prev_traj_distr = algorithm.cur[m].pol_info.traj_distr()
+            else:
+                prev_traj_distr = algorithm.cur[a][m].pol_info.traj_distr()
+        else:
+            # For BADMM/trajopt, constrain to previous LG controller
+            if a is None:
+                prev_traj_distr = algorithm.cur[m].traj_distr
+            else:
+                prev_traj_distr = algorithm.cur[a][m].traj_distr
+
+        # Set KL-divergence step size (epsilon) using step multiplier.
+        kl_step = algorithm.base_kl_step * step_mult
+
+        if not self.cons_per_step:
+            kl_step *= T
+
+        # We assume at min_eta, kl_div > kl_step, opposite for max_eta.
+        if not self.cons_per_step:
+            min_eta = self._hyperparams['min_eta']
+            max_eta = self._hyperparams['max_eta']
+            if a is None:
+                LOGGER.debug('_'*60)
+                LOGGER.debug("Running DGD for trajectory(condition) %d, eta: %f",
+                             m, eta)
+            else:
+                LOGGER.debug("Running DGD for local agent %d, trajectory(condition) %d, eta: %f",
+                             a, m, eta)
+        else:
+            min_eta = np.ones(T) * self._hyperparams['min_eta']
+            max_eta = np.ones(T) * self._hyperparams['max_eta']
+            if a is None:
+                LOGGER.debug("Running DGD for trajectory %d, avg eta: %f",
+                             m, np.mean(eta[:-1]))
+            else:
+                LOGGER.debug("Running DGD for local agent %d, trajectory %d, avg eta: %f",
+                             a, m, np.mean(eta[:-1]))
+
+        max_itr = (DGD_MAX_LS_ITER if self.cons_per_step else DGD_MAX_ITER)  # Less iterations if cons_per_step=True
+
+        # Run ETA GD
+        for itr in range(max_itr):
+            if not self.cons_per_step:
+                LOGGER.debug("Iteration %d, ETA bracket: (%.2e , %.2e , %.2e)", itr, min_eta, eta, max_eta)
+
+            # Run fwd/bwd pass, note that eta may be updated.
+            # Compute KL divergence constraint violation.
+            traj_distr, eta, omega, nu = self.backward(prev_traj_distr, traj_info, eta, omega, nu, algorithm, m, a)
+
+            if not self._use_prev_distr:
+                new_mu, new_sigma = self.forward(traj_distr, traj_info)
+                kl_div = traj_distr_kl(new_mu, new_sigma, traj_distr, prev_traj_distr,
+                                       tot=(not self.cons_per_step))
+            else:
+                prev_mu, prev_sigma = self.forward(prev_traj_distr, traj_info)
+                kl_div = traj_distr_kl_alt(prev_mu, prev_sigma, traj_distr, prev_traj_distr,
+                                           tot=(not self.cons_per_step))
+
+            con = kl_div - kl_step
+
+            # Convergence check - constraint satisfaction.
+            if self._conv_step_check(con, kl_step):
+                if not self.cons_per_step:
+                    LOGGER.debug("KL_epsilon: %f / %f, converged iteration %d", kl_div, kl_step, itr)
+                else:
+                    LOGGER.debug("KL_epsilon: %f / %f, converged iteration %d",
+                                 np.mean(kl_div[:-1]), np.mean(kl_step[:-1]), itr)
+                break
+
+            if not self.cons_per_step:
+                # Choose new eta (bisect bracket or multiply by constant)
+                if con < 0:  # Eta was too big.
+                    max_eta = eta
+                    geom = np.sqrt(min_eta*max_eta)  # Geometric mean.
+                    new_eta = max(geom, 0.1*max_eta)
+                    LOGGER.debug("KL: %f / %f, eta too big, new eta: %f", kl_div, kl_step, new_eta)
+                else:  # Eta was too small.
+                    min_eta = eta
+                    geom = np.sqrt(min_eta*max_eta)  # Geometric mean.
+                    new_eta = min(geom, 10.0*min_eta)
+                    LOGGER.debug("KL: %f / %f, eta too small, new eta: %f", kl_div, kl_step, new_eta)
+
+                # Logarithmic mean: log_mean(x,y) = (y - x)/(log(y) - log(x))
+                eta = new_eta
+            else:
+                for t in range(T):
+                    if con[t] < 0:  # Eta was too big.
+                        max_eta[t] = eta[t]
+                        geom = np.sqrt(min_eta[t]*max_eta[t])  # Geometric mean.
+                        eta[t] = max(geom, 0.1*max_eta[t])
+                    else:
+                        min_eta[t] = eta[t]
+                        geom = np.sqrt(min_eta[t]*max_eta[t])  # Geometric mean.
+                        eta[t] = min(geom, 10.0*min_eta[t])
+                if itr % 10 == 0:
+                    LOGGER.debug("avg KL: %f / %f, avg new eta: %f", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
+                                 np.mean(eta[:-1]))
+        if itr > max_itr - 1:
+            LOGGER.debug("After %d iterations for ETA, the constraints have not been satisfied.", itr + 1)
+
+        return eta, self._conv_step_check(con, kl_step)
+
+    def _gradient_descent_nu(self, algorithm, a, m, eta, omega, nu):
+        T = algorithm.T
+
+        # Get current step_mult and traj_info
+        if a is None:
+            traj_info = algorithm.cur[m].traj_info
+            bad_step_mult = algorithm.cur[m].bad_step_mult
+            bad_traj_info = algorithm.bad_duality_info[m]
+        else:
+            traj_info = algorithm.cur[a][m].traj_info
+            bad_step_mult = algorithm.cur[a][m].bad_step_mult
+            bad_traj_info = algorithm.bad_duality_info[a][m]
+
+        # Get the trajectory distribution that is going to be used as constraint
+        if algorithm.gps_algo.lower() == 'mdgps':
+            # For MDGPS, constrain to previous NN linearization
+            if a is None:
+                prev_traj_distr = algorithm.cur[m].pol_info.traj_distr()
+            else:
+                prev_traj_distr = algorithm.cur[a][m].pol_info.traj_distr()
+        else:
+            # For BADMM/trajopt, constrain to previous LG controller
+            if a is None:
+                prev_traj_distr = algorithm.cur[m].traj_distr
+            else:
+                prev_traj_distr = algorithm.cur[a][m].traj_distr
+
+        # Good and Bad traj_dist
+        if a is None:
+            bad_traj_distr = algorithm.bad_duality_info[m].traj_dist
+        else:
+            bad_traj_distr = algorithm.bad_duality_info[a][m].traj_dist
+
+
+        # Set KL-divergence step size (epsilon) using step multiplier.
+        kl_step_bad = algorithm.base_kl_bad * bad_step_mult
+
+        if not self.cons_per_step:
+            kl_step_bad *= T
+
+        # We assume at min_eta, kl_div > kl_step, opposite for max_eta.
+        if not self.cons_per_step:
+            min_nu = self._hyperparams['min_nu']
+            max_nu = self._hyperparams['max_nu']
+            if a is None:
+                LOGGER.debug('_'*60)
+                LOGGER.debug("Running DGD for trajectory(condition) %d, nu: %f",
+                             m, nu)
+            else:
+                LOGGER.debug("Running DGD for local agent %d, trajectory(condition) %d, nu: %f",
+                             a, m, nu)
+        else:
+            min_nu = np.ones(T) * self._hyperparams['min_nu']
+            max_nu = np.ones(T) * self._hyperparams['max_nu']
+            if a is None:
+                LOGGER.debug("Running DGD for trajectory %d, avg nu: %f",
+                             m, np.mean(nu[:-1]))
+            else:
+                LOGGER.debug("Running DGD for local agent %d, trajectory %d, avg nu: %f",
+                             a, m, np.mean(nu[:-1]))
+
+        max_itr = (DGD_MAX_LS_ITER if self.cons_per_step else DGD_MAX_ITER)  # Less iterations if cons_per_step=True
+
+        for itr in range(max_itr):
+            if not self.cons_per_step:
+                LOGGER.debug("Iteration %d, NU bracket: (%.2e , %.2e , %.2e)", itr, min_nu, nu, max_nu)
+
+            # Run fwd/bwd pass, note that nu may be updated.
+            # Compute KL divergence constraint violation.
+            traj_distr, eta, omega, nu = self.backward(prev_traj_distr, traj_info, eta, omega, nu, algorithm, m, a)
+
+            if not self._use_prev_distr:
+                new_mu, new_sigma = self.forward(traj_distr, traj_info)
+                # Using kl_alt instead the original one
+                kl_div_bad = traj_distr_kl_alt(new_mu, new_sigma, traj_distr, bad_traj_distr,
+                                               tot=(not self.cons_per_step))
+            else:
+                prev_mu, prev_sigma = self.forward(prev_traj_distr, traj_info)
+                kl_div_bad = traj_distr_kl_alt(prev_mu, prev_sigma, traj_distr, bad_traj_distr,
+                                               tot=(not self.cons_per_step))
+
+            # con_bad = kl_div_bad - kl_step_bad
+            con_bad = kl_step_bad - kl_div_bad
+
+            # Convergence check - constraint satisfaction.
+            if self._conv_bad_check(con_bad, kl_step_bad):
+                if not self.cons_per_step:
+                    LOGGER.debug("KL_nu: %f / %f, converged iteration %d", kl_div_bad, kl_step_bad, itr)
+                else:
+                    LOGGER.debug("KL_nu: %f / %f, converged iteration %d",
+                                 np.mean(kl_div_bad[:-1]), np.mean(kl_step_bad[:-1]), itr)
+                break
+
+            # In case it does not converged
+            if not self.cons_per_step:
+                # Choose new nu (bisect bracket or multiply by constant)
+                if con_bad > 0:  # Nu was too big.
+                    max_nu = nu
+                    geom = np.sqrt(min_nu*max_nu)  # Geometric mean.
+                    new_nu = max(geom, 0.1*max_nu)
+                    LOGGER.debug("KL: %f / %f, nu too big, new nu: %f", kl_div_bad, kl_step_bad, new_nu)
+                else:  # Nu was too small.
+                    min_nu = nu
+                    geom = np.sqrt(min_nu*max_nu)  # Geometric mean.
+                    new_nu = min(geom, 10.0*min_nu)
+                    LOGGER.debug("KL: %f / %f, nu too small, new nu: %f", kl_div_bad, kl_step_bad, new_nu)
+
+                # Logarithmic mean: log_mean(x,y) = (y - x)/(log(y) - log(x))
+                nu = new_nu
+            else:
+                for t in range(T):
+                    if con_bad[t] < 0:  # Nu was too big.
+                        max_nu[t] = nu[t]
+                        geom = np.sqrt(min_nu[t]*max_nu[t])  # Geometric mean.
+                        nu[t] = max(geom, 0.1*max_nu[t])
+                    else:
+                        min_nu[t] = nu[t]
+                        geom = np.sqrt(min_nu[t]*max_nu[t])  # Geometric mean.
+                        nu[t] = min(geom, 10.0*min_nu[t])
+                if itr % 10 == 0:
+                    LOGGER.debug("avg KL: %f / %f, avg new nu: %f", np.mean(kl_div_bad[:-1]), np.mean(kl_step_bad[:-1]),
+                                 np.mean(nu[:-1]))
+        if itr > max_itr - 1:
+            LOGGER.debug("After %d iterations for NU, the constraints have not been satisfied.", itr + 1)
+
+        return nu, self._conv_bad_check(con_bad, kl_step_bad)
+
+    def _gradient_descent_omega(self, algorithm, a, m, eta, omega, nu):
+        T = algorithm.T
+
+        # Get current step_mult and traj_info
+        if a is None:
+            traj_info = algorithm.cur[m].traj_info
+            good_step_mult = algorithm.cur[m].good_step_mult
+            good_traj_info = algorithm.good_duality_info[m]
+        else:
+            traj_info = algorithm.cur[a][m].traj_info
+            good_step_mult = algorithm.cur[a][m].good_step_mult
+            good_traj_info = algorithm.good_duality_info[a][m]
+
+        # Get the trajectory distribution that is going to be used as constraint
+        if algorithm.gps_algo.lower() == 'mdgps':
+            # For MDGPS, constrain to previous NN linearization
+            if a is None:
+                prev_traj_distr = algorithm.cur[m].pol_info.traj_distr()
+            else:
+                prev_traj_distr = algorithm.cur[a][m].pol_info.traj_distr()
+        else:
+            # For BADMM/trajopt, constrain to previous LG controller
+            if a is None:
+                prev_traj_distr = algorithm.cur[m].traj_distr
+            else:
+                prev_traj_distr = algorithm.cur[a][m].traj_distr
+
+        # Good and Bad traj_dist
+        if a is None:
+            good_traj_distr = algorithm.good_duality_info[m].traj_dist
+        else:
+            good_traj_distr = algorithm.good_duality_info[a][m].traj_dist
+
+
+        # Set KL-divergence step size (epsilon) using step multiplier.
+        kl_step_good = algorithm.base_kl_good * good_step_mult
+
+        if not self.cons_per_step:
+            kl_step_good *= T
+
+        # We assume at min_eta, kl_div > kl_step, opposite for max_eta.
+        if not self.cons_per_step:
+            min_omega = self._hyperparams['min_omega']
+            max_omega = self._hyperparams['max_omega']
+            if a is None:
+                LOGGER.debug('_'*60)
+                LOGGER.debug("Running DGD for trajectory(condition) %d, omega: %f",
+                             m, omega)
+            else:
+                LOGGER.debug("Running DGD for local agent %d, trajectory(condition) %d, omega: %f",
+                             a, m, omega)
+        else:
+            min_omega = np.ones(T) * self._hyperparams['min_omega']
+            max_omega = np.ones(T) * self._hyperparams['max_omega']
+            if a is None:
+                LOGGER.debug("Running DGD for trajectory %d, avg omega: %f",
+                             m, np.mean(omega[:-1]))
+            else:
+                LOGGER.debug("Running DGD for local agent %d, trajectory %d, avg omega: %f",
+                             a, m, np.mean(omega[:-1]))
+
+        max_itr = (DGD_MAX_LS_ITER if self.cons_per_step else DGD_MAX_ITER)  # Less iterations if cons_per_step=True
+
+        for itr in range(max_itr):
+            if not self.cons_per_step:
+                LOGGER.debug("Iteration %d, NU bracket: (%.2e , %.2e , %.2e)", itr, min_omega, omega, max_omega)
+
+            # Run fwd/bwd pass, note that omega may be updated.
+            # Compute KL divergence constraint violation.
+            traj_distr, eta, omega, nu = self.backward(prev_traj_distr, traj_info, eta, omega, nu, algorithm, m, a)
+
+            if not self._use_prev_distr:
+                new_mu, new_sigma = self.forward(traj_distr, traj_info)
+                # Using kl_alt instead the original one
+                kl_div_good = traj_distr_kl_alt(new_mu, new_sigma, traj_distr, good_traj_distr,
+                                               tot=(not self.cons_per_step))
+            else:
+                prev_mu, prev_sigma = self.forward(prev_traj_distr, traj_info)
+                kl_div_good = traj_distr_kl_alt(prev_mu, prev_sigma, traj_distr, good_traj_distr,
+                                               tot=(not self.cons_per_step))
+
+            con_good = kl_div_good - kl_step_good
+
+            # Convergence check - constraint satisfaction.
+            if self._conv_good_check(con_good, kl_step_good):
+                if not self.cons_per_step:
+                    LOGGER.debug("KL_omega: %f / %f, converged iteration %d", kl_div_good, kl_step_good, itr)
+                else:
+                    LOGGER.debug("KL_omega: %f / %f, converged iteration %d",
+                                 np.mean(kl_div_good[:-1]), np.mean(kl_step_good[:-1]), itr)
+                break
+
+            # In case it does not converged
+            if not self.cons_per_step:
+                # Choose new omega (bisect bracket or multiply by constant)
+                if con_good < 0:  # Nu was too big.
+                    max_omega = omega
+                    geom = np.sqrt(min_omega*max_omega)  # Geometric mean.
+                    new_omega = max(geom, 0.1*max_omega)
+                    LOGGER.debug("KL: %f / %f, omega too big, new omega: %f", kl_div_good, kl_step_good, new_omega)
+                else:  # Nu was too small.
+                    min_omega = omega
+                    geom = np.sqrt(min_omega*max_omega)  # Geometric mean.
+                    new_omega = min(geom, 10.0*min_omega)
+                    LOGGER.debug("KL: %f / %f, omega too small, new omega: %f", kl_div_good, kl_step_good, new_omega)
+
+                # Logarithmic mean: log_mean(x,y) = (y - x)/(log(y) - log(x))
+                omega = new_omega
+            else:
+                for t in range(T):
+                    if con_good[t] < 0:  # Nu was too big.
+                        max_omega[t] = omega[t]
+                        geom = np.sqrt(min_omega[t]*max_omega[t])  # Geometric mean.
+                        omega[t] = max(geom, 0.1*max_omega[t])
+                    else:
+                        min_omega[t] = omega[t]
+                        geom = np.sqrt(min_omega[t]*max_omega[t])  # Geometric mean.
+                        omega[t] = min(geom, 10.0*min_omega[t])
+                if itr % 10 == 0:
+                    LOGGER.debug("avg KL: %f / %f, avg new omega: %f", np.mean(kl_div_good[:-1]), np.mean(kl_step_good[:-1]),
+                                 np.mean(omega[:-1]))
+        if itr > max_itr - 1:
+            LOGGER.debug("After %d iterations for NU, the constraints have not been satisfied.", itr + 1)
+
+        return omega, self._conv_good_check(con_good, kl_step_good)

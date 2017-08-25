@@ -160,7 +160,7 @@ class GPS(RLAlgorithm):
                                           on_policy=self._hyperparams['sample_on_policy'],
                                           verbose=False)
 
-                        # print("TODO: SAMPLING FAKE")
+                        print("TODO: SAMPLING FAKE")
                         # self._take_fake_sample(itr, cond, i, noisy=self._hyperparams['noisy_samples'],
                         #                   on_policy=self._hyperparams['sample_on_policy'],
                         #                   verbose=False)

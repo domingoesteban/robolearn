@@ -23,6 +23,11 @@ class SampleList(object):
     def add_sample(self, sample):
         self._samples.append(sample)
 
+    def set_sample(self, idx, sample):
+        # TODO: CHECK THAT SAMPLES MATCH!!!
+        idx = int(idx)
+        self._samples[idx] = sample
+
     def remove_sample(self, idx):
         self._samples.pop(idx)
 

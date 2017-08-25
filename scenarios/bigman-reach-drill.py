@@ -29,6 +29,7 @@ from robolearn.costs.cost_utils import evall1l2term, evallogl2term
 from robolearn.utils.traj_opt.traj_opt_pi2 import TrajOptPI2
 from robolearn.utils.traj_opt.traj_opt_lqr import TrajOptLQR
 from robolearn.utils.traj_opt.traj_opt_dreps import TrajOptDREPS
+from robolearn.utils.traj_opt.traj_opt_mdreps import TrajOptMDREPS
 from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
 from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
 
@@ -37,6 +38,7 @@ from robolearn.algos.gps.pigps import PIGPS
 from robolearn.algos.trajopt.ilqr import ILQR
 from robolearn.algos.trajopt.pi2 import PI2
 from robolearn.algos.trajopt.dreps import DREPS
+from robolearn.algos.trajopt.mdreps import MDREPS
 from robolearn.policies.lin_gauss_init import init_lqr, init_pd, init_demos
 from robolearn.policies.policy_prior import ConstantPolicyPrior  # For MDGPS
 
@@ -81,10 +83,10 @@ signal.signal(signal.SIGINT, kill_everything)
 # ### PARAMETERS ### #
 # ################## #
 # ################## #
-learning_algorithm = 'MDGPS'
+learning_algorithm = 'MDREPS'
 # Task parameters
 Ts = 0.01
-Treach = 5
+Treach = 2
 Tlift = 0  # 3.8
 Tinter = 0  # 0.5
 Tend = 0  # 0.7
@@ -93,7 +95,7 @@ EndTime = Treach + Tinter + Tlift + Tend  # Using final time to define the horiz
 init_with_demos = False
 generate_dual_sets = True
 demos_dir = None  # 'TASKSPACE_TORQUE_CTRL_DEMO_2017-07-21_16:32:39'
-dual_dir = 'DUAL_DEMOS_2017-08-22_16:24:00'
+dual_dir = 'DUAL_DEMOS_2017-08-23_07:10:35'
 seed = 6
 
 random.seed(seed)
@@ -317,10 +319,11 @@ fk_cost = {
     'robot_model': robot_model,
     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
     'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'evalnorm': evall1l2term,
+    #'evalnorm': evall1l2term,
+    'evalnorm': evallogl2term,
     'l1': 1.0,  # 1.0,  # 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # 1.0,  #1.0e-3,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
-    'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
+    'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
     'wp_final_multiplier': 1,  # 10
 }
 
@@ -337,10 +340,11 @@ fk_l1_cost = {
     'robot_model': robot_model,
     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
     'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'evalnorm': evall1l2term,
+    #'evalnorm': evall1l2term,
+    'evalnorm': evallogl2term,
     'l1': 1.0,  # 1.0,  # 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 0.0,  # 1.0,  #1.0e-3,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
-    'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
+    'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
     'wp_final_multiplier': 1,  # 10
 }
 
@@ -357,10 +361,11 @@ fk_l2_cost = {
     'robot_model': robot_model,
     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
     'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'evalnorm': evall1l2term,
+    #'evalnorm': evall1l2term,
+    'evalnorm': evallogl2term,
     'l1': 0.0,  # 1.0,  # 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # 1.0,  #1.0e-3,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
-    'alpha': 1.0e-2,  # e-5,  # Constant added in square root in l1 norm
+    'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
     'wp_final_multiplier': 1,  # 10
 }
 
@@ -376,7 +381,8 @@ fk_final_cost = {
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
     'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'evalnorm': evall1l2term,
+    #'evalnorm': evall1l2term,
+    'evalnorm': evallogl2term,
     'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
@@ -395,7 +401,8 @@ fk_l1_final_cost = {
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
     'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'evalnorm': evall1l2term,
+    #'evalnorm': evall1l2term,
+    'evalnorm': evallogl2term,
     'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 0.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
@@ -414,7 +421,8 @@ fk_l2_final_cost = {
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
     'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'evalnorm': evall1l2term,
+    #'evalnorm': evall1l2term,
+    'evalnorm': evallogl2term,
     'l1': 0.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
@@ -430,7 +438,7 @@ cost_sum = {
     #'costs': [act_cost, LAfk_cost, LAfk_final_cost],
     #'weights': [1.0e-1, 1.0e-0, 1.0e-0],
     'costs': [act_cost, fk_l1_cost, fk_l2_cost, fk_l1_final_cost, fk_l2_final_cost],
-    'weights': [1.0e-1, 1.0e-1, 1.0e-0, 1.0e-1, 1.0e-0],
+    'weights': [1.0e-1, 1.5e-1, 1.0e-0, 1.5e-1, 1.0e-0],
     # 'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
     # 'weights': [0.1, 5.0],
 }
@@ -443,24 +451,24 @@ cost_sum = {
 # ########## #
 drill_relative_poses = []  # Used only in dual demos
 
-q0 = np.zeros(31)
-q0[15] = np.deg2rad(25)
-q0[16] = np.deg2rad(40)
-q0[18] = np.deg2rad(-75)
-#q0[15:15+7] = [0.0568,  0.2386, -0.2337, -1.6803,  0.2226,  0.0107,  0.5633]
-q0[24] = np.deg2rad(25)
-q0[25] = np.deg2rad(-40)
-q0[27] = np.deg2rad(-75)
-#q0[24:24+7] = [0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633]
-drill_pose0 = drill_relative_pose.copy()
-condition0 = create_bigman_drill_condition(q0, drill_pose0, bigman_env.get_state_info(),
-                                         joint_idxs=bigman_params['joint_ids'][body_part_sensed])
-bigman_env.add_condition(condition0)
-reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose0)
-drill_relative_poses.append(drill_pose0)
+# q0 = np.zeros(31)
+# q0[15] = np.deg2rad(25)
+# q0[16] = np.deg2rad(40)
+# q0[18] = np.deg2rad(-75)
+# #q0[15:15+7] = [0.0568,  0.2386, -0.2337, -1.6803,  0.2226,  0.0107,  0.5633]
+# q0[24] = np.deg2rad(25)
+# q0[25] = np.deg2rad(-40)
+# q0[27] = np.deg2rad(-75)
+# #q0[24:24+7] = [0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633]
+# drill_pose0 = drill_relative_pose.copy()
+# condition0 = create_bigman_drill_condition(q0, drill_pose0, bigman_env.get_state_info(),
+#                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
+# bigman_env.add_condition(condition0)
+# reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose0)
+# drill_relative_poses.append(drill_pose0)
 
-# #q1 = np.zeros(31)
-# q1 = q0.copy()
+# # q1 = q0.copy()
+# q1 = np.zeros(31)
 # q1[15] = np.deg2rad(25)
 # q1[16] = np.deg2rad(40)
 # q1[18] = np.deg2rad(-45)
@@ -476,7 +484,8 @@ drill_relative_poses.append(drill_pose0)
 # reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose1)
 # drill_relative_poses.append(drill_pose1)
 
-# q2 = q0.copy()
+# # q2 = q0.copy()
+# q2 = np.zeros(31)
 # q2[15] = np.deg2rad(25)
 # q2[16] = np.deg2rad(30)
 # q2[18] = np.deg2rad(-50)
@@ -493,20 +502,22 @@ drill_relative_poses.append(drill_pose0)
 # drill_relative_poses.append(drill_pose2)
 
 # q3 = q0.copy()
-# q3[15] = np.deg2rad(10)
-# q3[16] = np.deg2rad(10)
-# q3[18] = np.deg2rad(-35)
-# q3[24] = np.deg2rad(10)
-# q3[25] = np.deg2rad(-10)
-# q3[27] = np.deg2rad(-35)
-# drill_pose3 = create_drill_relative_pose(drill_x=drill_x-0.06, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw+10)
-# condition3 = create_bigman_drill_condition(q3, drill_pose3, bigman_env.get_state_info(),
-#                                            joint_idxs=bigman_params['joint_ids'][body_part_sensed])
-# bigman_env.add_condition(condition3)
-# reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose3)
-# drill_relative_poses.append(drill_pose3)
+q3 = np.zeros(31)
+q3[15] = np.deg2rad(10)
+q3[16] = np.deg2rad(10)
+q3[18] = np.deg2rad(-35)
+q3[24] = np.deg2rad(10)
+q3[25] = np.deg2rad(-10)
+q3[27] = np.deg2rad(-35)
+drill_pose3 = create_drill_relative_pose(drill_x=drill_x-0.06, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw+10)
+condition3 = create_bigman_drill_condition(q3, drill_pose3, bigman_env.get_state_info(),
+                                           joint_idxs=bigman_params['joint_ids'][body_part_sensed])
+bigman_env.add_condition(condition3)
+reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose3)
+drill_relative_poses.append(drill_pose3)
 
-# q4 = q0.copy()
+# # q4 = q0.copy()
+# q4 = np.zeros(31)
 # drill_pose4 = create_drill_relative_pose(drill_x=drill_x, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw-5)
 # condition4 = create_bigman_drill_condition(q4, drill_pose4, bigman_env.get_state_info(),
 #                                          joint_idxs=bigman_params['joint_ids'][body_part_sensed])
@@ -656,6 +667,20 @@ traj_opt_dreps = {'type': TrajOptDREPS,
                   'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
                   }
 
+traj_opt_mdreps = {'type': TrajOptMDREPS,
+                   'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
+                   # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
+                   'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
+                   'max_eta': 1e16,  # At max_eta, kl_div < kl_step
+                   'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
+                   'max_omega': 1e16,  # At max_omega, kl_div < kl_step
+                   'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
+                   'max_nu': 1e16,  # At max_nu, kl_div < kl_step
+                   'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step.
+                   'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
+                   'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
+                   }
+
 if demos_samples is None:
 #      # init_traj_distr values can be lists if they are different for each condition
 #      init_traj_distr = {'type': init_lqr,
@@ -723,33 +748,62 @@ dreps_hyperparams = {'inner_iterations': 1,
                      'bad_samples': bad_trajs,
                      }
 
+mdreps_hyperparams = {'inner_iterations': 1,
+                      'good_samples': good_trajs,
+                      'bad_samples': bad_trajs,
+                      'n_bad_samples': 2,  # Number of bad samples per each trajectory
+                      'n_good_samples': 2,  # Number of bad samples per each trajectory
+                      'base_kl_good': 0.2,  # kl_good (xi) to be used with multiplier
+                      'base_kl_bad': 10.2,  # kl_bad (chi) to be used with multiplier
+                      'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good in LQR)
+                      'max_good_mult': 10.0,  # Max possible value of step multiplier (multiplies base_kl_good in LQR)
+                      'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad in LQR)
+                      'max_bad_mult': 10.0,  # Max possible value of step multiplier (multiplies base_kl_bad in LQR)
+                      }
+
 
 if learning_algorithm.upper() == 'MDGPS':
     gps_algo_hyperparams = mdgps_hyperparams
     traj_opt_method = traj_opt_lqr
     test_after_iter = True
+    sample_on_policy = False
+    use_global_policy = True
 
 elif learning_algorithm.upper() == 'PIGPS':
     mdgps_hyperparams.update(pigps_hyperparams)
     gps_algo_hyperparams = mdgps_hyperparams
     traj_opt_method = traj_opt_pi2
     test_after_iter = True
+    sample_on_policy = False
+    use_global_policy = True
 
 elif learning_algorithm.upper() == 'ILQR':
     gps_algo_hyperparams = ilqr_hyperparams
     traj_opt_method = traj_opt_lqr
     test_after_iter = False
+    sample_on_policy = False
+    use_global_policy = False
 
 elif learning_algorithm.upper() == 'PI2':
     gps_algo_hyperparams = pi2_hyperparams
     traj_opt_method = traj_opt_pi2
     test_after_iter = False
+    sample_on_policy = False
+    use_global_policy = False
 
 elif learning_algorithm.upper() == 'DREPS':
     gps_algo_hyperparams = dreps_hyperparams
     traj_opt_method = traj_opt_dreps
     test_after_iter = False
+    sample_on_policy = False
+    use_global_policy = False
 
+elif learning_algorithm.upper() == 'MDREPS':
+    gps_algo_hyperparams = mdreps_hyperparams
+    traj_opt_method = traj_opt_mdreps
+    test_after_iter = False
+    sample_on_policy = False
+    use_global_policy = False
 else:
     raise AttributeError("Wrong learning algorithm %s" % learning_algorithm.upper())
 
@@ -761,13 +815,13 @@ gps_hyperparams = {
     'test_after_iter': test_after_iter,  # If test the learned policy after an iteration in the RL algorithm
     'test_samples': 2,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
     # Samples
-    'num_samples': 1,  # 20  # Samples for exploration trajs --> N samples
+    'num_samples': 6,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
-    'sample_on_policy': False,  # Whether generate on-policy samples or off-policy samples
+    'sample_on_policy': sample_on_policy,  # Whether generate on-policy samples or off-policy samples
     #'noise_var_scale': np.array([5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2]),  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
     #'noise_var_scale': np.array([1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*10,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
     'smooth_noise': True,  # Apply Gaussian filter to noise generated
-    'smooth_noise_var': 5.0e+0,  # Variance to apply to Gaussian Filter
+    'smooth_noise_var': 5.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
     'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
     'noise_var_scale': np.ones(len(bigman_params['joint_ids'][body_part_active])),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
     'cost': cost_sum,
@@ -778,15 +832,16 @@ gps_hyperparams = {
     # KL step (epsilon)
     'kl_step': 0.2,  # Kullback-Leibler step (base_step)
     'min_step_mult': 0.01,  # Min possible value of step multiplier (multiplies kl_step in LQR)
-    'max_step_mult': 1.0, #3 # 10.0,  # Max possible value of step multiplier (multiplies kl_step in LQR)
+    'max_step_mult': 10.0,  # Previous 23/08 -> 1.0 #3 # 10.0,  # Max possible value of step multiplier (multiplies kl_step in LQR)
     # Others
     'gps_algo_hyperparams': gps_algo_hyperparams,
     'init_traj_distr': init_traj_distr,
     'fit_dynamics': True,
     'dynamics': learned_dynamics,
-    'initial_state_var': 1e-2,# 1e-6,  # Max value for x0sigma in trajectories  # TODO: CHECK THIS VALUE, maybe it is too low
+    'initial_state_var': 1e-6,  #1e-2,# 1e-6,  # Max value for x0sigma in trajectories  # TODO: CHECK THIS VALUE, maybe it is too low
     'traj_opt': traj_opt_method,
-    'max_ent_traj': 0.0,  # Weight of maximum entropy term in trajectory optimization
+    'max_ent_traj': 0.0,  # Weight of maximum entropy term in trajectory optimization  # CHECK THIS VALUE!!!, I AM USING ZERO!!
+    'use_global_policy': use_global_policy,
     'data_files_dir': data_files_dir,
 }
 
@@ -805,6 +860,9 @@ elif learning_algorithm.upper() == 'PI2':
 
 elif learning_algorithm.upper() == 'DREPS':
     learn_algo = DREPS(agent=bigman_agent, env=bigman_env, **gps_hyperparams)
+
+elif learning_algorithm.upper() == 'MDREPS':
+    learn_algo = MDREPS(agent=bigman_agent, env=bigman_env, **gps_hyperparams)
 
 else:
     raise AttributeError("Wrong learning algorithm %s" % learning_algorithm.upper())

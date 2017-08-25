@@ -22,25 +22,31 @@ gps_directory_name = 'GPS_2017-08-18_19:04:25'  # MDGPS, 100iter, 5samp, max_ste
 gps_directory_name = 'GPS_2017-08-21_14:51:32'  # PI2 1 cond, 5 samples, pi2_use_dgd_eta=True, cov_damping=5
 gps_directory_name = 'GPS_2017-08-21_15:49:11'  # PI2 1 cond, 5 samples, pi2_use_dgd_eta=True, cov_damping=10
 gps_directory_name = 'GPS_2017-08-22_07:13:33'  # MDGPS, 100iter, 5samp, max_step=1, 1cond
+gps_directory_name = 'GPS_2017-08-23_08:10:47'  # ILQR
+gps_directory_name = 'GPS_2017-08-23_15:40:01'  # ILQR
+gps_directory_name = 'GPS_2017-08-23_18:13:35'  # Off-policy MDGPS
+gps_directory_name = 'GPS_2017-08-24_14:38:45'  # On-policy MDGPS
+
+
 
 init_itr = 0
 final_itr = 100
 #final_itr = 30
 samples_idx = [-1]  # List of samples / None: all samples
 max_traj_plots = None  # None, plot all
-last_n_iters = 5  #None  # None, plot all iterations
+last_n_iters = None  # None, plot all iterations
 sensed_joints = 'RA'
 method = 'MDGPS'
 
 plot_eta = False
 plot_step_mult = False  # If linearized policy(then NN policy) is worse, epsilon is reduced.
-plot_cs = False
+plot_cs = True
 plot_sample_list_actions = False
 plot_sample_list_states = False
 plot_sample_list_obs = False
 plot_policy_output = False
 plot_policy_actions = False
-plot_policy_states = True
+plot_policy_states = False
 plot_policy_obs = False
 plot_traj_distr = False
 plot_3d_traj = False
