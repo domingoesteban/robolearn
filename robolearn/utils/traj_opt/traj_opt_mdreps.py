@@ -26,7 +26,7 @@ LOGGER.addHandler(ch)
 print_DGD_log = False
 
 MAX_ALL_DGD = 20
-DGD_MAX_ITER = 20
+DGD_MAX_ITER = 50
 DGD_MAX_LS_ITER = 20
 DGD_MAX_GD_ITER = 200
 

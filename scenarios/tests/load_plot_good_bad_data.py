@@ -12,8 +12,8 @@ import scipy.stats
 
 gps_directory_name = 'GPS_2017-09-01_15:22:55'  # Test MDGPS
 
-init_itr = 6
-final_itr = 8
+init_itr = 9
+final_itr = 9
 #final_itr = 30
 samples_idx = [-1]  # List of samples / None: all samples
 max_traj_plots = None  # None, plot all
@@ -21,11 +21,11 @@ last_n_iters = None  # None, plot all iterations
 sensed_joints = 'RA'
 method = 'MDREPS'
 
-plot_eta = True
-plot_nu = True
-plot_omega = True
+plot_eta = False
+plot_nu = False
+plot_omega = False
 plot_step_mult = False  # If linearized policy(then NN policy) is worse, epsilon is reduced.
-plot_cs = True
+plot_cs = False
 plot_sample_list_actions = False
 plot_sample_list_states = False
 plot_sample_list_obs = False
