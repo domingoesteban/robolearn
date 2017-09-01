@@ -44,8 +44,8 @@ class IterationData(BundleType):
             'cs': None,              # Sample costs of the current iteration.
             'step_mult': 1.0,        # KL step multiplier for the current iteration.
             'eta': 1.0,              # Dual variable used in LQR backward pass.
-            'omega': 0.1,              # Dual variable used in LQR backward pass. mDREPS
-            'nu': 0.5,              # Dual variable used in LQR backward pass. mDREPS
+            'omega': 1.0,              # Dual variable used in LQR backward pass. mDREPS
+            'nu': 1.0,              # Dual variable used in LQR backward pass. mDREPS
             'good_step_mult': 1.0,        # KL step multiplier for the current iteration.
             'bad_step_mult': 1.0,        # KL step multiplier for the current iteration.
         }

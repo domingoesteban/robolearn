@@ -156,16 +156,39 @@ class GPS(RLAlgorithm):
                                                                          cond+1, len(self._train_cond_idx),
                                                                          i+1, self._hyperparams['num_samples']))
                         print("#"*40)
-                        self._take_sample(itr, cond, i, noisy=self._hyperparams['noisy_samples'],
-                                          on_policy=self._hyperparams['sample_on_policy'],
-                                          verbose=False)
+                        sample = self._take_sample(itr, cond, i, noisy=self._hyperparams['noisy_samples'],
+                                                   on_policy=self._hyperparams['sample_on_policy'],
+                                                   verbose=False)
+                        # if cond != 0:
+                        #     sample = self._take_sample(itr, cond, i, noisy=self._hyperparams['noisy_samples'],
+                        #                                on_policy=self._hyperparams['sample_on_policy'],
+                        #                                verbose=False)
+                        # else:
+                        #     print("TODO: LOADING SAMPLE")
+                        #     temp_dir_path = self.data_logger.dir_path
+                        #     self.data_logger.dir_path = "TEMP_SAMPLES"
+                        #     sample = self.data_logger.unpickle(('temp_mdreps_sample_%02d_%02d.pkl' % (itr, i)))
+                        #     sample_id = self.agent.add_sample(sample, cond)
+                        #     print("Adding to agent sample %d" % sample_id)
+                        #     self.data_logger.dir_path = temp_dir_path
 
-                        print("TODO: SAMPLING FAKE")
+                        # if cond == 0:
+                        #     print("TODO: Logging Sample... ")
+                        #     temp_dir_path = self.data_logger.dir_path
+                        #     self.data_logger.dir_path = "TEMP_SAMPLES"
+                        #     self.data_logger.pickle(
+                        #         ('temp_mdreps_sample_%02d_%02d.pkl' % (itr, i)),
+                        #         # copy.copy(temp_dict)
+                        #         copy.copy(sample)
+                        #     )
+                        #     self.data_logger.dir_path = temp_dir_path
+
+                        # print("TODO: SAMPLING FAKE")
                         # self._take_fake_sample(itr, cond, i, noisy=self._hyperparams['noisy_samples'],
-                        #                   on_policy=self._hyperparams['sample_on_policy'],
-                        #                   verbose=False)
+                        #                        on_policy=self._hyperparams['sample_on_policy'],
+                        #                        verbose=False)
 
-                # Get agent's sample list
+                # Get agent's sample list (TODO: WHAT HAPPEN IF SAVE SAMPLE WAS FALSE??)
                 traj_sample_lists = [self.agent.get_samples(cond, -self._hyperparams['num_samples'])
                                      for cond in self._train_cond_idx]
 
@@ -247,6 +270,9 @@ class GPS(RLAlgorithm):
                 else:
                     self.agent.policy_opt.__dict__.update(prev_policy_opt.__dict__)
                 self.agent.policy = self.agent.policy_opt.policy
+
+            if self.gps_algo.upper() == 'MDREPS':
+                self.load_duality_vars(itr_load)
 
             # self.algorithm = self.data_logger.unpickle(algorithm_file)
             # if self.algorithm is None:
@@ -542,6 +568,9 @@ class GPS(RLAlgorithm):
                 copy.copy(pol_sample_lists_cost_compositions)
             )
 
+        if self.gps_algo.upper() == 'MDREPS':
+            self.log_duality_vars(itr)
+
     def _update_dynamics(self):
         """
         Instantiate dynamics objects and update prior. Fit dynamics to current samples.
@@ -662,6 +691,7 @@ class GPS(RLAlgorithm):
             cv_update = np.sum(Cm[n, :, :, :] * rdiff_expand, axis=1)
             cc[n, :] += np.sum(rdiff * cv[n, :, :], axis=1) + 0.5 * np.sum(rdiff * cv_update, axis=1)
             cv[n, :, :] += cv_update
+
 
         # Fill in cost estimate.
         self.cur[cond].traj_info.cc = np.mean(cc, 0)  # Constant term (scalar).

@@ -10,28 +10,10 @@ from robolearn.algos.gps.gps_utils import IterationData
 from robolearn.utils.iit.iit_robots_params import bigman_params
 import scipy.stats
 
-#gps_directory_name = 'GPS_2017-08-04_20:32:12'  # l1: 1.0, l2: 1.0e-3
-#gps_directory_name = 'GPS_2017-08-07_16:05:32'  # l1: 1.0, l2: 0.0
-gps_directory_name = 'GPS_2017-08-07_19:35:58'  # l1: 1.0, l2: 1.0
-gps_directory_name = 'GPS_2017-08-14_10:35:40'  # dummy test
-gps_directory_name = 'GPS_2017-08-18_08:41:50'  # ILQR 4 cond, 2 samples
-gps_directory_name = 'GPS_2017-08-18_15:44:31'  # PI2 1 cond, 5 samples, pi2_use_dgd_eta=False
-gps_directory_name = 'GPS_2017-08-18_16:54:52'  # PI2 1 cond, 5 samples, pi2_use_dgd_eta=True
-gps_directory_name = 'GPS_2017-08-18_17:42:42'  # ILQR 1 cond, 5 samples
-gps_directory_name = 'GPS_2017-08-18_19:04:25'  # MDGPS, 100iter, 5samp, max_step=1, 4cond
-gps_directory_name = 'GPS_2017-08-21_14:51:32'  # PI2 1 cond, 5 samples, pi2_use_dgd_eta=True, cov_damping=5
-gps_directory_name = 'GPS_2017-08-21_15:49:11'  # PI2 1 cond, 5 samples, pi2_use_dgd_eta=True, cov_damping=10
-gps_directory_name = 'GPS_2017-08-22_07:13:33'  # MDGPS, 100iter, 5samp, max_step=1, 1cond
-gps_directory_name = 'GPS_2017-08-23_08:10:47'  # ILQR
-gps_directory_name = 'GPS_2017-08-23_15:40:01'  # ILQR
-gps_directory_name = 'GPS_2017-08-23_18:13:35'  # Off-policy MDGPS
-gps_directory_name = 'GPS_2017-08-24_14:38:45'  # On-policy MDGPS
-gps_directory_name = 'GPS_2017-08-31_19:40:24'  # Test MDGPS
+gps_directory_name = 'GPS_2017-09-01_15:22:55'  # Test MDGPS
 
-
-
-init_itr = 0
-final_itr = 100
+init_itr = 6
+final_itr = 8
 #final_itr = 30
 samples_idx = [-1]  # List of samples / None: all samples
 max_traj_plots = None  # None, plot all
@@ -39,17 +21,20 @@ last_n_iters = None  # None, plot all iterations
 sensed_joints = 'RA'
 method = 'MDREPS'
 
-plot_eta = False
+plot_eta = True
+plot_nu = True
+plot_omega = True
 plot_step_mult = False  # If linearized policy(then NN policy) is worse, epsilon is reduced.
 plot_cs = True
 plot_sample_list_actions = False
 plot_sample_list_states = False
 plot_sample_list_obs = False
+plot_sample_list_actions_dual = False
 plot_policy_output = False
 plot_policy_actions = False
 plot_policy_states = False
 plot_policy_obs = False
-plot_traj_distr = False
+plot_traj_distr = True
 plot_3d_traj = False
 plot_3d_pol_traj = False
 
@@ -63,6 +48,10 @@ plot_joint_limits = True
 gps_path = '/home/desteban/workspace/robolearn/scenarios/robolearn_log/' + gps_directory_name
 
 iteration_data_list = list()
+good_duality_info_list = list()
+good_trajectories_info_list = list()
+bad_duality_info_list = list()
+bad_trajectories_info_list = list()
 iteration_ids = list()
 
 max_available_itr = None
@@ -92,6 +81,16 @@ if max_available_itr is not None:
             print('Loading GPS iteration_data from iteration %d' % pp)
             iteration_data_list.append(pickle.load(open(gps_path+'/' + method.upper() +'_iteration_data_itr_'+str('%02d' % pp)+'.pkl',
                                                         'rb')))
+            print('Loading GPS good_data from iteration %d' % pp)
+            bad_duality_info_list.append(pickle.load(open(gps_path+'/' + 'bad_duality_info_itr_'+str('%02d' % pp)+'.pkl',
+                                                           'rb')))
+            good_duality_info_list.append(pickle.load(open(gps_path+'/' + 'good_duality_info_itr_'+str('%02d' % pp)+'.pkl',
+                                                        'rb')))
+            bad_trajectories_info_list.append(pickle.load(open(gps_path+'/' + 'bad_trajectories_info_itr_'+str('%02d' % pp)+'.pkl',
+                                                          'rb')))
+            good_trajectories_info_list.append(pickle.load(open(gps_path+'/' + 'good_trajectories_info_itr_'+str('%02d' % pp)+'.pkl',
+                                                               'rb')))
+
             iteration_ids.append(pp)
 
     # total_cond = len(pol_sample_lists_costs[0])
@@ -112,6 +111,30 @@ if plot_eta:
             etas[itr] = iteration_data_list[itr][cond].eta
         ax.set_title('Eta values | Condition %d' % cond)
         ax.plot(range(1, total_itr+1), etas, color=eta_color)
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+if plot_nu:
+    for cond in range(total_cond):
+        fig, ax = plt.subplots(1, 1)
+        fig.canvas.set_window_title('Nu values | Condition %d' % cond)
+        fig.set_facecolor((1, 1, 1))
+        nus = np.zeros(total_itr)
+        for itr in range(total_itr):
+            nus[itr] = iteration_data_list[itr][cond].nu
+        ax.set_title('Nu values | Condition %d' % cond)
+        ax.plot(range(1, total_itr+1), nus, color=eta_color)
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+if plot_omega:
+    for cond in range(total_cond):
+        fig, ax = plt.subplots(1, 1)
+        fig.canvas.set_window_title('Omega values | Condition %d' % cond)
+        fig.set_facecolor((1, 1, 1))
+        omegas = np.zeros(total_itr)
+        for itr in range(total_itr):
+            omegas[itr] = iteration_data_list[itr][cond].omega
+        ax.set_title('Omega values | Condition %d' % cond)
+        ax.plot(range(1, total_itr+1), omegas, color=eta_color)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
 if plot_step_mult:
@@ -145,6 +168,50 @@ if plot_cs:
         ax.plot(range(1, total_itr+1), mean_costs, color=cs_color)
         ax.fill_between(range(1, total_itr+1), min_costs, max_costs, alpha=0.5, color=cs_color)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+if plot_sample_list_actions_dual:
+    for cond in range(total_cond):
+        dData = iteration_data_list[0][cond].sample_list.get_actions(samples_idx).shape[-1]
+        fig, axs = plt.subplots(int(math.ceil(float(dData)/sample_list_cols)), sample_list_cols)
+        fig.subplots_adjust(hspace=0)
+        fig.canvas.set_window_title('Actions | Condition %d' % cond)
+        fig.set_facecolor((1, 1, 1))
+        for ii in range(axs.size):
+            ax = axs[ii/sample_list_cols, ii % sample_list_cols]
+            ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
+
+        lines = list()
+        labels = list()
+        for itr in range(total_itr):
+            actions = iteration_data_list[itr][cond].sample_list.get_actions(samples_idx)
+            for ii in range(axs.size):
+                ax = axs[ii/sample_list_cols, ii % sample_list_cols]
+                if ii < dData:
+                    ax.set_title("Action %d" % (ii+1))
+                    label = "itr %d" % iteration_ids[itr]
+                    line = ax.plot(actions.mean(axis=0)[:, ii], label=label)[0]
+
+                    if ii == 0:
+                        lines.append(line)
+                        labels.append(label)
+
+                    if itr == 0:
+                        ax.tick_params(axis='both', direction='in')
+                        #ax.set_xlim([0, actions.shape[2]])
+                        #ax.set_ylim([ymin, ymax])
+
+                    if plot_sample_list_max_min:
+                        ax.fill_between(range(actions.mean(axis=0).shape[0]), actions.min(axis=0)[:, ii],
+                                        actions.max(axis=0)[:, ii], alpha=0.5)
+                        # # One legend for each ax
+                        # legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                        # legend.get_frame().set_alpha(0.4)
+                else:
+                    plt.setp(ax, visible=False)
+
+        # One legend for all figures
+        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0., borderaxespad=0.)
+        legend.get_frame().set_alpha(0.4)
 
 if plot_sample_list_actions:
     for cond in range(total_cond):

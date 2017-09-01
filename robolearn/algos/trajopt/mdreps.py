@@ -3,6 +3,8 @@
 import sys
 import numpy as np
 import scipy as sp
+import matplotlib.pyplot as plt
+import copy
 
 from robolearn.algos.gps.gps import GPS
 from robolearn.algos.trajopt.trajopt_config import default_mdreps_hyperparams
@@ -57,6 +59,12 @@ class MDREPS(GPS):
             # self.good_duality_infor = init_traj_distr['type'](init_traj_distr)
             # self.bad_duality_infor = init_traj_distr['type'](init_traj_distr)
 
+        # Use inititial dual variables
+        for m in range(self.M):
+            self.cur[m].eta = self._hyperparams['init_eta']
+            self.cur[m].nu = self._hyperparams['init_nu']
+            self.cur[m].omega = self._hyperparams['init_omega']
+
         self.base_kl_good = self._hyperparams['base_kl_good']
         self.base_kl_bad = self._hyperparams['base_kl_bad']
 
@@ -98,7 +106,7 @@ class MDREPS(GPS):
             print('-->Inner iteration %d/%d' % (ii+1, self._hyperparams['inner_iterations']))
             self._update_trajectories()
 
-        self._advance_iteration_variables()
+        self.advance_duality_iteration_variables()
 
     def _update_step_size(self):
         """ Evaluate costs on samples, and adjust the step size. """
@@ -190,6 +198,11 @@ class MDREPS(GPS):
         # TVLGC terms from bad traj
         K_bad, ipc_bad, k_bad = bad_distr.K, bad_distr.inv_pol_covar, bad_distr.k
 
+        # print("TODO: SETTING DUMMY IPC GOOD AND BAD")
+        # for t in range(self.T):
+        #     ipc_good[t, :, :] = np.eye(7)
+        #     ipc_bad[t, :, :] = np.eye(7)
+
         # omega = 0
         # nu = 0
 
@@ -197,21 +210,34 @@ class MDREPS(GPS):
         fCm = traj_info.Cm / (eta + omega - nu + multiplier)
         fcv = traj_info.cv / (eta + omega - nu + multiplier)
 
+        # idx_u = slice(self.dX, self.dX+self.dU)
+        # print("")
+        # print(fCm[-1, idx_u, idx_u])
+        # print("Original fCm/eta[%d] PD?: %s" % (-1, np.all(np.linalg.eigvals(fCm[-1, idx_u, idx_u]) > 0)))
+
         # Add in the KL divergence with previous policy.
         for t in range(self.T - 1, -1, -1):
             fCm[t, :, :] += eta / (eta + omega - nu + multiplier) * np.vstack([
-                np.hstack([
+                np.hstack([  # dX x (dX + dU)
                     K[t, :, :].T.dot(ipc[t, :, :]).dot(K[t, :, :]),
                     -K[t, :, :].T.dot(ipc[t, :, :])
                 ]),
-                np.hstack([
+                np.hstack([  # dU x (dX + dU)
                     -ipc[t, :, :].dot(K[t, :, :]), ipc[t, :, :]
                 ])
             ])
             fcv[t, :] += eta / (eta + omega - nu + multiplier) * np.hstack([
-                K[t, :, :].T.dot(ipc[t, :, :]).dot(k[t, :]),
-                -ipc[t, :, :].dot(k[t, :])
+                K[t, :, :].T.dot(ipc[t, :, :]).dot(k[t, :]),  # dX
+                -ipc[t, :, :].dot(k[t, :])  # dU
             ])
+
+        # print("")
+        # print(ipc[-1, :, :])
+        # print("-")
+        # print(fCm[-1, idx_u, idx_u])
+        # print("Surrogate fCm/eta[%d] PD?: %s" % (-1, np.all(np.linalg.eigvals(fCm[-1, idx_u, idx_u]) > 0)))
+        # raw_input("avercomo")
+
 
         # Add in the KL divergence with good trajectories.
         for t in range(self.T - 1, -1, -1):
@@ -229,10 +255,16 @@ class MDREPS(GPS):
                 -ipc_good[t, :, :].dot(k_good[t, :])
             ])
 
+        # print("")
+        # print(ipc_good[-1, :, :])
+        # print("-")
+        # print(fCm[-1, idx_u, idx_u])
+        # print("Surrogate fCm/omega[%d] PD?: %s" % (-1, np.all(np.linalg.eigvals(fCm[-1, idx_u, idx_u]) > 0)))
+        # raw_input("avercomo")
+
         # Subtract in the KL divergence with bad trajectories.
-        print("TODO: We are adding the bad trajs to cost, not substracting!!")
         for t in range(self.T - 1, -1, -1):
-            fCm[t, :, :] += nu / (eta + omega - nu + multiplier) * np.vstack([
+            fCm[t, :, :] -= nu / (eta + omega - nu + multiplier) * np.vstack([
                 np.hstack([
                     K_bad[t, :, :].T.dot(ipc_bad[t, :, :]).dot(K_bad[t, :, :]),
                     -K_bad[t, :, :].T.dot(ipc_bad[t, :, :])
@@ -241,10 +273,17 @@ class MDREPS(GPS):
                     -ipc_bad[t, :, :].dot(K_bad[t, :, :]), ipc_bad[t, :, :]
                 ])
             ])
-            fcv[t, :] += nu / (eta + omega - nu + multiplier) * np.hstack([
+            fcv[t, :] -= nu / (eta + omega - nu + multiplier) * np.hstack([
                 K_bad[t, :, :].T.dot(ipc_bad[t, :, :]).dot(k_bad[t, :]),
                 -ipc_bad[t, :, :].dot(k_bad[t, :])
             ])
+
+        # print("")
+        # print(ipc_bad[-1, :, :])
+        # print("-")
+        # print(fCm[-1, idx_u, idx_u])
+        # print("Surrogate fCm/nu[%d] PD?: %s" % (-1, np.all(np.linalg.eigvals(fCm[-1, idx_u, idx_u]) > 0)))
+        # raw_input("avercomo")
 
         return fCm, fcv
 
@@ -257,7 +296,10 @@ class MDREPS(GPS):
             # Get index of sample with best Return
             #best_index = np.argmin(np.sum(cs, axis=1))
             n_good = self._hyperparams['n_good_samples']
-            best_indeces = np.argpartition(np.sum(cs, axis=1), n_good)[:n_good]
+            if n_good == cs.shape[0]:
+                best_indeces = range(n_good)
+            else:
+                best_indeces = np.argpartition(np.sum(cs, axis=1), n_good)[:n_good]
 
             # Get current best trajectory
             if self.good_duality_info[cond].sample_list is None:
@@ -266,10 +308,13 @@ class MDREPS(GPS):
             else:
                 # Update only if it is better than previous traj_dist
                 for good_index in best_indeces:
-                    least_worse_index = np.argpartition(np.sum(self.good_duality_info[cond].samples_cost, axis=1), -1)[-1:]
-                    if np.sum(self.good_duality_info[cond].samples_cost[least_worse_index, :]) > np.sum(cs[good_index, :]):
-                        self.good_duality_info[cond].sample_list.set_sample(least_worse_index, sample_list[good_index])
-                        self.good_duality_info[cond].samples_cost[least_worse_index, :] = cs[good_index, :]
+                    least_best_index = np.argpartition(np.sum(self.good_duality_info[cond].samples_cost, axis=1), -1)[-1:]
+                    if np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]) > np.sum(cs[good_index, :]):
+                        print("Updating GOOD trajectory | cur_cost=%f > new_cost=%f"
+                              % (np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]),
+                                 np.sum(cs[good_index, :])))
+                        self.good_duality_info[cond].sample_list.set_sample(least_best_index, sample_list[good_index])
+                        self.good_duality_info[cond].samples_cost[least_best_index, :] = cs[good_index, :]
 
     def _get_bad_trajectories(self):
         for cond in range(self.M):
@@ -280,7 +325,10 @@ class MDREPS(GPS):
             # Get index of sample with worst Return
             #worst_index = np.argmax(np.sum(cs, axis=1))
             n_bad = self._hyperparams['n_bad_samples']
-            worst_indeces = np.argpartition(np.sum(cs, axis=1), -n_bad)[-n_bad:]
+            if n_bad == cs.shape[0]:
+                worst_indeces = range(n_bad)
+            else:
+                worst_indeces = np.argpartition(np.sum(cs, axis=1), -n_bad)[-n_bad:]
 
             # Get current best trajectory
             if self.bad_duality_info[cond].sample_list is None:
@@ -291,8 +339,9 @@ class MDREPS(GPS):
                 for bad_index in worst_indeces:
                     least_worst_index = np.argpartition(np.sum(self.bad_duality_info[cond].samples_cost, axis=1), 1)[:1]
                     if np.sum(self.bad_duality_info[cond].samples_cost[least_worst_index, :]) < np.sum(cs[bad_index, :]):
-                        print("replacing %f > %f" % (np.sum(self.bad_duality_info[cond].samples_cost[least_worst_index, :]),
-                                                     np.sum(cs[bad_index, :])))
+                        print("Updating BAD trajectory | cur_cost=%f < new_cost=%f"
+                              % (np.sum(self.bad_duality_info[cond].samples_cost[least_worst_index, :]),
+                                 np.sum(cs[bad_index, :])))
                         self.bad_duality_info[cond].sample_list.set_sample(least_worst_index, sample_list[bad_index])
                         self.bad_duality_info[cond].samples_cost[least_worst_index, :] = cs[bad_index, :]
 
@@ -399,12 +448,15 @@ class MDREPS(GPS):
         return cs, cc, cv, Cm
 
     def _fit_good_bad_traj_dist(self):
+        min_good_var = self._hyperparams['min_good_var']
+        min_bad_var = self._hyperparams['min_good_var']
+
         for cond in range(self.M):
-            self.good_duality_info[cond].traj_dist = self.fit_traj_dist(self.good_duality_info[cond].sample_list)
-            self.bad_duality_info[cond].traj_dist = self.fit_traj_dist(self.bad_duality_info[cond].sample_list)
+            self.good_duality_info[cond].traj_dist = self.fit_traj_dist(self.good_duality_info[cond].sample_list, min_good_var)
+            self.bad_duality_info[cond].traj_dist = self.fit_traj_dist(self.bad_duality_info[cond].sample_list, min_bad_var)
 
     @staticmethod
-    def fit_traj_dist(sample_list):
+    def fit_traj_dist(sample_list, min_variance):
         samples = sample_list
 
         X = samples.get_states()
@@ -424,12 +476,19 @@ class MDREPS(GPS):
         pol_mu = U
         pol_sig = np.zeros((N, T, dU, dU))
 
+        print("TODO: WE ARE GIVING MIN GOOD/BAD VARIANCE")
         for t in range(T):
             # Using only diagonal covariances
-            pol_sig[:, t, :, :] = np.tile(np.diag(np.diag(np.cov(U[:, t, :].T))), (N, 1, 1))
+            # pol_sig[:, t, :, :] = np.tile(np.diag(np.diag(np.cov(U[:, t, :].T))), (N, 1, 1))
+            current_diag = np.diag(np.cov(U[:, t, :].T))
+            new_diag = np.max(np.vstack((current_diag, min_variance)), axis=0)
+            pol_sig[:, t, :, :] = np.tile(np.diag(new_diag), (N, 1, 1))
 
         # Collapse policy covariances. (This is only correct because the policy doesn't depend on state).
         pol_sig = np.mean(pol_sig, axis=0)
+
+        # print(pol_sig)
+        # raw_input('perhkhjk')
 
         # Allocate.
         pol_K = np.zeros([T, dU, dX])
@@ -465,9 +524,59 @@ class MDREPS(GPS):
             pol_K[t, :, :], pol_k[t, :], pol_S[t, :, :] = gauss_fit_joint_prior(Ys, mu0, Phi, mm, n0, dwts, dX, dU, sig_reg)
         pol_S += pol_sig  # Add policy covariances mean
 
+        # plt.subplots()
+        # plt.plot(pol_S[:, 0, 0], label='0')
+        # plt.plot(pol_S[:, 1, 1], label='1')
+        # plt.plot(pol_S[:, 2, 2], label='2')
+        # plt.plot(pol_S[:, 3, 3], label='3')
+        # plt.plot(pol_S[:, 4, 4], label='4')
+        # plt.plot(pol_S[:, 5, 5], label='5')
+        # plt.legend()
+        # plt.show(block=False)
+        # raw_input('ploteandooo')
+
         for t in range(T):
             chol_pol_S[t, :, :] = sp.linalg.cholesky(pol_S[t, :, :])
             inv_pol_S[t, :, :] = np.linalg.inv(pol_S[t, :, :])
+
+        # plt.subplots()
+        # plt.plot(inv_pol_S[:, 0, 0], label='0')
+        # plt.plot(inv_pol_S[:, 1, 1], label='1')
+        # plt.plot(inv_pol_S[:, 2, 2], label='2')
+        # plt.plot(inv_pol_S[:, 3, 3], label='3')
+        # plt.plot(inv_pol_S[:, 4, 4], label='4')
+        # plt.plot(inv_pol_S[:, 5, 5], label='5')
+        # plt.legend()
+        # plt.show(block=False)
+        # raw_input('ploteandooo')
+
+        # max_inv_pol = np.zeros(7)
+        # max_inv_pol[0] = np.argmax(inv_pol_S[:, 0, 0])
+        # max_inv_pol[1] = np.argmax(inv_pol_S[:, 1, 1])
+        # max_inv_pol[2] = np.argmax(inv_pol_S[:, 2, 2])
+        # max_inv_pol[3] = np.argmax(inv_pol_S[:, 3, 3])
+        # max_inv_pol[4] = np.argmax(inv_pol_S[:, 4, 4])
+        # max_inv_pol[5] = np.argmax(inv_pol_S[:, 5, 5])
+        # max_inv_pol[6] = np.argmax(inv_pol_S[:, 6, 6])
+
+        # print("%f, %d" % (np.max(inv_pol_S[:, 0, 0]), np.argmax(inv_pol_S[:, 0, 0])))
+        # print("%f, %d" % (np.max(inv_pol_S[:, 1, 1]), np.argmax(inv_pol_S[:, 1, 1])))
+        # print("%f, %d" % (np.max(inv_pol_S[:, 2, 2]), np.argmax(inv_pol_S[:, 2, 2])))
+        # print("%f, %d" % (np.max(inv_pol_S[:, 3, 3]), np.argmax(inv_pol_S[:, 3, 3])))
+        # print("%f, %d" % (np.max(inv_pol_S[:, 4, 4]), np.argmax(inv_pol_S[:, 4, 4])))
+        # print("%f, %d" % (np.max(inv_pol_S[:, 5, 5]), np.argmax(inv_pol_S[:, 5, 5])))
+        # print("%f, %d" % (np.max(inv_pol_S[:, 6, 6]), np.argmax(inv_pol_S[:, 6, 6])))
+
+        # print("COVARIANCES:")
+        # print("%f, %d" % (pol_S[int(max_inv_pol[0]), 0, 0], max_inv_pol[0]))
+        # print("%f, %d" % (pol_S[int(max_inv_pol[1]), 1, 1], max_inv_pol[1]))
+        # print("%f, %d" % (pol_S[int(max_inv_pol[2]), 2, 2], max_inv_pol[2]))
+        # print("%f, %d" % (pol_S[int(max_inv_pol[3]), 3, 3], max_inv_pol[3]))
+        # print("%f, %d" % (pol_S[int(max_inv_pol[4]), 4, 4], max_inv_pol[4]))
+        # print("%f, %d" % (pol_S[int(max_inv_pol[5]), 5, 5], max_inv_pol[5]))
+        # print("%f, %d" % (pol_S[int(max_inv_pol[6]), 6, 6], max_inv_pol[6]))
+
+        # raw_input("AAAA")
 
         return LinearGaussianPolicy(pol_K, pol_k, pol_S, chol_pol_S, inv_pol_S)
 
@@ -481,3 +590,46 @@ class MDREPS(GPS):
             self.new_traj_distr = [self.cur[cond].traj_distr for cond in range(self.M)]
         for cond in range(self.M):
             self.new_traj_distr[cond], self.cur[cond].eta, self.cur[cond].omega, self.cur[cond].nu = self.traj_opt.update(cond, self)
+
+    def log_duality_vars(self, itr):
+            print("Logging God/Bad duality data")
+            self.data_logger.pickle(
+                ('good_trajectories_info_itr_%02d.pkl' % itr),
+                copy.copy(self.good_trajectories_info)
+            )
+            self.data_logger.pickle(
+                ('bad_trajectories_info_itr_%02d.pkl' % itr),
+                copy.copy(self.bad_trajectories_info)
+            )
+            self.data_logger.pickle(
+                ('good_duality_info_itr_%02d.pkl' % itr),
+                copy.copy(self.good_duality_info)
+            )
+            self.data_logger.pickle(
+                ('bad_duality_info_itr_%02d.pkl' % itr),
+                copy.copy(self.bad_duality_info)
+            )
+
+    def load_duality_vars(self, itr):
+        print("Loading Duality data")
+        good_trajectories_file = 'good_trajectories_info_itr_%02d.pkl' % itr
+        self.good_trajectories_info = self.data_logger.unpickle(good_trajectories_file)
+        bad_trajectories_file = 'bad_trajectories_info_itr_%02d.pkl' % itr
+        self.bad_trajectories_info = self.data_logger.unpickle(bad_trajectories_file)
+        good_duality_file = 'good_duality_info_itr_%02d.pkl' % itr
+        self.good_duality_info = self.data_logger.unpickle(good_duality_file)
+        bad_duality_file = 'bad_duality_info_itr_%02d.pkl' % itr
+        self.bad_duality_info = self.data_logger.unpickle(bad_duality_file)
+
+    def advance_duality_iteration_variables(self):
+        """
+        Move all 'cur' variables to 'prev', reinitialize 'cur' variables, and advance iteration counter.
+        :return: None
+        """
+        self._advance_iteration_variables()
+        for m in range(self.M):
+            self.cur[m].nu = self.prev[m].nu
+            self.cur[m].omega = self.prev[m].omega
+
+            # self.cur[m].traj_info.last_kl_step = self.prev[m].traj_info.last_kl_step
+            # self.cur[m].pol_info = copy.deepcopy(self.prev[m].pol_info)

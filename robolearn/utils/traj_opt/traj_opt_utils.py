@@ -12,7 +12,7 @@ import scipy as sp
 LOGGER = logging.getLogger(__name__)
 
 # Constants used in TrajOptLQR.
-DGD_MAX_ITER = 50
+DGD_MAX_ITER = 3  # 50
 DGD_MAX_LS_ITER = 20
 DGD_MAX_GD_ITER = 200
 

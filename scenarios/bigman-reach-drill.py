@@ -86,7 +86,7 @@ signal.signal(signal.SIGINT, kill_everything)
 learning_algorithm = 'MDREPS'
 # Task parameters
 Ts = 0.01
-Treach = 2
+Treach = 5
 Tlift = 0  # 3.8
 Tinter = 0  # 0.5
 Tend = 0  # 0.7
@@ -319,8 +319,8 @@ fk_cost = {
     'robot_model': robot_model,
     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
     'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    #'evalnorm': evall1l2term,
-    'evalnorm': evallogl2term,
+    'evalnorm': evall1l2term,
+    #'evalnorm': evallogl2term,
     'l1': 1.0,  # 1.0,  # 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # 1.0,  #1.0e-3,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
@@ -340,8 +340,8 @@ fk_l1_cost = {
     'robot_model': robot_model,
     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
     'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    #'evalnorm': evall1l2term,
-    'evalnorm': evallogl2term,
+    'evalnorm': evall1l2term,
+    #'evalnorm': evallogl2term,
     'l1': 1.0,  # 1.0,  # 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 0.0,  # 1.0,  #1.0e-3,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
@@ -361,8 +361,8 @@ fk_l2_cost = {
     'robot_model': robot_model,
     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
     'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    #'evalnorm': evall1l2term,
-    'evalnorm': evallogl2term,
+    'evalnorm': evall1l2term,
+    #'evalnorm': evallogl2term,
     'l1': 0.0,  # 1.0,  # 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # 1.0,  #1.0e-3,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
@@ -381,8 +381,8 @@ fk_final_cost = {
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
     'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    #'evalnorm': evall1l2term,
-    'evalnorm': evallogl2term,
+    'evalnorm': evall1l2term,
+    #'evalnorm': evallogl2term,
     'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
@@ -401,8 +401,8 @@ fk_l1_final_cost = {
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
     'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    #'evalnorm': evall1l2term,
-    'evalnorm': evallogl2term,
+    'evalnorm': evall1l2term,
+    #'evalnorm': evallogl2term,
     'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 0.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
@@ -421,8 +421,8 @@ fk_l2_final_cost = {
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
     'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
-    #'evalnorm': evall1l2term,
-    'evalnorm': evallogl2term,
+    'evalnorm': evall1l2term,
+    #'evalnorm': evallogl2term,
     'l1': 0.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
@@ -631,9 +631,42 @@ change_print_color.change('YELLOW')
 print("\nConfiguring learning algorithm...\n")
 
 # Learning params
-resume_training_itr = None  # Resume from previous training iteration
-data_files_dir = None  # 'GPS_2017-08-04_09:40:59'  # In case we want to resume from previous training
+resume_training_itr = 6  # Resume from previous training iteration
+data_files_dir = 'GPS_2017-09-01_15:22:55'  # None  # In case we want to resume from previous training
 
+if demos_samples is None:
+    #      # init_traj_distr values can be lists if they are different for each condition
+    #      init_traj_distr = {'type': init_lqr,
+    #                         # Parameters to calculate initial COST function based on stiffness
+    #                         'init_var': 3.0e-1,  # Initial Variance
+    #                         'stiffness': 5.0e-1,  # Stiffness (multiplies q)
+    #                         'stiffness_vel': 0.01,  # 0.5,  # Stiffness_vel*stiffness (multiplies qdot)
+    #                         'final_weight': 10.0,  # Multiplies cost at T
+    #                         # Parameters for guessing dynamics
+    #                         'init_acc': np.zeros(action_dim),  # dU vector(np.array) of accelerations, default zeros.
+    #                         #'init_gains': 1.0*np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
+    #                         #'init_gains': 1.0/np.array([5000.0, 8000.0, 5000.0, 5000.0, 300.0, 2000.0, 300.0]),  # dU vector(np.array) of gains, default ones.
+    #                         'init_gains': np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
+    #                         }
+    init_traj_distr = {'type': init_pd,
+                       #'init_var': np.ones(len(bigman_params['joint_ids'][body_part_active]))*0.3e-1,  # Initial variance (Default:10)
+                       'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
+                       #'init_var': np.ones(len(bigman_params['joint_ids'][body_part_active])),  # Initial variance (Default:10)
+                       # 'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
+                       #                       3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0,  # Initial variance (Default:10)
+                       'pos_gains': 0.001,  #np.array([1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 5.0e-2, 5.0e-2, 5.0e-2])*1.0e+1,  # 0.001,  # Position gains (Default:10)
+                       'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
+                       'init_action_offset': None,
+                       'dJoints': len(bigman_params['joint_ids'][body_part_sensed]),  # Total joints in state
+                       'state_to_pd': 'joints',  # Joints
+                       'dDistance': 6,
+                       }
+else:
+    init_traj_distr = {'type': init_demos,
+                       'sample_lists': demos_samples
+                       }
+
+# Trajectory Optimization Options
 traj_opt_lqr = {'type': TrajOptLQR,
                 'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
                 # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
@@ -668,51 +701,25 @@ traj_opt_dreps = {'type': TrajOptDREPS,
                   }
 
 traj_opt_mdreps = {'type': TrajOptMDREPS,
-                   'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
+                   'del0': 1e-4,  # Eta updates for non-SPD Q-function (non-SPD correction step).
+                   'del0_good': 1e-4,  # Omega updates for non-SPD Q-function (non-SPD correction step).
+                   'del0_bad': 1e-8,  # Nu updates for non-SPD Q-function (non-SPD correction step).
                    # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
                    'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
                    'max_eta': 1e16,  # At max_eta, kl_div < kl_step
                    'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
                    'max_omega': 1e16,  # At max_omega, kl_div < kl_step
                    'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
-                   'max_nu': 1e16,  # At max_nu, kl_div < kl_step
+                   'max_nu': 2.0e1,  # At max_nu, kl_div < kl_step,
+                   'step_tol': 0.1,
+                   'bad_tol': 0.2,
+                   'good_tol': 0.3,
                    'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step.
                    'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
                    'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
                    }
 
-if demos_samples is None:
-#      # init_traj_distr values can be lists if they are different for each condition
-#      init_traj_distr = {'type': init_lqr,
-#                         # Parameters to calculate initial COST function based on stiffness
-#                         'init_var': 3.0e-1,  # Initial Variance
-#                         'stiffness': 5.0e-1,  # Stiffness (multiplies q)
-#                         'stiffness_vel': 0.01,  # 0.5,  # Stiffness_vel*stiffness (multiplies qdot)
-#                         'final_weight': 10.0,  # Multiplies cost at T
-#                         # Parameters for guessing dynamics
-#                         'init_acc': np.zeros(action_dim),  # dU vector(np.array) of accelerations, default zeros.
-#                         #'init_gains': 1.0*np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
-#                         #'init_gains': 1.0/np.array([5000.0, 8000.0, 5000.0, 5000.0, 300.0, 2000.0, 300.0]),  # dU vector(np.array) of gains, default ones.
-#                         'init_gains': np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
-#                         }
-    init_traj_distr = {'type': init_pd,
-                       #'init_var': np.ones(len(bigman_params['joint_ids'][body_part_active]))*0.3e-1,  # Initial variance (Default:10)
-                       'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
-                       #'init_var': np.ones(len(bigman_params['joint_ids'][body_part_active])),  # Initial variance (Default:10)
-                       # 'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
-                       #                       3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0,  # Initial variance (Default:10)
-                       'pos_gains': 0.001,  #np.array([1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 5.0e-2, 5.0e-2, 5.0e-2])*1.0e+1,  # 0.001,  # Position gains (Default:10)
-                       'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
-                       'init_action_offset': None,
-                       'dJoints': len(bigman_params['joint_ids'][body_part_sensed]),  # Total joints in state
-                       'state_to_pd': 'joints',  # Joints
-                       'dDistance': 6,
-                       }
-else:
-    init_traj_distr = {'type': init_demos,
-                       'sample_lists': demos_samples
-                       }
-
+# Dynamics
 learned_dynamics = {'type': DynamicsLRPrior,
                     'regularization': 1e-6,
                     'prior': {
@@ -724,6 +731,7 @@ learned_dynamics = {'type': DynamicsLRPrior,
                         },
                     }
 
+# GPS algo hyperparameters
 mdgps_hyperparams = {'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
                      'policy_sample_mode': 'add',
                      'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
@@ -753,12 +761,17 @@ mdreps_hyperparams = {'inner_iterations': 1,
                       'bad_samples': bad_trajs,
                       'n_bad_samples': 2,  # Number of bad samples per each trajectory
                       'n_good_samples': 2,  # Number of bad samples per each trajectory
-                      'base_kl_good': 0.2,  # kl_good (xi) to be used with multiplier
-                      'base_kl_bad': 10.2,  # kl_bad (chi) to be used with multiplier
+                      'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
+                      'base_kl_bad': 2.5,  # (chi) to be used with multiplier | kl_div_b >= kl_bad
+                      'init_eta': 4.62,
+                      'init_nu': 0.5,
+                      'init_omega': 1.0,
                       'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good in LQR)
-                      'max_good_mult': 10.0,  # Max possible value of step multiplier (multiplies base_kl_good in LQR)
+                      'max_good_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_good in LQR)
                       'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad in LQR)
-                      'max_bad_mult': 10.0,  # Max possible value of step multiplier (multiplies base_kl_bad in LQR)
+                      'max_bad_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_bad in LQR)
+                      'min_good_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
+                      'min_bad_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
                       }
 
 
