@@ -188,7 +188,7 @@ state_cost_distance = {
     'alpha': 1e-2,  # Constant added in square root in l1 norm
     'wp_final_multiplier': 10.0,  # Weight multiplier on final time step.
     'data_types': {
-        'distance_right_arm': {
+        'gym_state': {
             # 'wp': np.ones_like(target_state),  # State weights - must be set.
             'wp': np.array([1.0, 1.0, 1.0, 3.0, 3.0, 1.0]),  # State weights - must be set.
             'target_state': target_distance_state,  # Target state - must be set.
@@ -254,7 +254,7 @@ if demos_samples is None:
     #                         'init_gains': np.ones(action_dim),  # dU vector(np.array) of gains, default ones.
     #                         }
     init_traj_distr = {'type': init_pd,
-                       'init_var': np.array([3.0e-1])*1.0e-00,
+                       'init_var': np.array([5.0e-2])*1.0e-00,
                        'pos_gains': 0.001,  #np.array([1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 5.0e-2, 5.0e-2, 5.0e-2])*1.0e+1,  # 0.001,  # Position gains (Default:10)
                        'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
                        'init_action_offset': None,

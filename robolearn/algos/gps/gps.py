@@ -353,8 +353,6 @@ class GPS(RLAlgorithm):
             state = self.env.get_state()
             # action = policy.eval(state, obs, t, noise[t, :])
             action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # TODO: Avoid TF policy writes in obs
-            if t == 0:
-                print(state)
             # action = np.zeros_like(action)
             # action[6] = -0.2
             # action[3] = -0.15707963267948966

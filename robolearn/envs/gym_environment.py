@@ -64,9 +64,7 @@ class GymEnv(Environment):
         self.last_state = self.env.reset()
         self.last_obs = self.last_state
 
-
     def get_action_dim(self):
-
         return self.dU
 
     def get_obs_dim(self):
@@ -94,14 +92,15 @@ class GymEnv(Environment):
         return obs_info
 
     def get_state_info(self, **kwargs):
-        obs_info = {'names': ['gym_state'],
+        state_info = {'names': ['gym_state'],
                     'dimensions': [self.get_state_dim()],
                     'idx': [0]}
-        return obs_info
+        return state_info
 
     def get_env_info(self):
         env_info = {'name': self.name,
-                    }
+                    'obs': self.get_obs_info(),
+                    'state': self.get_state_info()}
         return env_info
 
     def set_conditions(self, conditions):
