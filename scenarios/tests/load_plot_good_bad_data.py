@@ -10,10 +10,13 @@ from robolearn.algos.gps.gps_utils import IterationData
 from robolearn.utils.iit.iit_robots_params import bigman_params
 import scipy.stats
 
-gps_directory_name = 'GPS_2017-09-01_15:22:55'  # Test MDGPS
+gps_directory_name = 'GPS_2017-09-01_15:22:55'  # Test MDGPS | Weekend
+gps_directory_name = 'GPS_2017-09-04_10:45:00'  # Test MDGPS | New cov_bad
 
-init_itr = 9
-final_itr = 9
+
+
+init_itr = 0
+final_itr = 100
 #final_itr = 30
 samples_idx = [-1]  # List of samples / None: all samples
 max_traj_plots = None  # None, plot all
@@ -25,7 +28,7 @@ plot_eta = False
 plot_nu = False
 plot_omega = False
 plot_step_mult = False  # If linearized policy(then NN policy) is worse, epsilon is reduced.
-plot_cs = False
+plot_cs = True
 plot_sample_list_actions = False
 plot_sample_list_states = False
 plot_sample_list_obs = False
@@ -34,7 +37,7 @@ plot_policy_output = False
 plot_policy_actions = False
 plot_policy_states = False
 plot_policy_obs = False
-plot_traj_distr = True
+plot_traj_distr = False
 plot_3d_traj = False
 plot_3d_pol_traj = False
 

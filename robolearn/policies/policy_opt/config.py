@@ -42,6 +42,7 @@ POLICY_OPT_TF = {
     # Other hyperparameters.
     'copy_param_scope': 'conv_params',
     'fc_only_iterations': 0,
+    'gpu_mem_percentage': 0.4,
 }
 
 POLICY_OPT_TF.update(GENERIC_CONFIG)

@@ -67,7 +67,8 @@ class PolicyOptTf(PolicyOpt):
         self.init_solver()
         self.var = self._hyperparams['init_var'] * np.ones(dU)
         config = tf.ConfigProto()
-        config.gpu_options.per_process_gpu_memory_fraction = GPU_MEM_PERCENTAGE
+        #config.gpu_options.per_process_gpu_memory_fraction = GPU_MEM_PERCENTAGE
+        config.gpu_options.per_process_gpu_memory_fraction = self._hyperparams['gpu_mem_percentage']
         self.sess = tf.Session(config=config)
         self.policy = TfPolicy(dU, self.obs_tensor, self.act_op, self.feat_op,
                                np.zeros(dU), self.sess, self.device_string,

@@ -377,9 +377,9 @@ class TrajOptMDREPS(TrajOpt):
                 Qtt[t] = 0.5 * (Qtt[t] + Qtt[t].T)
 
                 if not self.cons_per_step:
-                    inv_term = Qtt[t, idx_u, idx_u]
-                    k_term = Qt[t, idx_u]
-                    K_term = Qtt[t, idx_u, idx_x]
+                    inv_term = Qtt[t, idx_u, idx_u]  # Quu
+                    k_term = Qt[t, idx_u]  # Qu
+                    K_term = Qtt[t, idx_u, idx_x]  # Qux
                 else:
                     # inv_term = (1.0 / eta[t]) * Qtt[t, idx_u, idx_u] + prev_traj_distr.inv_pol_covar[t]
                     # k_term = (1.0 / eta[t]) * Qt[t, idx_u] - prev_traj_distr.inv_pol_covar[t].dot(prev_traj_distr.k[t])
@@ -559,15 +559,19 @@ class TrajOptMDREPS(TrajOpt):
         """Function that checks whether NU dual gradient descent has converged."""
         bad_tol = self._hyperparams['bad_tol']
         if self.cons_per_step:
-            return all([abs(con_bad[t]) < (bad_tol*kl_step_bad[t]) for t in range(con_bad.size)])
+            # return all([abs(con_bad[t]) < (bad_tol*kl_step_bad[t]) for t in range(con_bad.size)])
+            return all([con_bad[t] <= 0 for t in range(con_bad.size)])
 
         if print_DGD_log:
             print("Bad convergence check")
-        print("kl_bad %s | abs(con_bad) < %.1f*kl_step_bad | abs(%f) < %f | %f%%" % (abs(con_bad) < bad_tol * kl_step_bad,
-                                                                                     bad_tol, con_bad,
-                                                                                     bad_tol*kl_step_bad,
-                                                                                     abs(con_bad*100/kl_step_bad)))
-        return abs(con_bad) < bad_tol * kl_step_bad
+        # print("kl_bad %s | abs(con_bad) < %.1f*kl_step_bad | abs(%f) < %f | %f%%" % (abs(con_bad) < bad_tol * kl_step_bad,
+        #                                                                              bad_tol, con_bad,
+        #                                                                              bad_tol*kl_step_bad,
+        #                                                                              abs(con_bad*100/kl_step_bad)))
+        print("kl_bad %s | con_bad <= 0 | %f < %f | %f%%" % (con_bad < 0, con_bad, 0, con_bad*100/kl_step_bad))
+
+        # return abs(con_bad) < bad_tol * kl_step_bad
+        return con_bad <= 0
 
     def _conv_all_check(self, algorithm, m, a, eta, omega, nu):
         T = algorithm.T
@@ -1219,15 +1223,19 @@ class TrajOptMDREPS(TrajOpt):
                 break
 
             if itr > 0:
-                if not eta_conv and abs(prev_eta - eta)/eta <= 0.05:
+                print("prev_eta:%f, new_eta:%f | %f%%" % (prev_eta, eta, abs(prev_eta - eta)*100/eta))
+                print("eta_conv:%s | abs(prev_eta - eta)/eta <= 0.05:%s" % (eta_conv, abs(prev_eta - eta)/eta <= 0.05))
+                if eta_conv or abs(prev_eta - eta)/eta <= 0.05 or abs(eta) <= 0.0001:
                     break_1 = True
                 else:
                     break_1 = False
-                if not nu_conv and abs(prev_nu - nu)/nu <= 0.05:
+                print("prev_nu:%f, new_nu:%f | %f%%" % (prev_nu, nu, abs(prev_nu - nu)*100/nu))
+                if nu_conv or abs(prev_nu - nu)/nu <= 0.05 or abs(nu) <= 0.0001:
                     break_2 = True
                 else:
                     break_2 = False
-                if not eta_conv and abs(prev_omega - omega)/omega <= 0.05:
+                print("prev_omega:%f, new_omega:%f | %f%%" % (prev_omega, omega, abs(prev_omega - omega)*100/omega))
+                if omega_conv or abs(prev_omega - omega)/omega <= 0.05 or abs(omega) <= 0.0001:
                     break_3 = True
                 else:
                     break_3 = False
@@ -1259,12 +1267,14 @@ class TrajOptMDREPS(TrajOpt):
                     if con_bad < 0:  # Nu was too big.
                         max_nu = nu
                         geom = np.sqrt(min_nu*max_nu)  # Geometric mean.
-                        new_nu = max(geom, 0.1*max_nu)
+                        #new_nu = max(geom, 0.1*max_nu)
+                        new_nu = max(geom, 0.025*max_nu)
                         LOGGER.debug("KL: %f >= %f, nu too big, new nu: %.3e", kl_div_bad, kl_step_bad, new_nu)
                     else:  # Nu was too small.
                         min_nu = nu
                         geom = np.sqrt(min_nu*max_nu)  # Geometric mean.
-                        new_nu = min(geom, 10.0*min_nu)
+                        #new_nu = min(geom, 10.0*min_nu)
+                        new_nu = min(geom, 2.5*min_nu)
                         LOGGER.debug("KL: %f >= %f, nu too small, new nu: %.3e", kl_div_bad, kl_step_bad, new_nu)
                 else:
                     print("NOT Modifying NU")
@@ -1318,6 +1328,7 @@ class TrajOptMDREPS(TrajOpt):
             print('nu_conv %s: kl_div > xi (%f > %f) | %f%%' % (nu_conv, kl_div_bad, kl_step_bad, abs(con_bad*100/kl_step_bad)))
             print('omega_conv %s: kl_div < chi (%f < %f) | %f%%' % (omega_conv, kl_div_good, kl_step_good, abs(con_good*100/kl_step_good)))
 
+        print('_'*20)
         print('eta: %f | nu: %f | omega: %f' % (eta, nu, omega))
         print('eta_conv %s: kl_div < epsilon (%f < %f) | %f%%' % (eta_conv, kl_div, kl_step, abs(con*100/kl_step)))
         print('nu_conv %s: kl_div > xi (%f > %f) | %f%%' % (nu_conv, kl_div_bad, kl_step_bad, abs(con_bad*100/kl_step_bad)))

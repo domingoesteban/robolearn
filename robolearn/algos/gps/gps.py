@@ -324,10 +324,16 @@ class GPS(RLAlgorithm):
         obs_hist = [None] * self.T
 
         print("Resetting environment...")
+        from robolearn.envs.gym_environment import GymEnv
         self.env.reset(time=2, cond=cond)
-        import rospy
 
-        ros_rate = rospy.Rate(int(1/self.dt))  # hz
+        if issubclass(type(self.env), GymEnv):
+            import time
+            gym_ts = self.dt
+        else:
+            import rospy
+            ros_rate = rospy.Rate(int(1/self.dt))  # hz
+
         # Collect history
         sampling_bar = ProgressBar(self.T, bar_title='Sampling')
         for t in range(self.T):
@@ -347,6 +353,7 @@ class GPS(RLAlgorithm):
             state = self.env.get_state()
             # action = policy.eval(state, obs, t, noise[t, :])
             action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # TODO: Avoid TF policy writes in obs
+
             # action = np.zeros_like(action)
             # action[6] = -0.2
             # action[3] = -0.15707963267948966
@@ -361,7 +368,10 @@ class GPS(RLAlgorithm):
             # sample.set_obs(obs[:42], obs_name='joint_state', t=i)  # Set action One by one
             # sample.set_states(state[:7], state_name='link_position', t=i)  # Set action One by one
 
-            ros_rate.sleep()
+            if issubclass(type(self.env), GymEnv):
+                time.sleep(gym_ts)
+            else:
+                ros_rate.sleep()
 
         sampling_bar.end()
 

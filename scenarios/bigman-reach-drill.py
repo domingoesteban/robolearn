@@ -620,8 +620,6 @@ else:
 
 
 
-
-
 # ######################## #
 # ######################## #
 # ## LEARNING ALGORITHM ## #
@@ -631,8 +629,9 @@ change_print_color.change('YELLOW')
 print("\nConfiguring learning algorithm...\n")
 
 # Learning params
-resume_training_itr = 6  # Resume from previous training iteration
-data_files_dir = 'GPS_2017-09-01_15:22:55'  # None  # In case we want to resume from previous training
+resume_training_itr = None  # Resume from previous training iteration
+# data_files_dir = 'GPS_2017-09-01_15:22:55'  # None  # In case we want to resume from previous training
+data_files_dir = None  # In case we want to resume from previous training
 
 if demos_samples is None:
     #      # init_traj_distr values can be lists if they are different for each condition
@@ -707,10 +706,10 @@ traj_opt_mdreps = {'type': TrajOptMDREPS,
                    # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
                    'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
                    'max_eta': 1e16,  # At max_eta, kl_div < kl_step
-                   'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
-                   'max_omega': 1e16,  # At max_omega, kl_div < kl_step
-                   'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
-                   'max_nu': 2.0e1,  # At max_nu, kl_div < kl_step,
+                   'min_omega': 0,#1e-8,  # At min_omega, kl_div > kl_step
+                   'max_omega': 0,#1e16,  # At max_omega, kl_div < kl_step
+                   'min_nu': 0,#1e-8,  # At min_nu, kl_div > kl_step
+                   'max_nu': 0,#2.0e1,  # At max_nu, kl_div < kl_step,
                    'step_tol': 0.1,
                    'bad_tol': 0.2,
                    'good_tol': 0.3,
@@ -764,8 +763,8 @@ mdreps_hyperparams = {'inner_iterations': 1,
                       'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
                       'base_kl_bad': 2.5,  # (chi) to be used with multiplier | kl_div_b >= kl_bad
                       'init_eta': 4.62,
-                      'init_nu': 0.5,
-                      'init_omega': 1.0,
+                      'init_nu': 0,#0.5,
+                      'init_omega': 0,#1.0,
                       'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good in LQR)
                       'max_good_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_good in LQR)
                       'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad in LQR)

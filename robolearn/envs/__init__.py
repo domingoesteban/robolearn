@@ -4,3 +4,4 @@
 from bigman.bigman_env import BigmanEnv
 from bigman.bigman_task_envs import BigmanBoxEnv
 from centauro.centauro_env import CentauroEnv
+from gym_environment import GymEnv

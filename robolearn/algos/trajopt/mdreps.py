@@ -287,7 +287,12 @@ class MDREPS(GPS):
 
         return fCm, fcv
 
-    def _get_good_trajectories(self):
+    def _get_good_trajectories(self, option='only_traj'):
+        """
+        
+        :param option: 'only_traj' or 'all'
+        :return: 
+        """
         for cond in range(self.M):
             # Sample costs estimate.
             cs = self.cur[cond].cs
@@ -307,16 +312,27 @@ class MDREPS(GPS):
                 self.good_duality_info[cond].samples_cost = cs[best_indeces, :]
             else:
                 # Update only if it is better than previous traj_dist
-                for good_index in best_indeces:
-                    least_best_index = np.argpartition(np.sum(self.good_duality_info[cond].samples_cost, axis=1), -1)[-1:]
-                    if np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]) > np.sum(cs[good_index, :]):
-                        print("Updating GOOD trajectory | cur_cost=%f > new_cost=%f"
-                              % (np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]),
-                                 np.sum(cs[good_index, :])))
-                        self.good_duality_info[cond].sample_list.set_sample(least_best_index, sample_list[good_index])
-                        self.good_duality_info[cond].samples_cost[least_best_index, :] = cs[good_index, :]
+                if option == 'only_traj':
+                    # If there is a better trajectory, replace only that trajectory to previous ones
+                    for good_index in best_indeces:
+                        least_best_index = np.argpartition(np.sum(self.good_duality_info[cond].samples_cost, axis=1), -1)[-1:]
+                        if np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]) > np.sum(cs[good_index, :]):
+                            print("Updating GOOD trajectory | cur_cost=%f > new_cost=%f"
+                                  % (np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]),
+                                     np.sum(cs[good_index, :])))
+                            self.good_duality_info[cond].sample_list.set_sample(least_best_index, sample_list[good_index])
+                            self.good_duality_info[cond].samples_cost[least_best_index, :] = cs[good_index, :]
+                elif option == 'always':
+                    for gg, good_index in enumerate(best_indeces):
+                        self.good_duality_info[cond].sample_list.set_sample(gg, sample_list[good_index])
+                        self.good_duality_info[cond].samples_cost[gg, :] = cs[good_index, :]
+                else:
+                    raise ValueError("Wrong get_good_grajectories option: %s" % option)
 
-    def _get_bad_trajectories(self):
+
+
+
+    def _get_bad_trajectories(self, option='only_traj'):
         for cond in range(self.M):
             # Sample costs estimate.
             cs = self.cur[cond].cs
@@ -336,14 +352,21 @@ class MDREPS(GPS):
                 self.bad_duality_info[cond].samples_cost = cs[worst_indeces, :]
             else:
                 # Update only if it is better than before
-                for bad_index in worst_indeces:
-                    least_worst_index = np.argpartition(np.sum(self.bad_duality_info[cond].samples_cost, axis=1), 1)[:1]
-                    if np.sum(self.bad_duality_info[cond].samples_cost[least_worst_index, :]) < np.sum(cs[bad_index, :]):
-                        print("Updating BAD trajectory | cur_cost=%f < new_cost=%f"
-                              % (np.sum(self.bad_duality_info[cond].samples_cost[least_worst_index, :]),
-                                 np.sum(cs[bad_index, :])))
-                        self.bad_duality_info[cond].sample_list.set_sample(least_worst_index, sample_list[bad_index])
-                        self.bad_duality_info[cond].samples_cost[least_worst_index, :] = cs[bad_index, :]
+                if option == 'only_traj':
+                    for bad_index in worst_indeces:
+                        least_worst_index = np.argpartition(np.sum(self.bad_duality_info[cond].samples_cost, axis=1), 1)[:1]
+                        if np.sum(self.bad_duality_info[cond].samples_cost[least_worst_index, :]) < np.sum(cs[bad_index, :]):
+                            print("Updating BAD trajectory | cur_cost=%f < new_cost=%f"
+                                  % (np.sum(self.bad_duality_info[cond].samples_cost[least_worst_index, :]),
+                                     np.sum(cs[bad_index, :])))
+                            self.bad_duality_info[cond].sample_list.set_sample(least_worst_index, sample_list[bad_index])
+                            self.bad_duality_info[cond].samples_cost[least_worst_index, :] = cs[bad_index, :]
+                elif option == 'always':
+                    for bb, bad_index in enumerate(worst_indeces):
+                        self.bad_duality_info[cond].sample_list.set_sample(bb, sample_list[bad_index])
+                        self.bad_duality_info[cond].samples_cost[bb, :] = cs[bad_index, :]
+                else:
+                    raise ValueError("Wrong get_bad_grajectories option: %s" % option)
 
     def _update_good_bad_dynamics(self):
         """
