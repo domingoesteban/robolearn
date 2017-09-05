@@ -43,6 +43,9 @@ class TrajOptMDREPS(TrajOpt):
         self._use_prev_distr = config['use_prev_distr']
         self._update_in_bwd_pass = config['update_in_bwd_pass']
 
+        self.consider_good = config['good_const']
+        self.consider_bad = config['bad_const']
+
     # TODO - Add arg and return spec on this function.
     def update(self, m, algorithm, a=None):
         """
@@ -78,6 +81,13 @@ class TrajOptMDREPS(TrajOpt):
             nu = algorithm.cur[a][m].nu
         if self.cons_per_step and type(nu) in (int, float):
             nu = np.ones(T) * nu
+
+        if self.consider_good is False:
+            omega *= 0
+
+        if self.consider_bad is False:
+            nu *= 0
+
 
         print(".\n"*2)
 
@@ -1223,19 +1233,15 @@ class TrajOptMDREPS(TrajOpt):
                 break
 
             if itr > 0:
-                print("prev_eta:%f, new_eta:%f | %f%%" % (prev_eta, eta, abs(prev_eta - eta)*100/eta))
-                print("eta_conv:%s | abs(prev_eta - eta)/eta <= 0.05:%s" % (eta_conv, abs(prev_eta - eta)/eta <= 0.05))
                 if eta_conv or abs(prev_eta - eta)/eta <= 0.05 or abs(eta) <= 0.0001:
                     break_1 = True
                 else:
                     break_1 = False
-                print("prev_nu:%f, new_nu:%f | %f%%" % (prev_nu, nu, abs(prev_nu - nu)*100/nu))
-                if nu_conv or abs(prev_nu - nu)/nu <= 0.05 or abs(nu) <= 0.0001:
+                if not self.consider_bad or nu_conv or abs(prev_nu - nu)/nu <= 0.05 or abs(nu) <= 0.0001:
                     break_2 = True
                 else:
                     break_2 = False
-                print("prev_omega:%f, new_omega:%f | %f%%" % (prev_omega, omega, abs(prev_omega - omega)*100/omega))
-                if omega_conv or abs(prev_omega - omega)/omega <= 0.05 or abs(omega) <= 0.0001:
+                if not self.consider_good or omega_conv or abs(prev_omega - omega)/omega <= 0.05 or abs(omega) <= 0.0001:
                     break_3 = True
                 else:
                     break_3 = False
@@ -1262,7 +1268,8 @@ class TrajOptMDREPS(TrajOpt):
                     new_eta = eta
 
                 # Choose new nu (bisect bracket or multiply by constant)
-                if not nu_conv:
+                print("consider_bad: %s" % self.consider_bad)
+                if self.consider_bad and not nu_conv:
                     print("Modifying NU")
                     if con_bad < 0:  # Nu was too big.
                         max_nu = nu
@@ -1281,7 +1288,8 @@ class TrajOptMDREPS(TrajOpt):
                     new_nu = nu
 
                 # Choose new omega (bisect bracket or multiply by constant)
-                if not omega_conv:
+                print("consider_good: %s" % self.consider_good)
+                if self.consider_good and not omega_conv:
                     print("Modifying OMEGA")
                     if con_good < 0:  # Nu was too big.
                         max_omega = omega

@@ -145,7 +145,7 @@ def reset_bigman_drill_gazebo(bigman_drill_pose, drill_size=None):
     time.sleep(2)
 
 
-def spawn_drill_gazebo(bigman_drill_pose, drill_size=None):
+def spawn_drill_gazebo(bigman_drill_pose, drill_size=None, other_object=False):
     drill_pose = np.zeros(7)
     drill_support_pose = np.zeros(7)
     if drill_size is None:
@@ -172,13 +172,21 @@ def spawn_drill_gazebo(bigman_drill_pose, drill_size=None):
     drill_support_pose[-1] = 0
 
     rospack = rospkg.RosPack()
-    drill_sdf = open(rospack.get_path('robolearn_gazebo_env')+'/models/cordless_drill/model.sdf', 'r').read()
+    #drill_sdf = open(rospack.get_path('robolearn_gazebo_env')+'/models/cordless_drill/model.sdf', 'r').read()
+    drill_sdf = open(rospack.get_path('robolearn_gazebo_env')+'/models/beer/model.sdf', 'r').read()
     drill_support_sdf = open(rospack.get_path('robolearn_gazebo_env')+'/models/big_support/model.sdf', 'r').read()
 
     drill_support_pose[:] = drill_support_pose[[4, 5, 6, 0, 1, 2, 3]]
     drill_pose[:] = drill_pose[[4, 5, 6, 0, 1, 2, 3]]
     spawn_gazebo_model('drill_support', drill_support_sdf, drill_support_pose)
     spawn_gazebo_model('drill', drill_sdf, drill_pose)
+
+    if other_object:
+        beer_sdf = open(rospack.get_path('robolearn_gazebo_env')+'/models/beer/model.sdf', 'r').read()
+        beer_pose = np.zeros(7)
+        beer_pose[:] = drill_pose[:]
+        beer_pose[1] -= 0.45
+        spawn_gazebo_model('beer', beer_sdf, beer_pose)
 
 
 def set_drill_gazebo_pose(bigman_drill_pose, drill_size=None):
@@ -211,7 +219,7 @@ def set_drill_gazebo_pose(bigman_drill_pose, drill_size=None):
     drill_support_pose[-1] = 0
     drill_support_pose[:] = drill_support_pose[[4, 5, 6, 0, 1, 2, 3]]
     drill_pose[:] = drill_pose[[4, 5, 6, 0, 1, 2, 3]]
-    set_gazebo_model_pose('drill_support', drill_support_pose)
+    #set_gazebo_model_pose('drill_support', drill_support_pose)
     set_gazebo_model_pose('drill', drill_pose)
 
 

@@ -86,7 +86,7 @@ signal.signal(signal.SIGINT, kill_everything)
 learning_algorithm = 'MDREPS'
 # Task parameters
 Ts = 0.01
-Treach = 5
+Treach = 8
 Tlift = 0  # 3.8
 Tinter = 0  # 0.5
 Tend = 0  # 0.7
@@ -96,7 +96,8 @@ init_with_demos = False
 generate_dual_sets = True
 demos_dir = None  # 'TASKSPACE_TORQUE_CTRL_DEMO_2017-07-21_16:32:39'
 dual_dir = 'DUAL_DEMOS_2017-08-23_07:10:35'
-seed = 6
+#seed = 6  previous 04/09/17 17:30 pm
+seed = 0
 
 random.seed(seed)
 np.random.seed(seed)
@@ -106,7 +107,8 @@ drill_x = 0.70
 drill_y = 0.00
 drill_z = -0.1327
 drill_yaw = 0  # Degrees
-drill_size = [0.1, 0.1, 0.3]
+#drill_size = [0.1, 0.1, 0.3]
+drill_size = [0.11, 0.11, 0.3]  # Beer
 final_drill_height = 0.0
 drill_relative_pose = create_drill_relative_pose(drill_x=drill_x, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw)
 
@@ -141,17 +143,23 @@ body_part_sensed = 'RA'
 command_type = 'effort'
 
 if body_part_active == 'RA':
-    hand_y = -drill_size[1]/2+0.02
-    hand_z = drill_size[2]/2
+    hand_y = -drill_size[1]/2-0.02
+    hand_z = drill_size[2]/2+0.02
     hand_name = RH_name
     hand_offset = r_soft_hand_offset
 else:
-    hand_y = drill_size[1]/2-0.02
-    hand_z = drill_size[2]/2
+    hand_y = drill_size[1]/2+0.02
+    hand_z = drill_size[2]/2+0.02
     hand_name = LH_name
     hand_offset = l_soft_hand_offset
 
 hand_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0], hand_x=0.0, hand_y=hand_y, hand_z=hand_z, hand_yaw=0)
+
+
+object_name = 'drill'
+object_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0], hand_x=0.0, hand_y=hand_y, hand_z=hand_z, hand_yaw=0)
+
+
 
 reset_condition_bigman_drill_gazebo_fcn = Reset_condition_bigman_drill_gazebo()
 
@@ -177,6 +185,12 @@ observation_active = [{'name': 'joint_state',
                        'body_offset': hand_offset,
                        'target_offset': hand_rel_pose,
                        'fields': ['orientation', 'position']},
+
+                      {'name': 'distance_object',
+                       'type': 'object_pose',
+                       'body_name': object_name,
+                       'target_rel_pose': drill_relative_pose,
+                       'fields': ['orientation', 'position']},
                       ]
 
 state_active = [{'name': 'joint_state',
@@ -192,6 +206,12 @@ state_active = [{'name': 'joint_state',
                  'body_name': hand_name,
                  'body_offset': hand_offset,
                  'target_offset': hand_rel_pose,
+                 'fields': ['orientation', 'position']},
+
+                {'name': 'distance_object',
+                 'type': 'object_pose',
+                 'body_name': object_name,
+                 'target_rel_pose': drill_relative_pose,
                  'fields': ['orientation', 'position']},
                 ]
 
@@ -253,6 +273,7 @@ policy_params = {
     'gpu_id': 0,
     'random_seed': 1,
     'fc_only_iterations': 0,  # TODO: Only forwardcontrol? if it is CNN??
+    'gpu_mem_percentage': 0.2,
     # 'weights_file_prefix': EXP_DIR + 'policy',
 }
 policy_opt = {
@@ -281,30 +302,43 @@ target_distance_hand = np.zeros(6)
 # target_distance_hand[-2] = -0.02  # Yoffset
 # target_distance_hand[-1] = 0.1  # Zoffset
 
-# state_cost_distance = {
-#     'type': CostState,
-#     'ramp_option': RAMP_QUADRATIC,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
-#     'l1': 0.1,  # Weight for l1 norm
-#     'l2': 1.0,  # Weight for l2 norm
-#     'alpha': 1e-2,  # Constant added in square root in l1 norm
-#     'wp_final_multiplier': 10.0,  # Weight multiplier on final time step.
-#     'data_types': {
-#         'distance_left_arm': {
-#             # 'wp': np.ones_like(target_state),  # State weights - must be set.
-#             'wp': np.array([1.0, 1.0, 1.0, 3.0, 3.0, 1.0]),  # State weights - must be set.
-#             'target_state': target_distance_left_arm,  # Target state - must be set.
-#             'average': None,  # (12, 3),
-#             'data_idx': bigman_env.get_state_info(name='distance_left_arm')['idx']
-#         },
-#         'distance_right_arm': {
-#             # 'wp': np.ones_like(target_state),  # State weights - must be set.
-#             'wp': np.array([1.0, 1.0, 1.0, 3.0, 3.0, 1.0]),  # State weights - must be set.
-#             'target_state': target_distance_right_arm,  # Target state - must be set.
-#             'average': None,  # (12, 3),
-#             'data_idx': bigman_env.get_state_info(name='distance_right_arm')['idx']
-#         },
-#     },
-# }
+target_distance_object = np.zeros(6)
+state_cost_distance = {
+    'type': CostState,
+    'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
+    'l1': 1.0,  # Weight for l1 norm
+    'l2': 0.0,  # Weight for l2 norm
+    'alpha': 1e-2,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 100,  # Weight multiplier on final time step.
+    'data_types': {
+        'distance_object': {
+            # 'wp': np.ones_like(target_state),  # State weights - must be set.
+            'wp': np.array([10.0, 10.0, 1.0, 1.0, 1.0, 1.0]),  # State weights - must be set.
+            'target_state': target_distance_object,  # Target state - must be set.
+            'average': None,  # (12, 3),
+            'data_idx': bigman_env.get_state_info(name='distance_object')['idx']
+        },
+    },
+}
+state_final_cost_distance = {
+    'type': CostState,
+    'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+    'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
+    'l1': 1.0,  # Weight for l1 norm
+    'l2': 0.0,  # Weight for l2 norm
+    'alpha': 1e-2,  # Constant added in square root in l1 norm
+    'wp_final_multiplier': 10.0,  # Weight multiplier on final time step.
+    'data_types': {
+        'distance_object': {
+            # 'wp': np.ones_like(target_state),  # State weights - must be set.
+            'wp': np.array([10.0, 10.0, 1.0, 1.0, 1.0, 1.0]),  # State weights - must be set.
+            'target_state': target_distance_object,  # Target state - must be set.
+            'average': None,  # (12, 3),
+            'data_idx': bigman_env.get_state_info(name='distance_object')['idx']
+        },
+    },
+}
 
 fk_cost = {
     'type': CostFK,
@@ -386,7 +420,7 @@ fk_final_cost = {
     'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
-    'wp_final_multiplier': 10,
+    'wp_final_multiplier': 50,
 }
 
 fk_l1_final_cost = {
@@ -406,7 +440,7 @@ fk_l1_final_cost = {
     'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 0.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
-    'wp_final_multiplier': 10,
+    'wp_final_multiplier': 50,
 }
 
 fk_l2_final_cost = {
@@ -426,7 +460,7 @@ fk_l2_final_cost = {
     'l1': 0.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
     'l2': 1.0,  # Weight for l2 norm: d^2 --> Encourages to quickly get the object in the vicinity of the target
     'alpha': 1.0e-5,  # e-5,  # Constant added in square root in l1 norm
-    'wp_final_multiplier': 10,
+    'wp_final_multiplier': 50,
 }
 
 cost_sum = {
@@ -437,8 +471,8 @@ cost_sum = {
     # 'weights': [1.0e-2, 1.0e-0, 1.0e-0, 5.0e-1],
     #'costs': [act_cost, LAfk_cost, LAfk_final_cost],
     #'weights': [1.0e-1, 1.0e-0, 1.0e-0],
-    'costs': [act_cost, fk_l1_cost, fk_l2_cost, fk_l1_final_cost, fk_l2_final_cost],
-    'weights': [1.0e-1, 1.5e-1, 1.0e-0, 1.5e-1, 1.0e-0],
+    'costs': [act_cost, fk_l1_cost, fk_l2_cost, fk_l1_final_cost, fk_l2_final_cost, state_cost_distance, state_final_cost_distance],
+    'weights': [1.0e-1, 1.5e-1, 1.0e-0, 1.5e-1, 1.0e-0, 1.0e+1, 1.0e+1],
     # 'costs': [act_cost, state_cost],#, LAfk_cost, RAfk_cost],
     # 'weights': [0.1, 5.0],
 }
@@ -506,15 +540,33 @@ q3 = np.zeros(31)
 q3[15] = np.deg2rad(10)
 q3[16] = np.deg2rad(10)
 q3[18] = np.deg2rad(-35)
-q3[24] = np.deg2rad(10)
-q3[25] = np.deg2rad(-10)
-q3[27] = np.deg2rad(-35)
-drill_pose3 = create_drill_relative_pose(drill_x=drill_x-0.06, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw+10)
+# q3[24] = np.deg2rad(10)
+# q3[25] = np.deg2rad(-10)
+# q3[27] = np.deg2rad(-35)
+# q3[24] = np.deg2rad(-10)
+# #q3[25] = np.deg2rad(-20)
+# #q3[25] = np.deg2rad(-10)
+# q3[25] = np.deg2rad(-30)
+# q3[26] = np.deg2rad(0)
+# q3[27] = np.deg2rad(-85)
+# q3[28] = np.deg2rad(0)
+# q3[29] = np.deg2rad(0)
+# q3[30] = np.deg2rad(0)
+q3[24] = np.deg2rad(20)
+q3[25] = np.deg2rad(-55)
+q3[26] = np.deg2rad(0)
+q3[27] = np.deg2rad(-95)
+q3[28] = np.deg2rad(0)
+q3[29] = np.deg2rad(0)
+q3[30] = np.deg2rad(0)
+#drill_pose3 = create_drill_relative_pose(drill_x=drill_x-0.06, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw+10)
+drill_pose3 = create_drill_relative_pose(drill_x=drill_x+0.05, drill_y=drill_y-0.3, drill_z=drill_z, drill_yaw=drill_yaw+10)
 condition3 = create_bigman_drill_condition(q3, drill_pose3, bigman_env.get_state_info(),
                                            joint_idxs=bigman_params['joint_ids'][body_part_sensed])
 bigman_env.add_condition(condition3)
 reset_condition_bigman_drill_gazebo_fcn.add_reset_poses(drill_pose3)
 drill_relative_poses.append(drill_pose3)
+
 
 # # q4 = q0.copy()
 # q4 = np.zeros(31)
@@ -631,7 +683,7 @@ print("\nConfiguring learning algorithm...\n")
 # Learning params
 resume_training_itr = None  # Resume from previous training iteration
 # data_files_dir = 'GPS_2017-09-01_15:22:55'  # None  # In case we want to resume from previous training
-data_files_dir = None  # In case we want to resume from previous training
+data_files_dir = None  # 'GPS_2017-09-05_13:07:23'  # None  # In case we want to resume from previous training
 
 if demos_samples is None:
     #      # init_traj_distr values can be lists if they are different for each condition
@@ -650,6 +702,8 @@ if demos_samples is None:
     init_traj_distr = {'type': init_pd,
                        #'init_var': np.ones(len(bigman_params['joint_ids'][body_part_active]))*0.3e-1,  # Initial variance (Default:10)
                        'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
+                       #'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 2.0e-1, 2.0e-1, 2.0e-1])*1.0e+0,
+                       #'init_var': np.ones(7)*0.5,
                        #'init_var': np.ones(len(bigman_params['joint_ids'][body_part_active])),  # Initial variance (Default:10)
                        # 'init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
                        #                       3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0,  # Initial variance (Default:10)
@@ -700,16 +754,18 @@ traj_opt_dreps = {'type': TrajOptDREPS,
                   }
 
 traj_opt_mdreps = {'type': TrajOptMDREPS,
+                   'good_const': False,  # Use good constraints
+                   'bad_const': False,  # Use bad constraints
                    'del0': 1e-4,  # Eta updates for non-SPD Q-function (non-SPD correction step).
                    'del0_good': 1e-4,  # Omega updates for non-SPD Q-function (non-SPD correction step).
                    'del0_bad': 1e-8,  # Nu updates for non-SPD Q-function (non-SPD correction step).
                    # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
                    'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
                    'max_eta': 1e16,  # At max_eta, kl_div < kl_step
-                   'min_omega': 0,#1e-8,  # At min_omega, kl_div > kl_step
-                   'max_omega': 0,#1e16,  # At max_omega, kl_div < kl_step
-                   'min_nu': 0,#1e-8,  # At min_nu, kl_div > kl_step
-                   'max_nu': 0,#2.0e1,  # At max_nu, kl_div < kl_step,
+                   'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
+                   'max_omega': 1e16,  # At max_omega, kl_div < kl_step
+                   'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
+                   'max_nu': 2.0e1,  # At max_nu, kl_div < kl_step,
                    'step_tol': 0.1,
                    'bad_tol': 0.2,
                    'good_tol': 0.3,
@@ -760,17 +816,25 @@ mdreps_hyperparams = {'inner_iterations': 1,
                       'bad_samples': bad_trajs,
                       'n_bad_samples': 2,  # Number of bad samples per each trajectory
                       'n_good_samples': 2,  # Number of bad samples per each trajectory
-                      'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
                       'base_kl_bad': 2.5,  # (chi) to be used with multiplier | kl_div_b >= kl_bad
+                      'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
+                      'bad_traj_selection_type': 'always',  # 'always', 'only_traj'
+                      'good_traj_selection_type': 'always',  # 'always', 'only_traj'
                       'init_eta': 4.62,
-                      'init_nu': 0,#0.5,
-                      'init_omega': 0,#1.0,
-                      'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good in LQR)
-                      'max_good_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_good in LQR)
+                      'init_nu': 0.5,
+                      'init_omega': 1.0,
                       'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad in LQR)
                       'max_bad_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_bad in LQR)
-                      'min_good_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
+                      'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good in LQR)
+                      'max_good_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_good in LQR)
                       'min_bad_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
+                      'min_good_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
+                      'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
+                      'policy_sample_mode': 'add',
+                      'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
+                      'policy_prior': {'type': ConstantPolicyPrior,
+                                       'strength': 1e-4,
+                                       },
                       }
 
 
@@ -813,9 +877,10 @@ elif learning_algorithm.upper() == 'DREPS':
 elif learning_algorithm.upper() == 'MDREPS':
     gps_algo_hyperparams = mdreps_hyperparams
     traj_opt_method = traj_opt_mdreps
-    test_after_iter = False
+    test_after_iter = True
     sample_on_policy = False
-    use_global_policy = False
+    use_global_policy = True
+    #use_global_policy = False
 else:
     raise AttributeError("Wrong learning algorithm %s" % learning_algorithm.upper())
 
@@ -825,15 +890,16 @@ gps_hyperparams = {
     'dt': Ts,
     'iterations': 100,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
     'test_after_iter': test_after_iter,  # If test the learned policy after an iteration in the RL algorithm
-    'test_samples': 2,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
+    'test_samples': 4,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
     # Samples
-    'num_samples': 6,  # 20  # Samples for exploration trajs --> N samples
+    'num_samples': 10,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': sample_on_policy,  # Whether generate on-policy samples or off-policy samples
     #'noise_var_scale': np.array([5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2]),  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
     #'noise_var_scale': np.array([1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*10,  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
     'smooth_noise': True,  # Apply Gaussian filter to noise generated
-    'smooth_noise_var': 5.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
+    #'smooth_noise_var': 5.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
+    'smooth_noise_var': 8.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
     'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
     'noise_var_scale': np.ones(len(bigman_params['joint_ids'][body_part_active])),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
     'cost': cost_sum,

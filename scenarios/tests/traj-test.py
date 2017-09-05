@@ -1,9 +1,10 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from robolearn.utils.iit.iit_robots_params import *
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 from robolearn.utils.trajectory_interpolators import spline_interpolation
-from robolearn.utils.trajectory_interpolators import quaternion_interpolation
+from robolearn.utils.trajectory_interpolators import quaternion_slerp_interpolation
 from robolearn.utils.robot_model import *
 from robolearn.utils.iit.robot_poses.bigman.poses import *
 from robolearn.utils.transformations import *
@@ -23,14 +24,18 @@ np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 box_position = np.array([0.75-0.05,
                          0.00,
                          0.0184])
+box_position = np.array([0.64, -0.03-0.3, 0.0173+0.2])  # drill
+box_position = np.array([0.64, 0., -0.1327])  # beer
 box_size = [0.4, 0.5, 0.3]
+box_size = [0.1, 0.1, 0.3]  # drill
+box_size = [0.11, 0.11, 0.3]  # beer
 box_yaw = 0  # Degrees
 #box_orient = tf.transformations.rotation_matrix(np.deg2rad(15), [1, 0, 0])  # For the EEs is rotation in X
 box_orient = tf.transformations.rotation_matrix(np.deg2rad(box_yaw), [0, 0, 1])
 box_matrix = homogeneous_matrix(rot=box_orient, pos=box_position)
 freq = 100
 T_init = 1
-T_reach = 2
+T_reach = 5
 T_lift = 2
 
 # Save/Load file name
@@ -39,17 +44,17 @@ load_reach_traj = False
 load_lift_traj = False
 #load_reach_traj = True
 #load_lift_traj = True
-save_reach_traj = True
-save_lift_traj = True
+save_reach_traj = False
+save_lift_traj = False
 
-remove_spawn_new_box = True
+remove_spawn_new_box = False
 
 reach_option = 0
 #reach_option 0: IK desired final pose, interpolate in joint space
 #reach_option 1: Trajectory in EEs, then IK whole trajectory
 #reach_option 2: Trajectory in EEs, IK with Jacobians
 
-lift_option = 1
+lift_option = 0
 #lift_option 0: IK desired final pose, interpolate the others
 #lift_option 1: Trajectory in EEs, then IK whole trajectory
 #lift_option 2: Trajectory in EEs, IK with Jacobians
@@ -58,14 +63,25 @@ regularization_parameter = 0.01  # For IK optimization algorithm
 
 
 q_init = np.zeros(31)
-q_init[16] = np.deg2rad(50)
-q_init[25] = np.deg2rad(-50)
+# q_init[16] = np.deg2rad(50)
+# q_init[25] = np.deg2rad(-50)
+q_init[24] = np.deg2rad(20)
+q_init[25] = np.deg2rad(-35)
+q_init[26] = np.deg2rad(0)
+q_init[27] = np.deg2rad(-95)
+q_init[28] = np.deg2rad(0)
+q_init[29] = np.deg2rad(0)
+q_init[30] = np.deg2rad(0)
+
+print(q_init[24:])
+print(bigman_params['joints_limits'][24:])
 #q_init = np.deg2rad(np.array(bigman_Apose))
 #q_init = np.deg2rad(np.array(bigman_Fpose))
 #q_init = np.deg2rad(np.array(bigman_Tpose))
 
 # Robot Model
 robot_urdf = '/home/domingo/robotology-superbuild/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
+robot_urdf = os.environ["ROBOTOLOGY_ROOT"]+'/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
 robot_model = RobotModel(robot_urdf)
 LH_name = 'LWrMot3'
 RH_name = 'RWrMot3'
@@ -89,7 +105,7 @@ if not load_reach_traj:
     ##des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(5), [0, 0, 1]))
     ##des_orient = des_orient.dot(tf.transformations.rotation_matrix(np.deg2rad(10), [0, 1, 0]))
     #des_orient = des_orient.dot(box_orient)
-    box_LH_position = np.array([0.05,
+    box_LH_position = np.array([0.00,
                                 box_size[1]/2. - 0.00,
                                 -0.05])
     box_LH_matrix = homogeneous_matrix(pos=box_LH_position)
@@ -99,7 +115,7 @@ if not load_reach_traj:
     LH_reach_pose[4:] = tf.transformations.translation_from_matrix(LH_reach_matrix)
     LH_reach_pose[:4] = tf.transformations.quaternion_from_matrix(LH_reach_matrix)
 
-    box_RH_position = np.array([0.05,
+    box_RH_position = np.array([0.00,
                                 -box_size[1]/2. + 0.00,
                                 -0.05])
     box_RH_matrix = homogeneous_matrix(pos=box_RH_position)
@@ -116,6 +132,8 @@ if not load_reach_traj:
         q_reach = robot_model.ik(LH_name, LH_reach_pose, body_offset=l_soft_hand_offset,
                                  mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
                                  method='optimization')
+        print("TODO: NOT MOVING LEFT ARM")
+        q_reach = q_init
         q_reach2 = robot_model.ik(RH_name, RH_reach_pose, body_offset=r_soft_hand_offset,
                                   mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
                                   method='optimization')
@@ -125,9 +143,10 @@ if not load_reach_traj:
         # Trajectory
         joint_reach_trajectory = polynomial5_interpolation(N, q_reach, q_init)[0]
 
-        save_reach_traj = raw_input("Save reach trajectory before visualize? (y/yes): ")
-        if save_reach_traj.lower() in ['y', 'yes']:
-            np.save(file_name + '_m' + str(reach_option) + '_reach.npy', joint_reach_trajectory)
+        print("TODO: UNCOMMENT BELOW")
+        # save_reach_traj = raw_input("Save reach trajectory before visualize? (y/yes): ")
+        # if save_reach_traj.lower() in ['y', 'yes']:
+        #     np.save(file_name + '_m' + str(reach_option) + '_reach.npy', joint_reach_trajectory)
 
     elif reach_option == 1:
         q = q_init.copy()
@@ -138,8 +157,8 @@ if not load_reach_traj:
 
         viapoint_LH_reach = np.empty(3)
 
-        quatLH_interpolation = quaternion_interpolation(N, LH_reach_pose[:4], actual_LH_pose[:4])
-        quatRH_interpolation = quaternion_interpolation(N, RH_reach_pose[:4], actual_RH_pose[:4])
+        quatLH_interpolation = quaternion_slerp_interpolation(N, LH_reach_pose[:4], actual_LH_pose[:4])
+        quatRH_interpolation = quaternion_slerp_interpolation(N, RH_reach_pose[:4], actual_RH_pose[:4])
         desired_LH_reach_pose[:, :4] = quatLH_interpolation
         desired_RH_reach_pose[:, :4] = quatRH_interpolation
 
@@ -175,8 +194,8 @@ if not load_reach_traj:
         desired_LH_reach_pose = polynomial5_interpolation(N, LH_reach_pose, actual_LH_pose)[0]
         desired_RH_reach_pose = polynomial5_interpolation(N, RH_reach_pose, actual_RH_pose)[0]
 
-        quatLH_interpolation = quaternion_interpolation(N, LH_reach_pose[:4], actual_LH_pose[:4])
-        quatRH_interpolation = quaternion_interpolation(N, RH_reach_pose[:4], actual_RH_pose[:4])
+        quatLH_interpolation = quaternion_slerp_interpolation(N, LH_reach_pose[:4], actual_LH_pose[:4])
+        quatRH_interpolation = quaternion_slerp_interpolation(N, RH_reach_pose[:4], actual_RH_pose[:4])
         desired_LH_reach_pose[:, :4] = quatLH_interpolation
         desired_RH_reach_pose[:, :4] = quatRH_interpolation
 
@@ -253,9 +272,10 @@ if not load_lift_traj:
 
         #if save_lift_traj:
         #    np.save(file_name+'_lift.npy', joint_lift_trajectory)
-        save_lift_traj = raw_input("Save lift trajectory before visualize? (y/yes): ")
-        if save_lift_traj.lower() in ['y', 'yes']:
-            np.save(file_name + '_m' + str(lift_option) + '_lift.npy', joint_lift_trajectory)
+        print("TODO: UNCOMMENT BELOW")
+        # save_lift_traj = raw_input("Save lift trajectory before visualize? (y/yes): ")
+        # if save_lift_traj.lower() in ['y', 'yes']:
+        #     np.save(file_name + '_m' + str(lift_option) + '_lift.npy', joint_lift_trajectory)
 
     elif lift_option == 1:
         q = q_reach.copy()
@@ -284,9 +304,10 @@ if not load_lift_traj:
 
         #if save_lift_traj:
         #    np.save(file_name+'_lift.npy', joint_lift_trajectory)
-        save_lift_traj = raw_input("Save lift trajectory before visualize? (y/yes): ")
-        if save_lift_traj.lower() in ['y', 'yes']:
-            np.save(file_name + '_m' + str(lift_option) + '_lift.npy', joint_lift_trajectory)
+        print("TODO: UNCOMMENT THE BELOW")
+        # save_lift_traj = raw_input("Save lift trajectory before visualize? (y/yes): ")
+        # if save_lift_traj.lower() in ['y', 'yes']:
+        #     np.save(file_name + '_m' + str(lift_option) + '_lift.npy', joint_lift_trajectory)
 
     elif lift_option == 2:
         T_lift = 2
@@ -321,7 +342,7 @@ while rospy.is_shutdown():
     pass
 print("ROS OK")
 # ROS Stuff
-raw_input("Press for ROS related stuff")
+#raw_input("Press for ROS related stuff")
 joint_state = np.zeros(robot_model.q_size)
 joint_state_id = []
 def callback(data, params):
