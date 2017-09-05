@@ -113,6 +113,9 @@ class RobotROSEnvInterface(ROSEnvInterface):
                                                 self.temp_target_callback)
 
 
+        self.distance_object_vector = None
+
+
         # ############ #
         # OBSERVATIONS #
         # ############ #
@@ -159,6 +162,15 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 obs_to_activate['ros_topic'] = None
                 ros_topic_type = 'fk_pose'
 
+            elif obs_to_activate['type'] == 'object_pose':
+                obs_dof = 0
+                if 'orientation' in obs_to_activate['fields']:
+                    obs_dof += 3
+                if 'position' in obs_to_activate['fields']:
+                    obs_dof += 3
+                obs_to_activate['ros_topic'] = None
+                ros_topic_type = 'object_pose'
+
             else:
                 raise NotImplementedError("observation %s is not supported!!" % obs_to_activate['type'])
 
@@ -188,6 +200,20 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 while self.receiving_target is False:
                     pass
 
+            # TODO: Find a better way
+            if obs_to_activate['type'] == 'object_pose':
+                self.distance_object_vector_idx = obs_msg_id
+                self.distance_object_vector_params = {'body_name': obs_to_activate['body_name'],
+                                                      'target_rel_pose': obs_to_activate['target_rel_pose'],
+                                                      'fields': obs_to_activate['fields']}
+
+                self.distance_object_vector = np.zeros(obs_dof)
+                self.prev_quat_object_vector = np.array([0, 0, 0, 1, 0, 0, 0])
+                self.last_obs[obs_msg_id] = self.distance_object_vector
+
+                print("Waiting to receive target object message")
+                while self.receiving_target is False:
+                    pass
 
             obs_idx = range(obs_idx[-1] + 1, obs_idx[-1] + 1 + obs_dof)
 
@@ -251,6 +277,14 @@ class RobotROSEnvInterface(ROSEnvInterface):
             elif state_to_activate['type'] == 'fk_pose':
                 distance_vector_idx = self.distance_vectors_idx.index(self.get_obs_idx(name=state_to_activate['name']))
                 state_dof = len(self.distance_vectors[distance_vector_idx])
+                state_idx = range(state_idx[-1] + 1, state_idx[-1] + 1 + state_dof)
+                state_id = self.set_state_type(state_to_activate['name'],  # State name
+                                               self.get_obs_idx(name=state_to_activate['name']),  # Obs_type Name
+                                               state_to_activate['type'],  # State type
+                                               state_idx)  # State indexes
+
+            elif state_to_activate['type'] == 'object_pose':
+                state_dof = len(self.distance_object_vector)
                 state_idx = range(state_idx[-1] + 1, state_idx[-1] + 1 + state_dof)
                 state_id = self.set_state_type(state_to_activate['name'],  # State name
                                                self.get_obs_idx(name=state_to_activate['name']),  # Obs_type Name
@@ -429,6 +463,9 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 fk_pose_idx = self.distance_vectors_idx.index(oo)
                 observation[obs['obs_idx']] = self.distance_vectors[fk_pose_idx].copy()
 
+            elif obs['type'] == 'object_pose':
+                observation[obs['obs_idx']] = self.distance_object_vector.copy()
+
             else:
                 raise NotImplementedError("Observation type %s has not been implemented in get_observation()" %
                                           obs['type'])
@@ -452,6 +489,10 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 state[x['state_idx']] = self.prev_act[:]#.copy()
 
             elif x['type'] == 'fk_pose':
+                # distance_vector_idx = self.distance_vectors_idx.index(self.get_obs_idx(name=state_to_activate['name']))
+                state[x['state_idx']] = x['ros_msg'][:]
+
+            elif x['type'] == 'object_pose':
                 # distance_vector_idx = self.distance_vectors_idx.index(self.get_obs_idx(name=state_to_activate['name']))
                 state[x['state_idx']] = x['ros_msg'][:]
 
@@ -642,6 +683,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.target_pose[4] = data.pose[box_idx].position.x
         self.target_pose[5] = data.pose[box_idx].position.y
         self.target_pose[6] = data.pose[box_idx].position.z
+        #print(self.target_pose)
 
         robot_idx = data.name.index('base_link')
         self.robot_pose[0] = data.pose[robot_idx].orientation.x
@@ -681,6 +723,25 @@ class RobotROSEnvInterface(ROSEnvInterface):
                         prev_idx += 3
                     else:
                         raise ValueError("Wrong fk_pose field")
+
+        if self.distance_object_vector is not None:
+            object_pose = self.target_pose
+            tgt = self.distance_object_vector_params['target_rel_pose']
+            distance = compute_cartesian_error(object_pose, tgt)
+            prev_idx = 0
+            for obs_field in self.distance_object_vector_params['fields']:
+                if obs_field == 'position':
+                    self.distance_object_vector[prev_idx:prev_idx+3] = distance[-3:]
+                    prev_idx += 3
+                elif obs_field == 'orientation':
+                    self.distance_object_vector[prev_idx:prev_idx+3] = distance[:3]
+                    prev_idx += 3
+                else:
+                    raise ValueError("Wrong fk_pose field")
+            #print(tgt)
+            #print(object_pose)
+            #print(self.distance_object_vector)
+            #print("-----")
 
     def get_target_pose(self):
         return self.target_pose.copy()

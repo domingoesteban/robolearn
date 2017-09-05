@@ -9,6 +9,7 @@ import copy
 from robolearn.algos.gps.gps import GPS
 from robolearn.algos.trajopt.trajopt_config import default_mdreps_hyperparams
 from robolearn.algos.gps.gps_utils import IterationData, TrajectoryInfo, extract_condition, DualityInfo
+from robolearn.algos.gps.gps_utils import PolicyInfo
 from robolearn.utils.sample import Sample
 from robolearn.utils.sample_list import SampleList
 from robolearn.policies.lin_gauss_policy import LinearGaussianPolicy
@@ -68,6 +69,15 @@ class MDREPS(GPS):
         self.base_kl_good = self._hyperparams['base_kl_good']
         self.base_kl_bad = self._hyperparams['base_kl_bad']
 
+        self.use_global_policy = self._hyperparams['use_global_policy']
+
+        if self.use_global_policy:
+            policy_prior = self._hyperparams['policy_prior']
+            for m in range(self.M):
+                # Same policy prior type for all conditions
+                self.cur[m].pol_info = PolicyInfo(self._hyperparams)
+                self.cur[m].pol_info.policy_prior = policy_prior['type'](policy_prior)
+
     def iteration(self, sample_lists):
         """
         Run iteration of mDREPS.
@@ -82,14 +92,39 @@ class MDREPS(GPS):
         print('->Updating dynamics linearization...')
         self._update_dynamics()
 
+
+        # Evaluate cost function for all conditions and samples.
         print('')
-        print('->Updating KL step size...')
-        self._update_step_size()  # KL Divergence step size.
+        print('->Evaluating samples costs...')
+        for m in range(self.M):
+            self._eval_cost(m)
+
+        # On the first iteration, need to catch policy up to init_traj_distr.
+        if self.use_global_policy and self.iteration_count == 0:
+            self.new_traj_distr = [self.cur[cond].traj_distr for cond in range(self.M)]
+            print("\n"*2)
+            print('->S-step for init_traj_distribution (iter=0)...')
+            self.update_policy()
+
+        # Update global policy linearizations.
+        print('')
+        if self.use_global_policy:
+            print('->Updating global policy linearization...')
+            for m in range(self.M):
+                self.update_policy_fit(m)
+
+        print('')
+        if self.use_global_policy and self.iteration_count > 0:
+            print('->Updating KL step size with GLOBAL policy...')
+            self._update_step_size_global_policy()
+        else:
+            print('->Updating KL step size with previous LOCAL policy...')
+            self._update_step_size()  # KL Divergence step size.
 
         print('')
         print('->Getting good and bad trajectories...')
-        self._get_good_trajectories()
-        self._get_bad_trajectories()
+        self._get_good_trajectories(option=self._hyperparams['good_traj_selection_type'])
+        self._get_bad_trajectories(option=self._hyperparams['bad_traj_selection_type'])
 
         print('')
         print('->Updating data of good and bad trajectories...')
@@ -101,18 +136,24 @@ class MDREPS(GPS):
         self._fit_good_bad_traj_dist()
 
         # Run inner loop to compute new policies.
+        print('')
         print('->Updating trajectories...')
         for ii in range(self._hyperparams['inner_iterations']):
             print('-->Inner iteration %d/%d' % (ii+1, self._hyperparams['inner_iterations']))
             self._update_trajectories()
+
+        if self.use_global_policy:
+            print('')
+            print('->| S-step |<-')
+            self.update_policy()
 
         self.advance_duality_iteration_variables()
 
     def _update_step_size(self):
         """ Evaluate costs on samples, and adjust the step size. """
         # Evaluate cost function for all conditions and samples.
-        for m in range(self.M):
-            self._eval_cost(m)
+        #for m in range(self.M):
+        #    self._eval_cost(m)
 
         # Adjust step size relative to the previous iteration.
         for m in range(self.M):
@@ -171,6 +212,59 @@ class MDREPS(GPS):
                      predicted_impr, actual_impr)
 
         self._set_new_mult(predicted_impr, actual_impr, m)
+
+    def _update_step_size_global_policy(self):
+        """
+        Calculate new step sizes. This version uses the same step size for all conditions.
+        """
+        # Compute previous cost and previous expected cost.
+        prev_M = len(self.prev)  # May be different in future.
+        prev_laplace = np.empty(prev_M)
+        prev_mc = np.empty(prev_M)
+        prev_predicted = np.empty(prev_M)
+        for m in range(prev_M):
+            prev_nn = self.prev[m].pol_info.traj_distr()
+            prev_lg = self.prev[m].new_traj_distr
+
+            # Compute values under Laplace approximation. This is the policy that the previous samples were actually
+            # drawn from under the dynamics that were estimated from the previous samples.
+            prev_laplace[m] = self.traj_opt.estimate_cost(prev_nn, self.prev[m].traj_info).sum()
+            # This is the actual cost that we experienced.
+            prev_mc[m] = self.prev[m].cs.mean(axis=0).sum()
+            # This is the policy that we just used under the dynamics that were estimated from the prev samples (so
+            # this is the cost we thought we would have).
+            prev_predicted[m] = self.traj_opt.estimate_cost(prev_lg, self.prev[m].traj_info).sum()
+
+        # Compute current cost.
+        cur_laplace = np.empty(self.M)
+        cur_mc = np.empty(self.M)
+        for m in range(self.M):
+            cur_nn = self.cur[m].pol_info.traj_distr()
+            # This is the actual cost we have under the current trajectory based on the latest samples.
+            cur_laplace[m] = self.traj_opt.estimate_cost(cur_nn, self.cur[m].traj_info).sum()
+            cur_mc[m] = self.cur[m].cs.mean(axis=0).sum()
+
+        # Compute predicted and actual improvement.
+        prev_laplace = prev_laplace.mean()
+        prev_mc = prev_mc.mean()
+        prev_predicted = prev_predicted.mean()
+        cur_laplace = cur_laplace.mean()
+        cur_mc = cur_mc.mean()
+        if self._hyperparams['step_rule'] == 'laplace':
+            predicted_impr = prev_laplace - prev_predicted
+            actual_impr = prev_laplace - cur_laplace
+        elif self._hyperparams['step_rule'] == 'mc':
+            predicted_impr = prev_mc - prev_predicted
+            actual_impr = prev_mc - cur_mc
+        LOGGER.debug('Previous cost: Laplace: %f, MC: %f',
+                     prev_laplace, prev_mc)
+        LOGGER.debug('Predicted cost: Laplace: %f', prev_predicted)
+        LOGGER.debug('Actual cost: Laplace: %f, MC: %f',
+                     cur_laplace, cur_mc)
+
+        for m in range(self.M):
+            self._set_new_mult(predicted_impr, actual_impr, m)
+
 
     def compute_costs(self, m, eta, omega, nu, augment=True):
         """
@@ -308,6 +402,8 @@ class MDREPS(GPS):
 
             # Get current best trajectory
             if self.good_duality_info[cond].sample_list is None:
+                for gg, good_index in enumerate(best_indeces):
+                    print("Defining GOOD trajectory sample %d | cur_cost=%f" % (gg, np.sum(cs[good_index, :])))
                 self.good_duality_info[cond].sample_list = SampleList([sample_list[good_index] for good_index in best_indeces])
                 self.good_duality_info[cond].samples_cost = cs[best_indeces, :]
             else:
@@ -317,20 +413,21 @@ class MDREPS(GPS):
                     for good_index in best_indeces:
                         least_best_index = np.argpartition(np.sum(self.good_duality_info[cond].samples_cost, axis=1), -1)[-1:]
                         if np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]) > np.sum(cs[good_index, :]):
-                            print("Updating GOOD trajectory | cur_cost=%f > new_cost=%f"
-                                  % (np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]),
+                            print("Updating GOOD trajectory sample %d | cur_cost=%f > new_cost=%f"
+                                  % (least_best_index,
+                                     np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]),
                                      np.sum(cs[good_index, :])))
                             self.good_duality_info[cond].sample_list.set_sample(least_best_index, sample_list[good_index])
                             self.good_duality_info[cond].samples_cost[least_best_index, :] = cs[good_index, :]
                 elif option == 'always':
                     for gg, good_index in enumerate(best_indeces):
+                        print("Updating GOOD trajectory sample %d | cur_cost=%f > new_cost=%f"
+                              % (gg, np.sum(self.good_duality_info[cond].samples_cost[gg, :]),
+                                 np.sum(cs[good_index, :])))
                         self.good_duality_info[cond].sample_list.set_sample(gg, sample_list[good_index])
                         self.good_duality_info[cond].samples_cost[gg, :] = cs[good_index, :]
                 else:
                     raise ValueError("Wrong get_good_grajectories option: %s" % option)
-
-
-
 
     def _get_bad_trajectories(self, option='only_traj'):
         for cond in range(self.M):
@@ -348,6 +445,8 @@ class MDREPS(GPS):
 
             # Get current best trajectory
             if self.bad_duality_info[cond].sample_list is None:
+                for bb, bad_index in enumerate(worst_indeces):
+                    print("Defining BAD trajectory sample %d | cur_cost=%f" % (bb, np.sum(cs[bad_index, :])))
                 self.bad_duality_info[cond].sample_list = SampleList([sample_list[bad_index] for bad_index in worst_indeces])
                 self.bad_duality_info[cond].samples_cost = cs[worst_indeces, :]
             else:
@@ -356,13 +455,17 @@ class MDREPS(GPS):
                     for bad_index in worst_indeces:
                         least_worst_index = np.argpartition(np.sum(self.bad_duality_info[cond].samples_cost, axis=1), 1)[:1]
                         if np.sum(self.bad_duality_info[cond].samples_cost[least_worst_index, :]) < np.sum(cs[bad_index, :]):
-                            print("Updating BAD trajectory | cur_cost=%f < new_cost=%f"
-                                  % (np.sum(self.bad_duality_info[cond].samples_cost[least_worst_index, :]),
+                            print("Updating BAD trajectory sample %d | cur_cost=%f < new_cost=%f"
+                                  % (least_worst_index,
+                                     np.sum(self.bad_duality_info[cond].samples_cost[least_worst_index, :]),
                                      np.sum(cs[bad_index, :])))
                             self.bad_duality_info[cond].sample_list.set_sample(least_worst_index, sample_list[bad_index])
                             self.bad_duality_info[cond].samples_cost[least_worst_index, :] = cs[bad_index, :]
                 elif option == 'always':
                     for bb, bad_index in enumerate(worst_indeces):
+                        print("Updating BAD trajectory sample %d | cur_cost=%f < new_cost=%f"
+                              % (bb, np.sum(self.bad_duality_info[cond].samples_cost[bb, :]),
+                                 np.sum(cs[bad_index, :])))
                         self.bad_duality_info[cond].sample_list.set_sample(bb, sample_list[bad_index])
                         self.bad_duality_info[cond].samples_cost[bb, :] = cs[bad_index, :]
                 else:
@@ -654,5 +757,67 @@ class MDREPS(GPS):
             self.cur[m].nu = self.prev[m].nu
             self.cur[m].omega = self.prev[m].omega
 
-            # self.cur[m].traj_info.last_kl_step = self.prev[m].traj_info.last_kl_step
-            # self.cur[m].pol_info = copy.deepcopy(self.prev[m].pol_info)
+            if self.use_global_policy:
+                self.cur[m].traj_info.last_kl_step = self.prev[m].traj_info.last_kl_step
+                self.cur[m].pol_info = copy.deepcopy(self.prev[m].pol_info)
+
+    def update_policy(self):
+        """
+        Computes(updates) a new global policy.
+        :return: 
+        """
+        print('-->Updating Global policy...')
+        dU, dO, T = self.dU, self.dO, self.T
+        # Compute target mean, cov(precision), and weight for each sample; and concatenate them.
+        obs_data, tgt_mu = np.zeros((0, T, dO)), np.zeros((0, T, dU))
+        tgt_prc, tgt_wt = np.zeros((0, T, dU, dU)), np.zeros((0, T))
+        for m in range(self.M):
+            samples = self.cur[m].sample_list
+            X = samples.get_states()
+            N = len(samples)
+            traj, pol_info = self.new_traj_distr[m], self.cur[m].pol_info
+            mu = np.zeros((N, T, dU))
+            prc = np.zeros((N, T, dU, dU))
+            wt = np.zeros((N, T))
+            # Get time-indexed actions.
+            for t in range(T):
+                # Compute actions along this trajectory.
+                prc[:, t, :, :] = np.tile(traj.inv_pol_covar[t, :, :], [N, 1, 1])
+                for i in range(N):
+                    mu[i, t, :] = (traj.K[t, :, :].dot(X[i, t, :]) + traj.k[t, :])
+
+                wt[:, t].fill(pol_info.pol_wt[t])
+
+            tgt_mu = np.concatenate((tgt_mu, mu))
+            tgt_prc = np.concatenate((tgt_prc, prc))
+            tgt_wt = np.concatenate((tgt_wt, wt))
+            obs_data = np.concatenate((obs_data, samples.get_obs()))
+
+        self.policy_opt.update(obs_data, tgt_mu, tgt_prc, tgt_wt)
+
+    def update_policy_fit(self, cond):
+        """
+        Re-estimate the local policy values in the neighborhood of the trajectory.
+        :param cond: Condition
+        :return: None
+        """
+        dX, dU, T = self.dX, self.dU, self.T
+        # Choose samples to use.
+        samples = self.cur[cond].sample_list
+        N = len(samples)
+        pol_info = self.cur[cond].pol_info
+        X = samples.get_states().copy()
+        obs = samples.get_obs().copy()
+        pol_mu, pol_sig = self.policy_opt.prob(obs)[:2]
+        pol_info.pol_mu, pol_info.pol_sig = pol_mu, pol_sig
+
+        # Update policy prior.
+        policy_prior = pol_info.policy_prior
+        samples = SampleList(self.cur[cond].sample_list)
+        mode = self._hyperparams['policy_sample_mode']
+        policy_prior.update(samples, self.policy_opt, mode)
+
+        # Fit linearization and store in pol_info.
+        pol_info.pol_K, pol_info.pol_k, pol_info.pol_S = policy_prior.fit(X, pol_mu, pol_sig)
+        for t in range(T):
+            pol_info.chol_pol_S[t, :, :] = sp.linalg.cholesky(pol_info.pol_S[t, :, :])

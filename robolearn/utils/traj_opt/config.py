@@ -49,6 +49,10 @@ default_traj_opt_dreps_hyperparams = {
 
 # TrajOptmDREPS
 default_traj_opt_mdreps_hyperparams = {
+    'good_const': True,
+    'bad_const': True,
+    'bad_traj_selection_type': 'always',  # 'always', 'only_traj'
+    'good_traj_selection_type': 'always',  # 'always', 'only_traj'
     'epsilon': 1.0,   # KL-divergence threshold between old and new policies.
     'xi': 5.0,
     'chi': 2.0,

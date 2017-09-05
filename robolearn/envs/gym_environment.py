@@ -85,16 +85,26 @@ class GymEnv(Environment):
     def get_state(self):
         return self.last_state.copy()
 
-    def get_obs_info(self, **kwargs):
-        obs_info = {'names': ['gym_observation'],
-                    'dimensions': [self.get_obs_dim()],
-                    'idx': [0]}
+    def get_obs_info(self, name=None):
+        if name is None:
+            obs_info = {'names': ['gym_observation'],
+                        'dimensions': [self.get_obs_dim()],
+                        'idx': [range(self.get_obs_dim())]}
+        else:
+            obs_info = {'names': 'gym_observation',
+                        'dimensions': self.get_obs_dim(),
+                        'idx': range(self.get_obs_dim())}
         return obs_info
 
-    def get_state_info(self, **kwargs):
-        state_info = {'names': ['gym_state'],
-                    'dimensions': [self.get_state_dim()],
-                    'idx': [0]}
+    def get_state_info(self, name=None):
+        if name is None:
+            state_info = {'names': ['gym_state'],
+                        'dimensions': [self.get_state_dim()],
+                        'idx': [range(self.get_state_dim())]}
+        else:
+            state_info = {'names': 'gym_state',
+                          'dimensions': self.get_state_dim(),
+                          'idx': range(self.get_state_dim())}
         return state_info
 
     def get_env_info(self):

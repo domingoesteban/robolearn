@@ -318,6 +318,8 @@ class GPS(RLAlgorithm):
         else:
             noise = np.zeros((self.T, self.dU))
 
+        #plot_multi_info([noise], block=False, cols=3, legend=True, labels=range(7))
+
         # Create a sample class
         sample = Sample(self.env, self.T)
         history = [None] * self.T
@@ -353,6 +355,9 @@ class GPS(RLAlgorithm):
             state = self.env.get_state()
             # action = policy.eval(state, obs, t, noise[t, :])
             action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # TODO: Avoid TF policy writes in obs
+            # print(obs[-6:])
+            # print(state[-6:])
+            # print("---")
             # action = np.zeros_like(action)
             # action[6] = -0.2
             # action[3] = -0.15707963267948966
@@ -385,6 +390,9 @@ class GPS(RLAlgorithm):
         sample.set_obs(all_obs)        # Set all obs at the same time
         sample.set_states(all_states)  # Set all states at the same time
         sample.set_noise(noise)        # Set all noise at the same time
+
+        #plot_multi_info([all_actions], block=False, cols=3, legend=True, labels=range(7))
+        #raw_input('actions')
 
         if save:  # Save sample in agent sample list
             sample_id = self.agent.add_sample(sample, cond)

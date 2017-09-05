@@ -84,10 +84,11 @@ signal.signal(signal.SIGINT, kill_everything)
 # ################## #
 # ################## #
 learning_algorithm = 'MDREPS'
-env_name = 'Pendulum-v0'
+#env_name = 'Pendulum-v0'
+env_name = 'Reacher-v1'
 # Task parameters
 Ts = 0.01
-Treach = 5
+Treach = 1
 Tlift = 0  # 3.8
 Tinter = 0  # 0.5
 Tend = 0  # 0.7
@@ -114,7 +115,7 @@ print("\nCreating GYM environment...")
 
 
 # Create a BIGMAN ROS EnvInterface
-gym_env = GymEnv(name=env_name, render=True, seed=seed)
+gym_env = GymEnv(name=env_name, render=False, seed=seed)
 
 action_dim = gym_env.get_action_dim()
 state_dim = gym_env.get_state_dim()
@@ -179,7 +180,7 @@ act_cost = {
 }
 
 # State Cost
-target_distance_state = np.zeros(6)
+target_distance_state = np.array([1.0, 0.0, 0.0])  # [cos(0), sin(0), 0] / [cost_theta, sin_theta, theta_dot]
 state_cost_distance = {
     'type': CostState,
     'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
@@ -190,7 +191,7 @@ state_cost_distance = {
     'data_types': {
         'gym_state': {
             # 'wp': np.ones_like(target_state),  # State weights - must be set.
-            'wp': np.array([1.0, 1.0, 1.0, 3.0, 3.0, 1.0]),  # State weights - must be set.
+            'wp': np.array([1.0, 1.0, 1.0]),  # State weights - must be set.
             'target_state': target_distance_state,  # Target state - must be set.
             'average': None,  # (12, 3),
             'data_idx': gym_env.get_state_info(name='gym_state')['idx']
@@ -362,8 +363,10 @@ mdreps_hyperparams = {'inner_iterations': 1,
                       'bad_samples': bad_trajs,
                       'n_bad_samples': 2,  # Number of bad samples per each trajectory
                       'n_good_samples': 2,  # Number of bad samples per each trajectory
-                      'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
                       'base_kl_bad': 2.5,  # (chi) to be used with multiplier | kl_div_b >= kl_bad
+                      'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
+                      'bad_traj_selection_type': 'always',  # 'always', 'only_traj'
+                      'good_traj_selection_type': 'always',  # 'always', 'only_traj'
                       'init_eta': 4.62,
                       'init_nu': 0,#0.5,
                       'init_omega': 0,#1.0,
