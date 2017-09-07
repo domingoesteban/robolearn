@@ -39,7 +39,8 @@ from robolearn.algos.trajopt.ilqr import ILQR
 from robolearn.algos.trajopt.pi2 import PI2
 from robolearn.algos.trajopt.dreps import DREPS
 from robolearn.algos.trajopt.mdreps import MDREPS
-from robolearn.policies.lin_gauss_init import init_lqr, init_pd, init_demos
+from robolearn.algos.gps.multi_gps import MULTIGPS
+from robolearn.policies.lin_gauss_init import init_lqr, init_pd, init_demos, init_dual_demos
 from robolearn.policies.policy_prior import ConstantPolicyPrior  # For MDGPS
 
 from robolearn.utils.sampler import Sampler
@@ -71,6 +72,8 @@ import datetime
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 
 
+
+
 def kill_everything(_signal=None, _frame=None):
     print("\n\033[1;31mThe script has been kill by the user!!")
     os._exit(1)
@@ -86,16 +89,17 @@ signal.signal(signal.SIGINT, kill_everything)
 learning_algorithm = 'MDREPS'
 # Task parameters
 Ts = 0.01
-Treach = 8
-Tlift = 0  # 3.8
-Tinter = 0  # 0.5
+Tinterm = 0#2
+Treach = 6#3.5
+Tlift = 0.0 # 3.8
+Tinter = 0 #0.5
 Tend = 0  # 0.7
 # EndTime = 4  # Using final time to define the horizon
-EndTime = Treach + Tinter + Tlift + Tend  # Using final time to define the horizon
+EndTime = Tinterm + Treach + Tinter + Tlift + Tend  # Using final time to define the horizon
 init_with_demos = False
-generate_dual_sets = True
+generate_dual_sets = False
 demos_dir = None  # 'TASKSPACE_TORQUE_CTRL_DEMO_2017-07-21_16:32:39'
-dual_dir = 'DUAL_DEMOS_2017-08-23_07:10:35'
+dual_dir = 'DUAL_DEMOS_2017-09-07_16:10:49'  #None  #'DUAL_DEMOS_2017-09-07_14:20:59'
 #seed = 6  previous 04/09/17 17:30 pm
 seed = 0
 
@@ -160,8 +164,10 @@ object_name = 'drill'
 object_rel_pose = create_hand_relative_pose([0, 0, 0, 1, 0, 0, 0], hand_x=0.0, hand_y=hand_y, hand_z=hand_z, hand_yaw=0)
 
 
-
 reset_condition_bigman_drill_gazebo_fcn = Reset_condition_bigman_drill_gazebo()
+
+# Target object pose
+drill_pose3 = create_drill_relative_pose(drill_x=drill_x+0.16, drill_y=drill_y-0.2276, drill_z=drill_z, drill_yaw=drill_yaw)
 
 observation_active = [{'name': 'joint_state',
                        'type': 'joint_state',
@@ -189,7 +195,8 @@ observation_active = [{'name': 'joint_state',
                       {'name': 'distance_object',
                        'type': 'object_pose',
                        'body_name': object_name,
-                       'target_rel_pose': drill_relative_pose,
+                       #'target_rel_pose': drill_relative_pose,
+                       'target_rel_pose': drill_pose3,
                        'fields': ['orientation', 'position']},
                       ]
 
@@ -211,7 +218,8 @@ state_active = [{'name': 'joint_state',
                 {'name': 'distance_object',
                  'type': 'object_pose',
                  'body_name': object_name,
-                 'target_rel_pose': drill_relative_pose,
+                 #'target_rel_pose': drill_relative_pose,
+                 'target_rel_pose': drill_pose3,
                  'fields': ['orientation', 'position']},
                 ]
 
@@ -249,40 +257,100 @@ print("Bigman Environment OK. body_part_active:%s (action_dim=%d). Command_type:
 change_print_color.change('CYAN')
 print("\nCreating Bigman Agent...")
 
-policy_params = {
-    'network_model': tf_network,  # tf_network, multi_modal_network, multi_modal_network_fp
-    'network_params': {
-        'n_layers': 1,  # Hidden layers??
-        'dim_hidden': [40],  # List of size per n_layers
-        'obs_names': bigman_env.get_obs_info()['names'],
-        'obs_dof': bigman_env.get_obs_info()['dimensions'],  # DoF for observation data tensor
+policy_params = [
+    {
+        'network_model': tf_network,  # tf_network, multi_modal_network, multi_modal_network_fp
+        'network_params': {
+            'n_layers': 1,  # Hidden layers??
+            'dim_hidden': [40],  # List of size per n_layers
+            'obs_names': bigman_env.get_obs_info()['names'],
+            'obs_dof': bigman_env.get_obs_info()['dimensions'],  # DoF for observation data tensor
+        },
+        # Initialization.
+        'init_var': 0.1,  # Initial policy variance.
+        'ent_reg': 0.0,  # Entropy regularizer (Used to update policy variance)
+        # Solver hyperparameters.
+        'iterations': 10000,#5000,  # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
+        'batch_size': 15,
+        'lr': 0.001,  # Base learning rate (by default it's fixed).
+        'lr_policy': 'fixed',  # Learning rate policy.
+        'momentum': 0.9,  # Momentum.
+        'weight_decay': 0.005,  # Weight decay.
+        'solver_type': 'Adam',  # Solver type (e.g. 'SGD', 'Adam', etc.).
+        # set gpu usage.
+        'use_gpu': 1,  # Whether or not to use the GPU for training.
+        'gpu_id': 0,
+        'random_seed': 1,
+        'fc_only_iterations': 0,  # TODO: Only forwardcontrol? if it is CNN??
+        'gpu_mem_percentage': 0.2,
+        # 'weights_file_prefix': EXP_DIR + 'policy',
     },
-    # Initialization.
-    'init_var': 0.1,  # Initial policy variance.
-    'ent_reg': 0.0,  # Entropy regularizer (Used to update policy variance)
-    # Solver hyperparameters.
-    'iterations': 5000,  # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
-    'batch_size': 15,
-    'lr': 0.001,  # Base learning rate (by default it's fixed).
-    'lr_policy': 'fixed',  # Learning rate policy.
-    'momentum': 0.9,  # Momentum.
-    'weight_decay': 0.005,  # Weight decay.
-    'solver_type': 'Adam',  # Solver type (e.g. 'SGD', 'Adam', etc.).
-    # set gpu usage.
-    'use_gpu': 1,  # Whether or not to use the GPU for training.
-    'gpu_id': 0,
-    'random_seed': 1,
-    'fc_only_iterations': 0,  # TODO: Only forwardcontrol? if it is CNN??
-    'gpu_mem_percentage': 0.2,
-    # 'weights_file_prefix': EXP_DIR + 'policy',
-}
-policy_opt = {
-    'type': PolicyOptTf,
-    'hyperparams': policy_params
-    }
+    # {
+    #     'network_model': tf_network,  # tf_network, multi_modal_network, multi_modal_network_fp
+    #     'network_params': {
+    #         'n_layers': 1,  # Hidden layers??
+    #         'dim_hidden': [40],  # List of size per n_layers
+    #         'obs_names': bigman_env.get_obs_info()['names'],
+    #         'obs_dof': bigman_env.get_obs_info()['dimensions'],  # DoF for observation data tensor
+    #     },
+    #     # Initialization.
+    #     'init_var': 0.1,  # Initial policy variance.
+    #     'ent_reg': 0.0,  # Entropy regularizer (Used to update policy variance)
+    #     # Solver hyperparameters.
+    #     'iterations': 5000,  # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
+    #     'batch_size': 15,
+    #     'lr': 0.001,  # Base learning rate (by default it's fixed).
+    #     'lr_policy': 'fixed',  # Learning rate policy.
+    #     'momentum': 0.9,  # Momentum.
+    #     'weight_decay': 0.005,  # Weight decay.
+    #     'solver_type': 'Adam',  # Solver type (e.g. 'SGD', 'Adam', etc.).
+    #     # set gpu usage.
+    #     'use_gpu': 1,  # Whether or not to use the GPU for training.
+    #     'gpu_id': 0,
+    #     'random_seed': 1,
+    #     'fc_only_iterations': 0,  # TODO: Only forwardcontrol? if it is CNN??
+    #     'gpu_mem_percentage': 0.2,
+    #     # 'weights_file_prefix': EXP_DIR + 'policy',
+    # },
+    # {
+    #     'network_model': tf_network,  # tf_network, multi_modal_network, multi_modal_network_fp
+    #     'network_params': {
+    #         'n_layers': 1,  # Hidden layers??
+    #         'dim_hidden': [40],  # List of size per n_layers
+    #         'obs_names': bigman_env.get_obs_info()['names'],
+    #         'obs_dof': bigman_env.get_obs_info()['dimensions'],  # DoF for observation data tensor
+    #     },
+    #     # Initialization.
+    #     'init_var': 0.1,  # Initial policy variance.
+    #     'ent_reg': 0.0,  # Entropy regularizer (Used to update policy variance)
+    #     # Solver hyperparameters.
+    #     'iterations': 5000,  # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
+    #     'batch_size': 15,
+    #     'lr': 0.001,  # Base learning rate (by default it's fixed).
+    #     'lr_policy': 'fixed',  # Learning rate policy.
+    #     'momentum': 0.9,  # Momentum.
+    #     'weight_decay': 0.005,  # Weight decay.
+    #     'solver_type': 'Adam',  # Solver type (e.g. 'SGD', 'Adam', etc.).
+    #     # set gpu usage.
+    #     'use_gpu': 1,  # Whether or not to use the GPU for training.
+    #     'gpu_id': 0,
+    #     'random_seed': 1,
+    #     'fc_only_iterations': 0,  # TODO: Only forwardcontrol? if it is CNN??
+    #     'gpu_mem_percentage': 0.2,
+    #     # 'weights_file_prefix': EXP_DIR + 'policy',
+    # },
+                ]
+bigman_agents = list()
+for pp, pol_param in enumerate(policy_params):
+    policy_opt = {
+        'type': PolicyOptTf,
+        'hyperparams': pol_param
+        }
 
-bigman_agent = GPSAgent(act_dim=action_dim, obs_dim=observation_dim, state_dim=state_dim, policy_opt=policy_opt)
-print("Bigman Agent:%s OK\n" % type(bigman_agent))
+    bigman_agents.append(GPSAgent(act_dim=action_dim, obs_dim=observation_dim, state_dim=state_dim, policy_opt=policy_opt,
+                                  agent_name="bigman_agent"+str(pp)))
+    print("Bigman Agent:%s OK\n" % type(bigman_agents[-1]))
+print("TOTAL BIGMAN AGENTS: %d" % len(bigman_agents))
 
 
 # ################# #
@@ -552,6 +620,8 @@ q3[18] = np.deg2rad(-35)
 # q3[28] = np.deg2rad(0)
 # q3[29] = np.deg2rad(0)
 # q3[30] = np.deg2rad(0)
+
+# PUSH
 q3[24] = np.deg2rad(20)
 q3[25] = np.deg2rad(-55)
 q3[26] = np.deg2rad(0)
@@ -559,8 +629,21 @@ q3[27] = np.deg2rad(-95)
 q3[28] = np.deg2rad(0)
 q3[29] = np.deg2rad(0)
 q3[30] = np.deg2rad(0)
+
+# REACH FROM TOP
+q3[24] = np.deg2rad(-30)
+q3[25] = np.deg2rad(-65)
+q3[26] = np.deg2rad(20)
+q3[27] = np.deg2rad(-95)
+q3[28] = np.deg2rad(20)
+q3[29] = np.deg2rad(0)
+q3[30] = np.deg2rad(0)
+
 #drill_pose3 = create_drill_relative_pose(drill_x=drill_x-0.06, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw+10)
-drill_pose3 = create_drill_relative_pose(drill_x=drill_x+0.05, drill_y=drill_y-0.3, drill_z=drill_z, drill_yaw=drill_yaw+10)
+
+#drill_pose3 = create_drill_relative_pose(drill_x=drill_x+0.05, drill_y=drill_y-0.3, drill_z=drill_z, drill_yaw=drill_yaw+10)
+drill_pose3 = create_drill_relative_pose(drill_x=drill_x+0.16, drill_y=drill_y-0.2276, drill_z=drill_z+0.17, drill_yaw=drill_yaw)  # TODO: CHECK IF IT IS OK +0.17 WITH DRILL
+#drill_pose3 = create_drill_relative_pose(drill_x=drill_x+0.16, drill_y=drill_y-0.2276, drill_z=drill_z, drill_yaw=drill_yaw)
 condition3 = create_bigman_drill_condition(q3, drill_pose3, bigman_env.get_state_info(),
                                            joint_idxs=bigman_params['joint_ids'][body_part_sensed])
 bigman_env.add_condition(condition3)
@@ -579,59 +662,31 @@ drill_relative_poses.append(drill_pose3)
 
 
 
+
 # #################### #
 # #################### #
 # ## DEMONSTRATIONS ## #
 # #################### #
 # #################### #
-if init_with_demos is True:
-    print("")
-    change_print_color.change('GREEN')
-    if demos_dir is None:
-        task_space_torque_control_demos_params = {
-            'n_samples': 5,
-            'conditions_to_sample': range(len(bigman_env.get_conditions())),
-            'Treach': Treach,
-            'Tlift': Tlift,
-            'Tinter': Tinter,
-            'Tend': Tend,
-            'Ts': Ts,
-            'noisy': False,
-            'noise_hyperparams': {
-                'noise_var_scale': 0.0001,  # It can be a np.array() with dim=dU
-                'smooth_noise': False,  # Whether or not to perform smoothing of noise
-                'smooth_noise_var': 0.01,   # If smooth=True, applies a Gaussian filter with this variance. E.g. 0.01
-                'smooth_noise_renormalize': False,  # If smooth=True, renormalizes data to have variance 1 after smoothing.
-            },
-            'bigman_env': bigman_env,
-            'drill_relative_pose': drill_relative_pose,
-            'drill_size': drill_size,
-            'final_drill_height': final_drill_height,
-        }
-        demos_samples = task_space_torque_control_demos(**task_space_torque_control_demos_params)
-        bigman_env.reset(time=2, cond=0)
-    else:
-        demos_samples = load_task_space_torque_control_demos(demos_dir)
-        print('Demos samples has been obtained from directory %s' % demos_dir)
-else:
-    demos_samples = None
 
-# DUAL SAMPLES
+demos_samples = None
+
 if generate_dual_sets is True:
     print("")
     change_print_color.change('GREEN')
     if dual_dir is None:
         task_space_torque_control_dual_params = {
             'active_joints': 'RA',
-            'n_good_samples': 5,
-            'n_bad_samples': 5,
+            'n_good_samples': 3,
+            'n_bad_samples': 3,
             'conditions_to_sample': range(len(bigman_env.get_conditions())),
+            'Tinterm': Tinterm,
             'Treach': Treach,
             'Tlift': Tlift,
             'Tinter': Tinter,
             'Tend': Tend,
             'Ts': Ts,
-            'noisy': False,
+            'noisy': True,
             'noise_hyperparams': {
                 'noise_var_scale': 0.0001,  # It can be a np.array() with dim=dU
                 'smooth_noise': False,  # Whether or not to perform smoothing of noise
@@ -644,18 +699,22 @@ if generate_dual_sets is True:
             'drill_size': drill_size,
             'final_drill_height': final_drill_height,
             # offsets [roll, pitch, yaw, x, y, z]
-            #'good_offsets': [[0, 0, 0, 0.25, -0.25, drill_size[2]/2+0.1],
-            'good_offsets': [[-45,      0,      0,      0,      -0.13,      0.17],
-                             [0,      0,      0,      0,      -0.12,      0.17],
-                             [30,      0,      0,      0,      -0.13,      0.15],
-                             [3,      0,      0,      0,      -0.14,      0.15],
-                             [-8,      0,      0,      0,      -0.14,      0.14],
+            'good_interms': [[50,      0,      0,      0,      -0.13,      0.10],
+                             [45,      0,      0,      0,      -0.10,      0.10],
+                             [50,      0,      0,      0,      -0.13,      0.10],
                              ],
-            'bad_offsets': [[-10,      0,      0,      0.05,      0.1,      0.17],
-                            [2,      0,      0,      0,      0.1,      0.10],
-                            [25,      0,      -5,      0,      0.0,      0.20],
-                            [1,      10,      2,      -0.1,      0.14,      0.21],
-                            [3,      10,      40,      0.05,      0.05,      0.18],
+            'bad_interms': [[90,      0,      0,      0,      -0.00,      0.10],
+                            [90,      0,      0,      0,      -0.00,      0.10],
+                            [90,      0,      0,      0,      -0.00,      0.10],
+                            ],
+
+            'good_offsets': [[-5,      0,      0,      0.,      -0.04,     -0.08],
+                             [0,      0,      0,      0.,      -0.04,     -0.08],
+                             [0,      0,      0,      0,      -0.13,      -0.08],
+                             ],
+            'bad_offsets': [[0,      0,      0,      0.,      -0.04,      0.01],
+                            [10,      0,      0,      0.,      -0.04,      0.01],
+                            [0,      0,      0,      0.,      -0.04,      0.01],
                             ],
         }
 
@@ -671,7 +730,6 @@ else:
     bad_trajs = None
 
 
-
 # ######################## #
 # ######################## #
 # ## LEARNING ALGORITHM ## #
@@ -685,7 +743,8 @@ resume_training_itr = None  # Resume from previous training iteration
 # data_files_dir = 'GPS_2017-09-01_15:22:55'  # None  # In case we want to resume from previous training
 data_files_dir = None  # 'GPS_2017-09-05_13:07:23'  # None  # In case we want to resume from previous training
 
-if demos_samples is None:
+
+if not generate_dual_sets:
     #      # init_traj_distr values can be lists if they are different for each condition
     #      init_traj_distr = {'type': init_lqr,
     #                         # Parameters to calculate initial COST function based on stiffness
@@ -715,64 +774,75 @@ if demos_samples is None:
                        'dDistance': 6,
                        }
 else:
-    init_traj_distr = {'type': init_demos,
-                       'sample_lists': demos_samples
+    init_traj_distr = {'type': init_dual_demos,
+                       'good_sample_list': good_trajs,
+                       'bad_sample_list': bad_trajs,
+                       'max_init_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
                        }
 
 # Trajectory Optimization Options
-traj_opt_lqr = {'type': TrajOptLQR,
-                'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
-                # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
-                'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
-                'max_eta': 1e16,  # At max_eta, kl_div < kl_step
-                'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step.
-                'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
-                'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
-                }
-
-traj_opt_pi2 = {'type': TrajOptPI2,
-                'del0': 1e-4,  # Dual variable updates for non-PD Q-function.
-                'kl_threshold': 1.0,   # KL-divergence threshold between old and new policies.
-                'covariance_damping': 10.0,  # 2.0,  # If greater than zero, covariance is computed as a multiple of the old
-                # covariance. Multiplier is taken to the power (1 / covariance_damping).
-                # If greater than one, slows down convergence and keeps exploration noise high for more iterations.
-                'min_temperature': 0.001,  # Minimum bound of the temperature optimization for the soft-max
-                # probabilities of the policy samples.
-                'use_sumexp': False,
-                'pi2_use_dgd_eta': True,  # False,
-                'pi2_cons_per_step': True,
-                }
-
-traj_opt_dreps = {'type': TrajOptDREPS,
-                  'epsilon': 1.0,   # KL-divergence threshold between old and new policies.
-                  'xi': 5.0,
-                  'chi': 2.0,
-                  'dreps_cons_per_step': True,
-                  'min_eta': 0.001,  # Minimum bound of the temperature optimization for the soft-max
-                  'covariance_damping': 2.0,
-                  'del0': 1e-4,  # Dual variable updates for non-SPD Q-function (non-SPD correction step).
-                  }
-
-traj_opt_mdreps = {'type': TrajOptMDREPS,
-                   'good_const': False,  # Use good constraints
-                   'bad_const': False,  # Use bad constraints
-                   'del0': 1e-4,  # Eta updates for non-SPD Q-function (non-SPD correction step).
-                   'del0_good': 1e-4,  # Omega updates for non-SPD Q-function (non-SPD correction step).
-                   'del0_bad': 1e-8,  # Nu updates for non-SPD Q-function (non-SPD correction step).
-                   # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
-                   'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
-                   'max_eta': 1e16,  # At max_eta, kl_div < kl_step
-                   'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
-                   'max_omega': 1e16,  # At max_omega, kl_div < kl_step
-                   'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
-                   'max_nu': 2.0e1,  # At max_nu, kl_div < kl_step,
-                   'step_tol': 0.1,
-                   'bad_tol': 0.2,
-                   'good_tol': 0.3,
-                   'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step.
-                   'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
-                   'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
-                   }
+traj_opt_mdreps = [
+    {'type': TrajOptMDREPS,
+     'good_const': False,  # Use good constraints
+     'bad_const': False,  # Use bad constraints
+     'del0': 1e-4,  # Eta updates for non-SPD Q-function (non-SPD correction step).
+     'del0_good': 1e-4,  # Omega updates for non-SPD Q-function (non-SPD correction step).
+     'del0_bad': 1e-8,  # Nu updates for non-SPD Q-function (non-SPD correction step).
+     # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
+     'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
+     'max_eta': 1e16,  # At max_eta, kl_div < kl_step
+     'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
+     'max_omega': 1e16,  # At max_omega, kl_div < kl_step
+     'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
+     'max_nu': 2.0e1,  # At max_nu, kl_div < kl_step,
+     'step_tol': 0.1,
+     'bad_tol': 0.2,
+     'good_tol': 0.3,
+     'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step.
+     'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
+     'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
+     },
+    # {'type': TrajOptMDREPS,
+    #  'good_const': False,  # Use good constraints
+    #  'bad_const': True,  # Use bad constraints
+    #  'del0': 1e-4,  # Eta updates for non-SPD Q-function (non-SPD correction step).
+    #  'del0_good': 1e-4,  # Omega updates for non-SPD Q-function (non-SPD correction step).
+    #  'del0_bad': 1e-8,  # Nu updates for non-SPD Q-function (non-SPD correction step).
+    #  # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
+    #  'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
+    #  'max_eta': 1e16,  # At max_eta, kl_div < kl_step
+    #  'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
+    #  'max_omega': 1e16,  # At max_omega, kl_div < kl_step
+    #  'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
+    #  'max_nu': 2.0e1,  # At max_nu, kl_div < kl_step,
+    #  'step_tol': 0.1,
+    #  'bad_tol': 0.2,
+    #  'good_tol': 0.3,
+    #  'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step.
+    #  'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
+    #  'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
+    #  },
+    # {'type': TrajOptMDREPS,
+    #  'good_const': True,  # Use good constraints
+    #  'bad_const': True,  # Use bad constraints
+    #  'del0': 1e-4,  # Eta updates for non-SPD Q-function (non-SPD correction step).
+    #  'del0_good': 1e-4,  # Omega updates for non-SPD Q-function (non-SPD correction step).
+    #  'del0_bad': 1e-8,  # Nu updates for non-SPD Q-function (non-SPD correction step).
+    #  # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
+    #  'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
+    #  'max_eta': 1e16,  # At max_eta, kl_div < kl_step
+    #  'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
+    #  'max_omega': 1e16,  # At max_omega, kl_div < kl_step
+    #  'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
+    #  'max_nu': 2.0e1,  # At max_nu, kl_div < kl_step,
+    #  'step_tol': 0.1,
+    #  'bad_tol': 0.2,
+    #  'good_tol': 0.3,
+    #  'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step.
+    #  'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
+    #  'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
+    #  },
+                  ]
 
 # Dynamics
 learned_dynamics = {'type': DynamicsLRPrior,
@@ -787,102 +857,90 @@ learned_dynamics = {'type': DynamicsLRPrior,
                     }
 
 # GPS algo hyperparameters
-mdgps_hyperparams = {'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
-                     'policy_sample_mode': 'add',
-                     'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
-                     'policy_prior': {'type': ConstantPolicyPrior,
-                                      'strength': 1e-4,
-                                      },
-                     }
+mdreps_hyperparams = [
+    {'inner_iterations': 1,
+     'good_samples': good_trajs,
+     'bad_samples': bad_trajs,
+     'n_bad_samples': 2,  # Number of bad samples per each trajectory
+     'n_good_samples': 2,  # Number of bad samples per each trajectory
+     'base_kl_bad': 2.5,  # (chi) to be used with multiplier | kl_div_b >= kl_bad
+     'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
+     'bad_traj_selection_type': 'always',  # 'always', 'only_traj'
+     'good_traj_selection_type': 'always',  # 'always', 'only_traj'
+     'init_eta': 4.62,
+     'init_nu': 0.5,
+     'init_omega': 1.0,
+     'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad in LQR)
+     'max_bad_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_bad in LQR)
+     'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good in LQR)
+     'max_good_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_good in LQR)
+     'min_bad_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
+     'min_good_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
+     'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
+     'policy_sample_mode': 'add',
+     'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
+     'policy_prior': {'type': ConstantPolicyPrior,
+                      'strength': 1e-4,
+                      },
+     },
+    # {'inner_iterations': 1,
+    #  'good_samples': good_trajs,
+    #  'bad_samples': bad_trajs,
+    #  'n_bad_samples': 2,  # Number of bad samples per each trajectory
+    #  'n_good_samples': 2,  # Number of bad samples per each trajectory
+    #  'base_kl_bad': 2.5,  # (chi) to be used with multiplier | kl_div_b >= kl_bad
+    #  'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
+    #  'bad_traj_selection_type': 'always',  # 'always', 'only_traj'
+    #  'good_traj_selection_type': 'always',  # 'always', 'only_traj'
+    #  'init_eta': 4.62,
+    #  'init_nu': 0.5,
+    #  'init_omega': 1.0,
+    #  'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad in LQR)
+    #  'max_bad_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_bad in LQR)
+    #  'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good in LQR)
+    #  'max_good_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_good in LQR)
+    #  'min_bad_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
+    #  'min_good_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
+    #  'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
+    #  'policy_sample_mode': 'add',
+    #  'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
+    #  'policy_prior': {'type': ConstantPolicyPrior,
+    #                   'strength': 1e-4,
+    #                   },
+    #  },
+    # {'inner_iterations': 1,
+    #  'good_samples': good_trajs,
+    #  'bad_samples': bad_trajs,
+    #  'n_bad_samples': 2,  # Number of bad samples per each trajectory
+    #  'n_good_samples': 2,  # Number of bad samples per each trajectory
+    #  'base_kl_bad': 2.5,  # (chi) to be used with multiplier | kl_div_b >= kl_bad
+    #  'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
+    #  'bad_traj_selection_type': 'always',  # 'always', 'only_traj'
+    #  'good_traj_selection_type': 'always',  # 'always', 'only_traj'
+    #  'init_eta': 4.62,
+    #  'init_nu': 0.5,
+    #  'init_omega': 1.0,
+    #  'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad in LQR)
+    #  'max_bad_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_bad in LQR)
+    #  'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good in LQR)
+    #  'max_good_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_good in LQR)
+    #  'min_bad_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
+    #  'min_good_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
+    #  'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
+    #  'policy_sample_mode': 'add',
+    #  'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
+    #  'policy_prior': {'type': ConstantPolicyPrior,
+    #                   'strength': 1e-4,
+    #                   },
+    #  },
+]
 
-pigps_hyperparams = {'init_pol_wt': 0.01,
-                     'policy_sample_mode': 'add'
-                     }
-
-ilqr_hyperparams = {'inner_iterations': 1,
-                    }
-
-pi2_hyperparams = {'inner_iterations': 1,
-                   'fit_dynamics': False,  # Dynamics fitting is not required for PI2.
-                   }
-
-dreps_hyperparams = {'inner_iterations': 1,
-                     'good_samples': good_trajs,
-                     'bad_samples': bad_trajs,
-                     }
-
-mdreps_hyperparams = {'inner_iterations': 1,
-                      'good_samples': good_trajs,
-                      'bad_samples': bad_trajs,
-                      'n_bad_samples': 2,  # Number of bad samples per each trajectory
-                      'n_good_samples': 2,  # Number of bad samples per each trajectory
-                      'base_kl_bad': 2.5,  # (chi) to be used with multiplier | kl_div_b >= kl_bad
-                      'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
-                      'bad_traj_selection_type': 'always',  # 'always', 'only_traj'
-                      'good_traj_selection_type': 'always',  # 'always', 'only_traj'
-                      'init_eta': 4.62,
-                      'init_nu': 0.5,
-                      'init_omega': 1.0,
-                      'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad in LQR)
-                      'max_bad_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_bad in LQR)
-                      'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good in LQR)
-                      'max_good_mult': 20.0,  # Max possible value of step multiplier (multiplies base_kl_good in LQR)
-                      'min_bad_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
-                      'min_good_var': np.array([3.0e-1, 3.0e-1, 3.0e-1, 3.0e-1, 1.0e-1, 1.0e-1, 1.0e-1])*1.0e-00,
-                      'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
-                      'policy_sample_mode': 'add',
-                      'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
-                      'policy_prior': {'type': ConstantPolicyPrior,
-                                       'strength': 1e-4,
-                                       },
-                      }
-
-
-if learning_algorithm.upper() == 'MDGPS':
-    gps_algo_hyperparams = mdgps_hyperparams
-    traj_opt_method = traj_opt_lqr
-    test_after_iter = True
-    sample_on_policy = False
-    use_global_policy = True
-
-elif learning_algorithm.upper() == 'PIGPS':
-    mdgps_hyperparams.update(pigps_hyperparams)
-    gps_algo_hyperparams = mdgps_hyperparams
-    traj_opt_method = traj_opt_pi2
-    test_after_iter = True
-    sample_on_policy = False
-    use_global_policy = True
-
-elif learning_algorithm.upper() == 'ILQR':
-    gps_algo_hyperparams = ilqr_hyperparams
-    traj_opt_method = traj_opt_lqr
-    test_after_iter = False
-    sample_on_policy = False
-    use_global_policy = False
-
-elif learning_algorithm.upper() == 'PI2':
-    gps_algo_hyperparams = pi2_hyperparams
-    traj_opt_method = traj_opt_pi2
-    test_after_iter = False
-    sample_on_policy = False
-    use_global_policy = False
-
-elif learning_algorithm.upper() == 'DREPS':
-    gps_algo_hyperparams = dreps_hyperparams
-    traj_opt_method = traj_opt_dreps
-    test_after_iter = False
-    sample_on_policy = False
-    use_global_policy = False
-
-elif learning_algorithm.upper() == 'MDREPS':
-    gps_algo_hyperparams = mdreps_hyperparams
-    traj_opt_method = traj_opt_mdreps
-    sample_on_policy = False
-    test_after_iter = False
-    use_global_policy = False
-    #use_global_policy = False
-else:
-    raise AttributeError("Wrong learning algorithm %s" % learning_algorithm.upper())
+gps_algo_hyperparams = mdreps_hyperparams
+traj_opt_method = traj_opt_mdreps
+sample_on_policy = False
+use_global_policy = True
+test_after_iter = True
+#use_global_policy = False
 
 
 gps_hyperparams = {
@@ -890,9 +948,9 @@ gps_hyperparams = {
     'dt': Ts,
     'iterations': 100,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
     'test_after_iter': test_after_iter,  # If test the learned policy after an iteration in the RL algorithm
-    'test_samples': 3,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
+    'test_samples': 2,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
     # Samples
-    'num_samples': 5,  # 20  # Samples for exploration trajs --> N samples
+    'num_samples': 6,  # 20  # Samples for exploration trajs --> N samples
     'noisy_samples': True,
     'sample_on_policy': sample_on_policy,  # Whether generate on-policy samples or off-policy samples
     #'noise_var_scale': np.array([5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2, 5.0e-2]),  # Scale to Gaussian noise: N(0,1)*sqrt(noise_var_scale)
@@ -923,45 +981,9 @@ gps_hyperparams = {
     'data_files_dir': data_files_dir,
 }
 
-
-if learning_algorithm.upper() == 'MDGPS':
-    learn_algo = MDGPS(agent=bigman_agent, env=bigman_env, **gps_hyperparams)
-
-elif learning_algorithm.upper() == 'PIGPS':
-    learn_algo = PIGPS(agent=bigman_agent, env=bigman_env, **gps_hyperparams)
-
-elif learning_algorithm.upper() == 'ILQR':
-    learn_algo = ILQR(agent=bigman_agent, env=bigman_env, **gps_hyperparams)
-
-elif learning_algorithm.upper() == 'PI2':
-    learn_algo = PI2(agent=bigman_agent, env=bigman_env, **gps_hyperparams)
-
-elif learning_algorithm.upper() == 'DREPS':
-    learn_algo = DREPS(agent=bigman_agent, env=bigman_env, **gps_hyperparams)
-
-elif learning_algorithm.upper() == 'MDREPS':
-    learn_algo = MDREPS(agent=bigman_agent, env=bigman_env, **gps_hyperparams)
-
-else:
-    raise AttributeError("Wrong learning algorithm %s" % learning_algorithm.upper())
+learn_algo = MULTIGPS(bigman_agents, bigman_env, **gps_hyperparams)
 
 print("Learning algorithm: %s OK\n" % type(learn_algo))
-
-# import numpy as np
-# dX = bigman_env.get_state_dim()
-# dU = bigman_env.get_action_dim()
-# dO = bigman_env.get_obs_dim()
-# T = gps_hyperparams['T']
-# all_actions = np.zeros((T, dU))
-# all_states = np.tile(np.expand_dims(np.linspace(0.5, 0, T), axis=1), (1, dX))
-# all_obs = np.tile(np.expand_dims(np.linspace(0.5, 0, T), axis=1), (1, dO))
-# sample = Sample(bigman_env, T)
-# sample.set_acts(all_actions)  # Set all actions at the same time
-# sample.set_obs(all_obs)  # Set all obs at the same time
-# sample.set_states(all_states)  # Set all states at the same time
-# costs = learn_algo._eval_conditions_sample_list_cost([SampleList([sample])])
-# raw_input('zacataaaaaaaaa')
-
 
 # Optimize policy using learning algorithm
 print("Running Learning Algorithm!!!")

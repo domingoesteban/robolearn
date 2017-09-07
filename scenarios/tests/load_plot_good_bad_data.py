@@ -5,39 +5,41 @@ from matplotlib.ticker import MaxNLocator
 import pickle
 import math
 import os
-from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distribution
+from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distribution, lqr_forward, plot_3d_gaussian
 from robolearn.algos.gps.gps_utils import IterationData
 from robolearn.utils.iit.iit_robots_params import bigman_params
 import scipy.stats
 
 gps_directory_name = 'GPS_2017-09-01_15:22:55'  # Test MDGPS | Weekend
 gps_directory_name = 'GPS_2017-09-04_10:45:00'  # Test MDGPS | New cov_bad
+gps_directory_name = 'GPS_2017-09-07_17:15:05'
 
 
-
-init_itr = 0
+init_itr = 7
 final_itr = 100
 #final_itr = 30
 samples_idx = [-1]  # List of samples / None: all samples
 max_traj_plots = None  # None, plot all
 last_n_iters = None  # None, plot all iterations
 sensed_joints = 'RA'
-method = 'MDREPS'
+method = 'MDGPS_MDREPS'
 
 plot_eta = False
 plot_nu = False
 plot_omega = False
 plot_step_mult = False  # If linearized policy(then NN policy) is worse, epsilon is reduced.
-plot_cs = True
+plot_cs = False
 plot_sample_list_actions = False
 plot_sample_list_states = False
 plot_sample_list_obs = False
 plot_sample_list_actions_dual = False
+plot_policy_costs = False
 plot_policy_output = False
 plot_policy_actions = False
 plot_policy_states = False
 plot_policy_obs = False
 plot_traj_distr = False
+plot_duality_traj_distr = True
 plot_3d_traj = False
 plot_3d_pol_traj = False
 
@@ -47,6 +49,7 @@ step_mult_color = 'red'
 sample_list_cols = 3
 plot_sample_list_max_min = False
 plot_joint_limits = True
+gps_num = 0
 
 gps_path = '/home/desteban/workspace/robolearn/scenarios/robolearn_log/' + gps_directory_name
 
@@ -56,11 +59,13 @@ good_trajectories_info_list = list()
 bad_duality_info_list = list()
 bad_trajectories_info_list = list()
 iteration_ids = list()
+pol_sample_lists_costs = list()
+pol_sample_lists_cost_compositions = list()
 
 max_available_itr = None
 for pp in range(init_itr, final_itr):
-    if os.path.isfile(gps_path+'/' + method.upper() + '_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
-        if os.path.isfile(gps_path+'/' + method.upper() + '_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
+    if os.path.isfile(gps_path+'/' + str('gps%02d_' % gps_num) + method.upper() + '_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
+        if os.path.isfile(gps_path+'/' + str('gps%02d_' % gps_num) + method.upper() + '_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
             max_available_itr = pp
 
 if max_available_itr is not None:
@@ -80,19 +85,26 @@ if max_available_itr is not None:
 
     print("Iterations to load: %s" % itr_to_load)
     for pp in itr_to_load:
-        if os.path.isfile(gps_path+'/' + method.upper() +'_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
+        if os.path.isfile(gps_path+'/' + str('gps%02d_' % gps_num) + method.upper() + '_iteration_data_itr_'+str('%02d' % pp)+'.pkl'):
             print('Loading GPS iteration_data from iteration %d' % pp)
-            iteration_data_list.append(pickle.load(open(gps_path+'/' + method.upper() +'_iteration_data_itr_'+str('%02d' % pp)+'.pkl',
+            iteration_data_list.append(pickle.load(open(gps_path+'/' + str('gps%02d_' % gps_num) + method.upper() +'_iteration_data_itr_'+str('%02d' % pp)+'.pkl',
                                                         'rb')))
             print('Loading GPS good_data from iteration %d' % pp)
-            bad_duality_info_list.append(pickle.load(open(gps_path+'/' + 'bad_duality_info_itr_'+str('%02d' % pp)+'.pkl',
+            bad_duality_info_list.append(pickle.load(open(gps_path+'/' + str('gps%02d_' % gps_num) + 'bad_duality_info_itr_'+str('%02d' % pp)+'.pkl',
                                                            'rb')))
-            good_duality_info_list.append(pickle.load(open(gps_path+'/' + 'good_duality_info_itr_'+str('%02d' % pp)+'.pkl',
+            good_duality_info_list.append(pickle.load(open(gps_path+'/' + str('gps%02d_' % gps_num) + 'good_duality_info_itr_'+str('%02d' % pp)+'.pkl',
                                                         'rb')))
-            bad_trajectories_info_list.append(pickle.load(open(gps_path+'/' + 'bad_trajectories_info_itr_'+str('%02d' % pp)+'.pkl',
+            bad_trajectories_info_list.append(pickle.load(open(gps_path+'/' + str('gps%02d_' % gps_num) + 'bad_trajectories_info_itr_'+str('%02d' % pp)+'.pkl',
                                                           'rb')))
-            good_trajectories_info_list.append(pickle.load(open(gps_path+'/' + 'good_trajectories_info_itr_'+str('%02d' % pp)+'.pkl',
+            good_trajectories_info_list.append(pickle.load(open(gps_path+'/' + str('gps%02d_' % gps_num) + 'good_trajectories_info_itr_'+str('%02d' % pp)+'.pkl',
                                                                'rb')))
+
+        if os.path.isfile(gps_path+'/' + str('gps%02d_' % gps_num)+'pol_sample_cost_itr_'+str('%02d' % pp)+'.pkl'):
+            print('Loading policy sample cost from iteration %d' % pp)
+            pol_sample_lists_costs.append(pickle.load(open(gps_path+'/' + str('gps%02d_' % gps_num)+'pol_sample_cost_itr_'+str('%02d' % pp)+'.pkl', 'rb')))
+        if os.path.isfile(gps_path+'/' + str('gps%02d_' % gps_num)+'pol_sample_cost_composition_itr_'+str('%02d' % pp)+'.pkl'):
+            print('Loading policy sample cost composition from iteration %d' % pp)
+            pol_sample_lists_cost_compositions.append(pickle.load(open(gps_path+'/' + str('gps%02d_' % gps_num)+'pol_sample_cost_composition_itr_'+str('%02d' % pp)+'.pkl', 'rb')))
 
             iteration_ids.append(pp)
 
@@ -516,92 +528,6 @@ if plot_policy_obs:
         legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0., borderaxespad=0.)
         legend.get_frame().set_alpha(0.4)
 
-
-def plot_3d_gaussian(ax, mu, sigma, edges=100, sigma_axes='XY', linestyle='-.', linewidth=1.0, color='black', alpha=0.1,
-                     label='', markeredgewidth=1.0):
-    """
-    Plots ellipses in the xy plane representing the Gaussian distributions 
-    specified by mu and sigma.
-    Args:
-        mu    - Tx3 mean vector for (x, y, z)
-        sigma - Tx3x3 covariance matrix for (x, y, z)
-        edges - the number of edges to use to construct each ellipse
-    """
-    p = np.linspace(0, 2*np.pi, edges)
-    xy_ellipse = np.c_[np.cos(p), np.sin(p)]
-    T = mu.shape[0]
-
-    if sigma_axes == 'XY':
-        axes = [0, 1]
-    elif sigma_axes == 'XZ':
-        axes = [0, 2]
-    elif sigma_axes == 'YZ':
-        axes = [1, 2]
-    else:
-        raise AttributeError("Wrong sigma_axes")
-
-    xyz_idx = np.ix_(axes)
-    sigma_idx = np.ix_(axes, axes)
-
-    sigma_axes = np.clip(sigma[:, sigma_idx[0], sigma_idx[1]], 0, 0.05)
-    u, s, v = np.linalg.svd(sigma_axes)
-
-    for t in range(T):
-        xyz = np.repeat(mu[t, :].reshape((1, 3)), edges, axis=0)
-        xyz[:, xyz_idx[0]] += np.dot(xy_ellipse, np.dot(np.diag(np.sqrt(s[t, :])), u[t, :, :].T))
-        ax.plot(xyz[:, 0], xyz[:, 1], xyz[:, 2], linestyle=linestyle, linewidth=linewidth, marker=marker,
-                markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha, color=color, label=label)
-
-
-def lqr_forward(traj_distr, traj_info):
-    """
-    Perform LQR forward pass. Computes state-action marginals from dynamics and policy.
-    Args:
-        traj_distr: A linear Gaussian policy object.
-        traj_info: A TrajectoryInfo object.
-    Returns:
-        mu: A T x dX mean action vector.
-        sigma: A T x dX x dX covariance matrix.
-    """
-    # Compute state-action marginals from specified conditional
-    # parameters and current traj_info.
-    T = traj_distr.T
-    dU = traj_distr.dU
-    dX = traj_distr.dX
-
-    # Constants.
-    idx_x = slice(dX)
-
-    # Allocate space.
-    sigma = np.zeros((T, dX+dU, dX+dU))
-    mu = np.zeros((T, dX+dU))
-
-    # Pull out dynamics.
-    Fm = traj_info.dynamics.Fm
-    fv = traj_info.dynamics.fv
-    dyn_covar = traj_info.dynamics.dyn_covar
-
-    # Set initial state covariance and mean
-    sigma[0, idx_x, idx_x] = traj_info.x0sigma
-    mu[0, idx_x] = traj_info.x0mu
-
-    for t in range(T):
-        sigma[t, :, :] = np.vstack([
-                            np.hstack([sigma[t, idx_x, idx_x],
-                                       sigma[t, idx_x, idx_x].dot(traj_distr.K[t, :, :].T)]),
-                            np.hstack([traj_distr.K[t, :, :].dot(sigma[t, idx_x, idx_x]),
-                                       traj_distr.K[t, :, :].dot(sigma[t, idx_x, idx_x]).dot(traj_distr.K[t, :, :].T)
-                                       + traj_distr.pol_covar[t, :, :]])])
-
-        # u_t = p(u_t | x_t)
-        mu[t, :] = np.hstack([mu[t, idx_x], traj_distr.K[t, :, :].dot(mu[t, idx_x]) + traj_distr.k[t, :]])
-
-        if t < T - 1:
-            # x_t+1 = p(x_t+1 | x_t, u_t)
-            sigma[t+1, idx_x, idx_x] = Fm[t, :, :].dot(sigma[t, :, :]).dot(Fm[t, :, :].T) + dyn_covar[t, :, :]
-            mu[t+1, idx_x] = Fm[t, :, :].dot(mu[t, :]) + fv[t, :]
-    return mu, sigma
-
 if plot_traj_distr:
     traj_distr_confidence = 0.95
     plot_confidence_interval = False
@@ -663,6 +589,73 @@ if plot_traj_distr:
                     ax.plot(mu[:, x_idxs[ii]], label=("itr %d" % iteration_ids[itr]))
                     if plot_confidence_interval:
                         ax.fill_between(T, mins[:, ii], maxs[:, ii], alpha=0.5)
+                    if plot_legend:
+                        legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                        legend.get_frame().set_alpha(0.4)
+                else:
+                    plt.setp(ax, visible=False)
+
+if plot_duality_traj_distr:
+    traj_distr_confidence = 0.95
+    plot_confidence_interval = True
+    plot_legend = True
+    for cond in range(total_cond):
+        dX = iteration_data_list[-1][cond].traj_distr.dX
+        dU = iteration_data_list[-1][cond].traj_distr.dU
+        fig_act, axs_act = plt.subplots(int(math.ceil(float(dU)/sample_list_cols)), sample_list_cols)
+        fig_act.subplots_adjust(hspace=0)
+        fig_act.canvas.set_window_title("Trajectory Distribution's Actions | Condition %d" % cond)
+        fig_act.set_facecolor((1, 1, 1))
+        fig_state, axs_state = plt.subplots(int(math.ceil(float(dX)/sample_list_cols)), sample_list_cols)
+        fig_state.subplots_adjust(hspace=0)
+        fig_state.canvas.set_window_title("Trajectory Distribution's States | Condition %d" % cond)
+        fig_state.set_facecolor((1, 1, 1))
+
+        for ii in range(axs_act.size):
+            ax = axs_act[ii/sample_list_cols, ii % sample_list_cols]
+            ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
+        for ii in range(axs_state.size):
+            ax = axs_state[ii/sample_list_cols, ii % sample_list_cols]
+            ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
+
+        for itr in range(total_itr):
+            traj_distr = iteration_data_list[itr][cond].traj_distr
+            traj_info = iteration_data_list[itr][cond].traj_info
+
+            mu, sigma = lqr_forward(traj_distr, traj_info)
+            T = traj_distr.T
+            dU = traj_distr.dU
+            dX = traj_distr.dX
+            x_idxs = range(dX)
+            u_idxs = range(dX, dX+dU)
+            mins = np.zeros_like(mu)
+            maxs = np.zeros_like(mu)
+            if plot_confidence_interval:
+                for tt in range(T):
+                    sigma_diag = np.diag(sigma[tt, :, :])
+                    mins[tt, :], maxs[tt, :] = scipy.stats.norm.interval(traj_distr_confidence, loc=mu[tt, :],
+                                                                         scale=sigma_diag[:])
+
+            for ii in range(axs_act.size):
+                ax = axs_act[ii/sample_list_cols, ii % sample_list_cols]
+                if ii < dU:
+                    ax.set_title("Action %d" % (ii+1))
+                    ax.plot(mu[:, u_idxs[ii]], label=("itr %d" % iteration_ids[itr]))
+                    if plot_confidence_interval:
+                        ax.fill_between(range(T), mins[:, u_idxs[ii]], maxs[:, u_idxs[ii]], alpha=0.5)
+                    if plot_legend:
+                        legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                        legend.get_frame().set_alpha(0.4)
+                else:
+                    plt.setp(ax, visible=False)
+
+            for ii in range(axs_state.size):
+                ax = axs_state[ii/sample_list_cols, ii % sample_list_cols]
+                if ii < dX:
+                    ax.set_title("State %d" % (ii+1))
+                    ax.plot(mu[:, x_idxs[ii]], label=("itr %d" % iteration_ids[itr]))
+                    if plot_confidence_interval:
+                        ax.fill_between(range(T), mins[:, x_idxs[ii]], maxs[:, x_idxs[ii]], alpha=0.5)
                     if plot_legend:
                         legend = ax.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
                         legend.get_frame().set_alpha(0.4)
@@ -855,6 +848,165 @@ if plot_3d_pol_traj:
         # One legend for all figures
         legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0.)
         legend.get_frame().set_alpha(0.4)
+
+
+if plot_policy_costs:
+    plots_type = 'iteration'  # 'iteration' or 'episode'
+    include_last_T = False  # Only in iteration
+    iteration_to_plot = -1
+    plot_cost_types = True
+    colormap = plt.cm.rainbow  # nipy_spectral, Set1, Paired, winter, rainbow
+
+    total_cond = len(pol_sample_lists_costs[0])
+    total_itr = len(pol_sample_lists_costs)
+
+    if plots_type.lower() == 'iteration':
+        #marker = 'o'
+        marker = None
+        for cond in range(total_cond):
+            lines = list()
+            labels = list()
+
+            fig, ax = plt.subplots(1, 1)
+            fig.canvas.set_window_title('Policy Costs | Condition %d' % cond)
+            fig.set_facecolor((1, 1, 1))
+            mean_costs = np.zeros(total_itr)
+            max_costs = np.zeros(total_itr)
+            min_costs = np.zeros(total_itr)
+            std_costs = np.zeros(total_itr)
+            for itr in range(total_itr):
+                total_samples = len(pol_sample_lists_costs[itr][cond])
+                samples_cost_sum = pol_sample_lists_costs[itr][cond].sum(axis=1)
+                mean_costs[itr] = samples_cost_sum.mean()
+                max_costs[itr] = samples_cost_sum.max()
+                min_costs[itr] = samples_cost_sum.min()
+                std_costs[itr] = samples_cost_sum.std()
+            ax.set_title('Policy Costs | Condition %d' % cond)
+            label = 'Total Cost'
+            line = ax.plot(mean_costs, marker=marker, label=label)[0]
+            ax.fill_between(range(total_itr), min_costs, max_costs, alpha=0.5)
+            ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+            lines.append(line)
+            labels.append(label)
+
+            # Composition cost
+            if plot_cost_types:
+                total_cost_types = len(pol_sample_lists_cost_compositions[-1][-1][-1])
+                mean_cost_types = np.zeros([total_itr, total_cost_types])
+                max_cost_types = np.zeros([total_itr, total_cost_types])
+                min_cost_types = np.zeros([total_itr, total_cost_types])
+                std_cost_types = np.zeros([total_itr, total_cost_types])
+                for itr in range(total_itr):
+                    total_samples = len(pol_sample_lists_cost_compositions[itr][cond])
+                    for c in range(total_cost_types):
+                        cost_type_sum = np.zeros(total_samples)
+                        for n in range(total_samples):
+                            cost_type_sum[n] = np.sum(pol_sample_lists_cost_compositions[itr][cond][n][c])
+                        mean_cost_types[itr, c] = cost_type_sum.mean()
+                        max_cost_types[itr, c] = cost_type_sum.max()
+                        min_cost_types[itr, c] = cost_type_sum.min()
+                        std_cost_types[itr, c] = cost_type_sum.std()
+
+                for c in range(total_cost_types):
+                    label = 'Cost type %d' % c
+                    line = ax.plot(mean_cost_types[:, c], marker=marker, label=label)[0]
+                    ax.fill_between(range(total_itr), min_cost_types[:, c], max_cost_types[:, c], alpha=0.5)
+                    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+                    lines.append(line)
+                    labels.append(label)
+
+            plt.xlabel('Iterations')
+            plt.ylabel('Cost')
+            ax.set_xlim([0, total_itr])
+            ax.set_xticks(np.arange(0, total_itr))
+
+            legend = plt.figlegend(lines, labels, loc='center right', ncol=1, labelspacing=0., borderaxespad=1.)
+            legend.get_frame().set_alpha(0.4)
+
+    else:
+        T = pol_sample_lists_costs[0][0].shape[1]
+        if include_last_T is False:
+            T = T - 1
+
+        if iteration_to_plot is not None:
+            if iteration_to_plot == -1:
+                iteration_to_plot = total_itr - 1
+            itr_to_plot = [iteration_to_plot]
+        else:
+            itr_to_plot = range(total_itr)
+
+        for cond in range(total_cond):
+            lines = list()
+            labels = list()
+
+            total_cost_types = len(pol_sample_lists_cost_compositions[-1][-1][-1])
+
+            fig, ax = plt.subplots(1, 1)
+            fig.canvas.set_window_title('Policy Costs | Condition %d' % cond)
+            fig.set_facecolor((1, 1, 1))
+            if plot_cost_types:
+                colormap_list = [colormap(i) for i in np.linspace(0, 1, (len(itr_to_plot)*total_cost_types)+1)]
+            else:
+                colormap_list = [colormap(i) for i in np.linspace(0, 1, len(itr_to_plot))]
+            ax.set_prop_cycle('color', colormap_list)
+            ax.set_title('Policy Costs | Condition %d' % cond)
+
+            mean_costs = np.zeros([total_itr, T])
+            max_costs = np.zeros([total_itr, T])
+            min_costs = np.zeros([total_itr, T])
+            std_costs = np.zeros([total_itr, T])
+            for itr in itr_to_plot:
+                total_samples = len(pol_sample_lists_costs[itr][cond])
+                samples_cost = pol_sample_lists_costs[itr][cond][:, :T]
+                mean_costs[itr, :] = samples_cost.mean(axis=0)
+                max_costs[itr, :] = samples_cost.max(axis=0)
+                min_costs[itr, :] = samples_cost.min(axis=0)
+                std_costs[itr, :] = samples_cost.std(axis=0)
+                label = 'Total Cost (itr%d)' % itr
+                line = ax.plot(mean_costs[itr, :], label=label)[0]
+                ax.fill_between(range(T), min_costs[itr, :], max_costs[itr, :], alpha=0.5)
+                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                lines.append(line)
+                labels.append(label)
+
+            # Composition cost
+            if plot_cost_types:
+                mean_cost_types = np.zeros([total_itr, total_cost_types, T])
+                max_cost_types = np.zeros([total_itr, total_cost_types, T])
+                min_cost_types = np.zeros([total_itr, total_cost_types, T])
+                std_cost_types = np.zeros([total_itr, total_cost_types, T])
+                for itr in itr_to_plot:
+                    total_samples = len(pol_sample_lists_cost_compositions[itr][cond])
+                    for c in range(total_cost_types):
+                        cost_type = np.zeros([total_samples, T])
+                        for n in range(total_samples):
+                            cost_type[n, :] = pol_sample_lists_cost_compositions[itr][cond][n][c][:T]
+                        mean_cost_types[itr, c, :] = cost_type.mean(axis=0)
+                        max_cost_types[itr, c, :] = cost_type.max(axis=0)
+                        min_cost_types[itr, c, :] = cost_type.min(axis=0)
+                        std_cost_types[itr, c, :] = cost_type.std(axis=0)
+
+                for c in range(total_cost_types):
+                    label = 'Cost type %d (itr%d)' % (c, itr)
+                    line = ax.plot(mean_cost_types[itr, c, :], label=label)[0]
+                    ax.fill_between(range(T), min_cost_types[itr, c, :], max_cost_types[itr, c, :], alpha=0.5)
+                    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+                    lines.append(line)
+                    labels.append(label)
+
+            plt.xlabel('Time')
+            plt.ylabel('Cost')
+            ax.set_xlim([0, T])
+            ax.set_xticks(np.arange(0, T+2, 50))
+
+            legend = plt.figlegend(lines, labels, loc='center right', ncol=1, labelspacing=0., borderaxespad=1.)
+            legend.get_frame().set_alpha(0.4)
+
+
+
 
 plt.show(block=False)
 

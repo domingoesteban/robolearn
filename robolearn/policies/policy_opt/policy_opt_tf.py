@@ -22,12 +22,12 @@ from robolearn.policies.policy_opt.policy_opt import PolicyOpt
 from robolearn.policies.policy_opt.tf_utils import TfSolver
 
 
-LOGGER = logging.getLogger(__name__)
-# Logging into console AND file
-LOGGER.setLevel(logging.DEBUG)
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.DEBUG)
-LOGGER.addHandler(ch)
+# LOGGER = logging.getLogger(__name__)
+# # Logging into console AND file
+# LOGGER.setLevel(logging.DEBUG)
+# ch = logging.StreamHandler(sys.stdout)
+# ch.setLevel(logging.DEBUG)
+# LOGGER.addHandler(ch)
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -63,16 +63,18 @@ class PolicyOptTf(PolicyOpt):
         self.last_conv_vars = None
         self.grads = None
         self.saver = None
+        self.graph = tf.Graph()
         self.init_network()
         self.init_solver()
         self.var = self._hyperparams['init_var'] * np.ones(dU)
         config = tf.ConfigProto()
         #config.gpu_options.per_process_gpu_memory_fraction = GPU_MEM_PERCENTAGE
         config.gpu_options.per_process_gpu_memory_fraction = self._hyperparams['gpu_mem_percentage']
-        self.sess = tf.Session(config=config)
+        self.sess = tf.Session(graph=self.graph, config=config)
         self.policy = TfPolicy(dU, self.obs_tensor, self.act_op, self.feat_op,
                                np.zeros(dU), self.sess, self.device_string,
-                               copy_param_scope=self._hyperparams['copy_param_scope'])
+                               copy_param_scope=self._hyperparams['copy_param_scope'],
+                               tf_graph=self.graph)
 
         # List of indices for state (vector) data and image (tensor) data in observation.
         self.x_idx, self.img_idx, i = [], [], 0
@@ -97,7 +99,8 @@ class PolicyOptTf(PolicyOpt):
                 self.x_idx = self.x_idx + list(range(i, i+dim))
             i += dim
 
-        init_op = tf.global_variables_initializer()
+        with self.graph.as_default():
+            init_op = tf.global_variables_initializer()
 
         self.sess.run(init_op)
 
@@ -110,7 +113,9 @@ class PolicyOptTf(PolicyOpt):
 
         tf_map, fc_vars, last_conv_vars = tf_map_generator(dim_input=self._dO, dim_output=self._dU,
                                                            batch_size=self.batch_size,
-                                                           network_config=self._hyperparams['network_params'])
+                                                           network_config=self._hyperparams['network_params'],
+                                                           network_name=self._hyperparams['name'],
+                                                           tf_graph=self.graph)
 
         self.obs_tensor = tf_map.get_input_tensor()
         self.precision_tensor = tf_map.get_precision_tensor()
@@ -122,7 +127,8 @@ class PolicyOptTf(PolicyOpt):
         self.last_conv_vars = last_conv_vars
 
         # Setup the gradients
-        self.grads = [tf.gradients(self.act_op[:, u], self.obs_tensor)[0] for u in range(self._dU)]
+        with self.graph.as_default():
+            self.grads = [tf.gradients(self.act_op[:, u], self.obs_tensor)[0] for u in range(self._dU)]
 
     def init_solver(self):
         """
@@ -136,10 +142,12 @@ class PolicyOptTf(PolicyOpt):
                                momentum=self._hyperparams['momentum'],
                                weight_decay=self._hyperparams['weight_decay'],
                                fc_vars=self.fc_vars,
-                               last_conv_vars=self.last_conv_vars)
-        self.saver = tf.train.Saver(write_version=saver_pb2.SaverDef.V1)
+                               last_conv_vars=self.last_conv_vars,
+                               tf_graph=self.graph)
+        with self.graph.as_default():
+            self.saver = tf.train.Saver(write_version=saver_pb2.SaverDef.V1)
 
-    def update(self, obs, tgt_mu, tgt_prc, tgt_wt):
+    def update(self, obs, tgt_mu, tgt_prc, tgt_wt, LOGGER=None):
         """
         Update policy.
         :param obs: Numpy array of observations, N x T x dO.
@@ -148,6 +156,9 @@ class PolicyOptTf(PolicyOpt):
         :param tgt_wt: Numpy array of weights, N x T.
         :return: TFPolicy object with updated weights.
         """
+        if LOGGER is None:
+            LOGGER = logging.getLogger(__name__)
+
         N, T = obs.shape[:2]
         dU, dO = self._dU, self._dO
 
@@ -216,6 +227,20 @@ class PolicyOptTf(PolicyOpt):
             # Load in data for this batch.
             start_idx = int(i * self.batch_size % (batches_per_epoch * self.batch_size))
             idx_i = idx[start_idx:start_idx+self.batch_size]
+
+            nan_number = np.isnan(obs)
+            if np.any(nan_number):
+                LOGGER.info('%%%\n'*5)
+                LOGGER.info('tensorflow ERROR!!! GIVING OBS NAN NUMBER')
+            nan_number = np.isnan(tgt_mu)
+            if np.any(nan_number):
+                LOGGER.info('%%%\n'*5)
+                LOGGER.info('tensorflow ERROR!!! GIVING TGT_MU NAN NUMBER')
+            nan_number = np.isnan(tgt_prc)
+            if np.any(nan_number):
+                LOGGER.info('%%%\n'*5)
+                LOGGER.info('tensorflow ERROR!!! GIVING  TGT_PRC NUMBER')
+
             feed_dict = {self.obs_tensor: obs[idx_i],
                          self.action_tensor: tgt_mu[idx_i],
                          self.precision_tensor: tgt_prc[idx_i]}
@@ -280,11 +305,15 @@ class PolicyOptTf(PolicyOpt):
         """ Set the entropy regularization. """
         self._hyperparams['ent_reg'] = ent_reg
 
-    def save_model(self, fname):
+    def save_model(self, fname, LOGGER=None):
+        if LOGGER is None:
+            LOGGER = logging.getLogger(__name__)
         LOGGER.debug('Saving model to: %s', fname)
         self.saver.save(self.sess, fname, write_meta_graph=False)
 
-    def restore_model(self, fname):
+    def restore_model(self, fname, LOGGER=None):
+        if LOGGER is None:
+            LOGGER = logging.getLogger(__name__)
         self.saver.restore(self.sess, fname)
         LOGGER.debug('Restoring model from: %s', fname)
 

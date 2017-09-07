@@ -51,7 +51,7 @@ class DynamicsLRPrior(Dynamics):
         # Fit dynamics with least squares regression.
         dwts = (1.0 / N) * np.ones(N)
 
-        fit_bar = ProgressBar(T-1)
+        #fit_bar = ProgressBar(T-1)
         for t in range(T - 1):
             Ys = np.c_[X[:, t, :], U[:, t, :], X[:, t+1, :]]
             # Obtain Normal-inverse-Wishart prior.
@@ -63,6 +63,6 @@ class DynamicsLRPrior(Dynamics):
             self.Fm[t, :, :] = Fm
             self.fv[t, :] = fv
             self.dyn_covar[t, :, :] = dyn_covar
-            fit_bar.update(t)
-        fit_bar.end()
+            #fit_bar.update(t)
+        #fit_bar.end()
         return self.Fm, self.fv, self.dyn_covar
