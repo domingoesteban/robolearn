@@ -68,24 +68,35 @@ class TfSolver:
     """ A container for holding solver hyperparams in tensorflow. Used to execute backwards pass. """
     def __init__(self, loss_scalar, solver_name='adam', base_lr=None, lr_policy=None,
                  momentum=None, weight_decay=None, fc_vars=None,
-                 last_conv_vars=None, vars_to_opt=None):
+                 last_conv_vars=None, vars_to_opt=None,
+                 tf_graph=None):
         self.base_lr = base_lr
         self.lr_policy = lr_policy
         self.momentum = momentum
         self.solver_name = solver_name
         self.loss_scalar = loss_scalar
+
+        self.graph = tf_graph
         if self.lr_policy != 'fixed':
             raise NotImplementedError('learning rate policies other than fixed are not implemented')
 
         self.weight_decay = weight_decay
         if weight_decay is not None:
             if vars_to_opt is None:
-                trainable_vars = tf.trainable_variables()
+                if self.graph is None:
+                    trainable_vars = tf.trainable_variables()
+                else:
+                    with self.graph.as_default():
+                        trainable_vars = tf.trainable_variables()
             else:
                 trainable_vars = vars_to_opt
             loss_with_reg = self.loss_scalar
             for var in trainable_vars:
-                loss_with_reg += self.weight_decay*tf.nn.l2_loss(var)
+                if self.graph is None:
+                    loss_with_reg += self.weight_decay*tf.nn.l2_loss(var)
+                else:
+                    with self.graph.as_default():
+                        loss_with_reg += self.weight_decay*tf.nn.l2_loss(var)
             self.loss_scalar = loss_with_reg
 
         self.solver_op = self.get_solver_op()
@@ -97,23 +108,51 @@ class TfSolver:
     def get_solver_op(self, var_list=None, loss=None):
         solver_string = self.solver_name.lower()
         if var_list is None:
-            var_list = tf.trainable_variables()
+            if self.graph is None:
+                var_list = tf.trainable_variables()
+            else:
+                with self.graph.as_default():
+                    var_list = tf.trainable_variables()
         if loss is None:
             loss = self.loss_scalar
         if solver_string == 'adam':
-            return tf.train.AdamOptimizer(learning_rate=self.base_lr,
-                                          beta1=self.momentum).minimize(loss, var_list=var_list)
+            if self.graph is None:
+                return tf.train.AdamOptimizer(learning_rate=self.base_lr,
+                                              beta1=self.momentum).minimize(loss, var_list=var_list)
+            else:
+                with self.graph.as_default():
+                    return tf.train.AdamOptimizer(learning_rate=self.base_lr,
+                                                  beta1=self.momentum).minimize(loss, var_list=var_list)
         elif solver_string == 'rmsprop':
-            return tf.train.RMSPropOptimizer(learning_rate=self.base_lr,
-                                             decay=self.momentum).minimize(loss, var_list=var_list)
+            if self.graph is None:
+                return tf.train.RMSPropOptimizer(learning_rate=self.base_lr,
+                                                 decay=self.momentum).minimize(loss, var_list=var_list)
+            else:
+                with self.graph.as_default():
+                    return tf.train.RMSPropOptimizer(learning_rate=self.base_lr,
+                                                     decay=self.momentum).minimize(loss, var_list=var_list)
         elif solver_string == 'momentum':
-            return tf.train.MomentumOptimizer(learning_rate=self.base_lr,
-                                              momentum=self.momentum).minimize(loss, var_list=var_list)
+            if self.graph is None:
+                return tf.train.MomentumOptimizer(learning_rate=self.base_lr,
+                                                  momentum=self.momentum).minimize(loss, var_list=var_list)
+            else:
+                with self.graph.as_default():
+                    return tf.train.MomentumOptimizer(learning_rate=self.base_lr,
+                                                      momentum=self.momentum).minimize(loss, var_list=var_list)
         elif solver_string == 'adagrad':
-            return tf.train.AdagradOptimizer(learning_rate=self.base_lr,
-                                             initial_accumulator_value=self.momentum).minimize(loss, var_list=var_list)
+            if self.graph is None:
+                return tf.train.AdagradOptimizer(learning_rate=self.base_lr,
+                                                 initial_accumulator_value=self.momentum).minimize(loss, var_list=var_list)
+            else:
+                with self.graph.as_default():
+                    return tf.train.AdagradOptimizer(learning_rate=self.base_lr,
+                                                     initial_accumulator_value=self.momentum).minimize(loss, var_list=var_list)
         elif solver_string == 'sgd':
-            return tf.train.GradientDescentOptimizer(learning_rate=self.base_lr).minimize(loss, var_list=var_list)
+            if self.graph is None:
+                return tf.train.GradientDescentOptimizer(learning_rate=self.base_lr).minimize(loss, var_list=var_list)
+            else:
+                with self.graph.as_default():
+                    return tf.train.GradientDescentOptimizer(learning_rate=self.base_lr).minimize(loss, var_list=var_list)
         else:
             raise NotImplementedError("Please select a valid optimizer.")
 

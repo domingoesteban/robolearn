@@ -372,3 +372,89 @@ def plot_multi_info(data_list, block=True, cols=3, legend=True, labels=None):
     plt.show(block=block)
 
     return fig, axs
+
+
+def lqr_forward(traj_distr, traj_info):
+    """
+    Perform LQR forward pass. Computes state-action marginals from dynamics and policy.
+    Args:
+        traj_distr: A linear Gaussian policy object.
+        traj_info: A TrajectoryInfo object.
+    Returns:
+        mu: A T x dX mean action vector.
+        sigma: A T x dX x dX covariance matrix.
+    """
+    # Compute state-action marginals from specified conditional
+    # parameters and current traj_info.
+    T = traj_distr.T
+    dU = traj_distr.dU
+    dX = traj_distr.dX
+
+    # Constants.
+    idx_x = slice(dX)
+
+    # Allocate space.
+    sigma = np.zeros((T, dX+dU, dX+dU))
+    mu = np.zeros((T, dX+dU))
+
+    # Pull out dynamics.
+    Fm = traj_info.dynamics.Fm
+    fv = traj_info.dynamics.fv
+    dyn_covar = traj_info.dynamics.dyn_covar
+
+    # Set initial state covariance and mean
+    sigma[0, idx_x, idx_x] = traj_info.x0sigma
+    mu[0, idx_x] = traj_info.x0mu
+
+    for t in range(T):
+        sigma[t, :, :] = np.vstack([
+            np.hstack([sigma[t, idx_x, idx_x],
+                       sigma[t, idx_x, idx_x].dot(traj_distr.K[t, :, :].T)]),
+            np.hstack([traj_distr.K[t, :, :].dot(sigma[t, idx_x, idx_x]),
+                       traj_distr.K[t, :, :].dot(sigma[t, idx_x, idx_x]).dot(traj_distr.K[t, :, :].T)
+                       + traj_distr.pol_covar[t, :, :]])])
+
+        # u_t = p(u_t | x_t)
+        mu[t, :] = np.hstack([mu[t, idx_x], traj_distr.K[t, :, :].dot(mu[t, idx_x]) + traj_distr.k[t, :]])
+
+        if t < T - 1:
+            # x_t+1 = p(x_t+1 | x_t, u_t)
+            sigma[t+1, idx_x, idx_x] = Fm[t, :, :].dot(sigma[t, :, :]).dot(Fm[t, :, :].T) + dyn_covar[t, :, :]
+            mu[t+1, idx_x] = Fm[t, :, :].dot(mu[t, :]) + fv[t, :]
+    return mu, sigma
+
+
+def plot_3d_gaussian(ax, mu, sigma, edges=100, sigma_axes='XY', linestyle='-.', linewidth=1.0, color='black', alpha=0.1,
+                     label='', markeredgewidth=1.0):
+    """
+    Plots ellipses in the xy plane representing the Gaussian distributions 
+    specified by mu and sigma.
+    Args:
+        mu    - Tx3 mean vector for (x, y, z)
+        sigma - Tx3x3 covariance matrix for (x, y, z)
+        edges - the number of edges to use to construct each ellipse
+    """
+    p = np.linspace(0, 2*np.pi, edges)
+    xy_ellipse = np.c_[np.cos(p), np.sin(p)]
+    T = mu.shape[0]
+
+    if sigma_axes == 'XY':
+        axes = [0, 1]
+    elif sigma_axes == 'XZ':
+        axes = [0, 2]
+    elif sigma_axes == 'YZ':
+        axes = [1, 2]
+    else:
+        raise AttributeError("Wrong sigma_axes")
+
+    xyz_idx = np.ix_(axes)
+    sigma_idx = np.ix_(axes, axes)
+
+    sigma_axes = np.clip(sigma[:, sigma_idx[0], sigma_idx[1]], 0, 0.05)
+    u, s, v = np.linalg.svd(sigma_axes)
+
+    for t in range(T):
+        xyz = np.repeat(mu[t, :].reshape((1, 3)), edges, axis=0)
+        xyz[:, xyz_idx[0]] += np.dot(xy_ellipse, np.dot(np.diag(np.sqrt(s[t, :])), u[t, :, :].T))
+        ax.plot(xyz[:, 0], xyz[:, 1], xyz[:, 2], linestyle=linestyle, linewidth=linewidth, marker=marker,
+                markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha, color=color, label=label)

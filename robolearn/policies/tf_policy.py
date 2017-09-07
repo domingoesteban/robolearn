@@ -30,7 +30,7 @@ class TfPolicy(Policy):
         device_string: tf device string for running on either gpu or cpu.
         copy_param_scope: TODO
     """
-    def __init__(self, dU, obs_tensor, act_op, feat_op, var, sess, device_string, copy_param_scope=None):
+    def __init__(self, dU, obs_tensor, act_op, feat_op, var, sess, device_string, copy_param_scope=None, tf_graph=None):
         print('Creating TfPolicy')
         Policy.__init__(self)
         self.dU = dU
@@ -38,6 +38,7 @@ class TfPolicy(Policy):
         self.act_op = act_op
         self.feat_op = feat_op
         self.sess = sess
+        self.graph = tf_graph
         self.device_string = device_string
         self.chol_pol_covar = np.diag(np.sqrt(var))
         self.scale = None  # must be set from elsewhere based on observations
@@ -45,13 +46,23 @@ class TfPolicy(Policy):
         self.x_idx = None  # must be set from elsewhere based on observations
 
         if copy_param_scope:
-            self.copy_params = tf.get_collection(tf.GraphKeys.VARIABLES, scope=copy_param_scope)
-            self.copy_params_assign_placeholders = [tf.placeholder(tf.float32, shape=param.get_shape()) for
-                                                      param in self.copy_params]
+            if self.graph is None:
+                self.copy_params = tf.get_collection(tf.GraphKeys.VARIABLES, scope=copy_param_scope)
+                self.copy_params_assign_placeholders = [tf.placeholder(tf.float32, shape=param.get_shape()) for
+                                                          param in self.copy_params]
 
-            self.copy_params_assign_ops = [tf.assign(self.copy_params[i],
-                                                     self.copy_params_assign_placeholders[i])
-                                           for i in range(len(self.copy_params))]
+                self.copy_params_assign_ops = [tf.assign(self.copy_params[i],
+                                                         self.copy_params_assign_placeholders[i])
+                                               for i in range(len(self.copy_params))]
+            else:
+                with self.graph.as_default():
+                    self.copy_params = tf.get_collection(tf.GraphKeys.VARIABLES, scope=copy_param_scope)
+                    self.copy_params_assign_placeholders = [tf.placeholder(tf.float32, shape=param.get_shape()) for
+                                                            param in self.copy_params]
+
+                    self.copy_params_assign_ops = [tf.assign(self.copy_params[i],
+                                                             self.copy_params_assign_placeholders[i])
+                                                   for i in range(len(self.copy_params))]
 
     def eval(self, state=None, obs=None, t=None, noise=None):
         """
@@ -119,7 +130,12 @@ class TfPolicy(Policy):
                        'checkpoint_path_tf': checkpoint_path + '_tf_data', 'scale': self.scale, 'bias': self.bias,
                        'device_string': self.device_string, 'goal_state': goal_state, 'x_idx': self.x_idx}
         pickle.dump(pickled_pol, open(checkpoint_path, "wb"))
-        saver = tf.train.Saver()
+        if self.graph is None:
+            saver = tf.train.Saver()
+        else:
+            with self.graph.as_default():
+                saver = tf.train.Saver()
+
         saver.save(self.sess, checkpoint_path + '_tf_data')
 
     @classmethod

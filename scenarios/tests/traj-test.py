@@ -9,6 +9,7 @@ from robolearn.utils.robot_model import *
 from robolearn.utils.iit.robot_poses.bigman.poses import *
 from robolearn.utils.transformations import *
 from std_srvs.srv import Empty
+from robolearn.utils.reach_drill_utils import create_drill_relative_pose, reset_bigman_drill_gazebo
 import rospy
 import tf
 from XCM.msg import CommandAdvr
@@ -26,6 +27,10 @@ box_position = np.array([0.75-0.05,
                          0.0184])
 box_position = np.array([0.64, -0.03-0.3, 0.0173+0.2])  # drill
 box_position = np.array([0.64, 0., -0.1327])  # beer
+box_position = np.array([0.64, 0., -0.1327])  # beer relative
+
+box_position = create_drill_relative_pose(drill_x=0.86, drill_y=-0.1776-0.05, drill_z=-0.1327+0.17, drill_yaw=0)[-3:]
+
 box_size = [0.4, 0.5, 0.3]
 box_size = [0.1, 0.1, 0.3]  # drill
 box_size = [0.11, 0.11, 0.3]  # beer
@@ -49,7 +54,7 @@ save_lift_traj = False
 
 remove_spawn_new_box = False
 
-reach_option = 0
+reach_option = 2
 #reach_option 0: IK desired final pose, interpolate in joint space
 #reach_option 1: Trajectory in EEs, then IK whole trajectory
 #reach_option 2: Trajectory in EEs, IK with Jacobians
@@ -65,13 +70,22 @@ regularization_parameter = 0.01  # For IK optimization algorithm
 q_init = np.zeros(31)
 # q_init[16] = np.deg2rad(50)
 # q_init[25] = np.deg2rad(-50)
-q_init[24] = np.deg2rad(20)
-q_init[25] = np.deg2rad(-35)
-q_init[26] = np.deg2rad(0)
+#q_init[24] = np.deg2rad(20)
+#q_init[25] = np.deg2rad(-35)
+#q_init[26] = np.deg2rad(0)
+#q_init[27] = np.deg2rad(-95)
+#q_init[28] = np.deg2rad(0)
+#q_init[29] = np.deg2rad(0)
+#q_init[30] = np.deg2rad(0)
+q_init[24] = np.deg2rad(-30)
+q_init[25] = np.deg2rad(-65)
+q_init[26] = np.deg2rad(20)
 q_init[27] = np.deg2rad(-95)
-q_init[28] = np.deg2rad(0)
+q_init[28] = np.deg2rad(20)
 q_init[29] = np.deg2rad(0)
 q_init[30] = np.deg2rad(0)
+
+
 
 print(q_init[24:])
 print(bigman_params['joints_limits'][24:])
@@ -90,6 +104,19 @@ r_soft_hand_offset = np.array([0.000, 0.030, -0.210])
 left_sign = np.array([1, 1, 1, 1, 1, 1, 1])
 right_sign = np.array([1, -1, -1, 1, -1, 1, -1])
 
+actual_RH_pose = robot_model.fk(RH_name, q=q_init, body_offset=r_soft_hand_offset, update_kinematics=True)
+#desired_RH_reach_pose = polynomial5_interpolation(N, RH_reach_pose, actual_RH_pose)[0]
+desired_RH_pose = actual_RH_pose.copy()
+desired_RH_pose[-1] -= 0.3
+print(actual_RH_pose)
+torso_joints = bigman_params['joint_ids']['TO']
+q_reach2 = robot_model.ik(RH_name, desired_RH_pose, body_offset=r_soft_hand_offset,
+                          mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
+                          method='optimization')
+
+print(repr(actual_RH_pose))
+print(repr(desired_RH_pose))
+raw_input("BORRAME")
 
 
 # ###########
@@ -120,6 +147,7 @@ if not load_reach_traj:
                                 -0.05])
     box_RH_matrix = homogeneous_matrix(pos=box_RH_position)
     RH_reach_matrix = box_matrix.dot(box_RH_matrix)
+    # Rotate HAND
     RH_reach_matrix = RH_reach_matrix.dot(tf.transformations.rotation_matrix(np.deg2rad(-90), [0, 1, 0]))
     RH_reach_pose = np.zeros(7)
     RH_reach_pose[4:] = tf.transformations.translation_from_matrix(RH_reach_matrix)
@@ -133,7 +161,7 @@ if not load_reach_traj:
                                  mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
                                  method='optimization')
         print("TODO: NOT MOVING LEFT ARM")
-        q_reach = q_init
+        q_reach = q_init.copy()
         q_reach2 = robot_model.ik(RH_name, RH_reach_pose, body_offset=r_soft_hand_offset,
                                   mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
                                   method='optimization')
@@ -191,11 +219,16 @@ if not load_reach_traj:
         q = q_init.copy()
         actual_LH_pose = robot_model.fk(LH_name, q=q, body_offset=l_soft_hand_offset, update_kinematics=True)
         actual_RH_pose = robot_model.fk(RH_name, q=q, body_offset=r_soft_hand_offset, update_kinematics=True)
+
+        print("TODO: TEMPORALY CHANGING DESIRED LH/RH POSES")
+        LH_reach_pose = actual_LH_pose
+        RH_reach_pose = desired_RH_pose
+
         desired_LH_reach_pose = polynomial5_interpolation(N, LH_reach_pose, actual_LH_pose)[0]
         desired_RH_reach_pose = polynomial5_interpolation(N, RH_reach_pose, actual_RH_pose)[0]
 
-        quatLH_interpolation = quaternion_slerp_interpolation(N, LH_reach_pose[:4], actual_LH_pose[:4])
-        quatRH_interpolation = quaternion_slerp_interpolation(N, RH_reach_pose[:4], actual_RH_pose[:4])
+        quatLH_interpolation = quaternion_slerp_interpolation(N, LH_reach_pose[:4], actual_LH_pose[:4])[0]
+        quatRH_interpolation = quaternion_slerp_interpolation(N, RH_reach_pose[:4], actual_RH_pose[:4])[0]
         desired_LH_reach_pose[:, :4] = quatLH_interpolation
         desired_RH_reach_pose[:, :4] = quatRH_interpolation
 
@@ -407,24 +440,31 @@ if remove_spawn_new_box:
 # INITIAL CONFIGURATION #
 # ##################### #
 N = int(np.ceil(T_init*freq))
+print(q_init)
 joint_init_traj = polynomial5_interpolation(N, q_init, joint_state)[0]
 raw_input("Press key for moving to INIT")
 for ii in range(N):
     des_cmd.position = joint_init_traj[ii, :]
     publisher.publish(des_cmd)
     pub_rate.sleep()
+
+# RESETING DRILL
+print("Reset drill")
+bigman_drill_pose = create_drill_relative_pose(drill_x=0.86, drill_y=-0.1776-0.05, drill_z=-0.1327, drill_yaw=0)
+reset_bigman_drill_gazebo(bigman_drill_pose, drill_size=None)
+
 #temp_count = 0
 #des_cmd.position = q_init
 #while temp_count < 100:
 #    publisher.publish(des_cmd)
 #    pub_rate.sleep()
 #    temp_count += 1
-rospy.wait_for_service('/gazebo/reset_world')
-reset_srv = rospy.ServiceProxy('/gazebo/reset_world', Empty)
-try:
-    reset_srv()
-except rospy.ServiceException as exc:
-    print("/gazebo/reset_world service call failed: %s" % str(exc))
+# rospy.wait_for_service('/gazebo/reset_world')
+# reset_srv = rospy.ServiceProxy('/gazebo/reset_world', Empty)
+# try:
+#     reset_srv()
+# except rospy.ServiceException as exc:
+#     print("/gazebo/reset_world service call failed: %s" % str(exc))
 
 # Send Commands
 raw_input("Press key for REACHING")

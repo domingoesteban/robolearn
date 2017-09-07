@@ -235,3 +235,93 @@ def init_demos(hyperparams):
         inv_pol_S[t, :, :] = np.linalg.inv(pol_S[t, :, :])
 
     return LinearGaussianPolicy(pol_K, pol_k, pol_S, chol_pol_S, inv_pol_S)
+
+
+def init_dual_demos(hyperparams):
+    """
+    Initializes the linear-Gaussian controller from demonstrations.
+    :param hyperparams: SampleList, 
+    :return: 
+    """
+    config = copy.deepcopy(INIT_LG_PD)
+    config.update(hyperparams)
+
+    good_samples = config['good_sample_list']
+    bad_samples = config['bad_sample_list']
+    max_init_var = config['max_init_var']
+
+
+    good_X = good_samples.get_states()
+    good_obs = good_samples.get_obs()
+    good_U = good_samples.get_actions()
+    bad_X = bad_samples.get_states()
+    bad_obs = bad_samples.get_obs()
+    bad_U = bad_samples.get_actions()
+
+    print(good_X.shape)
+    print(bad_X.shape)
+    X = np.concatenate((good_X, bad_X), axis=0)
+    obs = np.concatenate((good_obs, bad_obs), axis=0)
+    U = np.concatenate((good_U, bad_U), axis=0)
+
+    N, T, dX = X.shape
+    dU = U.shape[2]
+    if N == 1:
+        raise ValueError("Cannot fit dynamics on 1 sample")
+
+    # import matplotlib.pyplot as plt
+    # plt.plot(U[1, :])
+    # plt.show(block=False)
+    # raw_input(U.shape)
+
+    pol_mu = U
+    pol_sig = np.zeros((N, T, dU, dU))
+
+    for t in range(T):
+        # Using only diagonal covariances
+        cov = np.min((np.diag(np.cov(U[:, t, :].T)), max_init_var), axis=0)
+        pol_sig[:, t, :, :] = np.tile(np.diag(cov), (N, 1, 1))
+
+    # Collapse policy covariances. (This is only correct because the policy doesn't depend on state).
+    pol_sig = np.mean(pol_sig, axis=0)
+
+    # Allocate.
+    pol_K = np.zeros([T, dU, dX])
+    pol_k = np.zeros([T, dU])
+    pol_S = np.zeros([T, dU, dU])
+    chol_pol_S = np.zeros([T, dU, dU])
+    inv_pol_S = np.zeros([T, dU, dU])
+
+    # Update policy prior.
+    def eval_prior(Ts, Ps):
+        strength = 1e-4
+        dX, dU = Ts.shape[-1], Ps.shape[-1]
+        prior_fd = np.zeros((dU, dX))
+        prior_cond = 1e-5 * np.eye(dU)
+        sig = np.eye(dX)
+        Phi = strength * np.vstack([np.hstack([sig, sig.dot(prior_fd.T)]),
+                                    np.hstack([prior_fd.dot(sig), prior_fd.dot(sig).dot(prior_fd.T) + prior_cond])])
+        return np.zeros(dX+dU), Phi, 0, strength
+
+
+    # Fit linearization with least squares regression
+    dwts = (1.0 / N) * np.ones(N)
+    for t in range(T):
+        Ts = X[:, t, :]
+        Ps = pol_mu[:, t, :]
+        Ys = np.concatenate([Ts, Ps], axis=1)
+        # Obtain Normal-inverse-Wishart prior.
+        mu0, Phi, mm, n0 = eval_prior(Ts, Ps)
+        sig_reg = np.zeros((dX+dU, dX+dU))
+        # Slightly regularize on first timestep.
+        if t == 0:
+            sig_reg[:dX, :dX] = 1e-8
+        pol_K[t, :, :], pol_k[t, :], pol_S[t, :, :] = gauss_fit_joint_prior(Ys, mu0, Phi, mm, n0, dwts, dX, dU, sig_reg)
+    pol_S += pol_sig  # Add policy covariances mean
+
+    for t in range(T):
+        chol_pol_S[t, :, :] = sp.linalg.cholesky(pol_S[t, :, :])
+        inv_pol_S[t, :, :] = np.linalg.inv(pol_S[t, :, :])
+
+    return LinearGaussianPolicy(pol_K, pol_k, pol_S, chol_pol_S, inv_pol_S)
+

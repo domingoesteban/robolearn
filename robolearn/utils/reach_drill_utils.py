@@ -9,6 +9,7 @@ from robolearn.utils.iit.iit_robots_params import bigman_params
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 from robolearn.utils.robot_model import RobotModel
 from gazebo_msgs.srv import GetModelState
+from robolearn.utils.plot_utils import plot_multi_info
 import rospkg
 
 from robolearn.utils.data_logger import DataLogger
@@ -172,8 +173,8 @@ def spawn_drill_gazebo(bigman_drill_pose, drill_size=None, other_object=False):
     drill_support_pose[-1] = 0
 
     rospack = rospkg.RosPack()
-    #drill_sdf = open(rospack.get_path('robolearn_gazebo_env')+'/models/cordless_drill/model.sdf', 'r').read()
-    drill_sdf = open(rospack.get_path('robolearn_gazebo_env')+'/models/beer/model.sdf', 'r').read()
+    drill_sdf = open(rospack.get_path('robolearn_gazebo_env')+'/models/cordless_drill/model.sdf', 'r').read()
+    #drill_sdf = open(rospack.get_path('robolearn_gazebo_env')+'/models/beer/model.sdf', 'r').read()
     drill_support_sdf = open(rospack.get_path('robolearn_gazebo_env')+'/models/big_support/model.sdf', 'r').read()
 
     drill_support_pose[:] = drill_support_pose[[4, 5, 6, 0, 1, 2, 3]]
@@ -197,8 +198,8 @@ def set_drill_gazebo_pose(bigman_drill_pose, drill_size=None):
 
     ##TODO: Apparently spawn gazebo is spawning considering the bottom of the drill, then we substract the difference in Z
     bigman_drill_pose = bigman_drill_pose.copy()
-    #bigman_drill_pose[-1] -= drill_size[2]/2.
-    bigman_drill_pose[-1] -= 0
+    bigman_drill_pose[-1] -= drill_size[2]/2.  # Drill
+    #bigman_drill_pose[-1] -= 0  # Bottle
 
 
     bigman_pose = get_gazebo_model_pose('bigman', 'map')
@@ -721,8 +722,7 @@ def task_space_torque_control_demos(**kwargs):
 
 
 def task_space_torque_control_dual_demos(**kwargs):
-
-    ask_to_confirm = False
+    ask_to_confirm = True
 
     active_joints = kwargs['active_joints']
     bigman_env = kwargs['bigman_env']
@@ -731,7 +731,10 @@ def task_space_torque_control_dual_demos(**kwargs):
     drill_size = kwargs['drill_size']
     good_offsets = kwargs['good_offsets']
     bad_offsets = kwargs['bad_offsets']
+    good_interms = kwargs['good_interms']
+    bad_interms = kwargs['bad_interms']
     Treach = kwargs['Treach']
+    Tinterm = kwargs['Tinterm']
     Tlift = kwargs['Tlift']
     Tinter = kwargs['Tinter']
     Tend = kwargs['Tend']
@@ -779,13 +782,15 @@ def task_space_torque_control_dual_demos(**kwargs):
     while not joint_state_id:
         pass
 
+    Ninterm = int(Tinterm/Ts)*1
     Nreach = int(Treach/Ts)*1
+    Nreach_acum = Ninterm + Nreach
     Ninter = int(Tinter/Ts)*1
-    Ninter_acum = Nreach + Ninter
+    Ninter_acum = Nreach_acum + Ninter
     Nlift = int(Tlift/Ts)*1
     Nlift_acum = Ninter_acum + Nlift
     Nend = int(Tend/Ts)*1
-    Ntotal = Nreach + Ninter + Nlift + Nend
+    Ntotal = Ninterm + Nreach + Ninter + Nlift + Nend
     dU = bigman_env.get_action_dim()
     dX = bigman_env.get_state_dim()
     dO = bigman_env.get_obs_dim()
@@ -817,8 +822,10 @@ def task_space_torque_control_dual_demos(**kwargs):
     Kd_tau = np.eye(robot_model.qdot_size)*default_joint_damping/10
     Kd_q = Kd_tau
     Kp_null = np.eye(robot_model.qdot_size)*0.6
-    K_ori = np.tile(50, 3)#*0.1
-    K_pos = np.tile(20, 3)#*0.1
+    #K_ori = np.tile(50, 3)#*0.1  # Prev 07/09/17 14:00 pm
+    K_ori = np.tile(100, 3)#*0.1
+    #K_pos = np.tile(20, 3)#*0.1   # Prev 07/09/17 14:00 pm
+    K_pos = np.tile(40, 3)#*0.1
     Kp_task = np.eye(6)*np.r_[K_ori, K_pos]
     Kd_task = np.sqrt(Kp_task)
 
@@ -832,10 +839,24 @@ def task_space_torque_control_dual_demos(**kwargs):
         cond = conditions_to_sample[cond_id]
 
         i = 0
+        hand_interm_loaded = False
         hand_offset_loaded = False
         while i < n_good_samples + n_bad_samples:
             # drill_relative_pose = bigman_env.get_conditions(cond)[drill_relative_pose_cond_id]
             drill_relative_pose = drill_relative_poses[cond_id]
+
+            if not hand_interm_loaded:
+                if i < n_good_samples:
+                    interm_list = good_interms[i]
+                else:
+                    interm_list = bad_interms[i-n_good_samples]
+                hand_interm_roll = interm_list[0]
+                hand_interm_pitch = interm_list[1]
+                hand_interm_yaw = interm_list[2]
+                hand_interm_x = interm_list[3]
+                hand_interm_y = interm_list[4]
+                hand_interm_z = interm_list[5]
+                hand_interm_loaded = True
 
             if not hand_offset_loaded:
                 if i < n_good_samples:
@@ -854,6 +875,52 @@ def task_space_torque_control_dual_demos(**kwargs):
                 print('Sampling GOOD sample %02d for condition %02d' % (len(good_demos_samples[cond])+1, cond))
             else:
                 print('Sampling BAD sample %02d for condition %02d' % (len(bad_demos_samples[cond])+1, cond))
+
+            print("Current hand interm (R:%.3f, P:%.3f, Y:%.3f, x:%.3f, y:%.3f, z:%.3f)" % (hand_interm_roll,
+                                                                                            hand_interm_pitch,
+                                                                                            hand_interm_yaw,
+                                                                                            hand_interm_x,
+                                                                                            hand_interm_y,
+                                                                                            hand_interm_z))
+            if ask_to_confirm:
+                hand_interm_answer = raw_input("For modifying it press R,P,Y,x,y,z. | Any other key to accept: ")
+                while hand_interm_answer in ['R', 'P', 'Y', 'x', 'y', 'z']:
+                    if hand_interm_answer == 'R':
+                        option_text = "ROLL (degree)"
+                    elif hand_interm_answer == 'P':
+                        option_text = "PITCH (degree)"
+                    elif hand_interm_answer == 'Y':
+                        option_text = "YAW (degree)"
+                    elif hand_interm_answer == 'x':
+                        option_text = "X POSITION"
+                    elif hand_interm_answer == 'y':
+                        option_text = "Y POSITION"
+                    else:  # 'z':
+                        option_text = "Z position"
+
+                    hand_interm_value = float(raw_input("New %s value: " % option_text))
+                    if hand_interm_answer == 'R':
+                        hand_interm_roll = hand_interm_value
+                    elif hand_interm_answer == 'P':
+                        hand_interm_pitch = hand_interm_value
+                    elif hand_interm_answer == 'Y':
+                        hand_interm_yaw = hand_interm_value
+                    elif hand_interm_answer == 'x':
+                        hand_interm_x = hand_interm_value
+                    elif hand_interm_answer == 'y':
+                        hand_interm_y = hand_interm_value
+                    else: # 'z':
+                        hand_interm_z = hand_interm_value
+
+                    print("Current hand interm (R:%.3f, P:%.3f, Y:%.3f, x:%.3f, y:%.3f, z:%.3f)" % (hand_interm_roll,
+                                                                                                    hand_interm_pitch,
+                                                                                                    hand_interm_yaw,
+                                                                                                    hand_interm_x,
+                                                                                                    hand_interm_y,
+                                                                                                    hand_interm_z))
+                    hand_interm_answer = raw_input("For modifying it press R,P,Y,x,y,z. | Any other key to accept: ")
+
+
             print("Current hand offset (R:%.3f, P:%.3f, Y:%.3f, x:%.3f, y:%.3f, z:%.3f)" % (hand_roll,
                                                                                             hand_pitch,
                                                                                             hand_yaw,
@@ -898,9 +965,6 @@ def task_space_torque_control_dual_demos(**kwargs):
                                                                                                     hand_z))
                     hand_offset_answer = raw_input("For modifying it press R,P,Y,x,y,z. | Any other key to accept: ")
 
-
-
-
             if active_joints in ['LA', 'BA']:
                 left_hand_base_pose = create_hand_relative_pose(drill_relative_pose,
                                                                 hand_x=hand_x, hand_y=hand_y, hand_z=hand_z,
@@ -908,6 +972,10 @@ def task_space_torque_control_dual_demos(**kwargs):
                 left_hand_base_pose_lift = left_hand_base_pose.copy()
                 left_hand_base_pose_lift[-1] += final_drill_height
             if active_joints in ['RA', 'BA']:
+                right_hand_interm_pose = create_hand_relative_pose(drill_relative_pose,
+                                                                   hand_x=hand_interm_x, hand_y=hand_interm_y,
+                                                                   hand_z=hand_interm_z, hand_yaw=hand_interm_yaw,
+                                                                   hand_pitch=hand_interm_pitch, hand_roll=hand_interm_roll)
                 right_hand_base_pose = create_hand_relative_pose(drill_relative_pose,
                                                                  hand_x=hand_x, hand_y=hand_y, hand_z=hand_z,
                                                                  hand_yaw=hand_yaw, hand_pitch=hand_pitch,
@@ -933,16 +1001,144 @@ def task_space_torque_control_dual_demos(**kwargs):
             joint_traj_dots = np.zeros((Ntotal, robot_model.qdot_size))
             joint_traj_ddots = np.zeros((Ntotal, robot_model.qdot_size))
 
+            if Tinterm > 0:
+                # Interpolation
+                interpolation_type = 1
+                if interpolation_type == 0:
+                    raise NotImplementedError("NOT IMPLEMENTED")
+                    q_init = joint_pos_state.copy()
+                    if active_joints in ['LA', 'BA']:
+                        init_left_hand_pose = robot_model.fk(LH_name, q=q_init, body_offset=l_soft_hand_offset,
+                                                             update_kinematics=True, rotation_rep='quat')
+                    if active_joints in ['RA', 'BA']:
+                        init_right_hand_pose = robot_model.fk(RH_name, q=q_init, body_offset=r_soft_hand_offset,
+                                                              update_kinematics=True, rotation_rep='quat')
 
-            # Interpolation
+                    # Interpolation type 0: First task_space interp, then joint_space
+                    # ---------------------------------------------------------------
+                    print('Create task_space trajectory...')
+                    if active_joints in ['LA', 'BA']:
+                        left_task_space_traj[:, 4:], left_task_space_traj_dots[:, 3:], left_task_space_traj_ddots[:, 3:] = \
+                            polynomial5_interpolation(Ninterm, left_hand_base_pose[4:], init_left_hand_pose[4:])
+                        left_task_space_traj[:, :4], left_task_space_traj_dots[:, :3], left_task_space_traj_ddots[:, :3] = \
+                            quaternion_slerp_interpolation(Ninterm, left_hand_base_pose[:4], init_left_hand_pose[:4])
+                        left_task_space_traj_dots *= 1./Ts
+                        left_task_space_traj_ddots *= (1./Ts)**2
+
+                    if active_joints in ['RA', 'BA']:
+                        right_task_space_traj[:, 4:], right_task_space_traj_dots[:, 3:], right_task_space_traj_ddots[:, 3:] = \
+                            polynomial5_interpolation(Ninterm, right_hand_base_pose[4:], init_right_hand_pose[4:])
+                        right_task_space_traj[:, :4], right_task_space_traj_dots[:, :3], right_task_space_traj_ddots[:, :3] = \
+                            quaternion_slerp_interpolation(Ninterm, right_hand_base_pose[:4], init_right_hand_pose[:4])
+                        right_task_space_traj_dots *= 1./Ts
+                        right_task_space_traj_ddots *= 1./Ts**2
+
+                    print('Create joint_space trajectory...')
+                    joint_traj[0, :] = q_init
+                    J_left = np.zeros((6, robot_model.qdot_size))
+                    J_right = np.zeros((6, robot_model.qdot_size))
+                    mask_joints = bigman_params['joint_ids']['TO']
+                    rarm_joints = bigman_params['joint_ids']['RA']
+                    for ii in range(Ninterm-1):
+                        # Compute the Jacobian matrix
+                        robot_model.update_jacobian(J_left, LH_name, joint_traj[ii, :], l_soft_hand_offset,
+                                                    update_kinematics=True)
+                        robot_model.update_jacobian(J_right, RH_name, joint_traj[ii, :], r_soft_hand_offset,
+                                                    update_kinematics=True)
+                        J_left[:, mask_joints] = 0
+                        J_right[:, mask_joints] = 0
+                        joint_traj_dots[ii, :] = np.linalg.lstsq(J_left, left_task_space_traj_dots[ii, :])[0]
+                        joint_traj_dots[ii, rarm_joints] = np.linalg.lstsq(J_left, left_task_space_traj_dots[ii, :])[0][rarm_joints]
+                        #joint_traj[ii, :] = robot_model.ik(LH_name, left_task_space_traj[ii, :], body_offset=l_soft_hand_offset,
+                        #                                   mask_joints=bigman_params['joint_ids']['TO'],
+                        #                                   joints_limits=bigman_params['joints_limits'],
+                        #                                   #method='iterative',
+                        #                                   method='optimization', regularization_parameter=0.1,
+                        #                                   q_init=joint_traj[ii-1, :])
+                        joint_traj[ii+1, :] = joint_traj[ii, :] + joint_traj_dots[ii, :] * Ts
+                    #joint_traj_dots = np.vstack((np.diff(joint_traj, axis=0), np.zeros((1, robot_rbdl_model.qdot_size))))
+                    #joint_traj_dots *= freq
+                    joint_traj_ddots = np.vstack((np.diff(joint_traj_dots, axis=0), np.zeros((1, robot_model.qdot_size))))
+                    joint_traj_ddots *= 1./Ts
+
+                elif interpolation_type == 1:
+                    q_init = joint_pos_state.copy()
+                    arms_init = bigman_env.get_conditions(cond)[:len(bigman_params['joint_ids'][active_joints])]
+                    q_init[bigman_params['joint_ids'][active_joints]] = arms_init
+
+                    if active_joints in ['LA', 'BA']:
+                        q_interm = robot_model.ik(LH_name, left_hand_base_pose, body_offset=l_soft_hand_offset,
+                                                 mask_joints=bigman_params['joint_ids']['TO'],
+                                                 joints_limits=bigman_params['joints_limits'], method='optimization')
+                        if active_joints == 'BA':
+                            # Get configuration only for Right Arm
+                            q_interm[bigman_params['joint_ids']['RA']] = robot_model.ik(RH_name, right_hand_base_pose,
+                                                                                       body_offset=r_soft_hand_offset,
+                                                                                       mask_joints=bigman_params['joint_ids']['TO'],
+                                                                                       joints_limits=bigman_params['joints_limits'],
+                                                                                       method='optimization')[bigman_params['joint_ids']['RA']]
+                    else:
+                        q_interm = robot_model.ik(RH_name, right_hand_interm_pose, body_offset=r_soft_hand_offset,
+                                                 mask_joints=bigman_params['joint_ids']['TO']+bigman_params['joint_ids']['LA'],
+                                                 joints_limits=bigman_params['joints_limits'], method='optimization',
+                                                 q_init=q_init)
+
+                    # Interpolation type 1: First joint_space interp, then task_space
+                    # ---------------------------------------------------------------
+                    print('Create joint_space INTERM trajectory...')
+                    joint_traj[:Ninterm, :], joint_traj_dots[:Ninterm, :], joint_traj_ddots[:Ninterm, :] = polynomial5_interpolation(Ninterm,
+                                                                                                                                  q_interm,
+                                                                                                                                  q_init)
+                    joint_traj_dots[:Ninterm, :] *= 1./Ts
+                    joint_traj_ddots[:Ninterm, :] *= (1./Ts) * (1./Ts)
+
+                    print('Create task_space INTERM trajectory...')
+                    J_left = np.zeros((6, robot_model.qdot_size))
+                    J_right = np.zeros((6, robot_model.qdot_size))
+                    mask_joints = bigman_params['joint_ids']['TO']
+                    for ii in range(Ninterm):
+                        if active_joints in ['LA', 'BA']:
+                            left_task_space_traj[ii, :] = robot_model.fk(LH_name, q=joint_traj[ii, :],
+                                                                         body_offset=l_soft_hand_offset, update_kinematics=True,
+                                                                         rotation_rep='quat')
+                            if ii > 0:
+                                if quaternion_inner(left_task_space_traj[ii, :4], left_task_space_traj[ii-1, :4]) < 0:
+                                    left_task_space_traj[ii, :4] *= -1
+                            robot_model.update_jacobian(J_left, LH_name, joint_traj[ii, :], l_soft_hand_offset,
+                                                        update_kinematics=True)
+                            J_left[:, mask_joints] = 0
+                            left_task_space_traj_dots[ii, :] = J_left.dot(joint_traj_dots[ii, :])
+                        if active_joints in ['RA', 'BA']:
+                            right_task_space_traj[ii, :] = robot_model.fk(RH_name, q=joint_traj[ii, :],
+                                                                          body_offset=r_soft_hand_offset,
+                                                                          update_kinematics=True, rotation_rep='quat')
+                            if ii > 0:
+                                if quaternion_inner(right_task_space_traj[ii, :4], right_task_space_traj[ii-1, :4]) < 0:
+                                    right_task_space_traj[ii, :4] *= -1
+                            robot_model.update_jacobian(J_right, RH_name, joint_traj[ii, :], r_soft_hand_offset,
+                                                        update_kinematics=True)
+                            J_right[:, mask_joints] = 0
+                            right_task_space_traj_dots[ii, :] = J_right.dot(joint_traj_dots[ii, :])
+
+                    if active_joints in ['LA', 'BA']:
+                        left_task_space_traj_ddots[:Ninterm, :] = np.vstack((np.diff(left_task_space_traj_dots[:Ninterm, :], axis=0), np.zeros((1, 6))))
+                        left_task_space_traj_ddots[:Ninterm, :] *= (1./Ts)
+                    if active_joints in ['RA', 'BA']:
+                        right_task_space_traj_ddots[:Ninterm, :] = np.vstack((np.diff(right_task_space_traj_dots[:Ninterm, :], axis=0), np.zeros((1, 6))))
+                        right_task_space_traj_ddots[:Ninterm, :] *= (1./Ts)
+
+
+            # Interpolation REACH
             interpolation_type = 1
             if interpolation_type == 0:
-                q_init = joint_pos_state.copy()
+                if not Tinterm > 0:
+                    q_interm = joint_pos_state.copy()
+
                 if active_joints in ['LA', 'BA']:
-                    init_left_hand_pose = robot_model.fk(LH_name, q=q_init, body_offset=l_soft_hand_offset,
+                    init_left_hand_pose = robot_model.fk(LH_name, q=q_interm, body_offset=l_soft_hand_offset,
                                                          update_kinematics=True, rotation_rep='quat')
                 if active_joints in ['RA', 'BA']:
-                    init_right_hand_pose = robot_model.fk(RH_name, q=q_init, body_offset=r_soft_hand_offset,
+                    init_right_hand_pose = robot_model.fk(RH_name, q=q_interm, body_offset=r_soft_hand_offset,
                                                           update_kinematics=True, rotation_rep='quat')
 
                 # Interpolation type 0: First task_space interp, then joint_space
@@ -965,7 +1161,7 @@ def task_space_torque_control_dual_demos(**kwargs):
                     right_task_space_traj_ddots *= 1./Ts**2
 
                 print('Create joint_space trajectory...')
-                joint_traj[0, :] = q_init
+                joint_traj[0, :] = q_interm
                 J_left = np.zeros((6, robot_model.qdot_size))
                 J_right = np.zeros((6, robot_model.qdot_size))
                 mask_joints = bigman_params['joint_ids']['TO']
@@ -993,9 +1189,11 @@ def task_space_torque_control_dual_demos(**kwargs):
                 joint_traj_ddots *= 1./Ts
 
             elif interpolation_type == 1:
-                q_init = joint_pos_state.copy()
-                arms_init = bigman_env.get_conditions(cond)[:len(bigman_params['joint_ids'][active_joints])]
-                q_init[bigman_params['joint_ids'][active_joints]] = arms_init
+                if not Tinterm > 0:
+                    q_interm = joint_pos_state.copy()
+                    #TODO: Assuming joint state first
+                    arms_interm = bigman_env.get_conditions(cond)[:len(bigman_params['joint_ids'][active_joints])]
+                    q_interm[bigman_params['joint_ids'][active_joints]] = arms_interm
 
                 if active_joints in ['LA', 'BA']:
                     q_reach = robot_model.ik(LH_name, left_hand_base_pose, body_offset=l_soft_hand_offset,
@@ -1012,22 +1210,22 @@ def task_space_torque_control_dual_demos(**kwargs):
                     q_reach = robot_model.ik(RH_name, right_hand_base_pose, body_offset=r_soft_hand_offset,
                                              mask_joints=bigman_params['joint_ids']['TO']+bigman_params['joint_ids']['LA'],
                                              joints_limits=bigman_params['joints_limits'], method='optimization',
-                                             q_init=q_init)
+                                             q_init=q_interm)
 
                 # Interpolation type 1: First joint_space interp, then task_space
                 # ---------------------------------------------------------------
                 print('Create joint_space REACH trajectory...')
-                joint_traj[:Nreach, :], joint_traj_dots[:Nreach, :], joint_traj_ddots[:Nreach, :] = polynomial5_interpolation(Nreach,
+                joint_traj[Ninterm:Nreach_acum, :], joint_traj_dots[Ninterm:Nreach_acum, :], joint_traj_ddots[Ninterm:Nreach_acum, :] = polynomial5_interpolation(Nreach,
                                                                                                                               q_reach,
-                                                                                                                              q_init)
-                joint_traj_dots[:Nreach, :] *= 1./Ts
-                joint_traj_ddots[:Nreach, :] *= (1./Ts) * (1./Ts)
+                                                                                                                              q_interm)
+                joint_traj_dots[Ninterm:Nreach_acum, :] *= 1./Ts
+                joint_traj_ddots[Ninterm:Nreach_acum, :] *= (1./Ts) * (1./Ts)
 
                 print('Create task_space REACH trajectory...')
                 J_left = np.zeros((6, robot_model.qdot_size))
                 J_right = np.zeros((6, robot_model.qdot_size))
                 mask_joints = bigman_params['joint_ids']['TO']
-                for ii in range(Nreach):
+                for ii in range(Ninterm, Nreach_acum):
                     if active_joints in ['LA', 'BA']:
                         left_task_space_traj[ii, :] = robot_model.fk(LH_name, q=joint_traj[ii, :],
                                                                      body_offset=l_soft_hand_offset, update_kinematics=True,
@@ -1052,24 +1250,24 @@ def task_space_torque_control_dual_demos(**kwargs):
                         right_task_space_traj_dots[ii, :] = J_right.dot(joint_traj_dots[ii, :])
 
                 if active_joints in ['LA', 'BA']:
-                    left_task_space_traj_ddots[:Nreach, :] = np.vstack((np.diff(left_task_space_traj_dots[:Nreach, :], axis=0), np.zeros((1, 6))))
-                    left_task_space_traj_ddots[:Nreach, :] *= (1./Ts)
+                    left_task_space_traj_ddots[Ninterm:Nreach_acum, :] = np.vstack((np.diff(left_task_space_traj_dots[Ninterm:Nreach_acum, :], axis=0), np.zeros((1, 6))))
+                    left_task_space_traj_ddots[Ninterm:Nreach_acum, :] *= (1./Ts)
                 if active_joints in ['RA', 'BA']:
-                    right_task_space_traj_ddots[:Nreach, :] = np.vstack((np.diff(right_task_space_traj_dots[:Nreach, :], axis=0), np.zeros((1, 6))))
-                    right_task_space_traj_ddots[:Nreach, :] *= (1./Ts)
+                    right_task_space_traj_ddots[Ninterm:Nreach_acum, :] = np.vstack((np.diff(right_task_space_traj_dots[Ninterm:Nreach_acum, :], axis=0), np.zeros((1, 6))))
+                    right_task_space_traj_ddots[Ninterm:Nreach_acum, :] *= (1./Ts)
 
             if Tinter > 0:
                 if active_joints in ['LA', 'BA']:
-                    left_task_space_traj[Nreach:Nreach+Ninter, :] = left_task_space_traj[Nreach-1, :]
-                    left_task_space_traj_dots[Nreach:Nreach+Ninter, :] = left_task_space_traj_dots[Nreach-1, :]
-                    left_task_space_traj_ddots[Nreach:Nreach+Ninter, :] = left_task_space_traj_ddots[Nreach-1, :]
+                    left_task_space_traj[Nreach_acum:Ninter_acum, :] = left_task_space_traj[Nreach_acum-1, :]
+                    left_task_space_traj_dots[Nreach_acum:Ninter_acum, :] = left_task_space_traj_dots[Nreach_acum-1, :]
+                    left_task_space_traj_ddots[Nreach_acum:Ninter_acum, :] = left_task_space_traj_ddots[Nreach_acum-1, :]
                 if active_joints in ['RA', 'BA']:
-                    right_task_space_traj[Nreach:Nreach+Ninter, :] = right_task_space_traj[Nreach-1, :]
-                    right_task_space_traj_dots[Nreach:Nreach+Ninter, :] = right_task_space_traj_dots[Nreach-1, :]
-                    right_task_space_traj_ddots[Nreach:Nreach+Ninter, :] = right_task_space_traj_ddots[Nreach-1, :]
-                joint_traj[Nreach:Nreach+Ninter, :] = joint_traj[Nreach-1, :]
-                joint_traj_dots[Nreach:Nreach+Ninter, :] = joint_traj_dots[Nreach-1, :]
-                joint_traj_ddots[Nreach:Nreach+Ninter, :] = joint_traj_ddots[Nreach-1, :]
+                    right_task_space_traj[Nreach_acum:Ninter_acum, :] = right_task_space_traj[Nreach_acum-1, :]
+                    right_task_space_traj_dots[Nreach_acum:Ninter_acum, :] = right_task_space_traj_dots[Nreach_acum-1, :]
+                    right_task_space_traj_ddots[Nreach_acum:Ninter_acum, :] = right_task_space_traj_ddots[Nreach_acum-1, :]
+                joint_traj[Nreach_acum:Ninter_acum, :] = joint_traj[Nreach_acum-1, :]
+                joint_traj_dots[Nreach_acum:Ninter_acum, :] = joint_traj_dots[Nreach_acum-1, :]
+                joint_traj_ddots[Nreach_acum:Ninter_acum, :] = joint_traj_ddots[Nreach_acum-1, :]
 
             if Tlift > 0:
                 print('Create task_space LIFT trajectory...')
@@ -1095,7 +1293,7 @@ def task_space_torque_control_dual_demos(**kwargs):
                 J_right = np.zeros((6, robot_model.qdot_size))
                 mask_joints = bigman_params['joint_ids']['TO']
                 rarm_joints = bigman_params['joint_ids']['RA']
-                for ii in range(Ninter_acum, Nlift_acum-1):
+                for ii in range(Ninter_acum, Nlift_acum):
                     # Compute the Jacobian matrix
                     robot_model.update_jacobian(J_left, LH_name, joint_traj[ii, :], l_soft_hand_offset,
                                                 update_kinematics=True)
@@ -1128,14 +1326,16 @@ def task_space_torque_control_dual_demos(**kwargs):
                 joint_traj_dots[Nlift_acum:, :] = joint_traj_dots[Nlift_acum-1, :]
                 joint_traj_ddots[Nlift_acum:, :] = joint_traj_ddots[Nlift_acum-1, :]
 
-            # plt.plot(left_task_space_traj[:, :])
-            # plt.plot(joint_traj[:, :])
+            # plt.plot(right_task_space_traj[:, :])
+            # #plt.plot(joint_traj[:, :])
             # plt.show()
 
             if noisy:
                 noise = generate_noise(Ntotal, dU, noise_hyperparams)
             else:
                 noise = np.zeros((Ntotal, dU))
+
+            #plot_multi_info([noise], block=True, cols=3, legend=True, labels=['Ruido'])
 
             # Create a sample class
             sample = Sample(bigman_env, Ntotal)
@@ -1216,7 +1416,7 @@ def task_space_torque_control_dual_demos(**kwargs):
                 if active_joints in ['RA', 'BA']:
                     task_right_pose_error = compute_cartesian_error(right_task_space_traj[t, :], real_right_task_space_traj[t, :])
                     task_right_vel_error = right_task_space_traj_dots[t, :] - real_right_task_space_traj_dots[t, :]
-                    #print(task_right_pose_error)
+                    print(task_right_pose_error)
 
                 # Reference task-space acceleration(s)
                 if active_joints in ['LA', 'BA']:

@@ -101,7 +101,16 @@ des_cmd = CommandAdvr()
 des_cmd.name = bigman_params['joints_names']
 
 q_init = np.zeros(robot_model.q_size)
-q_init[16] = np.deg2rad(90)
+#q_init[16] = np.deg2rad(90)
+q_init[24] = np.deg2rad(-30)
+q_init[25] = np.deg2rad(-65)
+q_init[26] = np.deg2rad(20)
+q_init[27] = np.deg2rad(-95)
+q_init[28] = np.deg2rad(20)
+q_init[29] = np.deg2rad(0)
+q_init[30] = np.deg2rad(0)
+
+
 N = int(np.ceil(T_init*freq))
 joint_init_traj = polynomial5_interpolation(N, q_init, joint_pos_state)[0]
 print("Moving to zero configuration with Position control.")
@@ -113,7 +122,7 @@ for ii in range(N):
     pub_rate.sleep()
 
 q_end = np.zeros(robot_model.q_size)
-joints_to_move = bigman_params['joint_ids']['BA'][:7]
+joints_to_move = bigman_params['joint_ids']['BA'][7:]
 #joints_to_move = [bigman_params['joint_ids']['BA'][6]]
 q_end[16] = np.deg2rad(90)
 q_end[joints_to_move] += np.deg2rad(-20)

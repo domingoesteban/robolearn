@@ -10,7 +10,7 @@ class GPSAgent(Agent):
     """
     GPSAgent class: An agent with samples attribute and policy_opt method.
     """
-    def __init__(self, act_dim, obs_dim, state_dim, policy_opt=None):
+    def __init__(self, act_dim, obs_dim, state_dim, policy_opt=None, agent_name=""):
         super(GPSAgent, self).__init__(act_dim=act_dim, obs_dim=obs_dim, state_dim=state_dim)
 
         # TODO: We assume that an agent should remember his samples (experience??). Check if we include it in all agents
@@ -26,6 +26,7 @@ class GPSAgent(Agent):
         else:
             if not issubclass(policy_opt['type'], PolicyOpt):
                 raise TypeError("'policy_opt' type %s is not a PolicyOpt class" % str(policy_opt['type']))
+            policy_opt['hyperparams']['name'] = agent_name
             self.policy_opt = policy_opt['type'](policy_opt['hyperparams'], obs_dim, act_dim)
 
         # Assign the internal policy in policy_opt class as agent's policy.
