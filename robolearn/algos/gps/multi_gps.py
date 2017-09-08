@@ -27,6 +27,7 @@ from robolearn.agents.agent_utils import generate_noise
 from robolearn.utils.data_logger import DataLogger
 from robolearn.utils.print_utils import *
 from robolearn.utils.plot_utils import *
+from robolearn.utils.traj_opt.traj_opt_utils import traj_distr_kl, traj_distr_kl_alt
 
 from robolearn.policies.lin_gauss_policy import LinearGaussianPolicy
 from robolearn.algos.gps.gps_utils import gauss_fit_joint_prior
@@ -91,7 +92,6 @@ class MULTIGPS(Algorithm):
         init_traj_distr['dU'] = self.dU
         init_traj_distr['dt'] = self.dt
         init_traj_distr['T'] = self.T
-
 
         # Get total GPS algos
         self.n_gps = len(self.agents)
@@ -188,6 +188,14 @@ class MULTIGPS(Algorithm):
                     # self.good_duality_infor = init_traj_distr['type'](init_traj_distr)
                     # self.bad_duality_infor = init_traj_distr['type'](init_traj_distr)
 
+                    # TODO: Using same init traj
+                    # Get the initial trajectory distribution hyperparams
+                    init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'], self._train_cond_idx[m])
+                    # Instantiate Trajectory Distribution: init_lqr or init_pd
+                    self.good_duality_info[gps][m].traj_dist = init_traj_distr['type'](init_traj_distr)
+                    self.bad_duality_info[gps][m].traj_dist = init_traj_distr['type'](init_traj_distr)
+
+
                 # Use inititial dual variables
                 self.cur[gps][m].eta = self._hyperparams['gps_algo_hyperparams'][gps]['init_eta']
                 self.cur[gps][m].nu = self._hyperparams['gps_algo_hyperparams'][gps]['init_nu']
@@ -207,12 +215,15 @@ class MULTIGPS(Algorithm):
                     self.cur[gps][m].pol_info = PolicyInfo(self._hyperparams['gps_algo_hyperparams'][gps])
                     self.cur[gps][m].pol_info.policy_prior = policy_prior['type'](policy_prior)
 
+                    # Same policy prior for good/bad
+                    self.good_duality_info[gps][m].pol_info = PolicyInfo(self._hyperparams['gps_algo_hyperparams'][gps])
+                    self.good_duality_info[gps][m].pol_info.policy_prior = policy_prior['type'](policy_prior)
+                    self.bad_duality_info[gps][m].pol_info = PolicyInfo(self._hyperparams['gps_algo_hyperparams'][gps])
+                    self.bad_duality_info[gps][m].pol_info.policy_prior = policy_prior['type'](policy_prior)
+
         # MULTITHREAD
         self.environment_queue = Queue(maxsize=0)
         self.samples_done = [False for _ in range(self.n_gps)]
-
-    def get_noise(self):
-        return generate_noise(self.T, self.dU, self._hyperparams)
 
     def run(self, itr_load=None):
         """
@@ -224,10 +235,12 @@ class MULTIGPS(Algorithm):
         """
         run_successfully = True
 
-        self.noise_data = np.zeros((self.max_iterations, self.T, self.dU))
-        for ii in range(self.max_iterations):
-            if self._hyperparams['noisy_samples']:
-                self.noise_data[ii, :, :] = self.get_noise()
+        self.noise_data = np.zeros((self.max_iterations, self.M, self._hyperparams['num_samples'], self.T, self.dU))
+        if self._hyperparams['noisy_samples']:
+            for ii in range(self.max_iterations):
+                for cond in range(self.M):
+                    for n in range(self._hyperparams['num_samples']):
+                        self.noise_data[ii, cond, n, :, :] = self.get_noise()
 
         try:
             # Run gazebo sampler
@@ -258,6 +271,277 @@ class MULTIGPS(Algorithm):
         finally:
             self._end()
             return run_successfully
+
+    def _multi_iteration(self, number_gps, itr_start):
+        logger = logging.getLogger('log%d' % number_gps)
+
+        try:
+            # Sample
+            for itr in range(itr_start, self.max_iterations):
+                logger.info('')
+                logger.info('->GPS:%02d itr:%02d | Sampling from local trajectories...' % (number_gps, itr+1))
+                traj_or_pol = 'traj'
+                self.environment_queue.put((number_gps, traj_or_pol, itr))
+
+                while not self.samples_done[number_gps]:
+                    pass
+                self.samples_done[number_gps] = False
+
+                traj_sample_lists = [self.agents[number_gps].get_samples(cond, -self._hyperparams['num_samples'])
+                                     for cond in self._train_cond_idx]
+                # Clear agent sample
+                self.agents[number_gps].clear_samples()  # TODO: Check if it is better to 'remember' these samples
+
+                for m in range(self.M):
+                    self.cur[number_gps][m].sample_list = traj_sample_lists[m]
+
+                # Update dynamics model using all samples.
+                logger.info('')
+                logger.info('->GPS:%02d itr:%02d | Updating dynamics linearization...' % (number_gps, itr+1))
+                self._update_dynamics(number_gps)
+
+                logger.info('')
+                logger.info('->GPS:%02d itr:%02d | Evaluating samples costs...' % (number_gps, itr+1))
+                for m in range(self.M):
+                    self._eval_cost(number_gps, m)
+
+                # On the first iteration, need to catch policy up to init_traj_distr.
+                if self.use_global_policy and self.iteration_count[number_gps] == 0:
+                    self.new_traj_distr[number_gps] = [self.cur[number_gps][cond].traj_distr for cond in range(self.M)]
+                    logger.info("\n"*2)
+                    logger.info('->GPS:%02d itr:%02d | S-step for init_traj_distribution (iter=0)...' % (number_gps, itr+1))
+                    self.update_policy(number_gps)
+
+                # Update global policy linearizations.
+                logger.info('')
+                if self.use_global_policy:
+                    logger.info('->GPS:%02d itr:%02d | Updating global policy linearization...' % (number_gps, itr+1))
+                    for m in range(self.M):
+                        self.update_policy_fit(number_gps, m)
+
+                logger.info('')
+                if self.use_global_policy and self.iteration_count[number_gps] > 0:
+                    logger.info('->GPS:%02d itr:%02d | Updating KL step size with GLOBAL policy...' % (number_gps, itr+1))
+                    self._update_step_size_global_policy(number_gps)
+                else:
+                    logger.info('->GPS:%02d itr:%02d | Updating KL step size with previous LOCAL policy...' % (number_gps, itr+1))
+                    self._update_step_size(number_gps)  # KL Divergence step size.
+
+                logger.info('')
+                logger.info('->GPS:%02d itr:%02d | Getting good and bad trajectories...' % (number_gps, itr+1))
+                self._get_good_trajectories(number_gps, option=self._hyperparams['gps_algo_hyperparams'][number_gps]['good_traj_selection_type'])
+                self._get_bad_trajectories(number_gps, option=self._hyperparams['gps_algo_hyperparams'][number_gps]['bad_traj_selection_type'])
+
+                logger.info('')
+                logger.info('->GPS:%02d itr:%02d | Updating data of good and bad samples...' % (number_gps, itr+1))
+                logger.info('-->GPS:%02d itr:%02d | Update g/b dynamics...' % (number_gps, itr+1))
+                self._update_good_bad_dynamics(number_gps)
+                logger.info('-->GPS:%02d itr:%02d | Update g/b costs...' % (number_gps, itr+1))
+                self._eval_good_bad_costs(number_gps)
+                logger.info('-->GPS:%02d itr:%02d | Update g/b traj dist...' % (number_gps, itr+1))
+                self._fit_good_bad_traj_dist(number_gps)
+                logger.info('-->GPS:%02d itr:%02d | Divergence btw good/bad trajs: ...' % (number_gps, itr+1))
+                self._check_kl_div_good_bad(number_gps)
+
+                # Run inner loop to compute new policies.
+                logger.info('')
+                logger.info('->GPS:%02d itr:%02d | Updating trajectories...' % (number_gps, itr+1))
+                for ii in range(self._hyperparams['gps_algo_hyperparams'][number_gps]['inner_iterations']):
+                    logger.info('-->GPS:%02d itr:%02d | Inner iteration %d/%d' % (number_gps, itr+1, ii+1, self._hyperparams['gps_algo_hyperparams'][number_gps]['inner_iterations']))
+                    self._update_trajectories(number_gps)
+
+                if self.use_global_policy:
+                    logger.info('')
+                    logger.info('GPS:%02d itr:%02d | ->| S-step |<-' % (number_gps, itr+1))
+                    self.update_policy(number_gps)
+
+                self.advance_duality_iteration_variables(number_gps)
+
+                # test_after_iter
+                if self._hyperparams['test_after_iter']:
+                    logger.info('')
+                    logger.info('-->GPS:%02d itr:%02d | Testing global policy...' % (number_gps, itr+1))
+                    traj_or_pol = 'pol'
+                    self.environment_queue.put((number_gps, traj_or_pol, itr))
+
+                    while not self.samples_done[number_gps]:
+                        pass
+                    self.samples_done[number_gps] = False
+
+                    pol_sample_lists = list()
+                    for m in range(self.M):
+                        pol_sample_lists.append(self.prev[number_gps][m].pol_info.policy_samples)  # Because after advance_iter
+
+                    pol_sample_lists_costs, pol_sample_lists_cost_compositions = self._eval_conditions_sample_list_cost(pol_sample_lists)
+
+                else:
+                    pol_sample_lists = None
+                    pol_sample_lists_costs = None
+                    pol_sample_lists_cost_compositions = None
+
+                # Log data
+                self._log_data(number_gps, itr, traj_sample_lists, pol_sample_lists, pol_sample_lists_costs,
+                               pol_sample_lists_cost_compositions)
+
+        except Exception as e:
+            logger.exception("Error in GPS!!!")
+
+    def _multi_take_sample(self):
+        """
+        Collect a sample from the environment.
+        :param itr: Iteration number.
+        :param cond: Condition number.
+        :param i: Sample number.
+        :param verbose: 
+        :param save: 
+        :param noisy: 
+        :return: None
+        """
+
+        zero_noise = np.zeros(self.dU)
+
+        while True:
+            verbose = False
+            if self.environment_queue.empty():  # queue empty
+                #print("NOthing in queue")
+                time.sleep(0.5)
+                pass
+            else:
+                last_in_queue = self.environment_queue.get()
+                gps = last_in_queue[0]
+                traj_or_pol = last_in_queue[1]
+                itr = last_in_queue[2]
+
+                print("Sampling for GPS:%02d | mode:%s" % (gps, traj_or_pol))
+
+                for cond in range(self.M):
+                    if traj_or_pol == 'traj':
+                        on_policy = self._hyperparams['sample_on_policy']
+                        total_samples = self._hyperparams['num_samples']
+                        save = True
+
+                    elif traj_or_pol == 'pol':
+                        on_policy = True
+                        total_samples = self._hyperparams['test_samples']
+                        save = False  # TODO: CHECK THIS
+                        pol_samples = [list() for _ in range(len(self._test_cond_idx))]
+                        itr -= 1  # Because it is called after self._advance_iteration_variables()
+                    else:
+                        raise ValueError("Wrong traj_or_pol option %s" % traj_or_pol)
+
+                    # On-policy or Off-policy
+                    if on_policy and (self.iteration_count[gps] > 0 or
+                                          ('sample_pol_first_itr' in self._hyperparams and self._hyperparams['sample_pol_first_itr'])):
+                        policy = self.agents[gps].policy  # DOM: Instead self.opt_pol.policy
+                        print("On-policy sampling: %s!" % type(policy))
+                    else:
+                        policy = self.cur[gps][cond].traj_distr
+                        print("Off-policy sampling: %s!" % type(policy))
+
+                    for i in range(total_samples):
+                        # Create a sample class
+                        sample = Sample(self.env, self.T)
+                        history = [None] * self.T
+                        obs_hist = [None] * self.T
+
+                        #sample = self._take_fake_sample(itr, cond, i, verbose=True, save=True, noisy=True, on_policy=False)
+
+                        print("Resetting environment...")
+                        self.env.reset(time=2, cond=cond)
+
+                        if issubclass(type(self.env), GymEnv):
+                            gym_ts = self.dt
+                        else:
+                            ros_rate = rospy.Rate(int(1/self.dt))  # hz
+
+                        # Collect history
+                        if on_policy:
+                            print("On-policy sample gps:%d | itr:%d/%d, cond:%d/%d, i:%d/%d" % (gps, itr+1, self.max_iterations,
+                                                                                                cond+1, len(self._train_cond_idx),
+                                                                                                i+1, total_samples))
+                        else:
+                            print("Sample gps:%d | itr:%d/%d, cond:%d/%d, s:%d/%d" % (gps, itr+1, self.max_iterations,
+                                                                                      cond+1, len(self._train_cond_idx),
+                                                                                      i+1, total_samples))
+                        sampling_bar = ProgressBar(self.T, bar_title='Sampling')
+                        
+                        for t in range(self.T):
+                            sampling_bar.update(t)
+                            if verbose:
+                                if on_policy:
+                                    print("On-policy sample gps:%d | itr:%d/%d, cond:%d/%d, i:%d/%d | t:%d/%d" % (gps, itr+1, self.max_iterations,
+                                                                                                                  cond+1, len(self._train_cond_idx),
+                                                                                                                  i+1, total_samples,
+                                                                                                                  t+1, self.T))
+                                else:
+                                    print("Sample gps:%d | itr:%d/%d, cond:%d/%d, s:%d/%d | t:%d/%d" % (gps, itr+1, self.max_iterations,
+                                                                                                        cond+1, len(self._train_cond_idx),
+                                                                                                        i+1, total_samples,
+                                                                                                t+1, self.T))
+                            obs = self.env.get_observation()
+                            # Checking NAN
+                            nan_number = np.isnan(obs)
+                            if np.any(nan_number):
+                                print("\e[31mERROR OBSERVATION: NAN!!!!! gps:%d | type:%s | itr %d | cond%d | i:%d t:%d" % (gps, traj_or_pol, itr+1, cond+1, i+1, t+1))
+                            state = self.env.get_state()
+                            if traj_or_pol == 'traj':
+                                noise = self.noise_data[itr, cond, i, t, :]
+                            else:
+                                noise = zero_noise
+                            action = policy.eval(state.copy(), obs.copy(), t, noise.copy())  # TODO: Avoid TF policy writes in obs
+                            # Checking NAN
+                            nan_number = np.isnan(action)
+                            if np.any(nan_number):
+                                print("\e[31mERROR ACTION: NAN!!!!! gps:%d | type:%s | itr %d | cond%d | i:%d t:%d" % (gps, traj_or_pol, itr+1, cond+1, i+1, t+1))
+                            action[nan_number] = 0
+                            self.env.send_action(action)
+                            obs_hist[t] = (obs, action)
+                            history[t] = (state, action)
+                            if issubclass(type(self.env), GymEnv):
+                                time.sleep(gym_ts)
+                            else:
+                                ros_rate.sleep()
+
+                        sampling_bar.end()
+
+                        # Stop environment
+                        self.env.stop()
+                        print("Generating sample data...")
+
+                        all_actions = np.array([hist[1] for hist in history])
+                        all_states = np.array([hist[0] for hist in history])
+                        all_obs = np.array([hist[0] for hist in obs_hist])
+                        sample.set_acts(all_actions)   # Set all actions at the same time
+                        sample.set_obs(all_obs)        # Set all obs at the same time
+                        sample.set_states(all_states)  # Set all states at the same time
+                        sample.set_noise(self.noise_data[itr])        # Set all noise at the same time
+
+                        if save:  # Save sample in agent sample list
+                            sample_id = self.agents[gps].add_sample(sample, cond)
+                            print("The sample was added to Agent's sample list. Now there are %d sample(s) for condition '%d'." %
+                                  (sample_id+1, cond))
+
+                        if traj_or_pol == 'pol':
+                            pol_samples[cond].append(sample)
+
+                    if traj_or_pol == 'pol':
+                        self.prev[gps][cond].pol_info.policy_samples = SampleList(pol_samples[cond])  # prev because it is called after advance_iteration_variables
+
+                self.samples_done[gps] = True
+
+    def _check_kl_div_good_bad(self, number_gps):
+        logger = logging.getLogger('log%d' % number_gps)
+        for cond in range(self.M):
+            good_distr = self.good_duality_info[number_gps][cond].traj_dist
+            bad_distr = self.bad_duality_info[number_gps][cond].traj_dist
+            mu_good, sigma_good = lqr_forward(good_distr, self.good_trajectories_info[number_gps][cond])
+            mu_bad, sigma_bad = lqr_forward(bad_distr, self.bad_trajectories_info[number_gps][cond])
+            kl_div_good_bad = traj_distr_kl_alt(mu_good, sigma_good, good_distr, bad_distr, tot=True)
+            #print("G/B KL_div: %f " % kl_div_good_bad)
+            logger.info('--->Divergence btw good/bad trajs is: %f' % kl_div_good_bad)
+
+    def get_noise(self):
+        return generate_noise(self.T, self.dU, self._hyperparams)
 
     def _initialize(self, itr_load):
         """
@@ -322,117 +606,6 @@ class MULTIGPS(Algorithm):
             #          'Press \'go\' to begin.') % itr_load)
             return itr_load + 1
 
-    def _multi_iteration(self, number_gps, itr_start):
-        logger = logging.getLogger('log%d' % number_gps)
-
-        try:
-            # Sample
-            for itr in range(itr_start, self.max_iterations):
-                logger.info('')
-                logger.info('->GPS:%02d | Sampling from local trajectories...' % number_gps)
-                traj_or_pol = 'traj'
-                self.environment_queue.put((number_gps, traj_or_pol, itr))
-
-                while not self.samples_done[number_gps]:
-                    pass
-                self.samples_done[number_gps] = False
-
-                traj_sample_lists = [self.agents[number_gps].get_samples(cond, -self._hyperparams['num_samples'])
-                                     for cond in self._train_cond_idx]
-                # Clear agent sample
-                self.agents[number_gps].clear_samples()  # TODO: Check if it is better to 'remember' these samples
-
-                for m in range(self.M):
-                    self.cur[number_gps][m].sample_list = traj_sample_lists[m]
-
-                # Update dynamics model using all samples.
-                logger.info('')
-                logger.info('->GPS:%02d | Updating dynamics linearization...' % number_gps)
-                self._update_dynamics(number_gps)
-
-                logger.info('')
-                logger.info('->GPS:%02d | Evaluating samples costs...' % number_gps)
-                for m in range(self.M):
-                    self._eval_cost(number_gps, m)
-
-                # On the first iteration, need to catch policy up to init_traj_distr.
-                if self.use_global_policy and self.iteration_count[number_gps] == 0:
-                    self.new_traj_distr[number_gps] = [self.cur[number_gps][cond].traj_distr for cond in range(self.M)]
-                    logger.info("\n"*2)
-                    logger.info('->GPS:%02d | S-step for init_traj_distribution (iter=0)...' % number_gps)
-                    self.update_policy(number_gps)
-
-                # Update global policy linearizations.
-                logger.info('')
-                if self.use_global_policy:
-                    logger.info('->GPS:%02d | Updating global policy linearization...' % number_gps)
-                    for m in range(self.M):
-                        self.update_policy_fit(number_gps, m)
-
-                logger.info('')
-                if self.use_global_policy and self.iteration_count[number_gps] > 0:
-                    logger.info('->GPS:%02d | Updating KL step size with GLOBAL policy...' % number_gps)
-                    self._update_step_size_global_policy(number_gps)
-                else:
-                    logger.info('->GPS:%02d | Updating KL step size with previous LOCAL policy...' % number_gps)
-                    self._update_step_size(number_gps)  # KL Divergence step size.
-
-                logger.info('')
-                logger.info('->GPS:%02d | Getting good and bad trajectories...' % number_gps)
-                self._get_good_trajectories(number_gps, option=self._hyperparams['gps_algo_hyperparams'][number_gps]['good_traj_selection_type'])
-                self._get_bad_trajectories(number_gps, option=self._hyperparams['gps_algo_hyperparams'][number_gps]['bad_traj_selection_type'])
-
-                logger.info('')
-                logger.info('->GPS:%02d | Updating data of good and bad trajectories...' % number_gps)
-                logger.info('-->GPS:%02d | Update dynamics...'% number_gps)
-                self._update_good_bad_dynamics(number_gps)
-                logger.info('-->GPS:%02d | Update costs...' % number_gps)
-                self._eval_good_bad_costs(number_gps)
-                logger.info('-->GPS:%02d | Update traj dist...' % number_gps)
-                self._fit_good_bad_traj_dist(number_gps)
-
-                # Run inner loop to compute new policies.
-                logger.info('')
-                logger.info('->GPS:%02d | Updating trajectories...' % number_gps)
-                for ii in range(self._hyperparams['gps_algo_hyperparams'][number_gps]['inner_iterations']):
-                    logger.info('-->GPS:%02d | Inner iteration %d/%d' % (number_gps, ii+1, self._hyperparams['gps_algo_hyperparams'][number_gps]['inner_iterations']))
-                    self._update_trajectories(number_gps)
-
-                if self.use_global_policy:
-                    logger.info('')
-                    logger.info('GPS:%02d | ->| S-step |<-' % number_gps)
-                    self.update_policy(number_gps)
-
-                self.advance_duality_iteration_variables(number_gps)
-
-                # test_after_iter
-                if self._hyperparams['test_after_iter']:
-                    logger.info('')
-                    logger.info('-->GPS:%02d | Testing global policy...' % number_gps)
-                    traj_or_pol = 'pol'
-                    self.environment_queue.put((number_gps, traj_or_pol, itr))
-
-                    while not self.samples_done[number_gps]:
-                        pass
-                    self.samples_done[number_gps] = False
-
-                    pol_sample_lists = list()
-                    for m in range(self.M):
-                        pol_sample_lists.append(self.prev[number_gps][m].pol_info.policy_samples)  # Because after advance_iter
-
-                    pol_sample_lists_costs, pol_sample_lists_cost_compositions = self._eval_conditions_sample_list_cost(pol_sample_lists)
-
-                else:
-                    pol_sample_lists = None
-                    pol_sample_lists_costs = None
-                    pol_sample_lists_cost_compositions = None
-
-                # Log data
-                self._log_data(number_gps, itr, traj_sample_lists, pol_sample_lists, pol_sample_lists_costs,
-                               pol_sample_lists_cost_compositions)
-
-        except Exception as e:
-            logger.exception("Error in GPS!!!")
 
     def compute_costs(self, number_gps, m, eta, omega, nu, augment=True):
         """
@@ -694,8 +867,8 @@ class MULTIGPS(Algorithm):
             # Get current best trajectory
             if self.bad_duality_info[number_gps][cond].sample_list is None:
                 for bb, bad_index in enumerate(worst_indeces):
-                    LOGGER.info("GPS:%02d | Defining BAD trajectory sample %d | cur_cost=%f" % (number_gps, bb,
-                                                                                          np.sum(cs[bad_index, :])))
+                    LOGGER.info("GPS:%02d | Defining BAD trajectory sample %d | cur_cost=%f from sample %d" % (number_gps, bb,
+                                                                                          np.sum(cs[bad_index, :]), bad_index))
                 self.bad_duality_info[number_gps][cond].sample_list = SampleList([sample_list[bad_index] for bad_index in worst_indeces])
                 self.bad_duality_info[number_gps][cond].samples_cost = cs[worst_indeces, :]
             else:
@@ -712,6 +885,7 @@ class MULTIGPS(Algorithm):
                             self.bad_duality_info[number_gps][cond].samples_cost[least_worst_index, :] = cs[bad_index, :]
                 elif option == 'always':
                     for bb, bad_index in enumerate(worst_indeces):
+                        print("Worst bad index is %d | and replaces %d" % (bad_index, bb))
                         LOGGER.info("GPS:%02d | Updating BAD trajectory sample %d | cur_cost=%f < new_cost=%f"
                               % (number_gps, bb, np.sum(self.bad_duality_info[number_gps][cond].samples_cost[bb, :]),
                                  np.sum(cs[bad_index, :])))
@@ -744,7 +918,8 @@ class MULTIGPS(Algorithm):
             # Get current best trajectory
             if self.good_duality_info[number_gps][cond].sample_list is None:
                 for gg, good_index in enumerate(best_indeces):
-                    LOGGER.info("GPS:%02d | Defining GOOD trajectory sample %d | cur_cost=%f" % (number_gps, gg, np.sum(cs[good_index, :])))
+                    LOGGER.info("GPS:%02d | Defining GOOD trajectory sample %d | cur_cost=%f from sample %d" % (number_gps, gg,
+                                                                                                                np.sum(cs[good_index, :]), good_index))
                 self.good_duality_info[number_gps][cond].sample_list = SampleList([sample_list[good_index] for good_index in best_indeces])
                 self.good_duality_info[number_gps][cond].samples_cost = cs[best_indeces, :]
             else:
@@ -762,6 +937,7 @@ class MULTIGPS(Algorithm):
                             self.good_duality_info[number_gps][cond].samples_cost[least_best_index, :] = cs[good_index, :]
                 elif option == 'always':
                     for gg, good_index in enumerate(best_indeces):
+                        print("Best good index is %d | and replaces %d" % (good_index, gg))
                         LOGGER.info("GPS:%02d | Updating GOOD trajectory sample %d | cur_cost=%f > new_cost=%f"
                               % (number_gps, gg, np.sum(self.good_duality_info[number_gps][cond].samples_cost[gg, :]),
                                  np.sum(cs[good_index, :])))
@@ -953,140 +1129,6 @@ class MULTIGPS(Algorithm):
 
         self.policy_opt[number_gps].update(obs_data, tgt_mu, tgt_prc, tgt_wt, LOGGER=logger)
 
-    def _multi_take_sample(self):
-        """
-        Collect a sample from the environment.
-        :param itr: Iteration number.
-        :param cond: Condition number.
-        :param i: Sample number.
-        :param verbose: 
-        :param save: 
-        :param noisy: 
-        :return: None
-        """
-
-        while True:
-            verbose = False
-            if self.environment_queue.empty():  # queue empty
-                #print("NOthing in queue")
-                time.sleep(0.5)
-                pass
-            else:
-                last_in_queue = self.environment_queue.get()
-                gps = last_in_queue[0]
-                traj_or_pol = last_in_queue[1]
-                itr = last_in_queue[2]
-
-                print("Sampling for GPS:%02d | mode:%s" % (gps, traj_or_pol))
-
-                for cond in range(self.M):
-                    if traj_or_pol == 'traj':
-                        on_policy = self._hyperparams['sample_on_policy']
-                        total_samples = self._hyperparams['num_samples']
-                        save = True
-
-                    elif traj_or_pol == 'pol':
-                        on_policy = True
-                        total_samples = self._hyperparams['test_samples']
-                        save = False  # TODO: CHECK THIS
-                        pol_samples = [list() for _ in range(len(self._test_cond_idx))]
-                        itr -= 1  # Because it is called after self._advance_iteration_variables()
-                    else:
-                        raise ValueError("Wrong traj_or_pol option %s" % traj_or_pol)
-
-                    # On-policy or Off-policy
-                    if on_policy and (self.iteration_count[gps] > 0 or
-                                          ('sample_pol_first_itr' in self._hyperparams and self._hyperparams['sample_pol_first_itr'])):
-                        policy = self.agents[gps].policy  # DOM: Instead self.opt_pol.policy
-                        print("On-policy sampling: %s!" % type(policy))
-                    else:
-                        policy = self.cur[gps][cond].traj_distr
-                        print("Off-policy sampling: %s!" % type(policy))
-
-                    for i in range(total_samples):
-                        # Create a sample class
-                        sample = Sample(self.env, self.T)
-                        history = [None] * self.T
-                        obs_hist = [None] * self.T
-
-                        print("Resetting environment...")
-                        self.env.reset(time=2, cond=cond)
-
-                        if issubclass(type(self.env), GymEnv):
-                            gym_ts = self.dt
-                        else:
-                            ros_rate = rospy.Rate(int(1/self.dt))  # hz
-
-                        # Collect history
-                        if on_policy:
-                            print("On-policy sample gps:%d | itr:%d/%d, cond:%d/%d, i:%d/%d" % (gps, itr+1, self.max_iterations,
-                                                                                                          cond+1, len(self._train_cond_idx),
-                                                                                                          i+1, total_samples))
-                        else:
-                            print("Sample gps:%d | itr:%d/%d, cond:%d/%d, s:%d/%d" % (gps, itr+1, self.max_iterations,
-                                                                                                cond+1, len(self._train_cond_idx),
-                                                                                                i+1, total_samples))
-
-                        sampling_bar = ProgressBar(self.T, bar_title='Sampling')
-                        for t in range(self.T):
-                            sampling_bar.update(t)
-                            if verbose:
-                                if on_policy:
-                                    print("On-policy sample gps:%d | itr:%d/%d, cond:%d/%d, i:%d/%d | t:%d/%d" % (gps, itr+1, self.max_iterations,
-                                                                                                         cond+1, len(self._train_cond_idx),
-                                                                                                         i+1, total_samples,
-                                                                                                         t+1, self.T))
-                                else:
-                                    print("Sample gps:%d | itr:%d/%d, cond:%d/%d, s:%d/%d | t:%d/%d" % (gps, itr+1, self.max_iterations,
-                                                                                               cond+1, len(self._train_cond_idx),
-                                                                                               i+1, total_samples,
-                                                                                               t+1, self.T))
-                            obs = self.env.get_observation()
-                            # Checking NAN
-                            nan_number = np.isnan(obs)
-                            if np.any(nan_number):
-                                print("\e[31mERROR OBSERVATION: NAN!!!!! gps:%d | type:%s | itr %d | cond%d | i:%d t:%d" % (gps, traj_or_pol, itr+1, cond+1, i+1, t+1))
-                            state = self.env.get_state()
-                            action = policy.eval(state.copy(), obs.copy(), t, self.noise_data[itr, t, :].copy())  # TODO: Avoid TF policy writes in obs
-                            # Checking NAN
-                            nan_number = np.isnan(action)
-                            if np.any(nan_number):
-                                print("\e[31mERROR ACTION: NAN!!!!! gps:%d | type:%s | itr %d | cond%d | i:%d t:%d" % (gps, traj_or_pol, itr+1, cond+1, i+1, t+1))
-                            action[nan_number] = 0
-                            self.env.send_action(action)
-                            obs_hist[t] = (obs, action)
-                            history[t] = (state, action)
-                            if issubclass(type(self.env), GymEnv):
-                                time.sleep(gym_ts)
-                            else:
-                                ros_rate.sleep()
-
-                        sampling_bar.end()
-
-                        # Stop environment
-                        self.env.stop()
-                        print("Generating sample data...")
-
-                        all_actions = np.array([hist[1] for hist in history])
-                        all_states = np.array([hist[0] for hist in history])
-                        all_obs = np.array([hist[0] for hist in obs_hist])
-                        sample.set_acts(all_actions)   # Set all actions at the same time
-                        sample.set_obs(all_obs)        # Set all obs at the same time
-                        sample.set_states(all_states)  # Set all states at the same time
-                        sample.set_noise(self.noise_data[itr])        # Set all noise at the same time
-
-                        if save:  # Save sample in agent sample list
-                            sample_id = self.agents[gps].add_sample(sample, cond)
-                            print("The sample was added to Agent's sample list. Now there are %d sample(s) for condition '%d'." %
-                                  (sample_id+1, cond))
-
-                        if traj_or_pol == 'pol':
-                            pol_samples[cond].append(sample)
-
-                    if traj_or_pol == 'pol':
-                        self.prev[gps][cond].pol_info.policy_samples = SampleList(pol_samples[cond])  # prev because it is called after advance_iteration_variables
-
-                self.samples_done[gps] = True
 
 
     def _take_fake_sample(self, itr, cond, i, verbose=True, save=True, noisy=True, on_policy=False):
@@ -1118,11 +1160,6 @@ class MULTIGPS(Algorithm):
         sample.set_obs(all_obs)        # Set all obs at the same time
         sample.set_states(all_states)  # Set all states at the same time
         sample.set_noise(noise)        # Set all noise at the same time
-
-        if save:  # Save sample in agent sample list
-            sample_id = self.agent.add_sample(sample, cond)
-            print("The sample was added to Agent's sample list. Now there are %d sample(s) for condition '%d'." %
-                  (sample_id+1, cond))
 
         return sample
 
@@ -1179,11 +1216,12 @@ class MULTIGPS(Algorithm):
                 ('gps%02d_policy_opt_itr_%02d.pkl' % (number_gps, itr)),
                 self.agents[number_gps].policy_opt
             )
-            LOGGER.info("Logging Policy... ")
-            self.agents[number_gps].policy_opt.policy.pickle_policy(self.dO, self.dU,
-                                                       self.data_logger.dir_path + '/' + ('gps%02d_policy_itr_%02d' % (number_gps, itr)),
-                                                       goal_state=None,
-                                                       should_hash=False)
+            print("TODO: NOT LOGGING POLICY!!!")
+            #LOGGER.info("Logging Policy... ")
+            #self.agents[number_gps].policy_opt.policy.pickle_policy(self.dO, self.dU,
+            #                                           self.data_logger.dir_path + '/' + ('gps%02d_policy_itr_%02d' % (number_gps, itr)),
+            #                                           goal_state=None,
+            #                                           should_hash=False)
 
         print("TODO: CHECK HOW TO SOLVE LOGGING MULTIGPS ALGO")
         # print("Logging GPS algorithm state... ")

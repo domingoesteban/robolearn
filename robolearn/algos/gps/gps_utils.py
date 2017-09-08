@@ -107,6 +107,7 @@ class DualityInfo(BundleType):
             'samples_cost': None,
             'traj_cost': None,
             'traj_dist': None,
+            'pol_info': None,        # Policy-related PolicyInfo object.
         }
         BundleType.__init__(self, variables)
 
