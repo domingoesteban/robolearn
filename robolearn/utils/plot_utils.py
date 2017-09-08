@@ -425,7 +425,7 @@ def lqr_forward(traj_distr, traj_info):
 
 
 def plot_3d_gaussian(ax, mu, sigma, edges=100, sigma_axes='XY', linestyle='-.', linewidth=1.0, color='black', alpha=0.1,
-                     label='', markeredgewidth=1.0):
+                     label='', markeredgewidth=1.0, marker=None, markersize=5.0):
     """
     Plots ellipses in the xy plane representing the Gaussian distributions 
     specified by mu and sigma.
@@ -434,6 +434,7 @@ def plot_3d_gaussian(ax, mu, sigma, edges=100, sigma_axes='XY', linestyle='-.', 
         sigma - Tx3x3 covariance matrix for (x, y, z)
         edges - the number of edges to use to construct each ellipse
     """
+
     p = np.linspace(0, 2*np.pi, edges)
     xy_ellipse = np.c_[np.cos(p), np.sin(p)]
     T = mu.shape[0]
@@ -458,3 +459,57 @@ def plot_3d_gaussian(ax, mu, sigma, edges=100, sigma_axes='XY', linestyle='-.', 
         xyz[:, xyz_idx[0]] += np.dot(xy_ellipse, np.dot(np.diag(np.sqrt(s[t, :])), u[t, :, :].T))
         ax.plot(xyz[:, 0], xyz[:, 1], xyz[:, 2], linestyle=linestyle, linewidth=linewidth, marker=marker,
                 markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha, color=color, label=label)
+
+
+def plot_sample_list_actions(iteration_data_list, samples_idx=None, sample_list_cols=3, colormap=None):
+    """
+    :param iteration_data_list: 
+    :param samples_idx: None: plot all samples, else list of samples
+    :return: 
+    """
+    if colormap is None:
+        colormap = plt.cm.rainbow  # nipy_spectral, Set1, Paired, winter
+
+    plot_sample_list_max_min = False
+
+    total_cond = len(iteration_data_list)
+    for cond in range(total_cond):
+        dData = iteration_data_list[cond].sample_list.get_actions(samples_idx).shape[-1]
+        fig, axs = plt.subplots(int(math.ceil(float(dData)/sample_list_cols)), sample_list_cols)
+        fig.subplots_adjust(hspace=0)
+        fig.canvas.set_window_title('Actions | Condition %d' % cond)
+        fig.set_facecolor((1, 1, 1))
+        for ii in range(axs.size):
+            ax = axs[ii/sample_list_cols, ii % sample_list_cols]
+            #ax.set_prop_cycle('color', [colormap(i) for i in np.linspace(0, 1, total_itr)])
+
+        lines = list()
+        labels = list()
+
+        actions = iteration_data_list[cond].sample_list.get_actions(samples_idx)
+
+        if samples_idx is None:
+            samples_idx = range(actions.shape[0])
+
+        for ii in range(axs.size):
+            ax = axs[ii/sample_list_cols, ii % sample_list_cols]
+            if ii < dData:
+                ax.set_title("Action %d" % (ii+1))
+                for nn in samples_idx:
+                    label = "Sample %d" % nn
+                    line = ax.plot(actions[nn][:, ii], label=label)[0]
+
+                    if ii == 0:
+                        lines.append(line)
+                        labels.append(label)
+
+                    if nn == 0:
+                        ax.tick_params(axis='both', direction='in')
+                        #ax.set_xlim([0, actions.shape[2]])
+                        #ax.set_ylim([ymin, ymax])
+            else:
+                plt.setp(ax, visible=False)
+
+        # One legend for all figures
+        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0., borderaxespad=0.)
+        legend.get_frame().set_alpha(0.4)
