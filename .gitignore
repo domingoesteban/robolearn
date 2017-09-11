@@ -3,5 +3,5 @@
 robolearn.egg-info
 scenarios/robolearn_log
 scenarios/TASKSPACE_TORQUE_CTRL_DEMO_*
-DUAL_DEMOS_*
+scenarios/DUAL_DEMOS_*
 LOG_2017-*
