@@ -4,7 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import MaxNLocator
 import pickle
 import math
-import os
+import os, sys
 from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distribution, lqr_forward, plot_3d_gaussian
 from robolearn.algos.gps.gps_utils import IterationData
 from robolearn.utils.iit.iit_robots_params import bigman_params
@@ -13,11 +13,15 @@ import scipy.stats
 
 gps_directory_name = 'GPS_2017-09-01_15:22:55'  # Test MDGPS | Weekend
 gps_directory_name = 'GPS_2017-09-04_10:45:00'  # Test MDGPS | New cov_bad
-gps_directory_name = 'GPS_2017-09-08_18:07:44'
+#gps_directory_name = 'GPS_2017-09-08_18:07:44'  # Only Bad Friday 08/09
+#gps_directory_name = 'GPS_2017-09-09_15:49:05'  # Normal Saturday 09/09
+gps_directory_name = 'GPS_2017-09-10_15:30:24'  # Normal Sunday 10/09 | new init_pos
+#gps_directory_name = 'GPS_2017-09-10_19:10:07'  # G/B Sunday 10/09 | new init_pos
+
 
 
 init_itr = 0
-final_itr = 100
+final_itr = 7
 #final_itr = 30
 samples_idx = [-1]  # List of samples / None: all samples
 max_traj_plots = None  # None, plot all
@@ -44,7 +48,7 @@ options = {
     'plot_duality_traj_distr': False,
     'plot_3d_traj': False,
     'plot_3d_duality_traj': True,
-    'plot_3d_pol_traj': False,
+    'plot_3d_pol_traj': True,
 }
 
 eta_color = 'black'
@@ -760,6 +764,8 @@ if options['plot_3d_duality_traj']:
     gauss_markeredgewidth = 0.2
     gauss_alpha = 0.3
 
+    plot_gaussian = False
+
     views = ['XY', 'XZ']
 
     #des_colormap = [colormap(i) for i in np.linspace(0, 1, total_itr)]
@@ -771,15 +777,15 @@ if options['plot_3d_duality_traj']:
         labels = list()
 
         for vv, view in enumerate(views):
-            ax_3d_traj = fig_3d_traj.add_subplot(1, len(views), vv+1, projection='3d')
-            ax_3d_traj.set_prop_cycle('color', des_colormap)
+            ax_traj = fig_3d_traj.add_subplot(1, len(views), vv+1, projection='3d')
+            ax_traj.set_prop_cycle('color', des_colormap)
             plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
-            plot = ax_3d_traj.plot([0], [0], [0], color='green', marker='o', markersize=10)
+            plot = ax_traj.plot([0], [0], [0], color='green', marker='o', markersize=10)
 
             fig_3d_traj.canvas.set_window_title("Expected Trajectories | Condition %d" % cond)
-            ax_3d_traj.set_xlabel('X')
-            ax_3d_traj.set_ylabel('Y')
-            ax_3d_traj.set_zlabel('Z')
+            ax_traj.set_xlabel('X')
+            ax_traj.set_ylabel('Y')
+            ax_traj.set_zlabel('Z')
 
             if view == 'XY':
                 azim = 0.
@@ -793,7 +799,7 @@ if options['plot_3d_duality_traj']:
             else:
                 raise AttributeError("Wrong view %s" % view)
 
-            ax_3d_traj.view_init(elev=elev, azim=azim)
+            ax_traj.view_init(elev=elev, azim=azim)
 
             #for itr in range(total_itr):
             for itr in [-1]:
@@ -819,25 +825,25 @@ if options['plot_3d_duality_traj']:
                 label_bad = "Bad itr %d" % iteration_ids[itr]
 
                 xs = np.linspace(5, 0, 100)
-                plot = ax_3d_traj.plot(mu[:, distance_idxs[0]],
+                plot = ax_traj.plot(mu[:, distance_idxs[0]],
                                        mu[:, distance_idxs[1]],
                                        zs=mu[:, distance_idxs[2]],
                                        linestyle=linestyle, linewidth=linewidth, marker=marker, markersize=markersize,
                                        markeredgewidth=markeredgewidth, alpha=alpha, color=des_colormap[0],
                                        label=label)[0]
-                plot_prev = ax_3d_traj.plot(mu_prev[:, distance_idxs[0]],
+                plot_prev = ax_traj.plot(mu_prev[:, distance_idxs[0]],
                                             mu_prev[:, distance_idxs[1]],
                                             zs=mu_prev[:, distance_idxs[2]],
                                             linestyle=linestyle, linewidth=linewidth, marker=marker, markersize=markersize,
                                             markeredgewidth=markeredgewidth, alpha=alpha, color=des_colormap[1],
                                             label=label)[0]
-                plot_good = ax_3d_traj.plot(mu_good[:, distance_idxs[0]],
+                plot_good = ax_traj.plot(mu_good[:, distance_idxs[0]],
                                             mu_good[:, distance_idxs[1]],
                                             zs=mu_good[:, distance_idxs[2]],
                                             linestyle=linestyle, linewidth=linewidth, marker=marker, markersize=markersize,
                                             markeredgewidth=markeredgewidth, alpha=alpha, color=des_colormap[2],
                                             label=label)[0]
-                plot_bad = ax_3d_traj.plot(mu_bad[:, distance_idxs[0]],
+                plot_bad = ax_traj.plot(mu_bad[:, distance_idxs[0]],
                                        mu_bad[:, distance_idxs[1]],
                                        zs=mu_bad[:, distance_idxs[2]],
                                        linestyle=linestyle, linewidth=linewidth, marker=marker, markersize=markersize,
@@ -855,25 +861,26 @@ if options['plot_3d_duality_traj']:
                     labels.append(label_bad)
 
                 sigma_idx = np.ix_(distance_idxs, distance_idxs)
-                plot_3d_gaussian(ax_3d_traj, mu[:, distance_idxs], sigma[:, sigma_idx[0], sigma_idx[1]],
+                plot_3d_gaussian(ax_traj, mu[:, distance_idxs], sigma[:, sigma_idx[0], sigma_idx[1]],
                                  sigma_axes=view, edges=100, linestyle=gauss_linestyle, linewidth=gauss_linewidth,
                                  color=des_colormap[0], alpha=gauss_alpha, label='',
                                  markeredgewidth=gauss_markeredgewidth, marker=marker, markersize=markersize)
 
-                plot_3d_gaussian(ax_3d_traj, mu_prev[:, distance_idxs], sigma_prev[:, sigma_idx[0], sigma_idx[1]],
-                                 sigma_axes=view, edges=100, linestyle=gauss_linestyle, linewidth=gauss_linewidth,
-                                 color=des_colormap[1], alpha=gauss_alpha, label='',
-                                 markeredgewidth=gauss_markeredgewidth, marker=marker, markersize=markersize)
+                # plot_3d_gaussian(ax_traj, mu_prev[:, distance_idxs], sigma_prev[:, sigma_idx[0], sigma_idx[1]],
+                #                  sigma_axes=view, edges=100, linestyle=gauss_linestyle, linewidth=gauss_linewidth,
+                #                  color=des_colormap[1], alpha=gauss_alpha, label='',
+                #                  markeredgewidth=gauss_markeredgewidth, marker=marker, markersize=markersize)
 
-                plot_3d_gaussian(ax_3d_traj, mu_good[:, distance_idxs], sigma_good[:, sigma_idx[0], sigma_idx[1]],
-                                 sigma_axes=view, edges=100, linestyle=gauss_linestyle, linewidth=gauss_linewidth,
-                                 color=des_colormap[2], alpha=gauss_alpha, label='',
-                                 markeredgewidth=gauss_markeredgewidth, marker=marker, markersize=markersize)
+                if plot_gaussian:
+                    plot_3d_gaussian(ax_traj, mu_good[:, distance_idxs], sigma_good[:, sigma_idx[0], sigma_idx[1]],
+                                     sigma_axes=view, edges=100, linestyle=gauss_linestyle, linewidth=gauss_linewidth,
+                                     color=des_colormap[2], alpha=gauss_alpha, label='',
+                                     markeredgewidth=gauss_markeredgewidth, marker=marker, markersize=markersize)
 
-                plot_3d_gaussian(ax_3d_traj, mu_bad[:, distance_idxs], sigma_bad[:, sigma_idx[0], sigma_idx[1]],
-                                 sigma_axes=view, edges=100, linestyle=gauss_linestyle, linewidth=gauss_linewidth,
-                                 color=des_colormap[3], alpha=gauss_alpha, label='',
-                                 markeredgewidth=gauss_markeredgewidth, marker=marker, markersize=markersize)
+                    plot_3d_gaussian(ax_traj, mu_bad[:, distance_idxs], sigma_bad[:, sigma_idx[0], sigma_idx[1]],
+                                     sigma_axes=view, edges=100, linestyle=gauss_linestyle, linewidth=gauss_linewidth,
+                                     color=des_colormap[3], alpha=gauss_alpha, label='',
+                                     markeredgewidth=gauss_markeredgewidth, marker=marker, markersize=markersize)
 
                 X = np.append(mu[:, distance_idxs[0]], 0)
                 Y = np.append(mu[:, distance_idxs[1]], 0)
@@ -883,9 +890,9 @@ if options['plot_3d_duality_traj']:
                 mid_z = (Z.max() + Z.min()) * 0.5
                 max_range = np.array([X.max()-X.min(), Y.max()-Y.min(), Z.max()-Z.min()]).max() / 2.0
 
-                ax_3d_traj.set_xlim(mid_x - max_range, mid_x + max_range)
-                ax_3d_traj.set_ylim(mid_y - max_range, mid_y + max_range)
-                ax_3d_traj.set_zlim(mid_z - max_range, mid_z + max_range)
+                ax_traj.set_xlim(mid_x - max_range, mid_x + max_range)
+                ax_traj.set_ylim(mid_y - max_range, mid_y + max_range)
+                ax_traj.set_zlim(mid_z - max_range, mid_z + max_range)
 
                 X_prev = np.append(mu_prev[:, distance_idxs[0]], 0)
                 Y_prev = np.append(mu_prev[:, distance_idxs[1]], 0)
@@ -895,9 +902,9 @@ if options['plot_3d_duality_traj']:
                 mid_z_prev = (Z_prev.max() + Z_prev.min()) * 0.5
                 max_range_prev = np.array([X_prev.max()-X_prev.min(), Y_prev.max()-Y_prev.min(), Z_prev.max()-Z_prev.min()]).max() / 2.0
 
-                ax_3d_traj.set_xlim(mid_x_prev - max_range_prev, mid_x_prev + max_range_prev)
-                ax_3d_traj.set_ylim(mid_y_prev - max_range_prev, mid_y_prev + max_range_prev)
-                ax_3d_traj.set_zlim(mid_z_prev - max_range_prev, mid_z_prev + max_range_prev)
+                ax_traj.set_xlim(mid_x_prev - max_range_prev, mid_x_prev + max_range_prev)
+                ax_traj.set_ylim(mid_y_prev - max_range_prev, mid_y_prev + max_range_prev)
+                ax_traj.set_zlim(mid_z_prev - max_range_prev, mid_z_prev + max_range_prev)
 
                 X_good = np.append(mu_good[:, distance_idxs[0]], 0)
                 Y_good = np.append(mu_good[:, distance_idxs[1]], 0)
@@ -907,9 +914,9 @@ if options['plot_3d_duality_traj']:
                 mid_z_good = (Z_good.max() + Z_good.min()) * 0.5
                 max_range_good = np.array([X_good.max()-X_good.min(), Y_good.max()-Y_good.min(), Z_good.max()-Z_good.min()]).max() / 2.0
 
-                ax_3d_traj.set_xlim(mid_x_good - max_range_good, mid_x_good + max_range_good)
-                ax_3d_traj.set_ylim(mid_y_good - max_range_good, mid_y_good + max_range_good)
-                ax_3d_traj.set_zlim(mid_z_good - max_range_good, mid_z_good + max_range_good)
+                ax_traj.set_xlim(mid_x_good - max_range_good, mid_x_good + max_range_good)
+                ax_traj.set_ylim(mid_y_good - max_range_good, mid_y_good + max_range_good)
+                ax_traj.set_zlim(mid_z_good - max_range_good, mid_z_good + max_range_good)
 
                 X_bad = np.append(mu_bad[:, distance_idxs[0]], 0)
                 Y_bad = np.append(mu_bad[:, distance_idxs[1]], 0)
@@ -919,9 +926,9 @@ if options['plot_3d_duality_traj']:
                 mid_z_bad = (Z_bad.max() + Z_bad.min()) * 0.5
                 max_range_bad = np.array([X_bad.max()-X_bad.min(), Y_bad.max()-Y_bad.min(), Z_bad.max()-Z_bad.min()]).max() / 2.0
 
-                ax_3d_traj.set_xlim(mid_x_bad - max_range_bad, mid_x_bad + max_range_bad)
-                ax_3d_traj.set_ylim(mid_y_bad - max_range_bad, mid_y_bad + max_range_bad)
-                ax_3d_traj.set_zlim(mid_z_bad - max_range_bad, mid_z_bad + max_range_bad)
+                ax_traj.set_xlim(mid_x_bad - max_range_bad, mid_x_bad + max_range_bad)
+                ax_traj.set_ylim(mid_y_bad - max_range_bad, mid_y_bad + max_range_bad)
+                ax_traj.set_zlim(mid_z_bad - max_range_bad, mid_z_bad + max_range_bad)
 
         # One legend for all figures
         legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0.)
@@ -953,15 +960,15 @@ if options['plot_3d_traj']:
         labels = list()
 
         for vv, view in enumerate(views):
-            ax_3d_traj = fig_3d_traj.add_subplot(1, len(views), vv+1, projection='3d')
-            ax_3d_traj.set_prop_cycle('color', des_colormap)
+            ax_traj = fig_3d_traj.add_subplot(1, len(views), vv+1, projection='3d')
+            ax_traj.set_prop_cycle('color', des_colormap)
             plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
-            plot = ax_3d_traj.plot([0], [0], [0], color='green', marker='o', markersize=10)
+            plot = ax_traj.plot([0], [0], [0], color='green', marker='o', markersize=10)
 
             fig_3d_traj.canvas.set_window_title("Expected Trajectories | Condition %d" % cond)
-            ax_3d_traj.set_xlabel('X')
-            ax_3d_traj.set_ylabel('Y')
-            ax_3d_traj.set_zlabel('Z')
+            ax_traj.set_xlabel('X')
+            ax_traj.set_ylabel('Y')
+            ax_traj.set_zlabel('Z')
 
             if view == 'XY':
                 azim = 0.
@@ -975,7 +982,7 @@ if options['plot_3d_traj']:
             else:
                 raise AttributeError("Wrong view %s" % view)
 
-            ax_3d_traj.view_init(elev=elev, azim=azim)
+            ax_traj.view_init(elev=elev, azim=azim)
 
             for itr in range(total_itr):
                 traj_distr = iteration_data_list[itr][cond].traj_distr
@@ -986,7 +993,7 @@ if options['plot_3d_traj']:
                 label = "itr %d" % iteration_ids[itr]
 
                 xs = np.linspace(5, 0, 100)
-                plot = ax_3d_traj.plot(mu[:, distance_idxs[0]],
+                plot = ax_traj.plot(mu[:, distance_idxs[0]],
                                        mu[:, distance_idxs[1]],
                                        zs=mu[:, distance_idxs[2]],
                                        linestyle=linestyle, linewidth=linewidth, marker=marker, markersize=markersize,
@@ -998,7 +1005,7 @@ if options['plot_3d_traj']:
                     labels.append(label)
 
                 sigma_idx = np.ix_(distance_idxs, distance_idxs)
-                plot_3d_gaussian(ax_3d_traj, mu[:, distance_idxs], sigma[:, sigma_idx[0], sigma_idx[1]],
+                plot_3d_gaussian(ax_traj, mu[:, distance_idxs], sigma[:, sigma_idx[0], sigma_idx[1]],
                                  sigma_axes=view, edges=100, linestyle=gauss_linestyle, linewidth=gauss_linewidth,
                                  color=des_colormap[itr], alpha=gauss_alpha, label='',
                                  markeredgewidth=gauss_markeredgewidth)
@@ -1011,9 +1018,9 @@ if options['plot_3d_traj']:
                 mid_z = (Z.max() + Z.min()) * 0.5
                 max_range = np.array([X.max()-X.min(), Y.max()-Y.min(), Z.max()-Z.min()]).max() / 2.0
 
-                ax_3d_traj.set_xlim(mid_x - max_range, mid_x + max_range)
-                ax_3d_traj.set_ylim(mid_y - max_range, mid_y + max_range)
-                ax_3d_traj.set_zlim(mid_z - max_range, mid_z + max_range)
+                ax_traj.set_xlim(mid_x - max_range, mid_x + max_range)
+                ax_traj.set_ylim(mid_y - max_range, mid_y + max_range)
+                ax_traj.set_zlim(mid_z - max_range, mid_z + max_range)
 
         # One legend for all figures
         legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0.)
@@ -1021,12 +1028,22 @@ if options['plot_3d_traj']:
 
 if options['plot_3d_pol_traj']:
     distance_idxs = [24, 25, 26]  # NOT TO USE -1, -2, etc because it will get the mu and variance of u !!!
+    plot_type = '2d'  # 3d or 2d
     linestyle = '-'
-    linewidth = 1.0
+    linewidth = 2.0
     marker = None
     markersize = 5.0
     markeredgewidth = 1.0
     alpha = 1.0
+
+    background_dir = 'drill_icons'  #  'drill_3d'
+    fig_scale = 0.255/660.
+    fig_size = np.array([700, 700, 700])*fig_scale
+
+    size_x = 0.1
+    size_y = 0.1
+    size_z = 0.3
+    relative_zero = np.array([0.00, -size_y/2-0.02, size_z/2+0.02])
 
     gauss_linestyle = ':'
     gauss_linewidth = 0.2
@@ -1035,41 +1052,75 @@ if options['plot_3d_pol_traj']:
     gauss_markeredgewidth = 0.2
     gauss_alpha = 0.3
 
-    views = ['XY', 'XZ']
+    views = ['YZ', 'XZ']
+    #views = ['XZ']
 
     des_colormap = [colormap(i) for i in np.linspace(0, 1, total_itr)]
 
     samples_idx = -1
 
+    #fig_3d_trajs = plt.figure()
     for cond in range(total_cond):
-        fig_3d_traj = plt.figure()
+        fig_3d_trajs = [plt.figure() for _ in range(len(views))]
+        # ax_traj = fig_3d_traj.add_subplot(1, len(views), vv+1, projection='3d')
         lines = list()
         labels = list()
 
         for vv, view in enumerate(views):
-            ax_3d_traj = fig_3d_traj.add_subplot(1, len(views), vv+1, projection='3d')
-            ax_3d_traj.set_prop_cycle('color', des_colormap)
-            plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
-            plot = ax_3d_traj.plot([0], [0], [0], color='green', marker='o', markersize=10)
-
-            fig_3d_traj.canvas.set_window_title("Expected Trajectories | Condition %d" % cond)
-            ax_3d_traj.set_xlabel('X')
-            ax_3d_traj.set_ylabel('Y')
-            ax_3d_traj.set_zlabel('Z')
-
-            if view == 'XY':
-                azim = 0.
-                elev = 90.
-            elif view == 'XZ':
-                azim = 90.
-                elev = 0.
-            elif view == 'YZ':
-                azim = 90.
-                elev = 90.
+            if plot_type == '3d':
+                projection = '3d'
             else:
-                raise AttributeError("Wrong view %s" % view)
+                projection = None
 
-            ax_3d_traj.view_init(elev=elev, azim=azim)
+            #ax_traj = fig_3d_traj.add_subplot(1, len(views), vv+1, projection=projection)
+            ax_traj = fig_3d_trajs[vv].add_subplot(1, 1, 1, projection=projection)
+
+            ax_traj.set_prop_cycle('color', des_colormap)
+            if plot_type == '3d':
+                plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
+                plot = ax_traj.plot([0], [0], [0], color='green', marker='o', markersize=10)
+            else:
+                plot = ax_traj.plot([0], [0], color='green', marker='o', markersize=10)
+
+            #fig_3d_traj.canvas.set_window_title("Expected Trajectories | Condition %d" % cond)
+            fig_3d_trajs[vv].canvas.set_window_title("Expected Trajectories | Condition %d" % cond)
+            if plot_type == '3d':
+                ax_traj.set_xlabel('X')
+                ax_traj.set_ylabel('Y')
+                ax_traj.set_zlabel('Z')
+
+                if view == 'XY':
+                    azim = 0.
+                    elev = 90.
+                elif view == 'XZ':
+                    azim = 90.
+                    elev = 0.
+                elif view == 'YZ':
+                    azim = 90.
+                    elev = 90.
+                else:
+                    raise AttributeError("Wrong view %s" % view)
+
+                ax_traj.view_init(elev=elev, azim=azim)
+            else:
+                ax_names = ['X', 'Y', 'Z']
+                x_index = ax_names.index(view[0])
+                y_index = ax_names.index(view[1])
+                ax_traj.set_xlabel(ax_names[x_index])
+                ax_traj.set_ylabel(ax_names[y_index])
+
+                # Image
+                print('Using background: /images/'+background_dir+'/'+view+'_plot.png')
+                current_path = os.path.dirname(os.path.realpath(__file__))
+                img = plt.imread(current_path+'/images/'+background_dir+'/'+view+'_plot.png')
+
+                # Image
+                # if view == 'YZ':
+                #     center_image = np.array([215, 680])
+                # elif view == 'XZ':
+                #     center_image = np.array([315, 680])
+                center_image = np.array([315, 215, 20])
+                #center_image = np.array([315, 215, 680])
 
             for itr in range(total_itr):
                 # traj_distr = iteration_data_list[itr][cond].traj_distr
@@ -1081,34 +1132,68 @@ if options['plot_3d_pol_traj']:
                 label = "itr %d" % iteration_ids[itr]
 
                 xs = np.linspace(5, 0, 100)
-                plot = ax_3d_traj.plot(mu[:, distance_idxs[0]],
-                                       mu[:, distance_idxs[1]],
-                                       zs=mu[:, distance_idxs[2]],
-                                       linestyle=linestyle, linewidth=linewidth, marker=marker, markersize=markersize,
-                                       markeredgewidth=markeredgewidth, alpha=alpha, color=des_colormap[itr],
-                                       label=label)[0]
+                if plot_type == '3d':
+                    plot = ax_traj.plot(mu[:, distance_idxs[0]],
+                                        mu[:, distance_idxs[1]],
+                                        zs=mu[:, distance_idxs[2]],
+                                        linestyle=linestyle, linewidth=linewidth, marker=marker, markersize=markersize,
+                                        markeredgewidth=markeredgewidth, alpha=alpha, color=des_colormap[itr],
+                                        label=label)[0]
+                else:
+                    plot = ax_traj.plot(mu[:, distance_idxs[x_index]],
+                                        mu[:, distance_idxs[y_index]],
+                                        linestyle=linestyle, linewidth=linewidth, marker=marker, markersize=markersize,
+                                        markeredgewidth=markeredgewidth, alpha=alpha, color=des_colormap[itr],
+                                        label=label)[0]
+                    if itr == 0:
+                        # extent=[left, right, bottom, top]
+                        extent = [-relative_zero[x_index]-center_image[x_index]*fig_scale,
+                                  -relative_zero[x_index]+fig_size[1]-center_image[x_index]*fig_scale,
+                                  -relative_zero[y_index]-center_image[y_index]*fig_scale,
+                                  -relative_zero[y_index]+fig_size[1]-center_image[y_index]*fig_scale]
+                        ax_traj.imshow(img, zorder=0, extent=extent)
+                        #plt.imshow(img, zorder=0, extent=extent)
 
                 if vv == 0:
                     lines.append(plot)
                     labels.append(label)
 
                 # sigma_idx = np.ix_(distance_idxs, distance_idxs)
-                # plot_3d_gaussian(ax_3d_traj, mu[:, distance_idxs], sigma[:, sigma_idx[0], sigma_idx[1]],
+                # plot_3d_gaussian(ax_traj, mu[:, distance_idxs], sigma[:, sigma_idx[0], sigma_idx[1]],
                 #                  sigma_axes=view, edges=100, linestyle=gauss_linestyle, linewidth=gauss_linewidth,
                 #                  color=des_colormap[itr], alpha=gauss_alpha, label='',
                 #                  markeredgewidth=gauss_markeredgewidth)
 
-                X = np.append(mu[:, distance_idxs[0]], 0)
-                Y = np.append(mu[:, distance_idxs[1]], 0)
-                Z = np.append(mu[:, distance_idxs[2]], 0)
-                mid_x = (X.max() + X.min()) * 0.5
-                mid_y = (Y.max() + Y.min()) * 0.5
-                mid_z = (Z.max() + Z.min()) * 0.5
-                max_range = np.array([X.max()-X.min(), Y.max()-Y.min(), Z.max()-Z.min()]).max() / 2.0
+                # Set axis limits
+                if plot_type == '3d':
+                    X = np.append(mu[:, distance_idxs[0]], 0)
+                    Y = np.append(mu[:, distance_idxs[1]], 0)
+                    Z = np.append(mu[:, distance_idxs[2]], 0)
+                    mid_x = (X.max() + X.min()) * 0.5
+                    mid_y = (Y.max() + Y.min()) * 0.5
+                    mid_z = (Z.max() + Z.min()) * 0.5
+                    max_range = np.array([X.max()-X.min(), Y.max()-Y.min(), Z.max()-Z.min()]).max() / 2.0
 
-                ax_3d_traj.set_xlim(mid_x - max_range, mid_x + max_range)
-                ax_3d_traj.set_ylim(mid_y - max_range, mid_y + max_range)
-                ax_3d_traj.set_zlim(mid_z - max_range, mid_z + max_range)
+                    ax_traj.set_xlim(mid_x - max_range, mid_x + max_range)
+                    ax_traj.set_ylim(mid_y - max_range, mid_y + max_range)
+                    ax_traj.set_zlim(mid_z - max_range, mid_z + max_range)
+                else:
+                    pass
+                    #X = np.append(mu[:, distance_idxs[x_index]], 0)
+                    #Y = np.append(mu[:, distance_idxs[y_index]], 0)
+                    #mid_x = (X.max() + X.min()) * 0.5
+                    #mid_y = (Y.max() + Y.min()) * 0.5
+                    #max_range = np.array([X.max()-X.min(), Y.max()-Y.min()]).max() / 2.0
+                    ##ax_traj.set_xlim(mid_x - max_range, mid_x + max_range)
+                    ##ax_traj.set_ylim(mid_y - max_range, mid_y + max_range)
+                    #ax_traj.set_xlim(min(-relative_zero[x_index], mid_x - max_range), max(-relative_zero[x_index], mid_x + max_range))
+                    #ax_traj.set_ylim(min(-relative_zero[y_index], mid_y - max_range), max(-relative_zero[y_index], mid_y + max_range))
+                    #plt.axis('equal')
+                    #plt.axis([min(-relative_zero[x_index], mid_x - max_range),
+                    #          max(-relative_zero[x_index], mid_x + max_range),
+                    #          min(-relative_zero[y_index], mid_y - max_range),
+                    #          max(-relative_zero[y_index], mid_y + max_range)])
+
 
         # One legend for all figures
         legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0.)

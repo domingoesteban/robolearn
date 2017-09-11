@@ -506,6 +506,19 @@ class TrajOptMDREPS(TrajOpt):
                         omega = omega0 + del_good_
                         self.LOGGER.info('Increasing omega: %f -> %f', old_omega, omega)
                         del_good_ *= 2  # Decrease del_ exponentially on failure.
+                    elif dual_to_check == 'nu2':
+                        old_eta = eta
+                        eta = eta0 + del_
+                        self.LOGGER.info('Increasing eta: %f -> %f', old_eta, eta)
+                        del_ *= 2  # Increase del_ exponentially on failure.
+                        old_nu = nu
+                        nu = nu0 - del_bad_
+                        self.LOGGER.info('Decreasing nu: %f -> %f', old_nu, nu)
+                        del_bad_ *= 2  # Decrease del_ exponentially on failure.
+                        #old_omega = omega
+                        #omega = omega0 + del_good_
+                        #self.LOGGER.info('Increasing omega: %f -> %f', old_omega, omega)
+                        #del_good_ *= 2  # Decrease del_ exponentially on failure.
                     elif dual_to_check == 'omega':
                         old_omega = omega
                         omega = omega0 + del_good_
@@ -1246,9 +1259,22 @@ class TrajOptMDREPS(TrajOpt):
 
             # Run fwd/bwd pass, note that eta may be updated.
             # Compute KL divergence constraint violation.
-            self.LOGGER.info("TODO: Running ALL GD backward with dual_to_check nu")
-            traj_distr, eta, omega, nu = self.backward(prev_traj_distr, traj_info, eta, omega, nu, algorithm, m, a,
-                                                       dual_to_check='nu')
+            if self.consider_good and self.consider_bad:
+                self.LOGGER.info("TODO: Running ALL GD backward with dual_to_check nu")
+                traj_distr, eta, omega, nu = self.backward(prev_traj_distr, traj_info, eta, omega, nu, algorithm, m, a,
+                                                           dual_to_check='nu')
+            elif not self.consider_good and self.consider_bad:
+                self.LOGGER.info("TODO: Running ALL GD backward with dual_to_check nu2")
+                traj_distr, eta, omega, nu = self.backward(prev_traj_distr, traj_info, eta, omega, nu, algorithm, m, a,
+                                                           dual_to_check='nu2')
+            elif self.consider_good and not self.consider_bad:
+                self.LOGGER.info("TODO: Running ALL GD backward with dual_to_check omega")
+                traj_distr, eta, omega, nu = self.backward(prev_traj_distr, traj_info, eta, omega, nu, algorithm, m, a,
+                                                           dual_to_check='omega')
+            else:
+                self.LOGGER.info("TODO: Running ALL GD backward with dual_to_check eta")
+                traj_distr, eta, omega, nu = self.backward(prev_traj_distr, traj_info, eta, omega, nu, algorithm, m, a,
+                                                           dual_to_check='eta')
 
             if not self._use_prev_distr:
                 new_mu, new_sigma = self.forward(traj_distr, traj_info)

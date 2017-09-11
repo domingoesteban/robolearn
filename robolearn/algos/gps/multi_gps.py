@@ -47,14 +47,30 @@ import logging
 
 class MULTIGPS(Algorithm):
     def __init__(self, agents, env, **kwargs):
-        #super(MULTIGPS, self).__init__(agent, env, default_gps_hyperparams, kwargs)
         super(MULTIGPS, self).__init__(default_gps_hyperparams, kwargs)
         self.agents = agents
         self.env = env
 
+        # Get dimensions from the environment
+        self.dU = self._hyperparams['dU'] = env.get_action_dim()
+        self.dX = self._hyperparams['dX'] = env.get_state_dim()
+        self.dO = self._hyperparams['dO'] = env.get_obs_dim()
+
+        # Get time values from 'hyperparams'
+        self.T = self._hyperparams['T']
+        self.dt = self._hyperparams['dt']
+
+        # Get total GPS algos
+        self.n_gps = len(self.agents)
+        self.gps_algo = ['mdgps_mdreps' for _ in range(self.n_gps)]
+
+        # Specifies if it is MDGPS or only TrajOpt version
+        self.use_global_policy = self._hyperparams['use_global_policy']
+
         # Number of initial conditions
         self.M = self._hyperparams['conditions']
 
+        # Get/Define train and test conditions
         if 'train_conditions' in self._hyperparams and self._hyperparams['train_conditions'] is not None:
             self._train_cond_idx = self._hyperparams['train_conditions']
             self._test_cond_idx = self._hyperparams['test_conditions']
@@ -63,6 +79,7 @@ class MULTIGPS(Algorithm):
             self._hyperparams['train_conditions'] = self._train_cond_idx
             self._hyperparams['test_conditions'] = self._test_cond_idx
 
+        # Log and Data files
         if 'data_files_dir' in self._hyperparams:
             if self._hyperparams['data_files_dir'] is None:
                 self._data_files_dir = 'robolearn_log/' + \
@@ -72,38 +89,17 @@ class MULTIGPS(Algorithm):
         else:
             self._data_files_dir = 'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
         self.data_logger = DataLogger(self._data_files_dir)
+        for gps in range(self.n_gps):
+            self.setup_logger('log%d' % gps, self._data_files_dir, '/log%d.log' % gps, also_screen=False)
 
+        # Get max number of iterations
         self.max_iterations = self._hyperparams['iterations']
 
-
-        # Get some values from the environment.
-        self.dU = self._hyperparams['dU'] = env.get_action_dim()
-        self.dX = self._hyperparams['dX'] = env.get_state_dim()
-        self.dO = self._hyperparams['dO'] = env.get_obs_dim()
-
-        # Get time values from 'hyperparams'
-        self.T = self._hyperparams['T']
-        self.dt = self._hyperparams['dt']
-
-        # Initial trajectory hyperparams
-        init_traj_distr = self._hyperparams['init_traj_distr']
-        init_traj_distr['x0'] = env.get_conditions()  # TODO: Check if it is better get_x0() or get_state()
-        init_traj_distr['dX'] = self.dX
-        init_traj_distr['dU'] = self.dU
-        init_traj_distr['dt'] = self.dt
-        init_traj_distr['T'] = self.T
-
-        # Get total GPS algos
-        self.n_gps = len(self.agents)
-
-        for gps in range(self.n_gps):
-            self.setup_logger('log%d' % gps, self._data_files_dir, '/log%d.log'% gps, also_screen=False)
-
-        self.gps_algo = list()
-        for gps in range(self.n_gps):
-            self.gps_algo.append('mdgps_mdreps')
-
+        # Define a iteration counter for each GPS algo
         self.iteration_count = [0 for _ in range(self.n_gps)]
+
+        # Noise to be used for all gps algorithms
+        self.noise_data = np.zeros((self.max_iterations, self.M, self._hyperparams['num_samples'], self.T, self.dU))
 
         # IterationData objects for each condition.
         self.cur = [[IterationData() for _ in range(self.M)] for _ in range(self.n_gps)]
@@ -111,10 +107,17 @@ class MULTIGPS(Algorithm):
 
         # Trajectory Info #
         # --------------- #
-        # Traj. Info: Trajectory related variables:
+        # Add dynamics if the algorithm requires fit_dynamics (Same type for all the conditions)
         if self._hyperparams['fit_dynamics']:
-            # Add dynamics if the algorithm requires fit_dynamics (Same type for all the conditions)
             dynamics = self._hyperparams['dynamics']
+
+        # Initial trajectory hyperparams
+        init_traj_distr = self._hyperparams['init_traj_distr']
+        init_traj_distr['x0'] = env.get_conditions()
+        init_traj_distr['dX'] = self.dX
+        init_traj_distr['dU'] = self.dU
+        init_traj_distr['dt'] = self.dt
+        init_traj_distr['T'] = self.T
 
         for gps in range(self.n_gps):
             for m in range(self.M):
@@ -129,13 +132,14 @@ class MULTIGPS(Algorithm):
                 # Instantiate Trajectory Distribution: init_lqr or init_pd
                 self.cur[gps][m].traj_distr = init_traj_distr['type'](init_traj_distr)
 
-        self.new_traj_distr = [None for _ in range(self.n_gps)]  # Last trajectory distribution optimized in C-step
+        # Last trajectory distribution optimized in C-step
+        self.new_traj_distr = [None for _ in range(self.n_gps)]
 
         # Traj Opt (Local policy opt) method #
         # ---------------------------------- #
-        # Options: LQR, PI2
-        self.traj_opt = [self._hyperparams['traj_opt'][gps]['type'](self._hyperparams['traj_opt'][gps]) for gps in range(self.n_gps)]
-
+        # Options: LQR, PI3
+        self.traj_opt = [self._hyperparams['traj_opt'][gps]['type'](self._hyperparams['traj_opt'][gps])
+                         for gps in range(self.n_gps)]
         for gps in range(self.n_gps):
             self.traj_opt[gps].set_logger(logging.getLogger('log%d' % gps))
 
@@ -160,18 +164,30 @@ class MULTIGPS(Algorithm):
         # ------------- #
         self.policy_opt = [self.agents[gps].policy_opt for gps in range(self.n_gps)]
 
-        # MDREPS #
-        # ------ #
+        # Duality Data #
+        # ------------ #
+        # Duality data with: [sample_list, samples_cost, cs_traj, traj_dist, pol_info]
+        self.good_duality_info = [[DualityInfo() for _ in range(self.M)] for _ in range(self.n_gps)]
+        self.bad_duality_info = [[DualityInfo() for _ in range(self.M)] for _ in range(self.n_gps)]
+
+        # MDGPS data #
+        # ---------- #
+        if self.use_global_policy:
+            for gps in range(self.n_gps):
+                self._hyperparams['gps_algo_hyperparams'][gps]['T'] = self.T
+                self._hyperparams['gps_algo_hyperparams'][gps]['dU'] = self.dU
+                self._hyperparams['gps_algo_hyperparams'][gps]['dX'] = self.dX
+                policy_prior = self._hyperparams['gps_algo_hyperparams'][gps]['policy_prior']
+                for m in range(self.M):
+                    # Same policy prior type for all conditions
+                    self.cur[gps][m].pol_info = PolicyInfo(self._hyperparams['gps_algo_hyperparams'][gps])
+                    self.cur[gps][m].pol_info.policy_prior = policy_prior['type'](policy_prior)
+
         # TrajectoryInfo for good and bad trajectories
         self.good_trajectories_info = [[None for _ in range(self.M)] for _ in range(self.n_gps)]
         self.bad_trajectories_info = [[None for _ in range(self.M)] for _ in range(self.n_gps)]
-        self.good_duality_info = [[DualityInfo() for _ in range(self.M)] for _ in range(self.n_gps)]  # [Sample_list, cs_each, cs_traj, traj_dist]
-        self.bad_duality_info = [[DualityInfo() for _ in range(self.M)] for _ in range(self.n_gps)]
-
         self.base_kl_good = [None for _ in range(self.n_gps)]
         self.base_kl_bad = [None for _ in range(self.n_gps)]
-        self.use_global_policy = self._hyperparams['use_global_policy']
-
         for gps in range(self.n_gps):
             for m in range(self.M):
                 self.good_trajectories_info[gps][m] = TrajectoryInfo()
@@ -181,61 +197,67 @@ class MULTIGPS(Algorithm):
                     self.good_trajectories_info[gps][m].dynamics = dynamics['type'](dynamics)
                     self.bad_trajectories_info[gps][m].dynamics = dynamics['type'](dynamics)
 
-                    # TODO: Use demonstration trajectories
-                    # # Get the initial trajectory distribution hyperparams
-                    # init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'], self._train_cond_idx[m])
-                    # Instantiate Trajectory Distribution: init_lqr or init_pd
-                    # self.good_duality_infor = init_traj_distr['type'](init_traj_distr)
-                    # self.bad_duality_infor = init_traj_distr['type'](init_traj_distr)
+                # TODO: Use demonstration trajectories
+                # # Get the initial trajectory distribution hyperparams
+                # init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'], self._train_cond_idx[m])
+                # Instantiate Trajectory Distribution: init_lqr or init_pd
+                # self.good_duality_infor = init_traj_distr['type'](init_traj_distr)
+                # self.bad_duality_infor = init_traj_distr['type'](init_traj_distr)
 
-                    # TODO: Using same init traj
-                    # Get the initial trajectory distribution hyperparams
-                    init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'], self._train_cond_idx[m])
-                    # Instantiate Trajectory Distribution: init_lqr or init_pd
-                    self.good_duality_info[gps][m].traj_dist = init_traj_distr['type'](init_traj_distr)
-                    self.bad_duality_info[gps][m].traj_dist = init_traj_distr['type'](init_traj_distr)
+                # TODO: Using same init traj
+                # Get the initial trajectory distribution hyperparams
+                init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'], self._train_cond_idx[m])
+                # Instantiate Trajectory Distribution: init_lqr or init_pd
+                self.good_duality_info[gps][m].traj_dist = init_traj_distr['type'](init_traj_distr)
+                self.bad_duality_info[gps][m].traj_dist = init_traj_distr['type'](init_traj_distr)
 
-
-                # Use inititial dual variables
+                # Set initial dual variables
                 self.cur[gps][m].eta = self._hyperparams['gps_algo_hyperparams'][gps]['init_eta']
                 self.cur[gps][m].nu = self._hyperparams['gps_algo_hyperparams'][gps]['init_nu']
                 self.cur[gps][m].omega = self._hyperparams['gps_algo_hyperparams'][gps]['init_omega']
 
+            # Good/Bad bounds
             self.base_kl_good[gps] = self._hyperparams['gps_algo_hyperparams'][gps]['base_kl_good']
             self.base_kl_bad[gps] = self._hyperparams['gps_algo_hyperparams'][gps]['base_kl_bad']
 
+            # MDGPS data
             if self.use_global_policy:
-                self._hyperparams['gps_algo_hyperparams'][gps]['T'] = self.T
-                self._hyperparams['gps_algo_hyperparams'][gps]['dU'] = self.dU
-                self._hyperparams['gps_algo_hyperparams'][gps]['dX'] = self.dX
-
-                policy_prior = self._hyperparams['gps_algo_hyperparams'][gps]['policy_prior']
                 for m in range(self.M):
-                    # Same policy prior type for all conditions
-                    self.cur[gps][m].pol_info = PolicyInfo(self._hyperparams['gps_algo_hyperparams'][gps])
-                    self.cur[gps][m].pol_info.policy_prior = policy_prior['type'](policy_prior)
-
-                    # Same policy prior for good/bad
+                    # Same policy prior in MDGPS for good/bad
                     self.good_duality_info[gps][m].pol_info = PolicyInfo(self._hyperparams['gps_algo_hyperparams'][gps])
                     self.good_duality_info[gps][m].pol_info.policy_prior = policy_prior['type'](policy_prior)
                     self.bad_duality_info[gps][m].pol_info = PolicyInfo(self._hyperparams['gps_algo_hyperparams'][gps])
                     self.bad_duality_info[gps][m].pol_info.policy_prior = policy_prior['type'](policy_prior)
 
-        # MULTITHREAD
+        # Threads data #
+        # ------------ #
+        # Queue to request environment
         self.environment_queue = Queue(maxsize=0)
+
+        # Flag to confirm that samples are ready
         self.samples_done = [False for _ in range(self.n_gps)]
+
+        # Thread to manage the environment
+        self.multi_sampler_worker = Thread(target=self._multi_take_sample, args=())
+        self.multi_sampler_worker.setDaemon(True)
+
+        # List for each gps thread
+        self.gps_workers = list()
 
     def run(self, itr_load=None):
         """
-        Run GPS.
-        If itr_load is specified, first loads the algorithm state from that iteration
-         and resumes training at the next iteration.
-        :param itr_load: desired iteration to load algorithm from
-        :return: 
+        Run GPS. If itr_load is specified, first loads the algorithm state from that iteration and resumes training at
+        the next iteration.
+        
+        Args:
+            itr_load: Desired iteration to load algorithm from
+
+        Returns: True/False if all the gps algorithms have finished properly
+
         """
         run_successfully = True
 
-        self.noise_data = np.zeros((self.max_iterations, self.M, self._hyperparams['num_samples'], self.T, self.dU))
+        # Generate same noise for all gps algorithms
         if self._hyperparams['noisy_samples']:
             for ii in range(self.max_iterations):
                 for cond in range(self.M):
@@ -244,18 +266,16 @@ class MULTIGPS(Algorithm):
 
         try:
             # Run gazebo sampler
-            self.multi_sampler_worker = Thread(target=self._multi_take_sample, args=())
-            self.multi_sampler_worker.setDaemon(True)
             self.multi_sampler_worker.start()
 
             # Run each gps
-            self.gps_workers = list()
             for gps in range(self.n_gps):
                 itr_start = self._initialize(itr_load)
                 self.gps_workers.append(Thread(target=self._multi_iteration, args=(gps, itr_start)))
                 self.gps_workers[gps].setDaemon(True)
                 self.gps_workers[gps].start()
 
+            # Join/Wait until each gps thread finishes
             for gps_worker in self.gps_workers:
                 gps_worker.join()
 
@@ -276,24 +296,24 @@ class MULTIGPS(Algorithm):
         logger = logging.getLogger('log%d' % number_gps)
 
         try:
-            # Sample
             for itr in range(itr_start, self.max_iterations):
+                # Sample
                 logger.info('')
                 logger.info('->GPS:%02d itr:%02d | Sampling from local trajectories...' % (number_gps, itr+1))
                 traj_or_pol = 'traj'
                 self.environment_queue.put((number_gps, traj_or_pol, itr))
-
                 while not self.samples_done[number_gps]:
                     pass
                 self.samples_done[number_gps] = False
 
+                # Get samples from agent
                 traj_sample_lists = [self.agents[number_gps].get_samples(cond, -self._hyperparams['num_samples'])
                                      for cond in self._train_cond_idx]
                 # Clear agent sample
                 self.agents[number_gps].clear_samples()  # TODO: Check if it is better to 'remember' these samples
 
-                for m in range(self.M):
-                    self.cur[number_gps][m].sample_list = traj_sample_lists[m]
+                for m, m_train in enumerate(self._train_cond_idx):
+                    self.cur[number_gps][m_train].sample_list = traj_sample_lists[m]
 
                 # Update dynamics model using all samples.
                 logger.info('')
@@ -329,13 +349,16 @@ class MULTIGPS(Algorithm):
 
                 logger.info('')
                 logger.info('->GPS:%02d itr:%02d | Getting good and bad trajectories...' % (number_gps, itr+1))
-                self._get_good_trajectories(number_gps, option=self._hyperparams['gps_algo_hyperparams'][number_gps]['good_traj_selection_type'])
-                self._get_bad_trajectories(number_gps, option=self._hyperparams['gps_algo_hyperparams'][number_gps]['bad_traj_selection_type'])
+                self._get_good_trajectories(number_gps,
+                                            option=self._hyperparams['gps_algo_hyperparams'][number_gps]['good_traj_selection_type'])
+                self._get_bad_trajectories(number_gps,
+                                           option=self._hyperparams['gps_algo_hyperparams'][number_gps]['bad_traj_selection_type'])
 
                 logger.info('')
                 logger.info('->GPS:%02d itr:%02d | Updating data of good and bad samples...' % (number_gps, itr+1))
                 logger.info('-->GPS:%02d itr:%02d | Update g/b dynamics...' % (number_gps, itr+1))
-                self._update_good_bad_dynamics(number_gps)
+                self._update_good_bad_dynamics(number_gps,
+                                               option=self._hyperparams['gps_algo_hyperparams'][number_gps]['duality_dynamics_type'])
                 logger.info('-->GPS:%02d itr:%02d | Update g/b costs...' % (number_gps, itr+1))
                 self._eval_good_bad_costs(number_gps)
                 logger.info('-->GPS:%02d itr:%02d | Update g/b traj dist...' % (number_gps, itr+1))
@@ -347,7 +370,9 @@ class MULTIGPS(Algorithm):
                 logger.info('')
                 logger.info('->GPS:%02d itr:%02d | Updating trajectories...' % (number_gps, itr+1))
                 for ii in range(self._hyperparams['gps_algo_hyperparams'][number_gps]['inner_iterations']):
-                    logger.info('-->GPS:%02d itr:%02d | Inner iteration %d/%d' % (number_gps, itr+1, ii+1, self._hyperparams['gps_algo_hyperparams'][number_gps]['inner_iterations']))
+                    logger.info('-->GPS:%02d itr:%02d | Inner iteration %d/%d'
+                                % (number_gps, itr+1, ii+1,
+                                   self._hyperparams['gps_algo_hyperparams'][number_gps]['inner_iterations']))
                     self._update_trajectories(number_gps)
 
                 if self.use_global_policy:
@@ -606,16 +631,20 @@ class MULTIGPS(Algorithm):
             #          'Press \'go\' to begin.') % itr_load)
             return itr_load + 1
 
-
     def compute_costs(self, number_gps, m, eta, omega, nu, augment=True):
         """
         Compute cost estimates used in the LQR backward pass.
-        :param m: Condition
-        :param eta: Dual variable corresponding to KL divergence with previous policy.
-        :param omega: Dual variable(s) corresponding to KL divergence with good trajectories.
-        :param nu: Dual variable(s) corresponding to KL divergence with bad trajectories.
-        :param augment: True if we want a KL constraint for all time-steps. False otherwise.
-        :return: Cm and cv
+        
+        Args:
+            number_gps: Index gps algorithm 
+            m: Condition
+            eta: Dual variable corresponding to KL divergence with previous policy.
+            omega: Dual variable(s) corresponding to KL divergence with good trajectories.
+            nu: Dual variable(s) corresponding to KL divergence with bad trajectories.
+            augment: True if we want a KL constraint for all time-steps. False otherwise.
+
+        Returns: Cm and cv
+
         """
         traj_info = self.cur[number_gps][m].traj_info
         traj_distr = self.cur[number_gps][m].traj_distr
@@ -804,14 +833,18 @@ class MULTIGPS(Algorithm):
 
         return cs, cc, cv, Cm
 
-
-    def _update_good_bad_dynamics(self, number_gps):
+    def _update_good_bad_dynamics(self, number_gps, option='duality'):
         """
         Instantiate dynamics objects and update prior. Fit dynamics to sample(s).
         """
         for m in range(self.M):
-            good_data = self.good_duality_info[number_gps][m].sample_list
-            bad_data = self.bad_duality_info[number_gps][m].sample_list
+            if option == 'duality':
+                good_data = self.good_duality_info[number_gps][m].sample_list
+                bad_data = self.bad_duality_info[number_gps][m].sample_list
+            else:
+                good_data = self.cur[number_gps][m].sample_list
+                bad_data = self.cur[number_gps][m].sample_list
+
             X_good = good_data.get_states()
             U_good = good_data.get_actions()
             X_bad = bad_data.get_states()
@@ -848,6 +881,20 @@ class MULTIGPS(Algorithm):
                 self.bad_trajectories_info[number_gps][m].x0sigma += Phi + (N*priorm) / (N+priorm) * np.outer(x0mu_bad-mu0, x0mu_bad-mu0) / (N+n0)
 
     def _get_bad_trajectories(self, number_gps, option='only_traj'):
+        """
+        Get bad trajectory samples.
+        
+        Args:
+            number_gps: Index of agent(gps method) to update
+            option (str): 'only_traj': update good_duality_info sample list only when the trajectory sample is worse
+                                       than any previous sample.
+                          'always': update bad_duality_info sample list with the worst trajectory samples in the current
+                                    iteration.
+
+        Returns:
+            None
+
+        """
 
         LOGGER = logging.getLogger('log%d' % number_gps)
 
@@ -896,10 +943,20 @@ class MULTIGPS(Algorithm):
 
     def _get_good_trajectories(self, number_gps, option='only_traj'):
         """
+        Get good trajectory samples.
         
-        :param option: 'only_traj' or 'all'
-        :return: 
+        Args:
+            number_gps: Index of agent(gps method) to update
+            option (str): 'only_traj': update good_duality_info sample list only when the trajectory sample is better 
+                                       than any previous sample.
+                          'always': update good_duality_info sample list with the best trajectory samples in the current
+                                    iteration.
+
+        Returns:
+            None
+
         """
+
         LOGGER = logging.getLogger('log%d' % number_gps)
 
         for cond in range(self.M):
@@ -1107,7 +1164,8 @@ class MULTIGPS(Algorithm):
             samples = self.cur[number_gps][m].sample_list
             X = samples.get_states()
             N = len(samples)
-            traj, pol_info = self.new_traj_distr[number_gps][m], self.cur[number_gps][m].pol_info
+            traj = self.new_traj_distr[number_gps][m]
+            pol_info = self.cur[number_gps][m].pol_info
             mu = np.zeros((N, T, dU))
             prc = np.zeros((N, T, dU, dU))
             wt = np.zeros((N, T))
@@ -1407,7 +1465,6 @@ class MULTIGPS(Algorithm):
             cv_update = np.sum(Cm[n, :, :, :] * rdiff_expand, axis=1)
             cc[n, :] += np.sum(rdiff * cv[n, :, :], axis=1) + 0.5 * np.sum(rdiff * cv_update, axis=1)
             cv[n, :, :] += cv_update
-
 
         # Fill in cost estimate.
         self.cur[number_gps][cond].traj_info.cc = np.mean(cc, 0)  # Constant term (scalar).

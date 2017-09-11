@@ -9,7 +9,7 @@ from robolearn.utils.robot_model import *
 from robolearn.utils.iit.robot_poses.bigman.poses import *
 from robolearn.utils.transformations import *
 from std_srvs.srv import Empty
-from robolearn.utils.reach_drill_utils import create_drill_relative_pose, reset_bigman_drill_gazebo
+from robolearn.utils.reach_drill_utils import create_drill_relative_pose, reset_bigman_drill_gazebo, create_hand_relative_pose
 import rospy
 import tf
 from XCM.msg import CommandAdvr
@@ -39,9 +39,9 @@ box_yaw = 0  # Degrees
 box_orient = tf.transformations.rotation_matrix(np.deg2rad(box_yaw), [0, 0, 1])
 box_matrix = homogeneous_matrix(rot=box_orient, pos=box_position)
 freq = 100
-T_init = 1
-T_reach = 5
-T_lift = 2
+T_init = 2
+T_reach = 6
+T_lift = 1
 
 # Save/Load file name
 file_name = 'trajectories/traj1'+'_x'+str(box_position[0])+'_y'+str(box_position[1])+'_Y'+str(box_yaw)
@@ -107,8 +107,20 @@ right_sign = np.array([1, -1, -1, 1, -1, 1, -1])
 actual_RH_pose = robot_model.fk(RH_name, q=q_init, body_offset=r_soft_hand_offset, update_kinematics=True)
 #desired_RH_reach_pose = polynomial5_interpolation(N, RH_reach_pose, actual_RH_pose)[0]
 desired_RH_pose = actual_RH_pose.copy()
-desired_RH_pose[-1] -= 0.3
-print(actual_RH_pose)
+desired_RH_pose[-3] -= 0.01
+desired_RH_pose[-2] += 0.10
+desired_RH_pose[-1] -= 0.12
+
+drill_x = 0.70
+drill_y = 0.00
+drill_z = -0.1327
+drill_yaw = 0  # Degrees
+drill_pose3 = create_drill_relative_pose(drill_x=drill_x+0.16, drill_y=drill_y-0.2276, drill_z=drill_z+0.17, drill_yaw=drill_yaw)
+drill_size = [0.1, 0.1, 0.3]
+hand_y = -drill_size[1]/2-0.02
+hand_z = drill_size[2]/2+0.02
+# desired_RH_pose = create_hand_relative_pose(drill_pose3, hand_x=0.0, hand_y=hand_y, hand_z=hand_z, hand_yaw=0)
+
 torso_joints = bigman_params['joint_ids']['TO']
 q_reach2 = robot_model.ik(RH_name, desired_RH_pose, body_offset=r_soft_hand_offset,
                           mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
@@ -116,6 +128,7 @@ q_reach2 = robot_model.ik(RH_name, desired_RH_pose, body_offset=r_soft_hand_offs
 
 print(repr(actual_RH_pose))
 print(repr(desired_RH_pose))
+print(np.rad2deg(q_reach2))
 raw_input("BORRAME")
 
 
@@ -450,7 +463,8 @@ for ii in range(N):
 
 # RESETING DRILL
 print("Reset drill")
-bigman_drill_pose = create_drill_relative_pose(drill_x=0.86, drill_y=-0.1776-0.05, drill_z=-0.1327, drill_yaw=0)
+#bigman_drill_pose = create_drill_relative_pose(drill_x=0.86, drill_y=-0.1776-0.05, drill_z=-0.1327+0.15, drill_yaw=0)
+bigman_drill_pose = create_drill_relative_pose(drill_x=drill_x+0.16, drill_y=drill_y-0.2276, drill_z=drill_z+0.15, drill_yaw=drill_yaw)
 reset_bigman_drill_gazebo(bigman_drill_pose, drill_size=None)
 
 #temp_count = 0
@@ -486,7 +500,7 @@ elif reach_option == 2:
     joint_reach_trajectory[0, :] = q[:]
     for ii in range(desired_LH_reach_pose.shape[0]-1):
         #for ii in range(N-1):
-        print("Sending LIFTING cmd...")
+        print("Sending REACHING cmd...")
         #error1 = compute_cartesian_error(desired_LH_lift_pose[ii, :], actual_LH_lift_pose, rotation_rep='quat')
         #error2 = compute_cartesian_error(desired_RH_lift_pose[ii, :], actual_RH_lift_pose, rotation_rep='quat')
 

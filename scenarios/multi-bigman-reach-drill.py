@@ -111,8 +111,8 @@ drill_x = 0.70
 drill_y = 0.00
 drill_z = -0.1327
 drill_yaw = 0  # Degrees
-#drill_size = [0.1, 0.1, 0.3]
-drill_size = [0.11, 0.11, 0.3]  # Beer
+drill_size = [0.1, 0.1, 0.3]
+#drill_size = [0.11, 0.11, 0.3]  # Beer
 final_drill_height = 0.0
 drill_relative_pose = create_drill_relative_pose(drill_x=drill_x, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw)
 
@@ -420,7 +420,8 @@ fk_cost = {
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    # 'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([1.0, 1.0, 1.0, 3.0, 3.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
     'evalnorm': evall1l2term,
     #'evalnorm': evallogl2term,
     'l1': 1.0,  # 1.0,  # 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
@@ -441,7 +442,7 @@ fk_l1_cost = {
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([1.0, 1.0, 1.0, 3.0, 3.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
     'evalnorm': evall1l2term,
     #'evalnorm': evallogl2term,
     'l1': 1.0,  # 1.0,  # 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
@@ -462,7 +463,7 @@ fk_l2_cost = {
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
     # 'wp': np.array([1.0, 1.0, 1.0, 0.7, 0.8, 0.6]),  # one dim less because 'quat' error | 1)orient 2)pos
-    'wp': np.array([1.0, 1.0, 1.0, 6.0, 6.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([1.0, 1.0, 1.0, 3.0, 3.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
     'evalnorm': evall1l2term,
     #'evalnorm': evallogl2term,
     'l1': 0.0,  # 1.0,  # 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
@@ -482,7 +483,8 @@ fk_final_cost = {
     'joints_idx': bigman_env.get_state_info(name='link_position')['idx'],
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
-    'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    #'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([1.0, 1.0, 1.0, 3.0, 3.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
     'evalnorm': evall1l2term,
     #'evalnorm': evallogl2term,
     'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
@@ -502,7 +504,7 @@ fk_l1_final_cost = {
     'joints_idx': bigman_env.get_state_info(name='link_position')['idx'],
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
-    'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([1.0, 1.0, 1.0, 3.0, 3.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
     'evalnorm': evall1l2term,
     #'evalnorm': evallogl2term,
     'l1': 1.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
@@ -522,7 +524,7 @@ fk_l2_final_cost = {
     'joints_idx': bigman_env.get_state_info(name='link_position')['idx'],
     'joint_ids': bigman_params['joint_ids'][body_part_active],
     'robot_model': robot_model,
-    'wp': np.array([1.0, 1.0, 1.0, 10.0, 10.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
+    'wp': np.array([1.0, 1.0, 1.0, 3.0, 3.0, 3.0]),  # one dim less because 'quat' error | 1)orient 2)pos
     'evalnorm': evall1l2term,
     #'evalnorm': evallogl2term,
     'l1': 0.0,  # Weight for l1 norm: log(d^2 + alpha) --> Lorentzian rho-function Precise placement at the target
@@ -630,14 +632,24 @@ q3[28] = np.deg2rad(0)
 q3[29] = np.deg2rad(0)
 q3[30] = np.deg2rad(0)
 
-# REACH FROM TOP
-q3[24] = np.deg2rad(-30)
-q3[25] = np.deg2rad(-65)
-q3[26] = np.deg2rad(20)
-q3[27] = np.deg2rad(-95)
-q3[28] = np.deg2rad(20)
-q3[29] = np.deg2rad(0)
-q3[30] = np.deg2rad(0)
+# REACH FROM TOP +0.3
+#q3[24] = np.deg2rad(-30)
+#q3[25] = np.deg2rad(-65)
+#q3[26] = np.deg2rad(20)
+#q3[27] = np.deg2rad(-95)
+#q3[28] = np.deg2rad(20)
+#q3[29] = np.deg2rad(0)
+#q3[30] = np.deg2rad(0)
+
+# REACH FROM TOP +0.2
+q3[24] = np.deg2rad(-31.8328)
+q3[25] = np.deg2rad(-39.7085)
+q3[26] = np.deg2rad(11.934)
+q3[27] = np.deg2rad(-81.7872)
+q3[28] = np.deg2rad(43.8094)
+q3[29] = np.deg2rad(-7.5974)
+q3[30] = np.deg2rad(4.1521)
+
 
 #drill_pose3 = create_drill_relative_pose(drill_x=drill_x-0.06, drill_y=drill_y, drill_z=drill_z, drill_yaw=drill_yaw+10)
 
@@ -782,26 +794,6 @@ else:
 
 # Trajectory Optimization Options
 traj_opt_mdreps = [
-    # {'type': TrajOptMDREPS,
-    #  'good_const': False,  # Use good constraints
-    #  'bad_const': False,  # Use bad constraints
-    #  'del0': 1e-4,  # Eta updates for non-SPD Q-function (non-SPD correction step).
-    #  'del0_good': 1e-4,  # Omega updates for non-SPD Q-function (non-SPD correction step).
-    #  'del0_bad': 1e-8,  # Nu updates for non-SPD Q-function (non-SPD correction step).
-    #  # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
-    #  'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
-    #  'max_eta': 1e16,  # At max_eta, kl_div < kl_step
-    #  'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
-    #  'max_omega': 1e16,  # At max_omega, kl_div < kl_step
-    #  'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
-    #  'max_nu': 2.0e1,  # At max_nu, kl_div < kl_step,
-    #  'step_tol': 0.1,
-    #  'bad_tol': 0.2,
-    #  'good_tol': 0.3,
-    #  'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step.
-    #  'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
-    #  'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
-    #  },
     {'type': TrajOptMDREPS,
      'good_const': False,  # Use good constraints
      'bad_const': True,  # Use bad constraints
@@ -822,6 +814,26 @@ traj_opt_mdreps = [
      'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
      'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
      },
+    # {'type': TrajOptMDREPS,
+    #  'good_const': False,  # Use good constraints
+    #  'bad_const': True,  # Use bad constraints
+    #  'del0': 1e-4,  # Eta updates for non-SPD Q-function (non-SPD correction step).
+    #  'del0_good': 1e-4,  # Omega updates for non-SPD Q-function (non-SPD correction step).
+    #  'del0_bad': 1e-8,  # Nu updates for non-SPD Q-function (non-SPD correction step).
+    #  # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
+    #  'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
+    #  'max_eta': 1e16,  # At max_eta, kl_div < kl_step
+    #  'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
+    #  'max_omega': 1e16,  # At max_omega, kl_div < kl_step
+    #  'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
+    #  'max_nu': 2.0e1,  # At max_nu, kl_div < kl_step,
+    #  'step_tol': 0.1,
+    #  'bad_tol': 0.2,
+    #  'good_tol': 0.3,
+    #  'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step.
+    #  'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
+    #  'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
+    #  },
     # {'type': TrajOptMDREPS,
     #  'good_const': True,  # Use good constraints
     #  'bad_const': True,  # Use bad constraints
@@ -867,6 +879,7 @@ mdreps_hyperparams = [
      'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
      'bad_traj_selection_type': 'always',  # 'always', 'only_traj'
      'good_traj_selection_type': 'always',  # 'always', 'only_traj'
+     'duality_dynamics_type': 'duality',  # Samples to use to update the dynamics 'duality', 'iteration'
      'init_eta': 4.62,
      'init_nu': 0.5,
      'init_omega': 1.0,
@@ -892,6 +905,7 @@ mdreps_hyperparams = [
     #  'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
     #  'bad_traj_selection_type': 'always',  # 'always', 'only_traj'
     #  'good_traj_selection_type': 'always',  # 'always', 'only_traj'
+    #  'duality_dynamics_type': 'duality',  # Samples to use to update the dynamics 'duality', 'iteration'
     #  'init_eta': 4.62,
     #  'init_nu': 0.5,
     #  'init_omega': 1.0,
@@ -917,6 +931,7 @@ mdreps_hyperparams = [
     #  'base_kl_good': 1.0,  # (xi) to be used with multiplier | kl_div_g <= kl_good
     #  'bad_traj_selection_type': 'always',  # 'always', 'only_traj'
     #  'good_traj_selection_type': 'always',  # 'always', 'only_traj'
+    #  'duality_dynamics_type': 'duality',  # Samples to use to update the dynamics 'duality', 'iteration'
     #  'init_eta': 4.62,
     #  'init_nu': 0.5,
     #  'init_omega': 1.0,

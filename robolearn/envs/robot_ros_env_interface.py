@@ -576,11 +576,21 @@ class RobotROSEnvInterface(ROSEnvInterface):
         # Wait for getting zero velocity and acceleration
         # rospy.sleep(1)  # Because I need to find a good way to reset
 
-        joint_positions = get_last_advr_state_field(self.robot_name, 'link_position', self.act_joint_names)
-
         reset_cmd.name = self.act_joint_names
         reset_publisher = rospy.Publisher("/xbotcore/"+self.robot_name+"/command", CommandAdvr, queue_size=10)
 
+        joint_positions = get_last_advr_state_field(self.robot_name, 'link_position', self.act_joint_names)
+
+        final_positions = np.zeros(7)
+        final_positions[1] = np.deg2rad(-90)
+        joint_trajectory = polynomial5_interpolation(N*2, final_positions, joint_positions)[0]
+        print('TODO: TEMPORALLY MOVING TO A VIA POINT IN RESET')
+        for ii in range(joint_trajectory.shape[0]):
+            reset_cmd.position = joint_trajectory[ii, :]
+            reset_publisher.publish(reset_cmd)
+            pub_rate.sleep()
+
+        joint_positions = get_last_advr_state_field(self.robot_name, 'link_position', self.act_joint_names)
         final_positions = self.get_q_from_condition(self.conditions[cond])
         joint_trajectory = polynomial5_interpolation(N, final_positions, joint_positions)[0]
         print("Moving to condition '%d' in position control mode..." % cond)
