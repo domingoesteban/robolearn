@@ -9,7 +9,7 @@ from robolearn.utils.robot_model import *
 from robolearn.utils.iit.robot_poses.bigman.poses import *
 from robolearn.utils.transformations import *
 from std_srvs.srv import Empty
-from robolearn.utils.reach_drill_utils import create_drill_relative_pose, reset_bigman_drill_gazebo, create_hand_relative_pose
+from robolearn.utils.reach_drill_utils import create_drill_relative_pose, reset_bigman_drill_gazebo, create_hand_relative_pose, spawn_drill_gazebo
 import rospy
 import tf
 from XCM.msg import CommandAdvr
@@ -54,7 +54,7 @@ save_lift_traj = False
 
 remove_spawn_new_box = False
 
-reach_option = 2
+reach_option = 3
 #reach_option 0: IK desired final pose, interpolate in joint space
 #reach_option 1: Trajectory in EEs, then IK whole trajectory
 #reach_option 2: Trajectory in EEs, IK with Jacobians
@@ -115,11 +115,11 @@ drill_x = 0.70
 drill_y = 0.00
 drill_z = -0.1327
 drill_yaw = 0  # Degrees
-drill_pose3 = create_drill_relative_pose(drill_x=drill_x+0.16, drill_y=drill_y-0.2276, drill_z=drill_z+0.17, drill_yaw=drill_yaw)
+drill_pose3 = create_drill_relative_pose(drill_x=drill_x+0.16, drill_y=drill_y-0.2276, drill_z=drill_z, drill_yaw=drill_yaw)
 drill_size = [0.1, 0.1, 0.3]
 hand_y = -drill_size[1]/2-0.02
 hand_z = drill_size[2]/2+0.02
-# desired_RH_pose = create_hand_relative_pose(drill_pose3, hand_x=0.0, hand_y=hand_y, hand_z=hand_z, hand_yaw=0)
+desired_RH_pose = create_hand_relative_pose(drill_pose3, hand_x=0.0, hand_y=hand_y, hand_z=hand_z, hand_yaw=0)
 
 torso_joints = bigman_params['joint_ids']['TO']
 q_reach2 = robot_model.ik(RH_name, desired_RH_pose, body_offset=r_soft_hand_offset,
@@ -260,6 +260,8 @@ if not load_reach_traj:
         J1 = np.zeros((6, robot_model.qdot_size))
         J2 = np.zeros((6, robot_model.qdot_size))
         K = 500
+    elif reach_option == 3:
+        pass
     else:
         raise ValueError("Wrong reach_option %d" % reach_option)
     print("\033[31mDONE!! \033[0m")
@@ -287,6 +289,7 @@ else:
 # ######## #
 # LIFT BOX #
 # ######## #
+"""
 if not load_lift_traj:
     print("\033[5mGenerating lifting trajectory...")
     LH_lift_pose = LH_reach_pose.copy()
@@ -381,7 +384,7 @@ else:
         desired_LH_lift_pose = np.load(file_name+'_lift_LH_EE.npy')
         desired_RH_lift_pose = np.load(file_name+'_lift_RH_EE.npy')
     print("\033[31mDONE!! \033[0m")
-
+"""
 
 print("Waiting for ROS..."),
 while rospy.is_shutdown():
@@ -465,7 +468,11 @@ for ii in range(N):
 print("Reset drill")
 #bigman_drill_pose = create_drill_relative_pose(drill_x=0.86, drill_y=-0.1776-0.05, drill_z=-0.1327+0.15, drill_yaw=0)
 bigman_drill_pose = create_drill_relative_pose(drill_x=drill_x+0.16, drill_y=drill_y-0.2276, drill_z=drill_z+0.15, drill_yaw=drill_yaw)
-reset_bigman_drill_gazebo(bigman_drill_pose, drill_size=None)
+#spawn_drill_gazebo(bigman_drill_pose, drill_size=drill_size)
+#raw_input('press a key')
+print(bigman_drill_pose)
+print('+'*10)
+#reset_bigman_drill_gazebo(bigman_drill_pose, drill_size=None)
 
 #temp_count = 0
 #des_cmd.position = q_init
@@ -532,6 +539,19 @@ elif reach_option == 2:
         joint_reach_trajectory[ii+1, :] = q[:]
 
         pub_rate.sleep()
+
+elif reach_option == 3:
+    N = int(np.ceil(T_reach*freq))
+    q_reach2 = robot_model.ik(RH_name, desired_RH_pose, body_offset=r_soft_hand_offset,
+                              mask_joints=torso_joints, joints_limits=bigman_params['joints_limits'],
+                              method='optimization')
+    joint_init_traj = polynomial5_interpolation(N, q_reach2, joint_state)[0]
+    raw_input("Press key for moving to INIT")
+    for ii in range(N):
+        des_cmd.position = joint_init_traj[ii, :]
+        publisher.publish(des_cmd)
+        pub_rate.sleep()
+
 
 raw_input("Press key for LIFTING")
 if lift_option == 0 or lift_option == 1:

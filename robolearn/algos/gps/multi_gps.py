@@ -13,6 +13,7 @@ import copy
 import datetime
 from Queue import Queue
 from threading import Thread
+import subprocess
 
 from robolearn.algos.algorithm import Algorithm
 
@@ -88,6 +89,7 @@ class MULTIGPS(Algorithm):
                 self._data_files_dir = 'robolearn_log/' + self._hyperparams['data_files_dir']
         else:
             self._data_files_dir = 'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
+
         self.data_logger = DataLogger(self._data_files_dir)
         for gps in range(self.n_gps):
             self.setup_logger('log%d' % gps, self._data_files_dir, '/log%d.log' % gps, also_screen=False)
@@ -343,9 +345,21 @@ class MULTIGPS(Algorithm):
                 if self.use_global_policy and self.iteration_count[number_gps] > 0:
                     logger.info('->GPS:%02d itr:%02d | Updating KL step size with GLOBAL policy...' % (number_gps, itr+1))
                     self._update_step_size_global_policy(number_gps)
-                else:
+                elif self.iteration_count[number_gps] > 0:
                     logger.info('->GPS:%02d itr:%02d | Updating KL step size with previous LOCAL policy...' % (number_gps, itr+1))
                     self._update_step_size(number_gps)  # KL Divergence step size.
+
+                #logger.info('')
+                #if self.use_global_policy and self.iteration_count[number_gps] > 0:
+                #    logger.info('->GPS:%02d itr:%02d | Updating KL step size with GLOBAL policy...' % (number_gps, itr+1))
+                #    self._update_good_size_global_policy(number_gps)
+                #    self._update_bad_size_global_policy(number_gps)
+                #elif self.iteration_count[number_gps] > 0:
+                #    logger.info('->GPS:%02d itr:%02d | Updating KL step size with previous LOCAL policy...' % (number_gps, itr+1))
+                #    raise NotImplementedError
+                #    #self._update_step_size(number_gps)  # KL Divergence step size.
+
+
 
                 logger.info('')
                 logger.info('->GPS:%02d itr:%02d | Getting good and bad trajectories...' % (number_gps, itr+1))
@@ -479,6 +493,10 @@ class MULTIGPS(Algorithm):
                         else:
                             ros_rate = rospy.Rate(int(1/self.dt))  # hz
 
+                        gz_log_process = subprocess.Popen("gz log -d 1", shell=True, stdout=subprocess.PIPE)
+                        gz_log_process.wait()
+                        print("Logging Gazebo sample...")
+
                         # Collect history
                         if on_policy:
                             print("On-policy sample gps:%d | itr:%d/%d, cond:%d/%d, i:%d/%d" % (gps, itr+1, self.max_iterations,
@@ -531,6 +549,10 @@ class MULTIGPS(Algorithm):
 
                         # Stop environment
                         self.env.stop()
+                        gz_log_process = subprocess.Popen("gz log -d 0", shell=True, stdout=subprocess.PIPE)
+                        gz_log_process.wait()
+                        print("Stop logging Gazebo sample...")
+
                         print("Generating sample data...")
 
                         all_actions = np.array([hist[1] for hist in history])
@@ -551,6 +573,22 @@ class MULTIGPS(Algorithm):
 
                     if traj_or_pol == 'pol':
                         self.prev[gps][cond].pol_info.policy_samples = SampleList(pol_samples[cond])  # prev because it is called after advance_iteration_variables
+
+
+                if traj_or_pol == 'traj':
+                    dir_to_log_gz_samples = self._data_files_dir + str('/%s_' % traj_or_pol) + str('gz_samples_itr%02d' % itr)
+                elif traj_or_pol == 'pol':
+                    dir_to_log_gz_samples = self._data_files_dir + str('/%s_' % traj_or_pol) + str('gz_samples_itr%02d' % (int(itr)+1))
+
+                if not os.path.exists(dir_to_log_gz_samples):
+                    os.makedirs(dir_to_log_gz_samples)
+                else:
+                    raise AttributeError("Directory %s exists!!!" % dir_to_log_gz_samples)
+                gz_log_process = subprocess.Popen("mv ~/.gazebo/log/* ./%s" % dir_to_log_gz_samples,
+                                                  shell=True, stdout=subprocess.PIPE)
+                gz_log_process.wait()
+                print("Iteration samples were moved to directory: %s !!" % dir_to_log_gz_samples)
+
 
                 self.samples_done[gps] = True
 
@@ -1121,6 +1159,112 @@ class MULTIGPS(Algorithm):
         for m in range(self.M):
             self._set_new_mult(predicted_impr, actual_impr, number_gps, m)
 
+    def _update_good_size_global_policy(self, number_gps):
+        """
+        Calculate new step sizes. This version uses the same step size for all conditions.
+        """
+        LOGGER = logging.getLogger('log%d' % number_gps)
+
+
+        # Compute previous cost and previous expected cost.
+        prev_M = len(self.prev[number_gps])  # May be different in future.
+        prev_laplace = np.empty(prev_M)
+        prev_mc = np.empty(prev_M)
+        prev_predicted = np.empty(prev_M)
+        for m in range(prev_M):
+            prev_nn = self.prev[number_gps][m].pol_info.traj_distr()
+            prev_lg = self.prev[number_gps][m].new_traj_distr
+
+            # Compute values under Laplace approximation. This is the policy that the previous samples were actually
+            # drawn from under the dynamics that were estimated from the previous samples.
+            prev_laplace[m] = self.traj_opt[number_gps].estimate_cost(prev_nn, self.prev[number_gps][m].traj_info).sum()
+            # This is the actual cost that we experienced.
+            prev_mc[m] = self.prev[number_gps][m].cs.mean(axis=0).sum()
+            # This is the policy that we just used under the dynamics that were estimated from the prev samples (so
+            # this is the cost we thought we would have).
+            prev_predicted[m] = self.traj_opt[number_gps].estimate_cost(prev_lg, self.prev[number_gps][m].traj_info).sum()
+
+        # Compute current cost.
+        cur_laplace = np.empty(self.M)
+        cur_mc = np.empty(self.M)
+        for m in range(self.M):
+            cur_nn = self.cur[number_gps][m].pol_info.traj_distr()
+            # This is the actual cost we have under the current trajectory based on the latest samples.
+            cur_laplace[m] = self.traj_opt[number_gps].estimate_cost(cur_nn, self.cur[number_gps][m].traj_info).sum()
+            cur_mc[m] = self.cur[number_gps][m].cs.mean(axis=0).sum()
+
+        # Compute predicted and actual improvement.
+        prev_laplace = prev_laplace.mean()
+        prev_mc = prev_mc.mean()
+        prev_predicted = prev_predicted.mean()
+        cur_laplace = cur_laplace.mean()
+        cur_mc = cur_mc.mean()
+        if self._hyperparams['gps_algo_hyperparams'][number_gps]['step_rule'] == 'laplace':
+            predicted_impr = prev_laplace - prev_predicted
+            actual_impr = prev_laplace - cur_laplace
+        elif self._hyperparams['gps_algo_hyperparams'][number_gps]['step_rule'] == 'mc':
+            predicted_impr = prev_mc - prev_predicted
+            actual_impr = prev_mc - cur_mc
+        LOGGER.debug('GPS:02d | Previous cost: Laplace: %f, MC: %f', number_gps, prev_laplace, prev_mc)
+        LOGGER.debug('GPS:02d | Predicted cost: Laplace: %f', number_gps, prev_predicted)
+        LOGGER.debug('GPS:02d | Actual cost: Laplace: %f, MC: %f', number_gps, cur_laplace, cur_mc)
+
+        for m in range(self.M):
+            self._set_new_mult(predicted_impr, actual_impr, number_gps, m)
+
+    def _update_bad_size_global_policy(self, number_gps):
+        """
+        Calculate new step sizes. This version uses the same step size for all conditions.
+        """
+        LOGGER = logging.getLogger('log%d' % number_gps)
+
+
+        # Compute previous cost and previous expected cost.
+        prev_M = len(self.prev[number_gps])  # May be different in future.
+        prev_laplace = np.empty(prev_M)
+        prev_mc = np.empty(prev_M)
+        prev_predicted = np.empty(prev_M)
+        for m in range(prev_M):
+            prev_nn = self.prev[number_gps][m].pol_info.traj_distr()
+            prev_lg = self.prev[number_gps][m].new_traj_distr
+
+            # Compute values under Laplace approximation. This is the policy that the previous samples were actually
+            # drawn from under the dynamics that were estimated from the previous samples.
+            prev_laplace[m] = self.traj_opt[number_gps].estimate_cost(prev_nn, self.prev[number_gps][m].traj_info).sum()
+            # This is the actual cost that we experienced.
+            prev_mc[m] = self.prev[number_gps][m].cs.mean(axis=0).sum()
+            # This is the policy that we just used under the dynamics that were estimated from the prev samples (so
+            # this is the cost we thought we would have).
+            prev_predicted[m] = self.traj_opt[number_gps].estimate_cost(prev_lg, self.prev[number_gps][m].traj_info).sum()
+
+        # Compute current cost.
+        cur_laplace = np.empty(self.M)
+        cur_mc = np.empty(self.M)
+        for m in range(self.M):
+            cur_nn = self.cur[number_gps][m].pol_info.traj_distr()
+            # This is the actual cost we have under the current trajectory based on the latest samples.
+            cur_laplace[m] = self.traj_opt[number_gps].estimate_cost(cur_nn, self.cur[number_gps][m].traj_info).sum()
+            cur_mc[m] = self.cur[number_gps][m].cs.mean(axis=0).sum()
+
+        # Compute predicted and actual improvement.
+        prev_laplace = prev_laplace.mean()
+        prev_mc = prev_mc.mean()
+        prev_predicted = prev_predicted.mean()
+        cur_laplace = cur_laplace.mean()
+        cur_mc = cur_mc.mean()
+        if self._hyperparams['gps_algo_hyperparams'][number_gps]['step_rule'] == 'laplace':
+            predicted_impr = prev_laplace - prev_predicted
+            actual_impr = prev_laplace - cur_laplace
+        elif self._hyperparams['gps_algo_hyperparams'][number_gps]['step_rule'] == 'mc':
+            predicted_impr = prev_mc - prev_predicted
+            actual_impr = prev_mc - cur_mc
+        LOGGER.debug('GPS:02d | Previous cost: Laplace: %f, MC: %f', number_gps, prev_laplace, prev_mc)
+        LOGGER.debug('GPS:02d | Predicted cost: Laplace: %f', number_gps, prev_predicted)
+        LOGGER.debug('GPS:02d | Actual cost: Laplace: %f, MC: %f', number_gps, cur_laplace, cur_mc)
+
+        for m in range(self.M):
+            self._set_new_mult(predicted_impr, actual_impr, number_gps, m)
+
     def update_policy_fit(self, number_gps, cond):
         """
         Re-estimate the local policy values in the neighborhood of the trajectory.
@@ -1515,6 +1659,28 @@ class MULTIGPS(Algorithm):
             LOGGER.debug('GPS:%02d | Increasing step size multiplier to %f', number_gps, new_step)
         else:
             LOGGER.debug('GPS:%02d | Decreasing step size multiplier to %f', number_gps, new_step)
+
+    def _set_new_good_mult(self, predicted_impr, actual_impr, number_gps, m):
+        """
+        Adjust good multiplier according to the predicted versus actual improvement.
+        """
+        LOGGER = logging.getLogger('log%d' % number_gps)
+
+        # Model improvement as I = predicted_dI * KL + penalty * KL^2,
+        # where predicted_dI = pred/KL and penalty = (act-pred)/(KL^2).
+        # Optimize I w.r.t. KL: 0 = predicted_dI + 2 * penalty * KL =>
+        # KL' = (-predicted_dI)/(2*penalty) = (pred/2*(pred-act)) * KL.
+        # Therefore, the new multiplier is given by pred/2*(pred-act).
+        new_mult = predicted_impr / (2.0 * max(1e-4, predicted_impr - actual_impr))
+        new_mult = max(0.1, min(5.0, new_mult))
+        new_step = max(min(new_mult * self.cur[number_gps][m].step_mult, self._hyperparams['max_step_mult']),
+                       self._hyperparams['min_step_mult'])
+        self.cur[number_gps][m].step_mult = new_step
+
+        if new_mult > 1:
+            LOGGER.debug('GPS:%02d | Increasing good multiplier to %f', number_gps, new_good)
+        else:
+            LOGGER.debug('GPS:%02d | Decreasing good multiplier to %f', number_gps, new_good)
 
     def _measure_ent(self, number_gps, m):
         """ Measure the entropy of the current trajectory. """

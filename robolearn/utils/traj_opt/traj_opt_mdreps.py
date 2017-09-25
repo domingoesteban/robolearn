@@ -30,6 +30,8 @@ DGD_MAX_ITER = 50
 DGD_MAX_LS_ITER = 20
 DGD_MAX_GD_ITER = 200
 
+ALPHA, BETA1, BETA2, EPS = 0.005, 0.9, 0.999, 1e-8  # Adam parameters
+
 
 class TrajOptMDREPS(TrajOpt):
     """ MDREPS trajectory optimization """
@@ -137,6 +139,7 @@ class TrajOptMDREPS(TrajOpt):
 
 
         self.LOGGER.info('TODO: commenting a lot of stuff after this print')
+        print("TODO: THIS CODE HAS BEEN ADDED FOR CONS_PER_STEP")
         # if self.cons_per_step and not self._conv_check(con, kl_step):
         #     self.LOGGER.info("IT DID NOT CONVERGED!!")
         #     m_b, v_b = np.zeros(T-1), np.zeros(T-1)
@@ -566,6 +569,9 @@ class TrajOptMDREPS(TrajOpt):
                                          '(check that dynamics and cost are reasonably well conditioned)!')
                     elif dual_to_check == 'nu':
                         raise ValueError('Failed to find PD solution even for very small nu '
+                                         '(check that dynamics and cost are reasonably well conditioned)!')
+                    elif dual_to_check == 'nu2':
+                        raise ValueError('Failed to find PD solution even for very small nu and very large eta '
                                          '(check that dynamics and cost are reasonably well conditioned)!')
                     elif dual_to_check == 'omega':
                         raise ValueError('Failed to find PD solution even for very large omega '
@@ -1431,6 +1437,12 @@ class TrajOptMDREPS(TrajOpt):
 
         if itr > max_itr - 1:
             self.LOGGER.info("After %d iterations for ETA, NU, OMEGA, the constraints have not been satisfied.", itr + 1)
+
+        if not self.consider_bad:
+            nu_conv = True
+
+        if not self.consider_good:
+            omega_conv = True
 
         all_conv = eta_conv and nu_conv and omega_conv
 

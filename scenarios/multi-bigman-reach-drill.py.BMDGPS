@@ -821,7 +821,7 @@ learned_dynamics = {'type': DynamicsLRPrior,
 # Trajectory Optimization Options
 traj_opt_mdreps = [
     {'type': TrajOptMDREPS,
-     'good_const': True,  # Use good constraints
+     'good_const': False,  # Use good constraints
      'bad_const': True,  # Use bad constraints
      'del0': 1e-4,  # Eta updates for non-SPD Q-function (non-SPD correction step).
      'del0_good': 1e-4,  # Omega updates for non-SPD Q-function (non-SPD correction step).
@@ -889,8 +889,8 @@ mdreps_hyperparams = [
      'bad_samples': bad_trajs,
      'n_bad_samples': 2,  # Number of bad samples per each trajectory
      'n_good_samples': 2,  # Number of bad samples per each trajectory
-     'base_kl_bad': 4.2, #5.,  # 2.5,  # (xi) to be used with multiplier | kl_div_b >= kl_bad
-     'base_kl_good': 1.0,#2.0,  # (chi) to be used with multiplier | kl_div_g <= kl_good
+     'base_kl_bad': 4.0, #5.,  # 2.5,  # (xi) to be used with multiplier | kl_div_b >= kl_bad
+     'base_kl_good': 1.5,#2.0,  # (chi) to be used with multiplier | kl_div_g <= kl_good
      'bad_traj_selection_type': 'only_traj',  # 'always', 'only_traj'
      'good_traj_selection_type': 'only_traj',  # 'always', 'only_traj'
      'duality_dynamics_type': 'duality',  # Samples to use to update the dynamics 'duality', 'iteration'
@@ -975,7 +975,7 @@ test_after_iter = True
 gps_hyperparams = {
     'T': int(EndTime/Ts),  # Total points
     'dt': Ts,
-    'iterations': 25,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
+    'iterations': 100,  # 100  # 2000  # GPS episodes, "inner iterations" --> K iterations
     'test_after_iter': test_after_iter,  # If test the learned policy after an iteration in the RL algorithm
     'test_samples': 2,  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
     # Samples
@@ -1015,7 +1015,6 @@ learn_algo = MULTIGPS(bigman_agents, bigman_env, **gps_hyperparams)
 print("Learning algorithm: %s OK\n" % type(learn_algo))
 
 # Optimize policy using learning algorithm
-raw_input("Press a key to start...")
 print("Running Learning Algorithm!!!")
 training_successful = learn_algo.run(resume_training_itr)
 if training_successful:

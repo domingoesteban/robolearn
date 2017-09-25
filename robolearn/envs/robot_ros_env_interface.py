@@ -592,7 +592,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
         joint_positions = get_last_advr_state_field(self.robot_name, 'link_position', self.act_joint_names)
         final_positions = self.get_q_from_condition(self.conditions[cond])
-        joint_trajectory = polynomial5_interpolation(N, final_positions, joint_positions)[0]
+        joint_trajectory = polynomial5_interpolation(N*2, final_positions, joint_positions)[0]
         print("Moving to condition '%d' in position control mode..." % cond)
         for ii in range(joint_trajectory.shape[0]):
             reset_cmd.position = joint_trajectory[ii, :]
@@ -687,18 +687,17 @@ class RobotROSEnvInterface(ROSEnvInterface):
         self.receiving_target = True
         box_idx = data.name.index(self.temp_object_name)
         self.target_pose[0] = data.pose[box_idx].orientation.x
-        self.target_pose[1] = data.pose[box_idx].orientation.x
-        self.target_pose[2] = data.pose[box_idx].orientation.y
+        self.target_pose[1] = data.pose[box_idx].orientation.y
+        self.target_pose[2] = data.pose[box_idx].orientation.z
         self.target_pose[3] = data.pose[box_idx].orientation.w
         self.target_pose[4] = data.pose[box_idx].position.x
         self.target_pose[5] = data.pose[box_idx].position.y
         self.target_pose[6] = data.pose[box_idx].position.z
-        #print(self.target_pose)
 
         robot_idx = data.name.index('base_link')
         self.robot_pose[0] = data.pose[robot_idx].orientation.x
-        self.robot_pose[1] = data.pose[robot_idx].orientation.x
-        self.robot_pose[2] = data.pose[robot_idx].orientation.y
+        self.robot_pose[1] = data.pose[robot_idx].orientation.y
+        self.robot_pose[2] = data.pose[robot_idx].orientation.z
         self.robot_pose[3] = data.pose[robot_idx].orientation.w
         self.robot_pose[4] = data.pose[robot_idx].position.x
         self.robot_pose[5] = data.pose[robot_idx].position.y

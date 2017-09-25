@@ -50,9 +50,9 @@ from matplotlib.patches import Ellipse
 # PAPER
 gps_directory_names = ['GPS_2017-09-14_17:05:37', 'GPS_2017-09-15_12:33:18', 'GPS_2017-09-15_18:22:46']
 
-gps_directory_names = ['GPS_2017-09-14_17:05:37', 'GPS_2017-09-16_02:51:51', 'GPS_2017-09-15_18:22:46']
-gps_directory_names = ['GPS_2017-09-20_09:49:20', 'GPS_2017-09-20_19:23:28', 'GPS_2017-09-20_13:33:50']
-#gps_directory_names = ['GPS_2017-09-16_02:51:51', 'GPS_2017-09-16_02:51:51', 'GPS_2017-09-16_02:51:51']
+#gps_directory_names = ['GPS_2017-09-14_17:05:37', 'GPS_2017-09-16_02:51:51', 'GPS_2017-09-15_18:22:46']
+#gps_directory_names = ['GPS_2017-09-20_09:49:20', 'GPS_2017-09-20_13:33:50', 'GPS_2017-09-15_18:22:46']
+##gps_directory_names = ['GPS_2017-09-16_02:51:51', 'GPS_2017-09-16_02:51:51', 'GPS_2017-09-16_02:51:51']
 
 gps_models_labels = ['MDGPS', 'B-MDGPS', 'D-MDGPS']
 #gps_models_line_styles = [':', '--', '-']
@@ -99,11 +99,11 @@ options = {
     'plot_3d_traj': False,
     'plot_3d_duality_traj': False,
     # Important
-    'plot_duality_influence': False,
+    'plot_duality_influence': True,
     'plot_duality_traj_distr': False,
-    'plot_policy_costs': True,
+    'plot_policy_costs': False,
     'plot_3d_pol_traj': False,
-    'plot_train_errors': True,
+    'plot_train_errors': False,
     #'plot_duality_influence': False,
     #'plot_duality_traj_distr': False,
     #'plot_policy_costs': False,
@@ -731,61 +731,65 @@ if options['plot_duality_influence']:
     alpha_conf_int = 0.3
     plot_legend = True
     max_var = .5  # None, do not fix variance
-    fig_act, ax = plt.subplots(1, 1)
+    for itr in range(1, total_itr):
+        gps = -1
+    
+        fig_act, ax = plt.subplots(1, 1)
+        fig_act.canvas.set_window_title("Dualist Constraints Influence %02d" % itr)
+        ii = state_to_plot_idx
+        cond = 0
+        dX = iteration_data_list[0][0][0].traj_distr.dX
+        T = iteration_data_list[0][0][0].pol_info.policy_samples.get_states().shape[1]
+        time = np.arange(0, 5, 0.02)
+        x_idxs = range(dX)
 
-    fig_act.canvas.set_window_title("Dualist Constraints Influence")
-    ii = state_to_plot_idx
-    cond = 0
-    dX = iteration_data_list[0][0][0].traj_distr.dX
-    T = iteration_data_list[0][0][0].pol_info.policy_samples.get_states().shape[1]
-    time = np.arange(0, 5, 0.02)
-    x_idxs = range(dX)
-    for gps in range(total_gps):
-        traj_distr = iteration_data_list[gps][1][cond].traj_distr
-        traj_info = iteration_data_list[gps][1][cond].traj_info
+
+        traj_distr = iteration_data_list[gps][itr][cond].traj_distr
+        traj_info = iteration_data_list[gps][itr][cond].traj_info
 
         mu, sigma = lqr_forward(traj_distr, traj_info)
 
-        if gps == 0:
-            good_distr = good_duality_info_list[gps][0][cond].traj_dist
-            good_traj_info = good_trajectories_info_list[gps][0][cond]
-            bad_distr = bad_duality_info_list[gps][0][cond].traj_dist
-            bad_traj_info = bad_trajectories_info_list[gps][0][cond]
+        good_distr = good_duality_info_list[gps][itr-1][cond].traj_dist
+        good_traj_info = good_trajectories_info_list[gps][itr-1][cond]
+        bad_distr = bad_duality_info_list[gps][itr-1][cond].traj_dist
+        bad_traj_info = bad_trajectories_info_list[gps][itr-1][cond]
 
-            prev_traj_distr = iteration_data_list[gps][0][cond].traj_distr
-            prev_traj_info = iteration_data_list[gps][0][cond].traj_info
+        prev_traj_distr = iteration_data_list[gps][itr-1][cond].traj_distr
+        prev_traj_info = iteration_data_list[gps][itr-1][cond].traj_info
 
-            mu_good, sigma_good = lqr_forward(good_distr, good_traj_info)
-            mu_bad, sigma_bad = lqr_forward(bad_distr, bad_traj_info)
-            mu_prev, sigma_prev = lqr_forward(prev_traj_distr, prev_traj_info)
+        mu_good, sigma_good = lqr_forward(good_distr, good_traj_info)
+        mu_bad, sigma_bad = lqr_forward(bad_distr, bad_traj_info)
+        mu_prev, sigma_prev = lqr_forward(prev_traj_distr, prev_traj_info)
 
-            kl_div_good_bad = traj_distr_kl_alt(mu_good, sigma_good, good_distr, bad_distr, tot=True)
-            print("KL_div(g||b): %f" % kl_div_good_bad)
+        kl_div_good_bad = traj_distr_kl_alt(mu_good, sigma_good, good_distr, bad_distr, tot=True)
+        print("KL_div(g||b): %f" % kl_div_good_bad)
 
-            ax.plot(time, mu_prev[:, x_idxs[ii]], label="Initial trajectory", zorder=9, color='blue', linewidth=linewidth)
-            ax.plot(time, mu_good[:, x_idxs[ii]], label="Good trajectory", zorder=7, color='green', linewidth=linewidth)
-            ax.plot(time, mu_bad[:, x_idxs[ii]], label="Bad trajectory", zorder=8, color='red', linewidth=linewidth)
+        #ax.plot(time, mu_prev[:, x_idxs[ii]], label=("Prev traj."), zorder=9, color='blue', linewidth=linewidth)
+        ax.plot(time, mu_good[:, x_idxs[ii]], label=("Good traj."), zorder=7, color='green', linewidth=linewidth)
+        ax.plot(time, mu_bad[:, x_idxs[ii]], label=("Bad traj."), zorder=8, color='red', linewidth=linewidth)
 
-        ax.plot(time, mu[:, x_idxs[ii]], label=("Opt. traj. - %s" % gps_models_labels[gps]), zorder=10, color=gps_models_colors[gps],
+        ax.plot(time, mu[:, x_idxs[ii]], label=("Opt. traj."), zorder=10, color=gps_models_colors[gps],
                 linestyle=gps_models_line_styles[gps], linewidth=linewidth)
 
-    ax.set_xlabel("Time (s)", fontsize=30, weight='bold')
-    ax.set_ylabel("Shoulder Yaw Angle (rad)", fontsize=30, weight='bold')
-    ax.tick_params(axis='x', labelsize=20)
-    ax.tick_params(axis='y', labelsize=20)
-    #ax.set_xticks(range(min_iteration, max_iteration+1, 5))
-    ax.set_xlim(0, 5)
-    box = ax.get_position()
-    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+        ax.set_xlabel("Time (s)", fontsize=30, weight='bold')
+        ax.set_ylabel("Shoulder Yaw Angle (rad)", fontsize=30, weight='bold')
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        #ax.set_xticks(range(min_iteration, max_iteration+1, 5))
+        ax.set_xlim(0, 5)
+        ax.set_ylim(-0.6, 0.6)
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
-    if plot_legend:
-        #legend = ax.legend(loc='lower right', ncol=1, fontsize=20)
-        #legend = ax.legend(bbox_to_anchor=(1.00, 1), loc=2, borderaxespad=0., fontsize=20)
-        legend = ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), borderaxespad=0.5, fontsize=20)
-        #legend = ax.legend(loc='best', fontsize='x-small', borderaxespad=0.)
-        #legend.get_frame().set_alpha(0.4)
-
-
+        if plot_legend:
+            #legend = ax.legend(loc='lower right', ncol=1, fontsize=20)
+            #legend = ax.legend(bbox_to_anchor=(1.00, 1), loc=2, borderaxespad=0., fontsize=20)
+            legend = ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), borderaxespad=0.5, fontsize=20)
+            #legend = ax.legend(loc='best', fontsize='x-small', borderaxespad=0.)
+            #legend.get_frame().set_alpha(0.4)
+        
+        plt.show(block=False)
+        raw_input('press a key')
 
 
 if options['plot_duality_traj_distr']:

@@ -14,6 +14,10 @@ import scipy.stats
 gps_directory_name = 'GPS_2017-09-10_15:30:24'  # Normal Sunday 10/09 | new init_pos
 #gps_directory_name = 'GPS_2017-09-10_19:10:07'  # G/B Sunday 10/09 | new init_pos
 
+gps_directory_names = ['GPS_2017-09-12_07:01:16', 'GPS_2017-09-11_15:25:19', 'GPS_2017-09-13_07:24:42']
+gps_models_labels = ['MDGPS', 'B-MDGPS', 'D-MDGPS']
+gps_models_line_styles = [':', '--', '-']
+
 init_itr = 0
 final_itr = 2
 #final_itr = 30
