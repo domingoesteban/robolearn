@@ -5,3 +5,4 @@ scenarios/robolearn_log
 scenarios/TASKSPACE_TORQUE_CTRL_DEMO_*
 scenarios/DUAL_DEMOS_*
 LOG_2017-*
+.ipynb_checkpoints
