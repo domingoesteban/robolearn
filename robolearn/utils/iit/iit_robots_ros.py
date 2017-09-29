@@ -14,7 +14,7 @@ from robolearn.utils.iit.iit_robots_params import imu_sensor_dof
 from robolearn.utils.iit.iit_robots_params import optitrack_dof
 
 
-def config_advr_command(joint_names, cmd_type, init_cmd_vals):
+def config_xbot_command(joint_names, cmd_type, init_cmd_vals):
     """
     Fill a CommandAdvr message with the specified joint_names and with some initial values in the cmd_type field.
     :param joint_names: List of joint names 
@@ -23,14 +23,14 @@ def config_advr_command(joint_names, cmd_type, init_cmd_vals):
     :return: CommandAdvr message filled
     :rtype: XCM.msg._CommandAdvr.CommandAdvr
     """
-    advr_cmd_msg = CommandAdvr()
-    advr_cmd_msg.name = joint_names
-    update_advr_command(advr_cmd_msg, cmd_type, init_cmd_vals)
+    xbot_cmd_msg = CommandAdvr()
+    xbot_cmd_msg.name = joint_names
+    update_xbot_command(xbot_cmd_msg, cmd_type, init_cmd_vals)
 
-    return advr_cmd_msg
+    return xbot_cmd_msg
 
 
-def update_advr_command(cmd_msg, cmd_field, cmd_vals):
+def update_xbot_command(cmd_msg, cmd_field, cmd_vals):
     """
     Update the values of a CommandAdvr ROS message for a specified field. 
     :param cmd_msg: CommandAdvr ROS message to be updated
@@ -48,7 +48,7 @@ def update_advr_command(cmd_msg, cmd_field, cmd_vals):
         raise ValueError("Wrong field option for ADVR command. | type:%s" % cmd_field)
 
 
-def get_advr_sensor_data(obs_msg, sensor_field):
+def get_xbot_sensor_data(obs_msg, sensor_field):
     """
     Get the values from a ROS message for a specified field.
     :param obs_msg: 
@@ -112,7 +112,7 @@ def obs_vector_joint_state(obs_fields, joint_names, ros_joint_state_msg):
 
     for ii, obs_field in enumerate(obs_fields):
         observation[len(joint_names)*ii:len(joint_names)*(ii+1)] = \
-                get_advr_sensor_data(ros_joint_state_msg, obs_field)[get_indexes_from_list(ros_joint_state_msg.name,
+                get_xbot_sensor_data(ros_joint_state_msg, obs_field)[get_indexes_from_list(ros_joint_state_msg.name,
                                                                                            joint_names)]
     return observation
 
@@ -121,7 +121,7 @@ def obs_vector_ft_sensor(obs_fields, ros_ft_sensor_msg):
     observation = np.empty(sum([ft_sensor_dof[x] for x in obs_fields]))
     prev_idx = 0
     for ii, obs_field in enumerate(obs_fields):
-        wrench_data = get_advr_sensor_data(ros_ft_sensor_msg.wrench, obs_field).item()
+        wrench_data = get_xbot_sensor_data(ros_ft_sensor_msg.wrench, obs_field).item()
         observation[prev_idx] = wrench_data.x
         observation[prev_idx+1] = wrench_data.y
         observation[prev_idx+2] = wrench_data.z
@@ -134,7 +134,7 @@ def obs_vector_imu(obs_fields, ros_imu_msg):
     observation = np.empty(sum([imu_sensor_dof[x] for x in obs_fields]))
     prev_idx = 0
     for ii, obs_field in enumerate(obs_fields):
-        imu_data = get_advr_sensor_data(ros_imu_msg, obs_field).item()
+        imu_data = get_xbot_sensor_data(ros_imu_msg, obs_field).item()
         observation[prev_idx] = imu_data.x
         observation[prev_idx+1] = imu_data.y
         observation[prev_idx+2] = imu_data.z
@@ -154,7 +154,7 @@ def obs_vector_optitrack(obs_fields, body_names, ros_optitrack_msg):
     for hh, body_names in enumerate(body_names):
         for ii, obs_field in enumerate(obs_fields):
 
-            pose_data = get_advr_sensor_data(ros_optitrack_msg.pose[bodies_idx[hh]], obs_field).item()
+            pose_data = get_xbot_sensor_data(ros_optitrack_msg.pose[bodies_idx[hh]], obs_field).item()
             if obs_field == 'position':
                 observation[prev_idx] = pose_data.x
                 observation[prev_idx+1] = pose_data.y
@@ -185,12 +185,12 @@ def state_vector_joint_state(state_fields, joint_names, ros_joint_state_msg):
     state = np.empty(len(joint_names)*len(state_fields))
     for ii, obs_field in enumerate(state_fields):
         state[len(joint_names)*ii:len(joint_names)*(ii+1)] = \
-            get_advr_sensor_data(ros_joint_state_msg, obs_field)[get_indexes_from_list(ros_joint_state_msg.name,
+            get_xbot_sensor_data(ros_joint_state_msg, obs_field)[get_indexes_from_list(ros_joint_state_msg.name,
                                                                                        joint_names)]
     return state
 
 
-def get_last_advr_state_field(robot_name, state_field, joint_names):
+def get_last_xbot_state_field(robot_name, state_field, joint_names):
     joint_state_msg = rospy.wait_for_message("/xbotcore/"+robot_name+"/joint_states", JointStateAdvr)
-    return get_advr_sensor_data(joint_state_msg, state_field)[get_indexes_from_list(joint_state_msg.name,
+    return get_xbot_sensor_data(joint_state_msg, state_field)[get_indexes_from_list(joint_state_msg.name,
                                                                                     joint_names)]

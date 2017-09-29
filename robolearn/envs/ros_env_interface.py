@@ -1,6 +1,6 @@
 from __future__ import print_function
 from robolearn.envs.environment import EnvInterface
-from robolearn.utils.iit.iit_robots_ros import copy_class_attr, config_advr_command
+from robolearn.utils.iit.iit_robots_ros import copy_class_attr, config_xbot_command
 
 # Useful packages
 from threading import Thread
@@ -109,18 +109,21 @@ class ROSEnvInterface(EnvInterface):
             copy_class_attr(msg, self.last_obs[obs_id], attribute_names)
         # print("Obs_id %d " % obs_id)
 
-    def set_action_type(self, init_cmd_vals, cmd_type, act_idx, **kwargs):
+    def set_action_type(self, init_cmd_vals, cmd_type_name, act_idx, **kwargs):
 
         action_id = len(self.action_types)
 
-        act_joint_names = kwargs['act_joint_names']
-
-        if cmd_type in ['position', 'velocity', 'effort']:
-            cmd_msg = config_advr_command(act_joint_names, cmd_type, init_cmd_vals)
+        if cmd_type_name in ['xbot_position', 'xbot_velocity', 'xbot_effort']:
+            act_joint_names = kwargs['act_joint_names']
+            cmd_msg = config_xbot_command(act_joint_names, cmd_type_name, init_cmd_vals)
+        elif cmd_type_name in ['joint_effort']:
+            ros_msg_class = kwargs['ros_msg_class']
+            cmd_msg = ros_msg_class()
         else:
-            raise NotImplementedError("Only ADVR command has been implemented!")
+            print('OH NOoo')
+            raise NotImplementedError("ros_env_interbace command %s has not been implemented!" % cmd_type_name)
 
-        self.action_types.append({'ros_msg': cmd_msg, 'type': cmd_type, 'act_idx': act_idx})
+        self.action_types.append({'ros_msg': cmd_msg, 'type': cmd_type_name, 'act_idx': act_idx})
         return action_id
 
     def set_observation_type(self, obs_name, obs_id, obs_type, obs_idx):
@@ -128,9 +131,9 @@ class ROSEnvInterface(EnvInterface):
         obs_type_id = len(self.obs_types)
 
         # if obs_type in ['joint_state']:
-        #     obs_msg = config_advr_command(act_joint_names, obs_type, init_cmd_vals)
+        #     obs_msg = config_xbot_command(act_joint_names, obs_type, init_cmd_vals)
         # else:
-        #     raise NotImplementedError("Only ADVR joint_state observations has been implemented!")
+        #     raise NotImplementedError("Only XBOT joint_state observations has been implemented!")
 
         obs_msg = self.last_obs[obs_id]
         self.obs_types.append({'name': obs_name, 'ros_msg': obs_msg, 'type': obs_type, 'obs_idx': obs_idx})
@@ -144,7 +147,7 @@ class ROSEnvInterface(EnvInterface):
 
         # TODO: Temporal removing obs_msg existence because there is a problem in "optitrack" state
         # if not hasattr(obs_msg, state_type):
-        #     raise ValueError("Wrong ADVR field type option")
+        #     raise ValueError("Wrong XBOT field type option")
 
         state_msg = obs_msg  # TODO: Doing this until we find a better solution to get a 'pointer' to a dict key
 

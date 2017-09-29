@@ -1,3 +1,4 @@
+import sys
 import socket
 import psutil
 import subprocess
@@ -6,6 +7,9 @@ import threading
 import time
 import os
 import signal
+import traceback
+
+from robolearn.envs.gazebo_ros_env_interface import GazeboROSEnvInterface
 
 init_roscore_port = 11312
 init_gzserver_port = 11347
@@ -20,6 +24,7 @@ class RosGazebo(multiprocessing.Process):
         self.roslaunch = None
         self.roscore_port = None
         self.gzserver_port = None
+        self.env_interface = None
 
         self.env_vars = os.environ.copy()
 
@@ -28,26 +33,47 @@ class RosGazebo(multiprocessing.Process):
         self.running = True
 
     def run(self):
-        self.start_all()
 
-        if self.gzserver_port is None:
-            gzserver_port = init_gzserver_port
-        else:
-            gzserver_port = self.gzserver_port
-        self.gzserver_port = self.get_available_port(gzserver_port)
+        try:
+            self.start_all()
 
-        os.environ["ROS_MASTER_URI"] = 'http://%s:%d' % (str(self.host), self.roscore_port)
-        os.environ["GAZEBO_MASTER_URI"] = 'http://%s:%d' % (str(self.host), self.gzserver_port)
+            if self.gzserver_port is None:
+                gzserver_port = init_gzserver_port
+            else:
+                gzserver_port = self.gzserver_port
+            self.gzserver_port = self.get_available_port(gzserver_port)
 
-        self.roslaunch = self.run_roslaunch()
+            os.environ["ROS_MASTER_URI"] = 'http://%s:%d' % (str(self.host), self.roscore_port)
+            os.environ["GAZEBO_MASTER_URI"] = 'http://%s:%d' % (str(self.host), self.gzserver_port)
 
-        # Block function
-        close_option = self.close_pipe[1].recv()
+            self.roslaunch = self.run_roslaunch()
 
-        if close_option == 'all':
+            action_types = list()
+            action_topic_infos = list()
+            from std_msgs.msg import Float64
+            for ii in range(3):
+                action_types.append({'name': 'joint_effort',
+                                     'dof': 1})
+                action_topic_infos.append({'name': '/manipulator2d/joint'+str(ii)+'_position_controller/command',
+                                           'type': Float64,
+                                           'freq': 100})
+            self.env_interface = GazeboROSEnvInterface(action_types=action_types, action_topic_infos=action_topic_infos)
+
+            # Block function
+            close_option = self.close_pipe[1].recv()
+
+            if close_option == 'all':
+                self.stop_all()
+            else:
+                raise ValueError("Wrong close_option %s" % close_option)
+
+        except Exception as e:
+            print("Error in RosGazebo with PID:%d" % self.pid)
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_exception(exc_type, exc_value, exc_traceback,
+                                      limit=2, file=sys.stdout)
             self.stop_all()
-        else:
-            raise ValueError("Wrong close_option %s" % close_option)
+
 
     def start(self):
         super(RosGazebo, self).start()
@@ -86,8 +112,8 @@ class RosGazebo(multiprocessing.Process):
     def run_roscore(self, port):
         # TODO: Change subprocess.PIPE to a file
         self.env_vars["ROS_MASTER_URI"] = 'http://%s:%d' % (str(self.host), port)
-        roscore_subprocess = subprocess.Popen(['roscore', '-p', '%d' % port], shell=False, preexec_fn=os.setsid,
-                                              env=self.env_vars, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        roscore_subprocess = subprocess.Popen(['roscore', '-p', '%d' % port], shell=False, preexec_fn=os.setsid)#,
+                                              # env=self.env_vars, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         #roscore_subprocess.wait()
         return roscore_subprocess
 
@@ -222,7 +248,7 @@ class MultiRosGazebo(object):
 #gzserver_subprocess = subprocess.Popen('/bin/bash -c ls', shell=True, preexec_fn=os.setsid)#,
 #raw_input('borra')
 
-multi_ros_gz = MultiRosGazebo(2)
+multi_ros_gz = MultiRosGazebo(1)
 
 
 #for ii in range(multi_ros_gz.total_ros_gz):
@@ -256,15 +282,13 @@ multi_ros_gz = MultiRosGazebo(2)
 #    process = multiprocessing.Process(target=background_imports, args=['localhost', port])
 #    process.start()
 
-#multi_ros_gz.rosgazebo_pipes[0][0].send(False)
-
 #print('sleeping')
 #time.sleep(5)
 
 # multi_ros_gz.start()
 
 
-time.sleep(2)
+time.sleep(1)
 
 raw_input('stop')
 #time.sleep(5)
@@ -273,15 +297,10 @@ multi_ros_gz.stop()
 
 time.sleep(1)
 
-raw_input('restart')
-multi_ros_gz.restart()
+#raw_input('restart')
+#multi_ros_gz.restart()
 
-raw_input('stop')
-multi_ros_gz.stop()
-
-#for ii in range(multi_ros_gz.total_ros_gz):
-#    port = multi_ros_gz.rosgazebos[ii].roscore_port
-#    print(port)
-#    print("$$$$")
-
+#raw_input('stop')
 #multi_ros_gz.stop()
+
+raw_input('finish_script')

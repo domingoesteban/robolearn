@@ -1,124 +1,156 @@
 from __future__ import print_function
+import time
 import numpy as np
 import rospy
+import roslib; roslib.load_manifest('urdfdom_py')
+from urdf_parser_py.urdf import URDF
 
 from robolearn.envs.ros_env_interface import ROSEnvInterface
-from robolearn.utils.iit.iit_robots_ros import CommandAdvr, JointStateAdvr, WrenchStamped, Imu, RelativePose
-from robolearn.utils.iit.iit_robots_ros import state_vector_joint_state, update_xbot_command, get_indexes_from_list
-from robolearn.utils.iit.iit_robots_ros import get_last_xbot_state_field, get_xbot_sensor_data
-from robolearn.utils.iit.iit_robots_ros import obs_vector_joint_state, obs_vector_optitrack
-from robolearn.utils.iit.iit_robots_ros import obs_vector_ft_sensor, obs_vector_imu
-from robolearn.utils.iit.iit_robots_params import joint_state_fields, ft_sensor_dof, imu_sensor_dof, optitrack_dof
-from robolearn.utils.iit.iit_robots_params import centauro_params, bigman_params
+#from robolearn.utils.iit.iit_robots_ros import CommandAdvr, JointStateAdvr, WrenchStamped, Imu, RelativePose
+#from robolearn.utils.iit.iit_robots_ros import state_vector_joint_state, update_xbot_command, get_indexes_from_list
+#from robolearn.utils.iit.iit_robots_ros import get_last_xbot_state_field, get_xbot_sensor_data
+#from robolearn.utils.iit.iit_robots_ros import obs_vector_joint_state, obs_vector_optitrack
+#from robolearn.utils.iit.iit_robots_ros import obs_vector_ft_sensor, obs_vector_imu
+#from robolearn.utils.iit.iit_robots_params import joint_state_fields, ft_sensor_dof, imu_sensor_dof, optitrack_dof
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 from robolearn.utils.transformations import compute_cartesian_error, pose_transform, quaternion_inner
 
 
-class RobotROSEnvInterface(ROSEnvInterface):
-    def __init__(self, robot_name=None, mode='simulation', body_part_active='LA', cmd_type='position',
+class GazeboROSEnvInterface(ROSEnvInterface):
+    def __init__(self, robot_name=None, mode='simulation', joints_active=None, urdf_file=None, action_types=None,
+                 action_topic_infos=None,
                  observation_active=None, state_active=None, cmd_freq=100, robot_dyn_model=None,
                  optional_env_params=None, reset_simulation_fcn=None):
-        super(RobotROSEnvInterface, self).__init__(mode=mode)
+        super(GazeboROSEnvInterface, self).__init__(mode=mode)
+
+        #if robot_name is None:
+        #    raise AttributeError("robot has not been defined!")
+
+        if urdf_file is None:
+            print("Waiting for URDF model in: %s" % 'robot_description')
+            while not rospy.has_param('robot_description'):
+                time.sleep(0.5)
+            robot_urdf = URDF.from_parameter_server()
+        else:
+            robot_urdf = URDF.from_xml_file(urdf_file)
 
         if robot_name is None:
-            raise AttributeError("robot has not been defined!")
-
-        if robot_name == 'centauro':
-            self.robot_params = centauro_params
-        elif robot_name == 'bigman':
-            self.robot_params = bigman_params
+            self.robot_name = robot_urdf.name
         else:
-            raise NotImplementedError("robot %s has not been implemented!" % robot_name)
+            self.robot_name = robot_name
 
-        self.robot_name = robot_name
-        self.joint_names = self.robot_params['joints_names']
-        self.joint_ids = self.robot_params['joint_ids']
-        self.q0 = self.robot_params['q0']
-        self.conditions = []  # Necessary for GPS
+        self.joints = self.get_active_joints_urdf(robot_urdf)
 
-        #TODO:TEMPORAL
-        self.temp_object_name = optional_env_params['temp_object_name']
+        if joints_active is None:
+            self.act_dof = range(len(self.joints))
+        else:
+            self.act_dof = joints_active
 
-        self.robot_dyn_model = robot_dyn_model
-        if self.robot_dyn_model is not None:
-            self.temp_effort = np.zeros(self.robot_dyn_model.qdot_size)
+        self.robot_urdf = robot_urdf
 
-        # Set initial configuration using first configuration loaded from default params
-        self.set_init_config(self.q0)
+        #self.q0 = self.robot_params['q0']
+        #self.conditions = []  # Necessary for GPS
 
-        # Configure actuated joints
-        self.act_joint_names = self.get_joints_names(body_part_active)
-        self.act_joint_ids = get_indexes_from_list(self.joint_names, self.act_joint_names)
-        self.act_dof = len(self.act_joint_names)
+        ##TODO:TEMPORAL
+        #self.temp_object_name = optional_env_params['temp_object_name']
+
+        #self.robot_dyn_model = robot_dyn_model
+        #if self.robot_dyn_model is not None:
+        #    self.temp_effort = np.zeros(self.robot_dyn_model.qdot_size)
+
+        ## Set initial configuration using first configuration loaded from default params
+        #self.set_init_config(self.q0)
+
+        ## Configure actuated joints
+        #self.act_joint_names = self.get_joints_names(body_part_active)
+        #self.act_joint_ids = get_indexes_from_list(self.joint_names, self.act_joint_names)
+        #self.act_dof = len(self.act_joint_names)
 
         # ####### #
         # ACTIONS #
         # ####### #
 
         #Action 1: Joint1:JointN, 100Hz
-        self.cmd_freq = cmd_freq
-        self.set_action_topic("/xbotcore/"+self.robot_name+"/command", CommandAdvr, self.cmd_freq)  # TODO: Check if 100 is OK
-        if cmd_type == 'position':
-            init_cmd_vals = self.initial_config[0][self.get_joints_indexes(body_part_active)]  # TODO: TEMPORAL SOLUTION
-            self.cmd_type = cmd_type
-        elif cmd_type == 'velocity':
-            init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indexes(body_part_active)])
-            self.cmd_type = cmd_type
-            cmd_type = 'position'  # TEMPORAL
-        elif cmd_type == 'effort':
-            # TODO: Check if initiate with zeros_like is a good idea
-            init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indexes(body_part_active)])
-            self.cmd_type = cmd_type
-            cmd_type = 'effort'  # TEMPORAL
-        else:
-            raise NotImplementedError("Only position command has been implemented!")
+        #self.cmd_freq = cmd_freq
+        if not isinstance(action_topic_infos, list):
+            action_topic_infos = [action_topic_infos]
 
-        act_idx = range(self.act_dof)
-        action_id = self.set_action_type(init_cmd_vals, cmd_type, act_idx, act_joint_names=self.act_joint_names)
+        if not isinstance(action_types, list):
+            action_types = [action_types]
+
+        if len(action_types) != len(action_topic_infos):
+            raise ValueError("Action type (%d) does not have same length than action_topic_infos (%d)" % (len(action_types),
+                                                                                                          len(action_topic_infos)))
+
+        act_idx = [-1]
+        for topic_info, action_type in zip(action_topic_infos, action_types):
+            # self.set_action_topic("/xbotcore/"+self.robot_name+"/command", CommandAdvr, self.cmd_freq)  # TODO: Check if 100 is OK
+            self.set_action_topic(topic_info['name'], topic_info['type'], topic_info['freq'])  # TODO: Check if 100 is OK
+
+            if action_type['name'] == 'xbot_position':
+                raise NotImplemented
+                #init_cmd_vals = self.initial_config[0][self.get_joints_indexes(body_part_active)]  # TODO: TEMPORAL SOLUTION
+                #self.cmd_types.append(cmd_type)
+            elif action_type['name'] == 'xbot_effort':
+                # TODO: Check if initiate with zeros_like is a good idea
+                init_cmd_vals = np.zeros_like(action_type['dof'])
+            elif action_type['name'] == 'joint_effort':
+                init_cmd_vals = np.zeros_like(action_type['dof'])
+            else:
+                raise NotImplementedError("Only position command has been implemented!")
+
+            act_idx = range(act_idx[-1] + 1, act_idx[-1] + 1 + action_type['dof'])
+            # action_id = self.set_action_type(init_cmd_vals, action_type['name'], act_idx, act_joint_names=self.act_joint_names)
+
+            action_id = self.set_action_type(init_cmd_vals, action_type['name'], act_idx,
+                                             ros_msg_class=topic_info['type'])
+
+            print("Sending %s action!!" % action_type['name'])
 
         # After all actions have been configured
-        self.set_initial_acts(initial_acts=[action_type['ros_msg'] for action_type in self.action_types])  # TODO: Check if it is useful or not
+        #self.set_initial_acts(initial_acts=[action_type['ros_msg'] for action_type in self.action_types])  # TODO: Check if it is useful or not
         self.act_dim = self.get_total_action_dof()
         self.act_vector = np.zeros(self.act_dim)
         self.prev_act = np.zeros(self.act_dim)
 
-        # ######## #
-        # TEMPORAL #
-        # ######## #
-        self.temp_joint_pos_state = np.zeros(self.robot_dyn_model.qdot_size)  # Assuming joint state only gives actuated joints state
-        self.temp_joint_vel_state = np.zeros(self.robot_dyn_model.qdot_size)
-        self.temp_joint_effort_state = np.zeros(self.robot_dyn_model.qdot_size)
-        self.temp_joint_stiffness_state = np.zeros(self.robot_dyn_model.qdot_size)
-        self.temp_joint_damping_state = np.zeros(self.robot_dyn_model.qdot_size)
-        self.temp_joint_effort_reference = np.zeros(self.robot_dyn_model.qdot_size)
-        self.temp_joint_state_id = []
-        self.temp_subscriber = rospy.Subscriber("/xbotcore/bigman/joint_states", JointStateAdvr,
-                                                self.temp_state_callback, (self.temp_joint_state_id,
-                                                                           self.temp_joint_pos_state,
-                                                                           self.temp_joint_vel_state,
-                                                                           self.temp_joint_effort_state,
-                                                                           self.temp_joint_stiffness_state,
-                                                                           self.temp_joint_damping_state,
-                                                                           self.temp_joint_effort_reference))
+        ## ######## #
+        ## TEMPORAL #
+        ## ######## #
+        #self.temp_joint_pos_state = np.zeros(self.robot_dyn_model.qdot_size)  # Assuming joint state only gives actuated joints state
+        #self.temp_joint_vel_state = np.zeros(self.robot_dyn_model.qdot_size)
+        #self.temp_joint_effort_state = np.zeros(self.robot_dyn_model.qdot_size)
+        #self.temp_joint_stiffness_state = np.zeros(self.robot_dyn_model.qdot_size)
+        #self.temp_joint_damping_state = np.zeros(self.robot_dyn_model.qdot_size)
+        #self.temp_joint_effort_reference = np.zeros(self.robot_dyn_model.qdot_size)
+        #self.temp_joint_state_id = []
+        #self.temp_subscriber = rospy.Subscriber("/xbotcore/bigman/joint_states", JointStateAdvr,
+        #                                        self.temp_state_callback, (self.temp_joint_state_id,
+        #                                                                   self.temp_joint_pos_state,
+        #                                                                   self.temp_joint_vel_state,
+        #                                                                   self.temp_joint_effort_state,
+        #                                                                   self.temp_joint_stiffness_state,
+        #                                                                   self.temp_joint_damping_state,
+        #                                                                   self.temp_joint_effort_reference))
 
 
-        self.distance_vectors_idx = list()
-        self.distance_vectors_params = list()
-        self.distance_vectors = list()
-        self.prev_quat_vectors = list()
-        self.target_pose = np.zeros(7)
-        self.robot_pose = np.zeros(7)
-        self.receiving_target = False
-        self.temp_subscriber = rospy.Subscriber("/optitrack/relative_poses", RelativePose,
-                                                self.temp_target_callback)
+        #self.distance_vectors_idx = list()
+        #self.distance_vectors_params = list()
+        #self.distance_vectors = list()
+        #self.prev_quat_vectors = list()
+        #self.target_pose = np.zeros(7)
+        #self.robot_pose = np.zeros(7)
+        #self.receiving_target = False
+        #self.temp_subscriber = rospy.Subscriber("/optitrack/relative_poses", RelativePose,
+        #                                        self.temp_target_callback)
 
 
-        self.distance_object_vector = None
+        #self.distance_object_vector = None
 
 
         # ############ #
         # OBSERVATIONS #
         # ############ #
+        """
         if observation_active is None:
             observation_active = self.robot_params['observation_active']
 
@@ -227,11 +259,13 @@ class RobotROSEnvInterface(ROSEnvInterface):
             print("Receiving %s observation!!" % obs_to_activate['type'])
 
         self.obs_dim = self.get_total_obs_dof()
-
+        
+        """
 
         # ##### #
         # STATE #
         # ##### #
+        """
         if state_active is None:
             state_active = self.robot_params['state_active']
 
@@ -296,33 +330,40 @@ class RobotROSEnvInterface(ROSEnvInterface):
 
         self.state_dim = self.get_total_state_dof()
 
+        """
 
 
+        ### ##### #
+        ### RESET #
+        ### ##### #
+        ## # TODO: Find a better way to reset the robot
+        ## self.srv_xbot_comm_plugin = rospy.ServiceProxy('/XBotCommunicationPlugin_switch', SetBool)
+        ## self.srv_homing_ex_plugin = rospy.ServiceProxy('/HomingExample_switch', SetBool)
+        #self.reset_simulation_fcn = reset_simulation_fcn
 
-        ## ##### #
-        ## RESET #
-        ## ##### #
-        # # TODO: Find a better way to reset the robot
-        # self.srv_xbot_comm_plugin = rospy.ServiceProxy('/XBotCommunicationPlugin_switch', SetBool)
-        # self.srv_homing_ex_plugin = rospy.ServiceProxy('/HomingExample_switch', SetBool)
-        self.reset_simulation_fcn = reset_simulation_fcn
-
-        # Resetting before get initial state
-        #print("Resetting %s robot to initial q0[0]..." % self.robot_name)
-        print("NO RESETTING BEFORE PUBLISHING!!")
-        self.x0 = self.get_state()
+        ## Resetting before get initial state
+        ##print("Resetting %s robot to initial q0[0]..." % self.robot_name)
+        #print("NO RESETTING BEFORE PUBLISHING!!")
+        #self.x0 = self.get_state()
 
 
-        # TEMPORAL
-        self.temp_publisher = rospy.Publisher("/xbotcore/bigman/command", CommandAdvr, queue_size=10)
-        self.pub_rate = rospy.Rate(100)
-        self.des_cmd = CommandAdvr()
-        self.des_cmd.name = self.act_joint_names
-
+        ## TEMPORAL
+        #self.temp_publisher = rospy.Publisher("/xbotcore/bigman/command", CommandAdvr, queue_size=10)
+        #self.pub_rate = rospy.Rate(100)
+        #self.des_cmd = CommandAdvr()
+        #self.des_cmd.name = self.act_joint_names
 
         self.run()
 
         print("%s ROS-environment ready!" % self.robot_name.upper())
+
+    @staticmethod
+    def get_active_joints_urdf(robot_urdf):
+        joints = list()
+        for joint in robot_urdf.joints:
+            if joint.type != 'fixed':
+                joints.append(joint)
+        return joints
 
     def get_action_dim(self):
         """
@@ -383,6 +424,9 @@ class RobotROSEnvInterface(ROSEnvInterface):
                         # self.des_cmd.stiffness = np.zeros_like(self.temp_effort[self.act_joint_ids])
                         # self.des_cmd.damping = np.zeros_like(self.temp_effort[self.act_joint_ids])
                 update_xbot_command(des_action['ros_msg'], des_action['type'], self.act_vector[des_action['act_idx']])
+
+            elif des_action['type'] == 'joint_effort':
+
             else:
                 raise NotImplementedError("Only Advr commands: position, velocity or effort available!")
 
