@@ -7,7 +7,7 @@ from urdf_parser_py.urdf import URDF
 
 from robolearn.envs.ros_env_interface import ROSEnvInterface
 #from robolearn.utils.iit.iit_robots_ros import CommandAdvr, JointStateAdvr, WrenchStamped, Imu, RelativePose
-#from robolearn.utils.iit.iit_robots_ros import state_vector_joint_state, update_xbot_command, get_indexes_from_list
+from robolearn.utils.iit.iit_robots_ros import state_vector_xbot_joint_state, update_xbot_command, get_indexes_from_list
 #from robolearn.utils.iit.iit_robots_ros import get_last_xbot_state_field, get_xbot_sensor_data
 #from robolearn.utils.iit.iit_robots_ros import obs_vector_joint_state, obs_vector_optitrack
 #from robolearn.utils.iit.iit_robots_ros import obs_vector_ft_sensor, obs_vector_imu
@@ -40,6 +40,7 @@ class GazeboROSEnvInterface(ROSEnvInterface):
             self.robot_name = robot_name
 
         self.joints = self.get_active_joints_urdf(robot_urdf)
+        self.joint_names = [joint.name for joint in self.joints]
 
         if joints_active is None:
             self.act_dof = range(len(self.joints))
@@ -150,14 +151,20 @@ class GazeboROSEnvInterface(ROSEnvInterface):
         # ############ #
         # OBSERVATIONS #
         # ############ #
-        """
-        if observation_active is None:
-            observation_active = self.robot_params['observation_active']
+        #if observation_active is None:
+        #    observation_active = self.robot_params['observation_active']
 
         obs_idx = [-1]
         for obs_to_activate in observation_active:
-            if obs_to_activate['type'] == 'joint_state':
+            if obs_to_activate['type'] == 'xbot_joint_state':
                 ros_topic_type = JointStateAdvr
+                self.obs_joint_fields = list(obs_to_activate['fields'])  # Used in get_obs
+                self.obs_joint_names = [self.joint_names[id] for id in obs_to_activate['joints']]
+                self.obs_joint_ids = get_indexes_from_list(self.joint_names, self.obs_joint_names)
+                obs_dof = len(obs_to_activate['fields'])*len(self.obs_joint_names)
+
+            elif obs_to_activate['type'] == 'joint_state':
+                ros_topic_type = obs_to_activate['ros_class']
                 self.obs_joint_fields = list(obs_to_activate['fields'])  # Used in get_obs
                 self.obs_joint_names = [self.joint_names[id] for id in obs_to_activate['joints']]
                 self.obs_joint_ids = get_indexes_from_list(self.joint_names, self.obs_joint_names)
@@ -173,79 +180,76 @@ class GazeboROSEnvInterface(ROSEnvInterface):
                 self.obs_imu_sensor_fields = list(obs_to_activate['fields'])  # Used in get_obs
                 obs_dof = sum([imu_sensor_dof[x] for x in obs_to_activate['fields']])
 
-            elif obs_to_activate['type'] == 'optitrack':
-                ros_topic_type = RelativePose
-                self.obs_optitrack_fields = list(obs_to_activate['fields'])  # Used in get_obs
-                self.obs_optitrack_bodies = obs_to_activate['bodies']
-                obs_dof = sum([optitrack_dof[x]*len(self.obs_optitrack_bodies) for x in obs_to_activate['fields']])
+            # elif obs_to_activate['type'] == 'optitrack':
+            #     ros_topic_type = RelativePose
+            #     self.obs_optitrack_fields = list(obs_to_activate['fields'])  # Used in get_obs
+            #     self.obs_optitrack_bodies = obs_to_activate['bodies']
+            #     obs_dof = sum([optitrack_dof[x]*len(self.obs_optitrack_bodies) for x in obs_to_activate['fields']])
 
-            elif obs_to_activate['type'] == 'prev_cmd':
-                obs_dof = self.act_dim
-                obs_to_activate['ros_topic'] = None
-                obs_to_activate['fields'] = None
-                ros_topic_type = 'prev_cmd'
+            # elif obs_to_activate['type'] == 'prev_cmd':
+            #     obs_dof = self.act_dim
+            #     obs_to_activate['ros_topic'] = None
+            #     obs_to_activate['fields'] = None
+            #     ros_topic_type = 'prev_cmd'
 
-            elif obs_to_activate['type'] == 'fk_pose':
-                obs_dof = 0
-                if 'orientation' in obs_to_activate['fields']:
-                    obs_dof += 3
-                if 'position' in obs_to_activate['fields']:
-                    obs_dof += 3
-                obs_to_activate['ros_topic'] = None
-                ros_topic_type = 'fk_pose'
+            # elif obs_to_activate['type'] == 'fk_pose':
+            #     obs_dof = 0
+            #     if 'orientation' in obs_to_activate['fields']:
+            #         obs_dof += 3
+            #     if 'position' in obs_to_activate['fields']:
+            #         obs_dof += 3
+            #     obs_to_activate['ros_topic'] = None
+            #     ros_topic_type = 'fk_pose'
 
-            elif obs_to_activate['type'] == 'object_pose':
-                obs_dof = 0
-                if 'orientation' in obs_to_activate['fields']:
-                    obs_dof += 3
-                if 'position' in obs_to_activate['fields']:
-                    obs_dof += 3
-                obs_to_activate['ros_topic'] = None
-                ros_topic_type = 'object_pose'
+            # elif obs_to_activate['type'] == 'object_pose':
+            #     obs_dof = 0
+            #     if 'orientation' in obs_to_activate['fields']:
+            #         obs_dof += 3
+            #     if 'position' in obs_to_activate['fields']:
+            #         obs_dof += 3
+            #     obs_to_activate['ros_topic'] = None
+            #     ros_topic_type = 'object_pose'
 
             else:
                 raise NotImplementedError("observation %s is not supported!!" % obs_to_activate['type'])
 
-            if obs_to_activate['type'] in ['joint_state', 'optitrack']:
+            if obs_to_activate['type'] in ['joint_state', 'optitrack', 'xbot_joint_state']:
                 obs_msg_id = self.set_observation_topic(obs_to_activate['ros_topic'], ros_topic_type,
                                                         obs_to_activate['fields']+['name'])
             else:
                 obs_msg_id = self.set_observation_topic(obs_to_activate['ros_topic'], ros_topic_type,
                                                         obs_to_activate['fields'])
 
-            # TODO: Find a better way
-            if obs_to_activate['type'] == 'prev_cmd':
-                self.last_obs[obs_msg_id] = self.prev_act
+            ## TODO: Find a better way
+            #if obs_to_activate['type'] == 'prev_cmd':
+            #    self.last_obs[obs_msg_id] = self.prev_act
 
-            # TODO: Find a better way
-            if obs_to_activate['type'] == 'fk_pose':
-                self.distance_vectors_idx.append(obs_msg_id)
-                self.distance_vectors_params.append({'body_name': obs_to_activate['body_name'],
-                                                     'body_offset': obs_to_activate['body_offset'],
-                                                     'target_offset': obs_to_activate['target_offset'],
-                                                     'fields': obs_to_activate['fields']})
-                self.distance_vectors.append(np.zeros(obs_dof))
-                self.prev_quat_vectors.append(np.array([0, 0, 0, 1, 0, 0, 0]))
-                self.last_obs[obs_msg_id] = self.distance_vectors[-1]
+            ## TODO: Find a better way
+            #if obs_to_activate['type'] == 'fk_pose':
+            #    self.distance_vectors_idx.append(obs_msg_id)
+            #    self.distance_vectors_params.append({'body_name': obs_to_activate['body_name'],
+            #                                         'body_offset': obs_to_activate['body_offset'],
+            #                                         'target_offset': obs_to_activate['target_offset'],
+            #                                         'fields': obs_to_activate['fields']})
+            #    self.distance_vectors.append(np.zeros(obs_dof))
+            #    self.prev_quat_vectors.append(np.array([0, 0, 0, 1, 0, 0, 0]))
+            #    self.last_obs[obs_msg_id] = self.distance_vectors[-1]
+            #    print("Waiting to receive target message")
+            #    while self.receiving_target is False:
+            #        pass
 
-                print("Waiting to receive target message")
-                while self.receiving_target is False:
-                    pass
-
-            # TODO: Find a better way
-            if obs_to_activate['type'] == 'object_pose':
-                self.distance_object_vector_idx = obs_msg_id
-                self.distance_object_vector_params = {'body_name': obs_to_activate['body_name'],
-                                                      'target_rel_pose': obs_to_activate['target_rel_pose'],
-                                                      'fields': obs_to_activate['fields']}
-
-                self.distance_object_vector = np.zeros(obs_dof)
-                self.prev_quat_object_vector = np.array([0, 0, 0, 1, 0, 0, 0])
-                self.last_obs[obs_msg_id] = self.distance_object_vector
-
-                print("Waiting to receive target object message")
-                while self.receiving_target is False:
-                    pass
+            ## TODO: Find a better way
+            #if obs_to_activate['type'] == 'object_pose':
+            #    self.distance_object_vector_idx = obs_msg_id
+            #    self.distance_object_vector_params = {'body_name': obs_to_activate['body_name'],
+            #                                          'target_rel_pose': obs_to_activate['target_rel_pose'],
+            #                                          'fields': obs_to_activate['fields']}
+            #    self.distance_object_vector = np.zeros(obs_dof)
+            #    self.prev_quat_object_vector = np.array([0, 0, 0, 1, 0, 0, 0])
+            #    self.last_obs[obs_msg_id] = self.distance_object_vector
+            #    print("Waiting to receive target object message")
+            #    while self.receiving_target is False:
+            #        pass
 
             obs_idx = range(obs_idx[-1] + 1, obs_idx[-1] + 1 + obs_dof)
 
@@ -259,8 +263,6 @@ class GazeboROSEnvInterface(ROSEnvInterface):
             print("Receiving %s observation!!" % obs_to_activate['type'])
 
         self.obs_dim = self.get_total_obs_dof()
-        
-        """
 
         # ##### #
         # STATE #
@@ -426,6 +428,7 @@ class GazeboROSEnvInterface(ROSEnvInterface):
                 update_xbot_command(des_action['ros_msg'], des_action['type'], self.act_vector[des_action['act_idx']])
 
             elif des_action['type'] == 'joint_effort':
+                des_action['ros_msg'].data = self.act_vector[des_action['act_idx']]
 
             else:
                 raise NotImplementedError("Only Advr commands: position, velocity or effort available!")
@@ -479,6 +482,7 @@ class GazeboROSEnvInterface(ROSEnvInterface):
             return self.joint_ids[joint_names]
 
     def get_observation(self):
+
         observation = np.empty(self.obs_dim)
 
         for oo, obs in enumerate(self.obs_types):

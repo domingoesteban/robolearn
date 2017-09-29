@@ -4,7 +4,7 @@ import rospy
 
 from robolearn.envs.ros_env_interface import ROSEnvInterface
 from robolearn.utils.iit.iit_robots_ros import CommandAdvr, JointStateAdvr, WrenchStamped, Imu, RelativePose
-from robolearn.utils.iit.iit_robots_ros import state_vector_joint_state, update_xbot_command, get_indexes_from_list
+from robolearn.utils.iit.iit_robots_ros import state_vector_xbot_joint_state, update_xbot_command, get_indexes_from_list
 from robolearn.utils.iit.iit_robots_ros import get_last_xbot_state_field, get_xbot_sensor_data
 from robolearn.utils.iit.iit_robots_ros import obs_vector_joint_state, obs_vector_optitrack
 from robolearn.utils.iit.iit_robots_ros import obs_vector_ft_sensor, obs_vector_imu
@@ -362,7 +362,7 @@ class RobotROSEnvInterface(ROSEnvInterface):
                 if self.cmd_type == 'velocity':  # TODO: TEMPORAL HACK / Velocity not implemented
                     # current_pos = state_vector_joint_state(['link_position'], self.act_joint_names,
                     #                                        self.get_obs_ros_msg(name='joint_state')).ravel()
-                    current_pos = state_vector_joint_state(['position'], self.act_joint_names,
+                    current_pos = state_vector_xbot_joint_state(['position'], self.act_joint_names,
                                                            self.get_action_ros_msg(action_type='position')).ravel()
                     vel = self.act_vector[des_action['act_idx']]*1./self.cmd_freq
                     # now = rospy.get_rostime()

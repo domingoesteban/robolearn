@@ -4,6 +4,7 @@ import numpy as np
 import rospy
 from geometry_msgs.msg import WrenchStamped
 from sensor_msgs.msg import Imu
+from sensor_msgs.msg import JointState
 from XCM.msg import JointStateAdvr
 from XCM.msg import CommandAdvr
 from robolearn_gazebo_env.msg import RelativePose
@@ -89,7 +90,7 @@ def copy_class_attr(objfrom, objto, attribute_names):
                     v = getattr(new_wrench, n)
                     setattr(objto.wrench, n, v)
                 # setattr(objto, 'wrench', wrench)
-        elif isinstance(objfrom, JointStateAdvr) or isinstance(objfrom, Imu):
+        elif isinstance(objfrom, JointStateAdvr) or isinstance(objfrom, Imu) or isinstance(objfrom, JointState):
             if hasattr(objfrom, n):
                 v = getattr(objfrom, n)
                 setattr(objto, n, v)
@@ -173,7 +174,7 @@ def obs_vector_optitrack(obs_fields, body_names, ros_optitrack_msg):
     return observation
 
 
-def state_vector_joint_state(state_fields, joint_names, ros_joint_state_msg):
+def state_vector_xbot_joint_state(state_fields, joint_names, ros_joint_state_msg):
     """
     Return a vector filled with data from a XCM/JointStateAdvr message for some specific state filds and joint names
     :param state_fields: List of joint state fields. E.g. [link_position, link_velocity]
