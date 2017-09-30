@@ -7,7 +7,8 @@ from urdf_parser_py.urdf import URDF
 
 from robolearn.envs.ros_env_interface import ROSEnvInterface
 #from robolearn.utils.iit.iit_robots_ros import CommandAdvr, JointStateAdvr, WrenchStamped, Imu, RelativePose
-from robolearn.utils.iit.iit_robots_ros import state_vector_xbot_joint_state, update_xbot_command, get_indexes_from_list
+from robolearn.utils.iit.iit_robots_ros import state_vector_xbot_joint_state, update_xbot_command
+from robolearn.utils.ros.ros_utils import get_indexes_from_list, obs_vector_joint_state
 #from robolearn.utils.iit.iit_robots_ros import get_last_xbot_state_field, get_xbot_sensor_data
 #from robolearn.utils.iit.iit_robots_ros import obs_vector_joint_state, obs_vector_optitrack
 #from robolearn.utils.iit.iit_robots_ros import obs_vector_ft_sensor, obs_vector_imu
@@ -486,7 +487,11 @@ class GazeboROSEnvInterface(ROSEnvInterface):
         observation = np.empty(self.obs_dim)
 
         for oo, obs in enumerate(self.obs_types):
-            if obs['type'] == 'joint_state':
+            if obs['type'] == 'xbot_joint_state':
+                observation[obs['obs_idx']] = obs_vector_joint_state(self.obs_joint_fields,
+                                                                     self.obs_joint_names,
+                                                                     obs['ros_msg'])
+            elif obs['type'] == 'joint_state':
                 observation[obs['obs_idx']] = obs_vector_joint_state(self.obs_joint_fields,
                                                                      self.obs_joint_names,
                                                                      obs['ros_msg'])

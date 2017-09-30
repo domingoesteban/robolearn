@@ -14,6 +14,7 @@ from robolearn.envs.gazebo_ros_env_interface import GazeboROSEnvInterface
 init_roscore_port = 11312
 init_gzserver_port = 11347
 
+
 class RosGazebo(multiprocessing.Process):
     def __init__(self, host='localhost'):
         super(RosGazebo, self).__init__()
@@ -63,13 +64,13 @@ class RosGazebo(multiprocessing.Process):
                 action_topic_infos.append({'name': '/manipulator2d/joint'+str(ii)+'_position_controller/command',
                                            'type': Float64,
                                            'freq': 100})
-                observation_active.append({'name': 'joint_state',
-                                           'type': 'joint_state',
-                                           'ros_class': JointState,
-                                           'fields': ['position', 'velocity'],
-                                           'joints': [0, 1, 2],  # Joint IDs
-                                           'ros_topic': '/manipulator2d/joint_states',
-                                           })
+            observation_active.append({'name': 'joint_state',
+                                       'type': 'joint_state',
+                                       'ros_class': JointState,
+                                       'fields': ['position', 'velocity'],
+                                       'joints': [0, 1, 2],  # Joint IDs
+                                       'ros_topic': '/manipulator2d/joint_states',
+                                       })
             self.env_interface = GazeboROSEnvInterface(action_types=action_types, action_topic_infos=action_topic_infos,
                                                        observation_active=observation_active)
 

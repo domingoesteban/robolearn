@@ -3,12 +3,15 @@ import numpy as np
 import rospy
 
 from robolearn.envs.ros_env_interface import ROSEnvInterface
-from robolearn.utils.iit.iit_robots_ros import CommandAdvr, JointStateAdvr, WrenchStamped, Imu, RelativePose
+from robolearn.utils.iit.iit_robots_ros import CommandAdvr, JointStateAdvr
+from robolearn.utils.ros.ros_utils import WrenchStamped, Imu, RelativePose
 from robolearn.utils.iit.iit_robots_ros import state_vector_xbot_joint_state, update_xbot_command, get_indexes_from_list
-from robolearn.utils.iit.iit_robots_ros import get_last_xbot_state_field, get_xbot_sensor_data
+from robolearn.utils.iit.iit_robots_ros import get_last_xbot_state_field
+from robolearn.utils.ros.ros_utils import get_sensor_data
 from robolearn.utils.iit.iit_robots_ros import obs_vector_joint_state, obs_vector_optitrack
 from robolearn.utils.iit.iit_robots_ros import obs_vector_ft_sensor, obs_vector_imu
-from robolearn.utils.iit.iit_robots_params import joint_state_fields, ft_sensor_dof, imu_sensor_dof, optitrack_dof
+from robolearn.utils.iit.iit_robots_params import xbot_joint_state_fields
+from robolearn.utils.ros.ros_utils import ft_sensor_dof, imu_sensor_dof, optitrack_dof
 from robolearn.utils.iit.iit_robots_params import centauro_params, bigman_params
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 from robolearn.utils.transformations import compute_cartesian_error, pose_transform, quaternion_inner
