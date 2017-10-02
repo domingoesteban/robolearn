@@ -5,14 +5,18 @@ from sensor_msgs.msg import JointState
 from robolearn_gazebo_env.msg import RelativePose
 from XCM.msg import JointStateAdvr
 
+# Joint state fields
+joint_state_fields = ['position',
+                      'velocity',
+                      'effort']
 
-# XBOT FT sensor fields (geometry_msgs/WrenchStamped)
+# FT sensor fields (geometry_msgs/WrenchStamped)
 ft_sensor_fields = ['force', 'torque']
 
 ft_sensor_dof = {'force': 3,  # x, y, z
                  'torque': 3}  # x, y, z
 
-# XBOT IMU sensor fields (sensor_msgs/Imu)
+# IMU sensor fields (sensor_msgs/Imu)
 imu_sensor_fields = ['orientation',  # x, y, z, w
                      'angular_velocity',  # x, y, z
                      'linear_acceleration']  # x, y, z

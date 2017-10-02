@@ -37,6 +37,7 @@ class ROSEnvInterface(EnvInterface):
         if mode == 'simulation':
             # Create some service proxies to interact with Gazebo simulator
             self.reset_srv = rospy.ServiceProxy('/gazebo/reset_world', Empty)
+            #self.reset_srv = rospy.ServiceProxy('/gazebo/reset_simulation', Empty)
             self.unpause_srv = rospy.ServiceProxy('/gazebo/unpause_physics', Empty)
             self.pause_srv = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
             self.set_config_srv = rospy.ServiceProxy('/gazebo/set_model_configuration', SetModelConfiguration)

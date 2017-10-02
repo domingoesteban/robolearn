@@ -8,7 +8,10 @@ from urdf_parser_py.urdf import URDF
 from robolearn.envs.ros_env_interface import ROSEnvInterface
 #from robolearn.utils.iit.iit_robots_ros import CommandAdvr, JointStateAdvr, WrenchStamped, Imu, RelativePose
 from robolearn.utils.iit.iit_robots_ros import state_vector_xbot_joint_state, update_xbot_command
-from robolearn.utils.ros.ros_utils import get_indexes_from_list, obs_vector_joint_state
+from robolearn.utils.ros.ros_utils import get_indexes_from_list, obs_vector_joint_state, get_sensor_data
+from robolearn.utils.ros.ros_utils import joint_state_fields, JointState, JointStateAdvr
+from robolearn.utils.iit.iit_robots_params import xbot_joint_state_fields
+
 #from robolearn.utils.iit.iit_robots_ros import get_last_xbot_state_field, get_xbot_sensor_data
 #from robolearn.utils.iit.iit_robots_ros import obs_vector_joint_state, obs_vector_optitrack
 #from robolearn.utils.iit.iit_robots_ros import obs_vector_ft_sensor, obs_vector_imu
@@ -268,13 +271,26 @@ class GazeboROSEnvInterface(ROSEnvInterface):
         # ##### #
         # STATE #
         # ##### #
-        """
-        if state_active is None:
-            state_active = self.robot_params['state_active']
+        #if state_active is None:
+        #    state_active = self.robot_params['state_active']
 
         state_idx = [-1]
         for state_to_activate in state_active:
-            if state_to_activate['type'] == 'joint_state':
+            if state_to_activate['type'] == 'xbot_joint_state':
+                self.state_joint_names = [self.joint_names[id] for id in state_to_activate['joints']]
+                for ii, state_element in enumerate(state_to_activate['fields']):
+                    # Check if state field is observed
+                    if state_element not in self.obs_joint_fields:
+                        raise AttributeError("Joint state type %s is not being observed. Current observations are %s" %
+                                             (state_element, self.obs_joint_fields))
+                    state_dof = len(state_to_activate['joints'])
+                    state_idx = range(state_idx[-1]+1, state_idx[-1] + 1 + state_dof)
+                    state_id = self.set_state_type(state_element,  # State name
+                                                   self.get_obs_idx(name='xbot_joint_state'),  # Obs_type ID
+                                                   state_element,  # State type
+                                                   state_idx)  # State indexes
+
+            elif state_to_activate['type'] == 'joint_state':
                 self.state_joint_names = [self.joint_names[id] for id in state_to_activate['joints']]
                 for ii, state_element in enumerate(state_to_activate['fields']):
                     # Check if state field is observed
@@ -333,16 +349,14 @@ class GazeboROSEnvInterface(ROSEnvInterface):
 
         self.state_dim = self.get_total_state_dof()
 
-        """
 
-
-        ### ##### #
-        ### RESET #
-        ### ##### #
-        ## # TODO: Find a better way to reset the robot
-        ## self.srv_xbot_comm_plugin = rospy.ServiceProxy('/XBotCommunicationPlugin_switch', SetBool)
-        ## self.srv_homing_ex_plugin = rospy.ServiceProxy('/HomingExample_switch', SetBool)
-        #self.reset_simulation_fcn = reset_simulation_fcn
+        # ##### #
+        # RESET #
+        # ##### #
+        # # TODO: Find a better way to reset the robot
+        # self.srv_xbot_comm_plugin = rospy.ServiceProxy('/XBotCommunicationPlugin_switch', SetBool)
+        # self.srv_homing_ex_plugin = rospy.ServiceProxy('/HomingExample_switch', SetBool)
+        self.reset_simulation_fcn = reset_simulation_fcn
 
         ## Resetting before get initial state
         ##print("Resetting %s robot to initial q0[0]..." % self.robot_name)
@@ -529,9 +543,14 @@ class GazeboROSEnvInterface(ROSEnvInterface):
         state = np.empty(self.state_dim)
 
         for xx, x in enumerate(self.state_types):
-            if x['type'] in joint_state_fields:
+            if x['type'] in xbot_joint_state_fields and issubclass(type(x['ros_msg']), JointStateAdvr):
                 state[x['state_idx']] = \
                     get_xbot_sensor_data(x['ros_msg'], x['type'])[get_indexes_from_list(x['ros_msg'].name,
+                                                                                        self.state_joint_names)]
+
+            elif x['type'] in joint_state_fields and issubclass(type(x['ros_msg']), JointState):
+                state[x['state_idx']] = \
+                    get_sensor_data(x['ros_msg'], x['type'])[get_indexes_from_list(x['ros_msg'].name,
                                                                                         self.state_joint_names)]
 
             elif x['type'] == 'optitrack':
@@ -613,49 +632,41 @@ class GazeboROSEnvInterface(ROSEnvInterface):
         # Stop First
         self.stop()
 
-        if freq is None:
-            freq = 100
+        # if freq is None:
+        #     freq = 100
+        # if time is None:
+        #     time = 5
+        # if cond > len(self.conditions)-1:
+        #     raise AttributeError("Desired condition not available. %d > %d" % (cond, len(self.conditions)-1))
 
-        if time is None:
-            time = 5
-
-        if cond > len(self.conditions)-1:
-            raise AttributeError("Desired condition not available. %d > %d" % (cond, len(self.conditions)-1))
-
-        N = int(np.ceil(time*freq))
-        pub_rate = rospy.Rate(freq)
-        reset_cmd = CommandAdvr()
-
-        # Wait for getting zero velocity and acceleration
-        # rospy.sleep(1)  # Because I need to find a good way to reset
-
-        reset_cmd.name = self.act_joint_names
-        reset_publisher = rospy.Publisher("/xbotcore/"+self.robot_name+"/command", CommandAdvr, queue_size=10)
-
-        joint_positions = get_last_xbot_state_field(self.robot_name, 'link_position', self.act_joint_names)
-
-        final_positions = np.zeros(7)
-        final_positions[1] = np.deg2rad(-90)
-        joint_trajectory = polynomial5_interpolation(N*2, final_positions, joint_positions)[0]
-        print('TODO: TEMPORALLY MOVING TO A VIA POINT IN RESET')
-        for ii in range(joint_trajectory.shape[0]):
-            reset_cmd.position = joint_trajectory[ii, :]
-            reset_publisher.publish(reset_cmd)
-            pub_rate.sleep()
-
-        joint_positions = get_last_xbot_state_field(self.robot_name, 'link_position', self.act_joint_names)
-        final_positions = self.get_q_from_condition(self.conditions[cond])
-        joint_trajectory = polynomial5_interpolation(N*2, final_positions, joint_positions)[0]
-        print("Moving to condition '%d' in position control mode..." % cond)
-        for ii in range(joint_trajectory.shape[0]):
-            reset_cmd.position = joint_trajectory[ii, :]
-            reset_publisher.publish(reset_cmd)
-            pub_rate.sleep()
-
-        rospy.sleep(5)  # Because I need to find a good way to reset
+        # N = int(np.ceil(time*freq))
+        # pub_rate = rospy.Rate(freq)
+        # reset_cmd = CommandAdvr()
+        # # Wait for getting zero velocity and acceleration
+        # # rospy.sleep(1)  # Because I need to find a good way to reset
+        # reset_cmd.name = self.act_joint_names
+        # reset_publisher = rospy.Publisher("/xbotcore/"+self.robot_name+"/command", CommandAdvr, queue_size=10)
+        # joint_positions = get_last_xbot_state_field(self.robot_name, 'link_position', self.act_joint_names)
+        # final_positions = np.zeros(7)
+        # final_positions[1] = np.deg2rad(-90)
+        # joint_trajectory = polynomial5_interpolation(N*2, final_positions, joint_positions)[0]
+        # print('TODO: TEMPORALLY MOVING TO A VIA POINT IN RESET')
+        # for ii in range(joint_trajectory.shape[0]):
+        #     reset_cmd.position = joint_trajectory[ii, :]
+        #     reset_publisher.publish(reset_cmd)
+        #     pub_rate.sleep()
+        # joint_positions = get_last_xbot_state_field(self.robot_name, 'link_position', self.act_joint_names)
+        # final_positions = self.get_q_from_condition(self.conditions[cond])
+        # joint_trajectory = polynomial5_interpolation(N*2, final_positions, joint_positions)[0]
+        # print("Moving to condition '%d' in position control mode..." % cond)
+        # for ii in range(joint_trajectory.shape[0]):
+        #     reset_cmd.position = joint_trajectory[ii, :]
+        #     reset_publisher.publish(reset_cmd)
+        #     pub_rate.sleep()
+        # rospy.sleep(5)  # Because I need to find a good way to reset
 
         # Resetting Gazebo also
-        super(RobotROSEnvInterface, self).reset(model_name=self.robot_name)
+        super(GazeboROSEnvInterface, self).reset(model_name=self.robot_name)
 
         # Custom simulation reset function
         if self.mode == 'simulation' and self.reset_simulation_fcn is not None:
@@ -702,21 +713,25 @@ class GazeboROSEnvInterface(ROSEnvInterface):
         time = 1
         freq = 100
         N = int(np.ceil(time*freq))
-        pub_rate = rospy.Rate(freq)
-        stop_cmd = CommandAdvr()
-
-        stop_publisher = rospy.Publisher("/xbotcore/"+self.robot_name+"/command", CommandAdvr, queue_size=10)
-        joint_positions = get_last_xbot_state_field(self.robot_name, 'link_position', self.act_joint_names)
-        stop_cmd.name = self.act_joint_names
-
-        joint_ids = [self.joint_names.index(joint_name) for joint_name in self.act_joint_names]
-        print("Stop robot! Changing to position control mode...")
         for ii in range(N):
-            stop_cmd.position = joint_positions
-            stop_cmd.stiffness = bigman_params['stiffness_gains'][joint_ids]
-            stop_cmd.damping = bigman_params['damping_gains'][joint_ids]
-            stop_publisher.publish(stop_cmd)
-            pub_rate.sleep()
+            self.send_action(np.zeros(self.act_dim))
+
+        self.publish_action = False  # Stop sending
+        self.prev_act[:] = 0
+
+        #pub_rate = rospy.Rate(freq)
+        #stop_cmd = CommandAdvr()
+        #stop_publisher = rospy.Publisher("/xbotcore/"+self.robot_name+"/command", CommandAdvr, queue_size=10)
+        #joint_positions = get_last_xbot_state_field(self.robot_name, 'link_position', self.act_joint_names)
+        #stop_cmd.name = self.act_joint_names
+        #joint_ids = [self.joint_names.index(joint_name) for joint_name in self.act_joint_names]
+        #print("Stop robot! Changing to position control mode...")
+        #for ii in range(N):
+        #    stop_cmd.position = joint_positions
+        #    stop_cmd.stiffness = bigman_params['stiffness_gains'][joint_ids]
+        #    stop_cmd.damping = bigman_params['damping_gains'][joint_ids]
+        #    stop_publisher.publish(stop_cmd)
+        #    pub_rate.sleep()
 
     def temp_state_callback(self, data, params):
         joint_ids = params[0]

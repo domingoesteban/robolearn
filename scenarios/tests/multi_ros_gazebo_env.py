@@ -30,11 +30,15 @@ class RosGazebo(multiprocessing.Process):
         self.env_vars = os.environ.copy()
 
         self.close_pipe = multiprocessing.Pipe()
+        self.reset_pipe = multiprocessing.Pipe()
         self.action_pipe = multiprocessing.Pipe()
         self.obs_queue = multiprocessing.Queue()
+        self.state_queue = multiprocessing.Queue()
 
+        self.wait_reset_thread = None
         self.wait_action_thread = None
         self.update_observation_thread = None
+        self.update_state_thread = None
 
         self.running = True
 
@@ -56,6 +60,7 @@ class RosGazebo(multiprocessing.Process):
             action_types = list()
             action_topic_infos = list()
             observation_active = list()
+            state_active = list()
             from std_msgs.msg import Float64
             from sensor_msgs.msg import JointState
             for ii in range(3):
@@ -71,14 +76,22 @@ class RosGazebo(multiprocessing.Process):
                                        'joints': [0, 1, 2],  # Joint IDs
                                        'ros_topic': '/manipulator2d/joint_states',
                                        })
+            state_active.append({'type': 'joint_state',
+                                 'fields': ['position', 'velocity'],
+                                 'joints': [0, 1, 2]})
             self.env_interface = GazeboROSEnvInterface(action_types=action_types, action_topic_infos=action_topic_infos,
-                                                       observation_active=observation_active)
+                                                       observation_active=observation_active,
+                                                       state_active=state_active)
 
             # Threads
+            self.wait_reset_thread = threading.Thread(target=self.wait_reset, args=[])
+            self.wait_reset_thread.start()
             self.wait_action_thread = threading.Thread(target=self.wait_action, args=[])
             self.wait_action_thread.start()
             self.update_observation_thread = threading.Thread(target=self.update_obs, args=[])
             self.update_observation_thread.start()
+            self.update_state_thread = threading.Thread(target=self.update_state, args=[])
+            self.update_state_thread.start()
 
             # Block function
             close_option = self.close_pipe[1].recv()
@@ -95,6 +108,12 @@ class RosGazebo(multiprocessing.Process):
                                       limit=2, file=sys.stdout)
             self.stop_all()
 
+    def wait_reset(self):
+        while True:
+            print('Waiting for reset request...')
+            reset = self.reset_pipe[1].recv()
+            self.env_interface.reset(time=reset[0], freq=reset[1], cond=reset[2])
+
     def wait_action(self):
         while True:
             print('Waiting for external command...')
@@ -106,6 +125,15 @@ class RosGazebo(multiprocessing.Process):
             if self.obs_queue.empty():
                 self.obs_queue.put(self.env_interface.get_observation())
 
+    def update_state(self):
+        while True:
+            if self.state_queue.empty():
+                self.state_queue.put(self.env_interface.get_state())
+
+    def reset(self, time=None, freq=None, cond=0):
+        # TODO: FILTER ACTION TO AVOID BAD BEHAVIOR
+        self.reset_pipe[0].send((time, freq, cond))
+
     def send_action(self, action):
         # TODO: FILTER ACTION TO AVOID BAD BEHAVIOR
         self.action_pipe[0].send(action)
@@ -114,6 +142,11 @@ class RosGazebo(multiprocessing.Process):
         while self.obs_queue.empty():
             pass
         return self.obs_queue.get()
+
+    def get_state(self):
+        while self.state_queue.empty():
+            pass
+        return self.state_queue.get()
 
     def start(self):
         super(RosGazebo, self).start()
@@ -337,11 +370,15 @@ import numpy as np
 for ii in range(200):
     print('get observation...')
     print(multi_ros_gz.rosgazebos[0].get_observation())
+    print('get state...')
+    print(multi_ros_gz.rosgazebos[0].get_state())
     print('sending action...')
     multi_ros_gz.rosgazebos[0].send_action(np.random.randn(3))
     #multi_ros_gz.rosgazebos[0].send_action(np.array([-0.2, 0.1, 0.4]))
     time.sleep(0.1)
 
+raw_input('reset')
+multi_ros_gz.rosgazebos[0].reset()
 
 raw_input('stop')
 #time.sleep(5)
