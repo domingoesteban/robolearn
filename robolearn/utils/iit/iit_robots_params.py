@@ -4,9 +4,9 @@
 import numpy as np
 
 # XBOT Joint state fields
-joint_state_fields = ['link_position',
-                      'link_velocity',
-                      'effort']
+xbot_joint_state_fields = ['link_position',
+                           'link_velocity',
+                           'effort']
 
 # joint_state_fields = ['link_position',   # 0
 #                       'motor_position',  # 1
@@ -17,27 +17,6 @@ joint_state_fields = ['link_position',
 #                       'stiffness',       # 6
 #                       'damping',         # 7
 #                       'aux']             # 8
-
-# XBOT FT sensor fields (geometry_msgs/WrenchStamped)
-ft_sensor_fields = ['force', 'torque']
-
-ft_sensor_dof = {'force': 3,  # x, y, z
-                 'torque': 3}  # x, y, z
-
-# XBOT IMU sensor fields (sensor_msgs/Imu)
-imu_sensor_fields = ['orientation',  # x, y, z, w
-                     'angular_velocity',  # x, y, z
-                     'linear_acceleration']  # x, y, z
-
-imu_sensor_dof = {'orientation': 4,  # x, y, z, w
-                  'angular_velocity': 3,  # x, y, z
-                  'linear_acceleration': 3}  # x, y, z
-
-# ROS OPTITRACK (robolearn_gazebo_envs PACKAGE)
-optitrack_fields = ['position', 'orientation']
-
-optitrack_dof = {'position': 3,  # x, y, z
-                 'orientation': 4}  # x, y, z, w
 
 # Observation example
 # observation_active = [{'name': 'joint_state',
@@ -62,7 +41,7 @@ optitrack_dof = {'position': 3,  # x, y, z
 
 bigman_params = dict()
 
-bigman_params['joint_state_fields'] = joint_state_fields
+bigman_params['joint_state_fields'] = xbot_joint_state_fields
 
 bigman_params['joints_names'] = ['LHipLat',        # Joint 0
                                  'LHipYaw',        # Joint 1

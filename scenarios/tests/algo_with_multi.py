@@ -59,6 +59,8 @@ class SimpleRLAlgo(object):
                     if self.is_running is False:
                         break
                     # Interaction
+                    for ii in range(self.total_gz_ros):
+                        self.rosgazebos[ii].reset(time=None, freq=None, cond=0)
                     for t in range(self.T):
                         if self.is_running is False:
                             break
@@ -111,7 +113,7 @@ class SimpleRLAlgo(object):
 if __name__ == "__main__":
 
     try:
-        simple_algo = SimpleRLAlgo(20, 100, 1)
+        simple_algo = SimpleRLAlgo(20, 100, 0.2)
 
         simple_algo.start()
 
