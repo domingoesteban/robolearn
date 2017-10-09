@@ -17,7 +17,7 @@ import scipy as sp
 import copy
 
 from robolearn.algos.gps.gps import GPS
-from robolearn.algos.gps.gps_config import default_mdgps_hyperparams
+from robolearn.algos.gps.gps_config import DEFAULT_MDGPS_HYPERPARAMS
 from robolearn.algos.gps.gps_utils import PolicyInfo
 
 from robolearn.utils.sample.sample import Sample
@@ -36,7 +36,7 @@ class MDGPS(GPS):
     def __init__(self, agent, env, **kwargs):
         super(MDGPS, self).__init__(agent, env, **kwargs)
 
-        gps_algo_hyperparams = default_mdgps_hyperparams.copy()
+        gps_algo_hyperparams = DEFAULT_MDGPS_HYPERPARAMS.copy()
         gps_algo_hyperparams.update(self._hyperparams['gps_algo_hyperparams'])
         self._hyperparams.update(gps_algo_hyperparams)
 

@@ -4,7 +4,7 @@ import sys
 import numpy as np
 
 from robolearn.algos.gps.gps import GPS
-from robolearn.algos.trajopt.trajopt_config import default_ilqr_hyperparams
+from robolearn.algos.trajopt.trajopt_config import DEFAULT_ILQR_HYPERPARAMS
 
 
 import logging
@@ -20,7 +20,7 @@ class ILQR(GPS):
     """ Sample-based trajectory optimization. """
     def __init__(self, agent, env, **kwargs):
         super(ILQR, self).__init__(agent, env, **kwargs)
-        gps_algo_hyperparams = default_ilqr_hyperparams.copy()
+        gps_algo_hyperparams = DEFAULT_ILQR_HYPERPARAMS.copy()
         gps_algo_hyperparams.update(self._hyperparams['gps_algo_hyperparams'])
         self._hyperparams.update(gps_algo_hyperparams)
 

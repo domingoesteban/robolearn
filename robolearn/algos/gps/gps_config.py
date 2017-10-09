@@ -11,7 +11,7 @@ from robolearn.policies.lin_gauss_init import init_lqr, init_pd
 from robolearn.policies.policy_prior import ConstantPolicyPrior
 
 # Algorithm
-default_gps_hyperparams = {
+DEFAULT_GPS_HYPERPARAMS = {
     'conditions': 1,  # Number of initial conditions
     'iterations': 10,  # Default GPS iterations
     #'train_conditions': [0, 1, 2, 3], # ID? of conditions for training
@@ -116,7 +116,7 @@ default_badmm_hyperparams = {
 }
 
 # MDGPS
-default_mdgps_hyperparams = {
+DEFAULT_MDGPS_HYPERPARAMS = {
     # TODO: remove need for init_pol_wt in MDGPS
     'init_pol_wt': 0.01,
     'policy_sample_mode': 'add',
@@ -127,7 +127,7 @@ default_mdgps_hyperparams = {
 }
 
 # PIGPS
-default_pigps_hyperparams = {
+DEFAULT_PIGPS_HYPERPARAMS = {
     'init_pol_wt': 0.01,
     'policy_sample_mode': 'add',
     # Dynamics fitting is not required for PIGPS.
@@ -135,7 +135,7 @@ default_pigps_hyperparams = {
 }
 
 # PILQR
-default_pilqr_hyperparams = {
+DEFAULT_PILQR_HYPERPARAMS = {
     'init_pol_wt': 0.01,
     # Dynamics fitting is not required for PI2 but it is for LQR.
     'fit_dynamics': True,
@@ -152,7 +152,7 @@ default_pilqr_hyperparams = {
 }
 
 # MDGPS-PILQR
-default_msgps_pilqr_hyperparams = {
+DEFAULT_MDGPS_PILQR_HYPERPARAMS = {
     # TODO: remove need for init_pol_wt in MDGPS
     'init_pol_wt': 0.01,
     'policy_sample_mode': 'add',
@@ -170,5 +170,5 @@ default_msgps_pilqr_hyperparams = {
     'min_mult': np.linspace(0.1, 0.5, 100),
 }
 
-default_multi_mdgps_hyperparams = {
+DEFAULT_MULTI_MDGPS_HYPERPARAMS = {
 }

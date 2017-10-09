@@ -11,6 +11,9 @@ import numpy as np
 import scipy as sp
 import copy
 import datetime
+import time
+import rospy
+from robolearn.envs.gym_environment import GymEnv
 
 from robolearn.algos.rl_algorithm import RLAlgorithm
 
@@ -37,34 +40,9 @@ LOGGER.addHandler(ch)
 
 class GPS(RLAlgorithm):
     def __init__(self, agent, env, **kwargs):
-        super(GPS, self).__init__(agent, env, default_gps_hyperparams, kwargs)
+        super(GPS, self).__init__(agent, env, DEFAULT_GPS_HYPERPARAMS, kwargs)
 
-        # Number of initial conditions
-        self.M = self._hyperparams['conditions']
-
-        if 'train_conditions' in self._hyperparams and self._hyperparams['train_conditions'] is not None:
-            self._train_cond_idx = self._hyperparams['train_conditions']
-            self._test_cond_idx = self._hyperparams['test_conditions']
-        else:
-            self._train_cond_idx = self._test_cond_idx = range(self.M)
-            self._hyperparams['train_conditions'] = self._train_cond_idx
-            self._hyperparams['test_conditions'] = self._test_cond_idx
-
-        if 'data_files_dir' in self._hyperparams:
-            if self._hyperparams['data_files_dir'] is None:
-                self._data_files_dir = 'robolearn_log/' + \
-                                       'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
-            else:
-                self._data_files_dir = 'robolearn_log/' + self._hyperparams['data_files_dir']
-        else:
-            self._data_files_dir = 'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
-        self.data_logger = DataLogger(self._data_files_dir)
-
-        self.max_iterations = self._hyperparams['iterations']
-
-        self.iteration_count = 0
-
-        # Get some values from the environment.
+        # Get dimensions from the environment.
         self.dU = self._hyperparams['dU'] = env.get_action_dim()
         self.dX = self._hyperparams['dX'] = env.get_state_dim()
         self.dO = self._hyperparams['dO'] = env.get_obs_dim()
@@ -73,13 +51,39 @@ class GPS(RLAlgorithm):
         self.T = self._hyperparams['T']
         self.dt = self._hyperparams['dt']
 
-        # Initial trajectory hyperparams
-        init_traj_distr = self._hyperparams['init_traj_distr']
-        init_traj_distr['x0'] = env.get_conditions()  # TODO: Check if it is better get_x0() or get_state()
-        init_traj_distr['dX'] = self.dX
-        init_traj_distr['dU'] = self.dU
-        init_traj_distr['dt'] = self.dt
-        init_traj_distr['T'] = self.T
+        # Specifies if it is GPS or only TrajOpt version
+        self.use_global_policy = self._hyperparams['use_global_policy']
+
+        # Number of initial conditions
+        self.M = self._hyperparams['conditions']
+
+        # Get/Define train and test conditions
+        if 'train_conditions' in self._hyperparams and self._hyperparams['train_conditions'] is not None:
+            self._train_cond_idx = self._hyperparams['train_conditions']
+            self._test_cond_idx = self._hyperparams['test_conditions']
+        else:
+            self._train_cond_idx = self._test_cond_idx = range(self.M)
+            self._hyperparams['train_conditions'] = self._train_cond_idx
+            self._hyperparams['test_conditions'] = self._test_cond_idx
+
+        # Log and Data files
+        if 'data_files_dir' in self._hyperparams:
+            if self._hyperparams['data_files_dir'] is None:
+                self._data_files_dir = 'robolearn_log/' + \
+                                       'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
+            else:
+                self._data_files_dir = 'robolearn_log/' + self._hyperparams['data_files_dir']
+        else:
+            self._data_files_dir = 'GPS_'+str(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
+        logger_name = 'RLlog'
+        self.data_logger = DataLogger(self._data_files_dir)
+        self.setup_logger(logger_name, self._data_files_dir, '/log.log', also_screen=False)
+
+        # Get max number of iterations
+        self.max_iterations = self._hyperparams['iterations']
+
+        # Iteration counter of the GPS algorithm
+        self.iteration_count = 0
 
         # IterationData objects for each condition.
         self.cur = [IterationData() for _ in range(self.M)]
@@ -87,10 +91,17 @@ class GPS(RLAlgorithm):
 
         # Trajectory Info #
         # --------------- #
-        # Traj. Info: Trajectory related variables:
+        # Add dynamics if the algorithm requires fit_dynamics (Same type for all the conditions)
         if self._hyperparams['fit_dynamics']:
-            # Add dynamics if the algorithm requires fit_dynamics (Same type for all the conditions)
             dynamics = self._hyperparams['dynamics']
+
+        # Initial trajectory hyperparams
+        init_traj_distr = self._hyperparams['init_traj_distr']
+        init_traj_distr['x0'] = env.get_conditions()
+        init_traj_distr['dX'] = self.dX
+        init_traj_distr['dU'] = self.dU
+        init_traj_distr['dt'] = self.dt
+        init_traj_distr['T'] = self.T
 
         for m in range(self.M):
             self.cur[m].traj_info = TrajectoryInfo()
@@ -104,12 +115,14 @@ class GPS(RLAlgorithm):
             # Instantiate Trajectory Distribution: init_lqr or init_pd
             self.cur[m].traj_distr = init_traj_distr['type'](init_traj_distr)
 
-        self.new_traj_distr = None  # Last trajectory distribution optimized in C-step
+        # Last trajectory distribution optimized in C-step
+        self.new_traj_distr = None
 
         # Traj Opt (Local policy opt) method #
         # ---------------------------------- #
         # Options: LQR, PI2
         self.traj_opt = self._hyperparams['traj_opt']['type'](self._hyperparams['traj_opt'])
+        self.traj_opt.set_logger(logging.getLogger(logger_name))
 
         # Cost function #
         # ------------- #
@@ -135,78 +148,41 @@ class GPS(RLAlgorithm):
     def run(self, itr_load=None):
         """
         Run GPS.
-        If itr_load is specified, first loads the algorithm state from that iteration
-         and resumes training at the next iteration.
+        If itr_load is specified, first loads the algorithm state from that iteration and resumes training at the
+        next iteration.
         :param itr_load: desired iteration to load algorithm from
-        :return: 
+        :return: True if the algorithm finished properly.
         """
         run_successfully = True
 
         try:
             itr_start = self._initialize(itr_load)
 
-            print("iteration from %d to %d" % (itr_start, self.max_iterations))
             for itr in range(itr_start, self.max_iterations):
                 # Collect samples
-                for cond in self._train_cond_idx:
-                    for i in range(self._hyperparams['num_samples']):
-                        print("")
-                        print("#"*40)
-                        print("Sample itr:%d/%d, cond:%d/%d, s:%d/%d" % (itr+1, self.max_iterations,
-                                                                         cond+1, len(self._train_cond_idx),
-                                                                         i+1, self._hyperparams['num_samples']))
-                        print("#"*40)
-                        sample = self._take_sample(itr, cond, i, noisy=self._hyperparams['noisy_samples'],
-                                                   on_policy=self._hyperparams['sample_on_policy'],
-                                                   verbose=False)
-                        # if cond != 0:
-                        #     sample = self._take_sample(itr, cond, i, noisy=self._hyperparams['noisy_samples'],
-                        #                                on_policy=self._hyperparams['sample_on_policy'],
-                        #                                verbose=False)
-                        # else:
-                        #     print("TODO: LOADING SAMPLE")
-                        #     temp_dir_path = self.data_logger.dir_path
-                        #     self.data_logger.dir_path = "TEMP_SAMPLES"
-                        #     sample = self.data_logger.unpickle(('temp_mdreps_sample_%02d_%02d.pkl' % (itr, i)))
-                        #     sample_id = self.agent.add_sample(sample, cond)
-                        #     print("Adding to agent sample %d" % sample_id)
-                        #     self.data_logger.dir_path = temp_dir_path
+                if self._hyperparams['sample_on_policy'] and (self.iteration_count > 0 or
+                                                              ('sample_pol_first_itr' in self._hyperparams
+                                                               and self._hyperparams['sample_pol_first_itr'])):
+                    on_policy = True
+                else:
+                    on_policy = False
 
-                        # if cond == 0:
-                        #     print("TODO: Logging Sample... ")
-                        #     temp_dir_path = self.data_logger.dir_path
-                        #     self.data_logger.dir_path = "TEMP_SAMPLES"
-                        #     self.data_logger.pickle(
-                        #         ('temp_mdreps_sample_%02d_%02d.pkl' % (itr, i)),
-                        #         # copy.copy(temp_dict)
-                        #         copy.copy(sample)
-                        #     )
-                        #     self.data_logger.dir_path = temp_dir_path
+                traj_sample_lists = self._sample_n_times(on_policy, self._train_cond_idx,
+                                                         self._hyperparams['num_samples'], itr, save=True, noisy=True,
+                                                         verbose=True)
 
-                        # print("TODO: SAMPLING FAKE")
-                        # self._take_fake_sample(itr, cond, i, noisy=self._hyperparams['noisy_samples'],
-                        #                        on_policy=self._hyperparams['sample_on_policy'],
-                        #                        verbose=False)
-
-                # Get agent's sample list (TODO: WHAT HAPPEN IF SAVE SAMPLE WAS FALSE??)
-                traj_sample_lists = [self.agent.get_samples(cond, -self._hyperparams['num_samples'])
-                                     for cond in self._train_cond_idx]
-
-                # for hh in range(len(traj_sample_lists)):
-                #     plot_sample_list(traj_sample_lists[hh], data_to_plot='actions', block=False, cols=3)
-                #     plot_sample_list(traj_sample_lists[hh], data_to_plot='states', block=False, cols=3)
-                #     plot_sample_list(traj_sample_lists[hh], data_to_plot='obs', block=False, cols=3)
-
-                # Clear agent samples.
-                self.agent.clear_samples()  # TODO: Check if it is better to 'remember' these samples
+                # Clear agent samples.  # TODO: Check if it is better to 'remember' these samples
+                self.agent.clear_samples()
 
                 self._take_iteration(itr, traj_sample_lists)
 
+                # Test policy after training iteration
                 if self._hyperparams['test_after_iter']:
-                    pol_sample_lists = self._take_policy_samples(N=self._hyperparams['test_samples'])
-
+                    on_policy = True
+                    pol_sample_lists = self._sample_n_times(on_policy, self._test_cond_idx,
+                                                            self._hyperparams['test_samples'], itr, save=True,
+                                                            noisy=False, verbose=True)
                     pol_sample_lists_costs, pol_sample_lists_cost_compositions = self._eval_conditions_sample_list_cost(pol_sample_lists)
-
                 else:
                     pol_sample_lists = None
                     pol_sample_lists_costs = None
@@ -229,6 +205,35 @@ class GPS(RLAlgorithm):
             self._end()
             return run_successfully
 
+    def _sample_n_times(self, on_policy, conditions, total_samples, itr, save=True, noisy=True, verbose=True):
+        # Get agent's sample list (TODO: WHAT HAPPEN IF SAVE SAMPLE WAS FALSE??)
+
+        samples = [list() for _ in range(len(conditions))]
+
+        for cond in conditions:
+            # On-policy or Off-policy
+            if on_policy:
+                policy = self.agent.policy
+            else:
+                policy = self.cur[cond].traj_distr
+
+            for i in range(total_samples):
+                if verbose:
+                    if on_policy:
+                        print("On-policy sample itr:%d/%d, cond:%d/%d, s:%d/%d" % (itr+1, self.max_iterations,
+                                                                                   cond+1, len(self._train_cond_idx),
+                                                                                   i+1, total_samples))
+                    else:
+                        print("Sample itr:%d/%d, cond:%d/%d, s:%d/%d" % (itr+1, self.max_iterations,
+                                                                         cond+1, len(self._train_cond_idx),
+                                                                         i+1, total_samples))
+                sample = self._take_sample(policy, cond, noisy=noisy, save=save)
+                samples[cond].append(sample)
+
+            samples[cond] = SampleList(samples[cond])
+
+        return samples
+
     def _initialize(self, itr_load):
         """
         Initialize from the specified iteration.
@@ -239,7 +244,7 @@ class GPS(RLAlgorithm):
             itr_start: Iteration to start from.
         """
         if itr_load is None:
-            print('Starting GPS from zero!')
+            print('Starting GPS from scratch!')
             return 0
         else:
             print('Loading previous GPS from iteration %d!' % itr_load)
@@ -292,7 +297,7 @@ class GPS(RLAlgorithm):
             #          'Press \'go\' to begin.') % itr_load)
             return itr_load + 1
 
-    def _take_sample(self, itr, cond, i, verbose=True, save=True, noisy=True, on_policy=False):
+    def _take_sample(self, policy, cond, noisy=True, save=True):
         """
         Collect a sample from the environment.
         :param itr: Iteration number.
@@ -303,75 +308,54 @@ class GPS(RLAlgorithm):
         :param noisy: 
         :return: None
         """
-
-        # On-policy or Off-policy
-        if on_policy and (self.iteration_count > 0 or
-                              ('sample_pol_first_itr' in self._hyperparams and self._hyperparams['sample_pol_first_itr'])):
-            policy = self.agent.policy  # DOM: Instead self.opt_pol.policy
-            print("On-policy sampling: %s!" % type(policy))
-        else:
-            policy = self.cur[cond].traj_distr
-            print("Off-policy sampling: %s!" % type(policy))
-
         if noisy:
             noise = generate_noise(self.T, self.dU, self._hyperparams)
         else:
             noise = np.zeros((self.T, self.dU))
 
-        #plot_multi_info([noise], block=False, cols=3, legend=True, labels=range(7))
-
         # Create a sample class
         sample = Sample(self.env, self.T)
-        history = [None] * self.T
-        obs_hist = [None] * self.T
+        history = [None] * self.T  # \tau = {x0, u0, ..., x_T, u_T}
+        obs_hist = [None] * self.T  # obs = {o_0, o_1, ..., o_T}
 
         print("Resetting environment...")
-        from robolearn.envs.gym_environment import GymEnv
         self.env.reset(time=2, cond=cond)
 
         if issubclass(type(self.env), GymEnv):
-            import time
             gym_ts = self.dt
         else:
-            import rospy
             ros_rate = rospy.Rate(int(1/self.dt))  # hz
 
         # Collect history
         sampling_bar = ProgressBar(self.T, bar_title='Sampling')
         for t in range(self.T):
             sampling_bar.update(t)
-            if verbose:
-                if on_policy:
-                    print("On-policy sample itr:%d/%d, cond:%d/%d, i:%d/%d | t:%d/%d" % (itr+1, self.max_iterations,
-                                                                                         cond+1, len(self._train_cond_idx),
-                                                                                         i+1, self._hyperparams['num_samples'],
-                                                                                         t+1, self.T))
-                else:
-                    print("Sample itr:%d/%d, cond:%d/%d, s:%d/%d | t:%d/%d" % (itr+1, self.max_iterations,
-                                                                               cond+1, len(self._train_cond_idx),
-                                                                               i+1, self._hyperparams['num_samples'],
-                                                                               t+1, self.T))
+            # Get observation
             obs = self.env.get_observation()
+            # Checking NAN
+            nan_number = np.isnan(obs)
+            if np.any(nan_number):
+                print("\e[31mERROR OBSERVATION: NAN!!!!! t:%d" % (t+1))
+                obs[nan_number] = 0
+
+            # Get state
             state = self.env.get_state()
-            # action = policy.eval(state, obs, t, noise[t, :])
+            # Checking NAN
+            nan_number = np.isnan(state)
+            if np.any(nan_number):
+                print("\e[31mERROR STATE: NAN!!!!! t:%d" % (t+1))
+                state[nan_number] = 0
+
             action = policy.eval(state.copy(), obs.copy(), t, noise[t, :].copy())  # TODO: Avoid TF policy writes in obs
-            # print(obs[-6:])
-            # print(state[-6:])
-            # print("---")
-            # action = np.zeros_like(action)
-            # action[6] = -0.2
-            # action[3] = -0.15707963267948966
-            # print(obs)
-            # print(state)
-            # print(action)
-            # print('----')
+            # Checking NAN
+            nan_number = np.isnan(action)
+            if np.any(nan_number):
+                print("\e[31mERROR ACTION: NAN!!!!! t:%d" % (t+1))
+                action[nan_number] = 0
+
             self.env.send_action(action)
             obs_hist[t] = (obs, action)
             history[t] = (state, action)
-            # sample.set_acts(action, t=i)  # Set action One by one
-            # sample.set_obs(obs[:42], obs_name='joint_state', t=i)  # Set action One by one
-            # sample.set_states(state[:7], state_name='link_position', t=i)  # Set action One by one
-
             if issubclass(type(self.env), GymEnv):
                 time.sleep(gym_ts)
             else:
@@ -381,8 +365,8 @@ class GPS(RLAlgorithm):
 
         # Stop environment
         self.env.stop()
-        print("Generating sample data...")
 
+        print("Generating sample data...")
         all_actions = np.array([hist[1] for hist in history])
         all_states = np.array([hist[0] for hist in history])
         all_obs = np.array([hist[0] for hist in obs_hist])
@@ -391,17 +375,10 @@ class GPS(RLAlgorithm):
         sample.set_states(all_states)  # Set all states at the same time
         sample.set_noise(noise)        # Set all noise at the same time
 
-        #plot_multi_info([all_actions], block=False, cols=3, legend=True, labels=range(7))
-        #raw_input('actions')
-
         if save:  # Save sample in agent sample list
             sample_id = self.agent.add_sample(sample, cond)
             print("The sample was added to Agent's sample list. Now there are %d sample(s) for condition '%d'." %
                   (sample_id+1, cond))
-
-        # print("Plotting sample %d" % (i+1))
-        # plot_sample(sample, data_to_plot='actions', block=True)
-        # #plot_sample(sample, data_to_plot='states', block=True)
 
         return sample
 

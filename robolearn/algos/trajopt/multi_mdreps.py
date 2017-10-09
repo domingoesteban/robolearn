@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import copy
 
 from robolearn.algos.gps.gps import GPS
-from robolearn.algos.trajopt.trajopt_config import default_mdreps_hyperparams
+from robolearn.algos.trajopt.trajopt_config import DEFAULT_MDREPS_HYPERPARAMS
 from robolearn.algos.gps.gps_utils import IterationData, TrajectoryInfo, extract_condition, DualityInfo
 from robolearn.algos.gps.gps_utils import PolicyInfo
 from robolearn.utils.sample.sample import Sample
@@ -29,7 +29,7 @@ class MDREPS(GPS):
     """ Sample-based trajectory optimization. """
     def __init__(self, agent, env, **kwargs):
         super(MDREPS, self).__init__(agent, env, **kwargs)
-        gps_algo_hyperparams = default_mdreps_hyperparams.copy()
+        gps_algo_hyperparams = DEFAULT_MDREPS_HYPERPARAMS.copy()
         gps_algo_hyperparams.update(self._hyperparams['gps_algo_hyperparams'])
         self._hyperparams.update(gps_algo_hyperparams)
 

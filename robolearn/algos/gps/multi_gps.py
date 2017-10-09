@@ -38,17 +38,11 @@ import rospy
 import time
 
 import logging
-# LOGGER = logging.getLogger(__name__)
-# # Logging into console AND file
-# LOGGER.setLevel(logging.DEBUG)
-# ch = logging.StreamHandler(sys.stdout)
-# ch.setLevel(logging.DEBUG)
-# LOGGER.addHandler(ch)
 
 
 class MULTIGPS(Algorithm):
     def __init__(self, agents, env, **kwargs):
-        super(MULTIGPS, self).__init__(default_gps_hyperparams, kwargs)
+        super(MULTIGPS, self).__init__(DEFAULT_GPS_HYPERPARAMS, kwargs)
         self.agents = agents
         self.env = env
 

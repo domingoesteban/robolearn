@@ -10,7 +10,7 @@ from robolearn.utils.iit.xbot_ros import state_vector_xbot_joint_state, update_x
 from robolearn.utils.gazebo_ros.ros_utils import get_indexes_from_list, obs_vector_joint_state, get_sensor_data
 from robolearn.utils.gazebo_ros.ros_utils import joint_state_fields, JointState, JointStateAdvr
 from robolearn.utils.iit.iit_robots_params import xbot_joint_state_fields
-from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
+from robolearn.utils.trajectory.trajectory_interpolators import polynomial5_interpolation
 from robolearn.utils.transformations_utils import compute_cartesian_error, pose_transform, quaternion_inner
 
 

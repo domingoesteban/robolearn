@@ -8,7 +8,7 @@ import numpy as np
 from robolearn.utils.sampler import Sampler
 
 from robolearn.agents import GPSAgent
-from robolearn.algos.gps.multi_mdgps2 import MultiMDGPS
+from robolearn.algos.gps.multi_mdgps import MultiMDGPS
 from robolearn.costs.cost_action import CostAction
 from robolearn.costs.cost_fk import CostFK
 from robolearn.costs.cost_sum import CostSum

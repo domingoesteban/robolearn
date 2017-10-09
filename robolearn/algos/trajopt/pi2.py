@@ -5,14 +5,14 @@ import copy
 import numpy as np
 
 from robolearn.algos.gps.gps import GPS
-from robolearn.algos.trajopt.trajopt_config import default_pi2_hyperparams
+from robolearn.algos.trajopt.trajopt_config import DEFAULT_PI2_HYPERPARAMS
 
 
 class PI2(GPS):
     """ Sample-based trajectory optimization with PI2. """
     def __init__(self, agent, env, **kwargs):
         super(PI2, self).__init__(agent, env, **kwargs)
-        gps_algo_hyperparams = default_pi2_hyperparams.copy()
+        gps_algo_hyperparams = DEFAULT_PI2_HYPERPARAMS.copy()
         gps_algo_hyperparams.update(self._hyperparams['gps_algo_hyperparams'])
         self._hyperparams.update(gps_algo_hyperparams)
 

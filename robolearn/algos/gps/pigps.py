@@ -12,14 +12,14 @@ Path Integral Guided Policy Search. 2016. https://arxiv.org/abs/1610.00529.
 """
 
 from robolearn.algos.gps.mdgps import MDGPS
-from robolearn.algos.gps.gps_config import default_pigps_hyperparams
+from robolearn.algos.gps.gps_config import DEFAULT_PIGPS_HYPERPARAMS
 
 
 class PIGPS(MDGPS):
     def __init__(self, agent, env, **kwargs):
         super(PIGPS, self).__init__(agent, env, **kwargs)
 
-        gps_algo_hyperparams = default_pigps_hyperparams.copy()
+        gps_algo_hyperparams = DEFAULT_PIGPS_HYPERPARAMS.copy()
         gps_algo_hyperparams.update(self._hyperparams['gps_algo_hyperparams'])
         self._hyperparams.update(gps_algo_hyperparams)
 

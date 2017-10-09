@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 
 from robolearn.algos.gps.gps import GPS
-from robolearn.algos.trajopt.trajopt_config import default_dreps_hyperparams
+from robolearn.algos.trajopt.trajopt_config import DEFAULT_DREPS_HYPERPARAMS
 from robolearn.agents.agent_utils import generate_noise
 
 from robolearn.policies.lin_gauss_policy import LinearGaussianPolicy
@@ -24,7 +24,7 @@ class DREPS(GPS):
     """ Sample-based trajectory optimization with DREPS. """
     def __init__(self, agent, env, **kwargs):
         super(DREPS, self).__init__(agent, env, **kwargs)
-        gps_algo_hyperparams = default_dreps_hyperparams.copy()
+        gps_algo_hyperparams = DEFAULT_DREPS_HYPERPARAMS.copy()
         gps_algo_hyperparams.update(self._hyperparams['gps_algo_hyperparams'])
         self._hyperparams.update(gps_algo_hyperparams)
 

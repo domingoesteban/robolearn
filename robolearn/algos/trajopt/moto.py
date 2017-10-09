@@ -5,14 +5,14 @@ import copy
 import numpy as np
 
 from robolearn.algos.gps.gps import GPS
-from robolearn.algos.trajopt.trajopt_config import default_moto_hyperparams
+from robolearn.algos.trajopt.trajopt_config import DEFAULT_MOTO_HYPERPARAMS
 
 
 class MOTO(GPS):
     """ Sample-based trajectory optimization with MOTO. """
     def __init__(self, agent, env, **kwargs):
         super(MOTO, self).__init__(agent, env, **kwargs)
-        gps_algo_hyperparams = default_moto_hyperparams.copy()
+        gps_algo_hyperparams = DEFAULT_MOTO_HYPERPARAMS.copy()
         gps_algo_hyperparams.update(self._hyperparams['gps_algo_hyperparams'])
         self._hyperparams.update(gps_algo_hyperparams)
 
