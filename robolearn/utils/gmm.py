@@ -12,7 +12,13 @@ LOGGER = logging.getLogger(__name__)
 
 
 def logsum(vec, axis=0, keepdims=True):
-    #TODO: Add a docstring.
+    """
+
+    :param vec:
+    :param axis:
+    :param keepdims:
+    :return:
+    """
     maxv = np.max(vec, axis=axis, keepdims=keepdims)
     maxv[maxv == -float('inf')] = 0
     return np.log(np.sum(np.exp(vec-maxv), axis=axis, keepdims=keepdims)) + maxv

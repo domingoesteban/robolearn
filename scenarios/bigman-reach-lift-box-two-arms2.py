@@ -1,63 +1,36 @@
 from __future__ import print_function
 
-import sys
 import os
-import signal
-import numpy as np
 import random
-import matplotlib.pyplot as plt
+import signal
 
-from robolearn.utils.iit.iit_robots_params import bigman_params
-from robolearn.envs import BigmanEnv
+import numpy as np
+from robolearn.utils.sampler import Sampler
+
 from robolearn.agents import GPSAgent
-
+from robolearn.algos.gps.multi_mdgps2 import MultiMDGPS
+from robolearn.costs.cost_action import CostAction
+from robolearn.costs.cost_fk import CostFK
+from robolearn.costs.cost_sum import CostSum
+from robolearn.costs.cost_utils import RAMP_FINAL_ONLY, RAMP_CONSTANT
+from robolearn.envs import BigmanEnv
+from robolearn.policies.lin_gauss_init import init_pd, init_demos
 from robolearn.policies.policy_opt.policy_opt_tf import PolicyOptTf
 from robolearn.policies.policy_opt.tf_models import tf_network
-
-from robolearn.utils.sample import Sample
-from robolearn.utils.sample_list import SampleList
-
-from robolearn.costs.cost_action import CostAction
-from robolearn.costs.cost_state import CostState
-from robolearn.costs.cost_fk_relative import CostFKRelative
-from robolearn.costs.cost_fk import CostFK
-from robolearn.costs.cost_fk_target import CostFKTarget
-from robolearn.costs.cost_sum import CostSum
-from robolearn.costs.cost_utils import RAMP_QUADRATIC, RAMP_LINEAR, RAMP_FINAL_ONLY, RAMP_CONSTANT
-
-from robolearn.utils.traj_opt.traj_opt_pi2 import TrajOptPI2
-from robolearn.utils.traj_opt.traj_opt_lqr import TrajOptLQR
+from robolearn.policies.policy_prior import ConstantPolicyPrior  # For MDGPS
 from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
 from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
-
-from robolearn.algos.gps.multi_mdgps2 import MultiMDGPS
-from robolearn.policies.lin_gauss_init import init_lqr, init_pd, init_demos
-from robolearn.policies.policy_prior import ConstantPolicyPrior  # For MDGPS
-
-from robolearn.utils.sampler import Sampler
-from robolearn.policies.traj_reprod_policy import TrajectoryReproducerPolicy
-from robolearn.utils.joint_space_control_sampler import JointSpaceControlSampler
-from robolearn.policies.computed_torque_policy import ComputedTorquePolicy
-
-from robolearn.utils.lift_box_utils import create_box_relative_pose
-from robolearn.utils.lift_box_utils import reset_condition_bigman_box_gazebo, Reset_condition_bigman_box_gazebo
-from robolearn.utils.lift_box_utils import spawn_box_gazebo
-from robolearn.utils.lift_box_utils import set_box_gazebo_pose
-from robolearn.utils.lift_box_utils import create_bigman_box_condition
-from robolearn.utils.lift_box_utils import create_hand_relative_pose
-from robolearn.utils.lift_box_utils import generate_reach_joints_trajectories
-from robolearn.utils.lift_box_utils import generate_lift_joints_trajectories
-from robolearn.utils.lift_box_utils import task_space_torque_control_demos, load_task_space_torque_control_demos
-
-from robolearn.utils.robot_model import RobotModel
-from robolearn.utils.transformations import create_quat_pose
-from robolearn.utils.algos_utils import IterationData
-from robolearn.utils.algos_utils import TrajectoryInfo
+from robolearn.utils.iit.iit_robots_params import bigman_params
 from robolearn.utils.print_utils import change_print_color
-from robolearn.utils.plot_utils import plot_joint_info
-
-import time
-import datetime
+from robolearn.utils.robot_model import RobotModel
+from robolearn.utils.tasks.bigman.lift_box_utils import Reset_condition_bigman_box_gazebo
+from robolearn.utils.tasks.bigman.lift_box_utils import create_bigman_box_condition
+from robolearn.utils.tasks.bigman.lift_box_utils import create_box_relative_pose
+from robolearn.utils.tasks.bigman.lift_box_utils import create_hand_relative_pose
+from robolearn.utils.tasks.bigman.lift_box_utils import spawn_box_gazebo
+from robolearn.utils.tasks.bigman.lift_box_utils import task_space_torque_control_demos, \
+    load_task_space_torque_control_demos
+from robolearn.utils.traj_opt.traj_opt_lqr import TrajOptLQR
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 

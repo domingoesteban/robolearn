@@ -1,9 +1,11 @@
 import numpy as np
+import socket
 from geometry_msgs.msg import WrenchStamped
 from sensor_msgs.msg import Imu
 from sensor_msgs.msg import JointState
 from robolearn_gazebo_env.msg import RelativePose
 from XCM.msg import JointStateAdvr
+
 
 # Joint state fields
 joint_state_fields = ['position',
@@ -64,7 +66,7 @@ def obs_vector_joint_state(obs_fields, joint_names, ros_joint_state_msg):
     for ii, obs_field in enumerate(obs_fields):
         observation[len(joint_names)*ii:len(joint_names)*(ii+1)] = \
             get_sensor_data(ros_joint_state_msg, obs_field)[get_indexes_from_list(ros_joint_state_msg.name,
-                                                                                       joint_names)]
+                                                                                  joint_names)]
     return observation
 
 

@@ -1,10 +1,12 @@
-import numpy as np
 import os
+
+import numpy as np
+
 from robolearn.envs.bigman.bigman_env import BigmanEnv
 from robolearn.utils.iit.iit_robots_params import bigman_params
 from robolearn.utils.robot_model import RobotModel
-from robolearn.utils.lift_box_utils import create_box_relative_pose, create_hand_relative_pose
-from robolearn.utils.lift_box_utils import reset_condition_bigman_box_gazebo, Reset_condition_bigman_box_gazebo
+from robolearn.utils.tasks.bigman.lift_box_utils import Reset_condition_bigman_box_gazebo
+from robolearn.utils.tasks.bigman.lift_box_utils import create_hand_relative_pose
 
 
 class BigmanBoxEnv(BigmanEnv):

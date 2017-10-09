@@ -1,22 +1,18 @@
 import os
-import numpy as np
-import matplotlib.pyplot as plt
-from robolearn.utils.iit.iit_robots_params import *
-from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
-from robolearn.utils.trajectory_interpolators import spline_interpolation
-from robolearn.utils.trajectory_interpolators import quaternion_slerp_interpolation
-from robolearn.utils.robot_model import *
-from robolearn.utils.iit.robot_poses.bigman.poses import *
-from robolearn.utils.transformations import *
-from std_srvs.srv import Empty
-from robolearn.utils.reach_drill_utils import create_drill_relative_pose, reset_bigman_drill_gazebo, create_hand_relative_pose, spawn_drill_gazebo
+
 import rospy
 import tf
 from XCM.msg import CommandAdvr
 from XCM.msg import JointStateAdvr
-from gazebo_msgs.srv import SpawnModel
 from gazebo_msgs.srv import DeleteModel
+from gazebo_msgs.srv import SpawnModel
 from geometry_msgs.msg import Pose
+from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
+from robolearn.utils.trajectory_interpolators import quaternion_slerp_interpolation
+
+from robolearn.utils.robot_model import *
+from robolearn.utils.tasks.bigman.reach_drill_utils import create_drill_relative_pose, create_hand_relative_pose
+from robolearn.utils.transformations_utils import *
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 

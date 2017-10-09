@@ -1,5 +1,5 @@
 from robolearn.policies.policy import Policy
-from robolearn.utils.trajectory_reproducer import TrajectoryReproducer
+from robolearn.utils.trajectory.trajectory_reproducer import TrajectoryReproducer
 
 
 class TrajectoryReproducerPolicy(Policy):
@@ -18,10 +18,6 @@ class TrajectoryReproducerPolicy(Policy):
             self.act_idx = range(self.dU)
         else:
             self.act_idx = act_idx
-
-    def act(self, x=None, obs=None, t=None, noise=None):
-        return self.traj_rep.get_data(t)[self.act_idx] if noise is None else \
-            self.traj_rep.get_data(t)[self.act_idx] + noise
 
     def eval(self, x=None, obs=None, t=None, noise=None):
         return self.traj_rep.get_data(t)[self.act_idx] if noise is None else \

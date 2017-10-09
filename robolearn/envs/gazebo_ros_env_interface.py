@@ -6,17 +6,12 @@ import roslib; roslib.load_manifest('urdfdom_py')
 from urdf_parser_py.urdf import URDF
 
 from robolearn.envs.ros_env_interface import ROSEnvInterface
-#from robolearn.utils.iit.iit_robots_ros import CommandAdvr, JointStateAdvr, WrenchStamped, Imu, RelativePose
-from robolearn.utils.iit.iit_robots_ros import state_vector_xbot_joint_state, update_xbot_command
-from robolearn.utils.ros.ros_utils import get_indexes_from_list, obs_vector_joint_state, get_sensor_data
-from robolearn.utils.ros.ros_utils import joint_state_fields, JointState, JointStateAdvr
+from robolearn.utils.iit.xbot_ros import state_vector_xbot_joint_state, update_xbot_command
+from robolearn.utils.gazebo_ros.ros_utils import get_indexes_from_list, obs_vector_joint_state, get_sensor_data
+from robolearn.utils.gazebo_ros.ros_utils import joint_state_fields, JointState, JointStateAdvr
 from robolearn.utils.iit.iit_robots_params import xbot_joint_state_fields
-#from robolearn.utils.iit.iit_robots_ros import get_last_xbot_state_field, get_xbot_sensor_data
-#from robolearn.utils.iit.iit_robots_ros import obs_vector_joint_state, obs_vector_optitrack
-#from robolearn.utils.iit.iit_robots_ros import obs_vector_ft_sensor, obs_vector_imu
-#from robolearn.utils.iit.iit_robots_params import joint_state_fields, ft_sensor_dof, imu_sensor_dof, optitrack_dof
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
-from robolearn.utils.transformations import compute_cartesian_error, pose_transform, quaternion_inner
+from robolearn.utils.transformations_utils import compute_cartesian_error, pose_transform, quaternion_inner
 
 
 class GazeboROSEnvInterface(ROSEnvInterface):

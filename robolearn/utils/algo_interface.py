@@ -2,6 +2,7 @@ import os
 import socket
 import threading
 import xmlrpc.client
+from robolearn.utils.general.network_utils import is_port_open
 
 try:
     from xmlrpc.server import SimpleXMLRPCServer  # Python 3
@@ -63,13 +64,7 @@ class AlgoInterface(object):
     def get_available_port(self, init_port):
         result = 0
         while result == 0:
-            result = self.is_port_open(self.host, init_port)
+            result = is_port_open(self.host, init_port)
             if result == 0:
                 init_port += 1
         return init_port
-
-    @staticmethod
-    def is_port_open(host, port):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # return sock.connect_ex(('127.0.0.1', 11311))
-        return sock.connect_ex((host, port))

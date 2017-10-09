@@ -9,7 +9,7 @@ from XCM.msg import CommandAdvr
 from XCM.msg import JointStateAdvr
 from robolearn.utils.trajectory_reproducer import TrajectoryReproducer
 from robolearn.utils.iit.iit_robots_params import centauro_params
-from robolearn.utils.transformations import *
+from robolearn.utils.transformations_utils import *
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 from robolearn.utils.plot_utils import plot_desired_sensed_torque_position
 from robolearn.utils.plot_utils import plot_joint_info

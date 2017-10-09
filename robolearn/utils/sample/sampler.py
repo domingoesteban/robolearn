@@ -4,8 +4,8 @@ import copy
 from robolearn.agents.agent import Agent
 from robolearn.policies.policy import Policy
 from robolearn.envs.environment import Environment
-from robolearn.utils.sample import Sample
-from robolearn.utils.sample_list import SampleList
+from robolearn.utils.sample.sample import Sample
+from robolearn.utils.sample.sample_list import SampleList
 from robolearn.utils.plot_utils import *
 from robolearn.utils.data_logger import DataLogger
 from robolearn.agents.agent_utils import generate_noise

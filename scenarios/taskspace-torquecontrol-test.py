@@ -1,31 +1,21 @@
-import sys
 import os
-import numpy as np
-import matplotlib.pyplot as plt
-import scipy
-import math
+import sys
+
+import rbdl
 import rospy
-import tf
-from gazebo_msgs.srv import SpawnModel
-from gazebo_msgs.srv import DeleteModel
-from geometry_msgs.msg import Pose
 from XCM.msg import CommandAdvr
 from XCM.msg import JointStateAdvr
-import rbdl
-from robolearn.utils.trajectory_reproducer import TrajectoryReproducer
-from robolearn.utils.iit.iit_robots_params import bigman_params
-from robolearn.utils.transformations import *
+from robolearn.utils.tasks.lift_box_utils import create_box_relative_pose
+from robolearn.utils.tasks.lift_box_utils import reset_bigman_box_gazebo
 from robolearn.utils.trajectory_interpolators import polynomial5_interpolation, quaternion_slerp_interpolation
-from robolearn.utils.plot_utils import plot_desired_sensed_torque_position
-from robolearn.utils.plot_utils import plot_joint_info
+
+from robolearn.utils.iit.iit_robots_params import bigman_params
 from robolearn.utils.plot_utils import plot_desired_sensed_data
 from robolearn.utils.plot_utils import plot_joint_multi_info
-from robolearn.utils.lift_box_utils import create_box_relative_pose, create_hand_relative_pose
-from robolearn.utils.lift_box_utils import reset_bigman_box_gazebo
-from robolearn.utils.reach_drill_utils import create_drill_relative_pose, create_hand_relative_pose
-from robolearn.utils.reach_drill_utils import reset_bigman_drill_gazebo
-
 from robolearn.utils.robot_model import RobotModel
+from robolearn.utils.tasks.bigman.reach_drill_utils import create_drill_relative_pose, create_hand_relative_pose
+from robolearn.utils.tasks.bigman.reach_drill_utils import reset_bigman_drill_gazebo
+from robolearn.utils.transformations_utils import *
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 

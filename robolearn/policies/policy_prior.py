@@ -1,5 +1,5 @@
 """
-This file defines the constant prior for policy linearization.
+This file defines the constant prior for policy linearization for MDGPS.
 Author: C. Finn et al. Original code in: https://github.com/cbfinn/gps
 """
 import copy

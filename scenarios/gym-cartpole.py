@@ -1,72 +1,35 @@
 from __future__ import print_function
 
-import sys
 import os
-import signal
-import numpy as np
 import random
-import matplotlib.pyplot as plt
+import signal
 
-from robolearn.utils.iit.iit_robots_params import bigman_params
-from robolearn.envs import GymEnv
+import numpy as np
+from robolearn.utils.sampler import Sampler
+
 from robolearn.agents import GPSAgent
-
-from robolearn.policies.policy_opt.policy_opt_tf import PolicyOptTf
-from robolearn.policies.policy_opt.tf_models import tf_network
-
-from robolearn.utils.sample import Sample
-from robolearn.utils.sample_list import SampleList
-
-from robolearn.costs.cost_action import CostAction
-from robolearn.costs.cost_state import CostState
-from robolearn.costs.cost_fk_relative import CostFKRelative
-from robolearn.costs.cost_fk import CostFK
-from robolearn.costs.cost_fk_target import CostFKTarget
-from robolearn.costs.cost_sum import CostSum
-from robolearn.costs.cost_utils import RAMP_QUADRATIC, RAMP_LINEAR, RAMP_FINAL_ONLY, RAMP_CONSTANT
-from robolearn.costs.cost_utils import evall1l2term, evallogl2term
-
-from robolearn.utils.traj_opt.traj_opt_pi2 import TrajOptPI2
-from robolearn.utils.traj_opt.traj_opt_lqr import TrajOptLQR
-from robolearn.utils.traj_opt.traj_opt_dreps import TrajOptDREPS
-from robolearn.utils.traj_opt.traj_opt_mdreps import TrajOptMDREPS
-from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
-from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
-
 from robolearn.algos.gps.mdgps import MDGPS
 from robolearn.algos.gps.pigps import PIGPS
-from robolearn.algos.trajopt.ilqr import ILQR
-from robolearn.algos.trajopt.pi2 import PI2
 from robolearn.algos.trajopt.dreps import DREPS
+from robolearn.algos.trajopt.ilqr import ILQR
 from robolearn.algos.trajopt.mdreps import MDREPS
-from robolearn.policies.lin_gauss_init import init_lqr, init_pd, init_demos
+from robolearn.algos.trajopt.pi2 import PI2
+from robolearn.costs.cost_action import CostAction
+from robolearn.costs.cost_state import CostState
+from robolearn.costs.cost_sum import CostSum
+from robolearn.costs.cost_utils import RAMP_CONSTANT
+from robolearn.envs import GymEnv
+from robolearn.policies.lin_gauss_init import init_pd, init_demos
+from robolearn.policies.policy_opt.policy_opt_tf import PolicyOptTf
+from robolearn.policies.policy_opt.tf_models import tf_network
 from robolearn.policies.policy_prior import ConstantPolicyPrior  # For MDGPS
-
-from robolearn.utils.sampler import Sampler
-from robolearn.policies.traj_reprod_policy import TrajectoryReproducerPolicy
-from robolearn.utils.joint_space_control_sampler import JointSpaceControlSampler
-from robolearn.policies.computed_torque_policy import ComputedTorquePolicy
-
-from robolearn.utils.reach_drill_utils import create_drill_relative_pose
-from robolearn.utils.reach_drill_utils import reset_condition_bigman_drill_gazebo, Reset_condition_bigman_drill_gazebo
-from robolearn.utils.reach_drill_utils import spawn_drill_gazebo
-from robolearn.utils.reach_drill_utils import set_drill_gazebo_pose
-from robolearn.utils.reach_drill_utils import create_bigman_drill_condition
-from robolearn.utils.reach_drill_utils import create_hand_relative_pose
-from robolearn.utils.reach_drill_utils import generate_reach_joints_trajectories
-from robolearn.utils.reach_drill_utils import generate_lift_joints_trajectories
-from robolearn.utils.reach_drill_utils import task_space_torque_control_demos, load_task_space_torque_control_demos
-from robolearn.utils.reach_drill_utils import task_space_torque_control_dual_demos, load_task_space_torque_control_dual_demos
-
-from robolearn.utils.robot_model import RobotModel
-from robolearn.utils.transformations import create_quat_pose
-from robolearn.utils.algos_utils import IterationData
-from robolearn.utils.algos_utils import TrajectoryInfo
+from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
+from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
 from robolearn.utils.print_utils import change_print_color
-from robolearn.utils.plot_utils import plot_joint_info
-
-import time
-import datetime
+from robolearn.utils.traj_opt.traj_opt_dreps import TrajOptDREPS
+from robolearn.utils.traj_opt.traj_opt_lqr import TrajOptLQR
+from robolearn.utils.traj_opt.traj_opt_mdreps import TrajOptMDREPS
+from robolearn.utils.traj_opt.traj_opt_pi2 import TrajOptPI2
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 

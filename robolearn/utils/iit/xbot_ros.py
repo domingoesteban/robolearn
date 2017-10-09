@@ -6,17 +6,11 @@ from XCM.msg import JointStateAdvr
 from XCM.msg import CommandAdvr
 
 # Robolearn package
-from robolearn.utils.ros.ros_utils import ft_sensor_dof
-from robolearn.utils.ros.ros_utils import imu_sensor_dof
-from robolearn.utils.ros.ros_utils import optitrack_dof
-from robolearn.utils.ros.ros_utils import get_indexes_from_list
-from robolearn.utils.ros.ros_utils import obs_vector_joint_state
-from robolearn.utils.ros.ros_utils import obs_vector_ft_sensor
-from robolearn.utils.ros.ros_utils import obs_vector_imu
-from robolearn.utils.ros.ros_utils import obs_vector_optitrack
-from robolearn.utils.ros.ros_utils import copy_class_attr
-from robolearn.utils.ros.ros_utils import get_sensor_data
-
+from robolearn.utils.gazebo_ros.ros_utils import obs_vector_ft_sensor, ft_sensor_dof
+from robolearn.utils.gazebo_ros.ros_utils import obs_vector_imu, imu_sensor_dof
+from robolearn.utils.gazebo_ros.ros_utils import obs_vector_optitrack, optitrack_dof
+from robolearn.utils.gazebo_ros.ros_utils import get_indexes_from_list
+from robolearn.utils.gazebo_ros.ros_utils import get_sensor_data
 
 
 def config_xbot_command(joint_names, cmd_type, init_cmd_vals):

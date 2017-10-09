@@ -4,6 +4,7 @@ import numpy as np
 
 from robolearn.policies.policy import Policy
 
+
 class RandomPolicy(Policy):
     """
     Random Multivariate Normal policy.
@@ -24,7 +25,7 @@ class RandomPolicy(Policy):
         else:
             self.cov = action_cov
 
-    def act(self, x, obs, t, noise):
+    def eval(self, **kwargs):
         u = np.random.multivariate_normal(self.mean, self.cov)
         return u
 

@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class TrajectoryReproducer(object):
     def __init__(self, traj_files):
 

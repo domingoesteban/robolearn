@@ -2,20 +2,19 @@ import numpy as np
 import tf
 import os
 import time
-from robolearn.utils.gazebo_utils import *
-from robolearn.utils.transformations import homogeneous_matrix
+from robolearn.utils.gazebo_ros.gazebo_utils import *
+from robolearn.utils.transformations_utils import homogeneous_matrix
 from robolearn.utils.iit.robot_poses.bigman.poses import bigman_pose
 from robolearn.utils.iit.iit_robots_params import bigman_params
-from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
 from robolearn.utils.robot_model import RobotModel
 from gazebo_msgs.srv import GetModelState
 import rospkg
 
 from robolearn.utils.data_logger import DataLogger
-from robolearn.utils.transformations import quaternion_inner, compute_cartesian_error
-from robolearn.utils.trajectory_interpolators import polynomial5_interpolation, quaternion_slerp_interpolation
-from robolearn.utils.sample import Sample
-from robolearn.utils.sample_list import SampleList
+from robolearn.utils.transformations_utils import quaternion_inner, compute_cartesian_error
+from robolearn.utils.trajectory.trajectory_interpolators import polynomial5_interpolation, quaternion_slerp_interpolation
+from robolearn.utils.sample.sample import Sample
+from robolearn.utils.sample.sample_list import SampleList
 from robolearn.agents.agent_utils import generate_noise
 import rospy
 from XCM.msg import JointStateAdvr

@@ -1,6 +1,7 @@
 from __future__ import print_function
 from robolearn.envs.environment import EnvInterface
-from robolearn.utils.iit.iit_robots_ros import copy_class_attr, config_xbot_command
+from robolearn.utils.gazebo_ros.ros_utils import copy_class_attr
+from robolearn.utils.iit.xbot_ros import config_xbot_command
 
 # Useful packages
 from threading import Thread
@@ -114,15 +115,14 @@ class ROSEnvInterface(EnvInterface):
 
         action_id = len(self.action_types)
 
-        if cmd_type_name in ['xbot_position', 'xbot_velocity', 'xbot_effort']:
+        if cmd_type_name in ['position', 'velocity', 'effort']:
             act_joint_names = kwargs['act_joint_names']
             cmd_msg = config_xbot_command(act_joint_names, cmd_type_name, init_cmd_vals)
         elif cmd_type_name in ['joint_effort']:
             ros_msg_class = kwargs['ros_msg_class']
             cmd_msg = ros_msg_class()
         else:
-            print('OH NOoo')
-            raise NotImplementedError("ros_env_interbace command %s has not been implemented!" % cmd_type_name)
+            raise NotImplementedError("ros_env_interbace command '%s' has not been implemented!" % cmd_type_name)
 
         self.action_types.append({'ros_msg': cmd_msg, 'type': cmd_type_name, 'act_idx': act_idx})
         return action_id

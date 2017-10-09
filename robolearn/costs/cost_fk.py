@@ -6,7 +6,7 @@ import numpy as np
 from robolearn.costs.config import COST_FK
 from robolearn.costs.cost import Cost
 from robolearn.costs.cost_utils import get_ramp_multiplier
-from robolearn.utils.transformations import compute_cartesian_error
+from robolearn.utils.transformations_utils import compute_cartesian_error
 
 
 class CostFK(Cost):

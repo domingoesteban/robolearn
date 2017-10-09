@@ -10,8 +10,8 @@ from robolearn.algos.gps.gps import GPS
 from robolearn.algos.trajopt.trajopt_config import default_mdreps_hyperparams
 from robolearn.algos.gps.gps_utils import IterationData, TrajectoryInfo, extract_condition, DualityInfo
 from robolearn.algos.gps.gps_utils import PolicyInfo
-from robolearn.utils.sample import Sample
-from robolearn.utils.sample_list import SampleList
+from robolearn.utils.sample.sample import Sample
+from robolearn.utils.sample.sample_list import SampleList
 from robolearn.policies.lin_gauss_policy import LinearGaussianPolicy
 from robolearn.algos.gps.gps_utils import gauss_fit_joint_prior
 

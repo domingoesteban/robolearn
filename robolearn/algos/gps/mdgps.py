@@ -20,8 +20,8 @@ from robolearn.algos.gps.gps import GPS
 from robolearn.algos.gps.gps_config import default_mdgps_hyperparams
 from robolearn.algos.gps.gps_utils import PolicyInfo
 
-from robolearn.utils.sample import Sample
-from robolearn.utils.sample_list import SampleList
+from robolearn.utils.sample.sample import Sample
+from robolearn.utils.sample.sample_list import SampleList
 
 import logging
 LOGGER = logging.getLogger(__name__)

@@ -18,8 +18,8 @@ from robolearn.algos.gps.gps_config import *
 from robolearn.algos.gps.gps_utils import PolicyInfo
 from robolearn.algos.gps.gps_utils import IterationData, TrajectoryInfo, extract_condition
 
-from robolearn.utils.sample import Sample
-from robolearn.utils.sample_list import SampleList
+from robolearn.utils.sample.sample import Sample
+from robolearn.utils.sample.sample_list import SampleList
 
 from robolearn.agents.agent_utils import generate_noise
 from robolearn.utils.data_logger import DataLogger

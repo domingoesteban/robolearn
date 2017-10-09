@@ -1,6 +1,4 @@
-from robolearn.utils.gazebo_utils import *
-from robolearn.utils.lift_box_utils import *
-import rospkg
+from robolearn.utils.tasks.bigman.lift_box_utils import *
 
 rospack = rospkg.RosPack()
 box_sdf = open(rospack.get_path('robolearn_gazebo_env')+'/models/cardboard_cube_box/model.sdf', 'r').read()

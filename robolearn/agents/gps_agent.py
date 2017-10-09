@@ -1,7 +1,7 @@
 from robolearn.agents.agent import Agent
 from robolearn.policies.policy_opt.policy_opt import PolicyOpt
 from robolearn.policies.policy_opt.policy_opt_random import PolicyOptRandom
-from robolearn.utils.sample_list import SampleList
+from robolearn.utils.sample.sample_list import SampleList
 from robolearn.utils.data_logger import DataLogger
 import copy
 

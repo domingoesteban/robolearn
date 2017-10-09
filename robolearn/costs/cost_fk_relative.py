@@ -6,7 +6,7 @@ import numpy as np
 from robolearn.costs.config import COST_FK_RELATIVE
 from robolearn.costs.cost import Cost
 from robolearn.costs.cost_utils import get_ramp_multiplier, evall1l2term
-from robolearn.utils.transformations import compute_cartesian_error, pose_transform, quaternion_inner
+from robolearn.utils.transformations_utils import compute_cartesian_error, pose_transform, quaternion_inner
 
 
 class CostFKRelative(Cost):

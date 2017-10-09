@@ -250,7 +250,6 @@ def init_dual_demos(hyperparams):
     bad_samples = config['bad_sample_list']
     max_init_var = config['max_init_var']
 
-
     good_X = good_samples.get_states()
     good_obs = good_samples.get_obs()
     good_U = good_samples.get_actions()

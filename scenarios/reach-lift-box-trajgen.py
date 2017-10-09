@@ -8,7 +8,7 @@ from robolearn.utils.trajectory_interpolators import spline_interpolation
 from robolearn.utils.trajectory_interpolators import quaternion_interpolation
 from robolearn.utils.robot_model import *
 from robolearn.utils.iit.robot_poses.bigman.poses import *
-from robolearn.utils.transformations import *
+from robolearn.utils.transformations_utils import *
 from robolearn.utils.plot_utils import *
 import tf
 

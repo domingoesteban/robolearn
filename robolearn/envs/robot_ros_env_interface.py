@@ -3,18 +3,19 @@ import numpy as np
 import rospy
 
 from robolearn.envs.ros_env_interface import ROSEnvInterface
-from robolearn.utils.iit.iit_robots_ros import CommandAdvr, JointStateAdvr
-from robolearn.utils.ros.ros_utils import WrenchStamped, Imu, RelativePose
-from robolearn.utils.iit.iit_robots_ros import state_vector_xbot_joint_state, update_xbot_command, get_indexes_from_list
-from robolearn.utils.iit.iit_robots_ros import get_last_xbot_state_field
-from robolearn.utils.ros.ros_utils import get_sensor_data
-from robolearn.utils.iit.iit_robots_ros import obs_vector_joint_state, obs_vector_optitrack
-from robolearn.utils.iit.iit_robots_ros import obs_vector_ft_sensor, obs_vector_imu
+from robolearn.utils.iit.xbot_ros import state_vector_xbot_joint_state, update_xbot_command, get_indexes_from_list
+from robolearn.utils.iit.xbot_ros import get_last_xbot_state_field
+from robolearn.utils.iit.xbot_ros import obs_vector_ft_sensor, obs_vector_imu
+from robolearn.utils.iit.xbot_ros import CommandAdvr, JointStateAdvr
+from robolearn.utils.gazebo_ros.ros_utils import WrenchStamped, Imu, RelativePose
+from robolearn.utils.gazebo_ros.ros_utils import get_sensor_data
+from robolearn.utils.gazebo_ros.ros_utils import obs_vector_joint_state, obs_vector_optitrack
+from robolearn.utils.gazebo_ros.ros_utils import ft_sensor_dof, imu_sensor_dof, optitrack_dof
+from robolearn.utils.gazebo_ros.ros_utils import joint_state_fields
 from robolearn.utils.iit.iit_robots_params import xbot_joint_state_fields
-from robolearn.utils.ros.ros_utils import ft_sensor_dof, imu_sensor_dof, optitrack_dof
 from robolearn.utils.iit.iit_robots_params import centauro_params, bigman_params
-from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
-from robolearn.utils.transformations import compute_cartesian_error, pose_transform, quaternion_inner
+from robolearn.utils.trajectory.trajectory_interpolators import polynomial5_interpolation
+from robolearn.utils.transformations_utils import compute_cartesian_error, pose_transform, quaternion_inner
 
 
 class RobotROSEnvInterface(ROSEnvInterface):
@@ -61,20 +62,21 @@ class RobotROSEnvInterface(ROSEnvInterface):
         #Action 1: Joint1:JointN, 100Hz
         self.cmd_freq = cmd_freq
         self.set_action_topic("/xbotcore/"+self.robot_name+"/command", CommandAdvr, self.cmd_freq)  # TODO: Check if 100 is OK
-        if cmd_type == 'position':
+        if cmd_type in ['position', 'xbot_position']:
             init_cmd_vals = self.initial_config[0][self.get_joints_indexes(body_part_active)]  # TODO: TEMPORAL SOLUTION
             self.cmd_type = cmd_type
-        elif cmd_type == 'velocity':
+            cmd_type = 'position'
+        elif cmd_type in ['velocity', 'xbot_velocity']:
             init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indexes(body_part_active)])
             self.cmd_type = cmd_type
             cmd_type = 'position'  # TEMPORAL
-        elif cmd_type == 'effort':
+        elif cmd_type in ['effort', 'xbot_effort']:
             # TODO: Check if initiate with zeros_like is a good idea
             init_cmd_vals = np.zeros_like(self.initial_config[0][self.get_joints_indexes(body_part_active)])
             self.cmd_type = cmd_type
             cmd_type = 'effort'  # TEMPORAL
         else:
-            raise NotImplementedError("Only position command has been implemented!")
+            raise NotImplementedError("Command %s has been implemented!" % cmd_type)
 
         act_idx = range(self.act_dof)
         action_id = self.set_action_type(init_cmd_vals, cmd_type, act_idx, act_joint_names=self.act_joint_names)
@@ -479,10 +481,10 @@ class RobotROSEnvInterface(ROSEnvInterface):
         state = np.empty(self.state_dim)
 
         for xx, x in enumerate(self.state_types):
-            if x['type'] in joint_state_fields:
+            if x['type'] in joint_state_fields+xbot_joint_state_fields:
                 state[x['state_idx']] = \
-                    get_xbot_sensor_data(x['ros_msg'], x['type'])[get_indexes_from_list(x['ros_msg'].name,
-                                                                                        self.state_joint_names)]
+                    get_sensor_data(x['ros_msg'], x['type'])[get_indexes_from_list(x['ros_msg'].name,
+                                                                                   self.state_joint_names)]
 
             elif x['type'] == 'optitrack':
                 state[x['state_idx']] = obs_vector_optitrack(self.state_optitrack_fields,

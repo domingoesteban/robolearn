@@ -20,7 +20,7 @@ class TFAgent(Agent):
         self.state_holder = tf.placeholder(tf.float32, shape=[None, self.obs_dim], name='state')
 
         # Required to save/restore
-        self.saver = None #tf.train.Saver(save_dict)
+        self.saver = None  #tf.train.Saver(save_dict)
 
         # Required for training
         self.reward_holder = tf.placeholder(shape=[None], dtype=tf.float32)
