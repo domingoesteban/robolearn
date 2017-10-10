@@ -116,15 +116,17 @@ class ROSEnvInterface(EnvInterface):
         action_id = len(self.action_types)
 
         if cmd_type_name in ['position', 'velocity', 'effort']:
+            act_name = cmd_type_name
             act_joint_names = kwargs['act_joint_names']
             cmd_msg = config_xbot_command(act_joint_names, cmd_type_name, init_cmd_vals)
         elif cmd_type_name in ['joint_effort']:
             ros_msg_class = kwargs['ros_msg_class']
+            act_name = kwargs['name']
             cmd_msg = ros_msg_class()
         else:
-            raise NotImplementedError("ros_env_interbace command '%s' has not been implemented!" % cmd_type_name)
+            raise NotImplementedError("ros_env_interface command '%s' has not been implemented!" % cmd_type_name)
 
-        self.action_types.append({'ros_msg': cmd_msg, 'type': cmd_type_name, 'act_idx': act_idx})
+        self.action_types.append({'ros_msg': cmd_msg, 'type': cmd_type_name, 'act_idx': act_idx, 'name': act_name})
         return action_id
 
     def set_observation_type(self, obs_name, obs_id, obs_type, obs_idx):

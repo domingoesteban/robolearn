@@ -6,7 +6,7 @@ Based on lin_gaus_policy from github.com:cbfinn/gps.git
 import numpy as np
 
 from robolearn.policies.policy import Policy
-from robolearn.utils.general import check_shape
+from robolearn.utils.general.general import check_shape
 
 
 class LinearGaussianPolicy(Policy):

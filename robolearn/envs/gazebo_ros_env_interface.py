@@ -15,9 +15,8 @@ from robolearn.utils.transformations_utils import compute_cartesian_error, pose_
 
 
 class GazeboROSEnvInterface(ROSEnvInterface):
-    def __init__(self, robot_name=None, mode='simulation', joints_active=None, urdf_file=None, action_types=None,
-                 action_topic_infos=None,
-                 observation_active=None, state_active=None, cmd_freq=100, robot_dyn_model=None,
+    def __init__(self, robot_name=None, mode='simulation', joints_active=None, urdf_file=None, action_active=None,
+                 observation_active=None, state_active=None, robot_dyn_model=None,
                  optional_env_params=None, reset_simulation_fcn=None):
         super(GazeboROSEnvInterface, self).__init__(mode=mode)
 
@@ -68,43 +67,36 @@ class GazeboROSEnvInterface(ROSEnvInterface):
         # ####### #
         # ACTIONS #
         # ####### #
-
-        #Action 1: Joint1:JointN, 100Hz
-        #self.cmd_freq = cmd_freq
-        if not isinstance(action_topic_infos, list):
-            action_topic_infos = [action_topic_infos]
-
-        if not isinstance(action_types, list):
-            action_types = [action_types]
-
-        if len(action_types) != len(action_topic_infos):
-            raise ValueError("Action type (%d) does not have same length than action_topic_infos (%d)" % (len(action_types),
-                                                                                                          len(action_topic_infos)))
+        if not isinstance(action_active, list):
+            action_active = [action_active]
 
         act_idx = [-1]
-        for topic_info, action_type in zip(action_topic_infos, action_types):
-            # self.set_action_topic("/xbotcore/"+self.robot_name+"/command", CommandAdvr, self.cmd_freq)  # TODO: Check if 100 is OK
-            self.set_action_topic(topic_info['name'], topic_info['type'], topic_info['freq'])  # TODO: Check if 100 is OK
+        # for topic_info, action_type in zip(action_topic_infos, action_types):
+        for action_to_activate in action_active:
+            self.set_action_topic(action_to_activate['ros_topic'], action_to_activate['ros_class'],
+                                  action_to_activate['freq'])
 
-            if action_type['name'] == 'xbot_position':
+            if action_to_activate['type'] == 'xbot_position':
                 raise NotImplemented
                 #init_cmd_vals = self.initial_config[0][self.get_joints_indexes(body_part_active)]  # TODO: TEMPORAL SOLUTION
                 #self.cmd_types.append(cmd_type)
-            elif action_type['name'] == 'xbot_effort':
+            elif action_to_activate['type'] == 'xbot_effort':
                 # TODO: Check if initiate with zeros_like is a good idea
-                init_cmd_vals = np.zeros_like(action_type['dof'])
-            elif action_type['name'] == 'joint_effort':
-                init_cmd_vals = np.zeros_like(action_type['dof'])
+                init_cmd_vals = np.zeros_like(action_to_activate['dof'])
+                # init_cmd_vals = np.zeros_like(action_type['dof'])
+            elif action_to_activate['type'] == 'joint_effort':
+                init_cmd_vals = np.zeros_like(action_to_activate['dof'])
+                # init_cmd_vals = np.zeros_like(action_type['dof'])
             else:
                 raise NotImplementedError("Only position command has been implemented!")
 
-            act_idx = range(act_idx[-1] + 1, act_idx[-1] + 1 + action_type['dof'])
-            # action_id = self.set_action_type(init_cmd_vals, action_type['name'], act_idx, act_joint_names=self.act_joint_names)
+            act_idx = range(act_idx[-1] + 1, act_idx[-1] + 1 + action_to_activate['dof'])
 
-            action_id = self.set_action_type(init_cmd_vals, action_type['name'], act_idx,
-                                             ros_msg_class=topic_info['type'])
+            action_id = self.set_action_type(init_cmd_vals, action_to_activate['type'], act_idx,
+                                             name=action_to_activate['name'],
+                                             ros_msg_class=action_to_activate['ros_class'])
 
-            print("Sending %s action!!" % action_type['name'])
+            print("Sending %s action!!" % action_to_activate['name'])
 
         # After all actions have been configured
         #self.set_initial_acts(initial_acts=[action_type['ros_msg'] for action_type in self.action_types])  # TODO: Check if it is useful or not
