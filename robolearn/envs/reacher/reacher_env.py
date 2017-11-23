@@ -47,6 +47,7 @@ class ReacherBulletEnv(BulletEnv):
         self.img_width = 320
         self.img_height = 320
         if self._obs_with_img:
+            # self.set_render_data(distance=1.490, yaw=-00, pitch=-90, target_pos=None,
             self.set_render_data(distance=0.490, yaw=-00, pitch=-90, target_pos=None,
                                  width=self.img_width, height=self.img_height)
         self._observation = np.zeros(self.observation_space.shape)
@@ -56,15 +57,17 @@ class ReacherBulletEnv(BulletEnv):
         self.time_counter = 0
 
         # Ground
-        mjcf_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mjcf/reacher_ground.xml')
-        pb_bodies = pb.loadMJCF(mjcf_xml)
+        # mjcf_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models/reacher_ground.xml')
+        # pb_bodies = pb.loadMJCF(mjcf_xml)
+        ground_urdf = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models/reacher_ground.urdf')
+        pb_bodies = pb.loadURDF(ground_urdf)
         if issubclass(type(pb_bodies), int):
             pb_bodies = [pb_bodies]
         for ii in pb_bodies:
             pb.changeVisualShape(ii, -1, rgbaColor=[0.0, 0.0, 0.0, 1])
 
         # Border
-        mjcf_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mjcf/reacher_border.xml')
+        mjcf_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models/reacher_border.xml')
         pb_bodies = pb.loadMJCF(mjcf_xml)
         if issubclass(type(pb_bodies), int):
             pb_bodies = [pb_bodies]
@@ -126,7 +129,6 @@ class ReacherBulletEnv(BulletEnv):
 
         if self._obs_with_img:
             np_img_arr = self.render(mode='rgb_array').flatten()
-            self.temporal_compa = np_img_arr.copy()
         else:
             np_img_arr = np.array([])
 

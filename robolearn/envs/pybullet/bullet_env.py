@@ -92,7 +92,7 @@ class BulletEnv(gym.Env):
             self._render_data['target_pos'] = target_pos
         if width is not None:
             self._render_data['width'] = width
-        if target_pos is not None:
+        if height is not None:
             self._render_data['height'] = height
 
     def _reset(self):

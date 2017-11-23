@@ -6,7 +6,7 @@ from robolearn.envs.pybullet.pybullet_robot import PyBulletRobot
 class ReacherTarget(PyBulletRobot):
     def __init__(self, robot_name='reacher', self_collision=True):
 
-        mjc_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mjcf/reacher_target.xml')
+        mjc_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models/reacher_target.xml')
 
         self.act_dim = 2
         self.obs_dim = 4
