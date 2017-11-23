@@ -1,0 +1,126 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+<gazebo reference="base_link">
+  <material>Gazebo/Grey</material>
+</gazebo>
+<gazebo reference="DWL">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="DWS">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="DWYTorso">
+  <material>Gazebo/Blue</material>
+</gazebo>
+
+<gazebo reference="RShp">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="RShr">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="RShy">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+
+<gazebo reference="RElb">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="RForearm">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="RWrMot2">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="RWrMot3">
+  <material>Gazebo/Blue</material>
+</gazebo>
+<gazebo reference="RRaisingSupport">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="RSoftHand">
+  <material>Gazebo/Black</material>
+</gazebo>
+
+<gazebo reference="LShp">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="LShr">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="LShy">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="LElb">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="LForearm">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="LWrMot2">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="LWrMot3">
+  <material>Gazebo/Blue</material>
+</gazebo>
+<gazebo reference="LRaisingSupport">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="LSoftHand">
+  <material>Gazebo/Black</material>
+</gazebo>
+
+<gazebo reference="RHipMot">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>  
+<gazebo reference="RThighUpLeg">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="RThighLowLeg">
+  <material>Gazebo/Grey</material>
+</gazebo>
+<gazebo reference="RLowLeg">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="RFootmot">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="RFoot">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+
+<gazebo reference="LHipMot">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="LThighUpLeg">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="LThighLowLeg">
+  <material>Gazebo/Grey</material>
+</gazebo>
+<gazebo reference="LLowLeg">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="LFootmot">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="LFoot">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+
+<gazebo reference="head">
+  <material>Gazebo/DarkGrey</material>
+</gazebo>
+<gazebo reference="hokuyo_link">
+  <material>Gazebo/Black</material>
+</gazebo>
+
+<gazebo reference="NeckYaw">
+  <material>Gazebo/Grey</material>
+</gazebo>
+<gazebo reference="NeckPitch">
+  <material>Gazebo/Grey</material>
+</gazebo>
+
+</robot>

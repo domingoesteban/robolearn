@@ -1,0 +1,161 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="BIGMAN">
+
+<xacro:property name="model_name" value="IIT Bigman" />
+<xacro:property name="model_version" value="0.1" />
+
+<!--
+####################################################
+##
+##  BIGMAN_YARP
+##  if "true" the bigman robot is controlled via YARP
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_YARP" value="false" />
+
+<!--
+####################################################
+##
+##  BIGMAN_XBOT
+##  if "true" the bigman robot is controlled via
+##  XBotCore Suite
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_XBOT" value="true" />
+
+<!--
+####################################################
+##
+##  BIGMAN_UPPER_BODY
+##  if "true" the kinematic chains of the arms and torso 
+##  will be used to generate the model
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_UPPER_BODY" value="true" />
+
+<!--
+####################################################
+##
+##  BIGMAN_LEGS
+##  if "true" the kinematic chains of the legs
+##  will be used to generate the model
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_LEGS" value="true" />
+
+<!--
+####################################################
+##
+##  BIGMAN_OLD_CHEST
+##  if "true" the old version of the chest will be
+##  used.
+##  
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_OLD_CHEST" value="false" />
+
+<!--
+####################################################
+##
+##  BIGMAN_FIXED_HANDS
+##  if "true" a fixed joint between wrist and hand 
+##  will be used otherwise a rotative joints will
+##  be used.
+##  
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_FIXED_HANDS" value="false" />
+
+<!--
+####################################################
+##
+##  BIGMAN_FIXED_MULTISENSE
+##  if "true" a fixed joint between "head" and 
+##  "hokuyo_link" will be used otherwise a continuous 
+##  joints will be used.
+##  
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_FIXED_MULTISENSE" value="false" />
+
+<!--
+####################################################
+##
+##  BIGMAN_HEAD
+##  if "true" a fixed joint between "NeckPitch" and
+##  "head" will be used to connect the head to the rest
+##  of the body. If "false" the head will not be added 
+##  to the model (this is the case when the multisense
+##  from the launch file is used). 
+##  
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_HEAD" value="true" />
+
+<!--
+####################################################
+##
+##  BIGMAN_ADD_PROTECTIONS
+##  if "true" the protections are added to the model.
+##  
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_ADD_PROTECTIONS" value="false" />
+
+<!--
+####################################################
+##
+##  BIGMAN_ADD_BACKPACK
+##  if "true" the backpack is added to the model.
+##  
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_ADD_BACKPACK" value="true" />
+
+<!--
+####################################################
+##
+##  BIGMAN_ADD_RAISING_SUPPORT
+##  if "true" the raising support are added to the model.
+##  
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_ADD_RAISING_SUPPORT" value="false" />
+
+<!--
+####################################################
+##
+##  BIGMAN_NEW_FEET
+##  if "true" the new feet with the joint in the middle
+##  are used to the model.
+##  
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_NEW_FEET" value="true" />
+
+<!--
+####################################################
+##
+##  BIGMAN_SAFETY_JOINT_LIMITS_X
+##  if "true" the more strict joint limits are used 
+##  for the X part
+##  
+##
+####################################################
+--> 
+<xacro:property name="BIGMAN_SAFETY_JOINT_LIMITS_ARMS" value="false" />
+<xacro:property name="BIGMAN_SAFETY_JOINT_LIMITS_TORSO" value="false" />
+
+</robot>

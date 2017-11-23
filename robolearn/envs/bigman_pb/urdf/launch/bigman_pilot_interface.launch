@@ -1,0 +1,19 @@
+<launch>
+
+     <!-- send the bigman robot XML to param server -->
+     <param name="robot_description" command="$(find xacro)/xacro.py '$(find bigman_urdf)/urdf/bigman_real.urdf'" />
+     
+     <!-- send the bigman robot XML to param server -->
+    <param name="robot_description_semantic" textfile="$(find bigman_srdf)/srdf/bigman_real.srdf" />   
+
+    <!-- start robot state publisher -->
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen" >
+        <!--remap from="joint_states" to="bigman/joints_state"/-->
+        <param name="publish_frequency" type="double" value="50.0" />
+    </node> 
+
+    <node pkg="tf" type="static_transform_publisher" name="multisense_head_gaze" args="0 0 0 0 0 0 1 /multisense/head /gaze 20" />
+  
+     <node pkg="tf" type="static_transform_publisher" name="neckPitch_multisense_head" args="0.08765 0 0.06475 0 0 0 1 /NeckPitch /multisense/head_root 20" />
+
+</launch>

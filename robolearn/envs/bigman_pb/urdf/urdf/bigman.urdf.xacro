@@ -1,0 +1,104 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="bigman">
+
+<!-- 
+  ROS urdf definition of the BIGMAN humanoid robot by Istituto Italiano di Tecnologia
+  
+  DO NOT INCLUDE THIS FILE DIRECTLY! USE bigman_robot.urdf.xacro INSTEAD!
+
+  Author: Enrico Mingo & Alessio Rocchi
+
+  Inertial matrix has to be in CoM frame (URDF specs)
+
+  Velocity and effort limits are fake!
+-->
+
+
+<!-- ************ MODEL CONFIGURATION ************ -->
+<xacro:include filename="bigman_config.urdf.xacro" />
+<!--<xacro:include filename="config/bigman_only_upper_body.urdf.xacro" />-->
+
+<!-- ***********  MODEL COLORS *********** -->
+<xacro:include filename="bigman_materials.urdf.xacro" />
+
+<!-- ************ BIGMAN BASE ************** -->
+<xacro:include filename="bigman_base.urdf.xacro"/>
+
+<xacro:if value="${BIGMAN_LEGS}">
+	<!-- ***** LEGS F/T SENSOR REF FRAMES *******-->
+	<link name="l_leg_ft"/>
+	<link name="r_leg_ft"/>
+
+	<joint name="l_leg_ft_joint" type="fixed">
+	    <parent link="LFoot"/>
+	    <child link="l_leg_ft"/>
+	    <origin xyz="0.005 0 -0.107" rpy="0 0 0"/>
+	</joint>
+
+	<joint name="r_leg_ft_joint" type="fixed">
+	    <parent link="RFoot"/>
+	    <child link="r_leg_ft"/>
+	    <origin xyz="0.005 0 -0.107" rpy="0 0 0"/> 
+	</joint>
+</xacro:if>
+
+<xacro:if value="${BIGMAN_UPPER_BODY}">
+	<link name="l_arm_ft"/>
+	<link name="r_arm_ft"/>
+
+	<joint name="l_arm_ft_joint" type="fixed">
+	    <parent link="LWrMot3"/>
+	    <child link="l_arm_ft"/>
+	    <origin xyz="0 0 -0.0565" rpy="0 0 0" /> 
+	</joint>
+
+	<joint name="r_arm_ft_joint" type="fixed">
+	    <parent link="RWrMot3"/>
+	    <child link="r_arm_ft"/>
+	    <origin xyz="0 0 -0.0565" rpy="0 0 0" /> 
+	</joint>
+
+	<!-- ************ FOREARMS ************ -->
+	<!-- This links are defined in order to be compliant with http://www.ros.org/reps/rep-0120.html#coordinate-frames
+	and to define the end effectors of the robot -->
+
+	<!-- position and orientation of the arm regardless of the tool (grasping device for instance) attached to it -->
+	<link name="l_wrist"/>
+	<link name="r_wrist"/>
+
+	<xacro:include filename="parts/forearms.urdf.xacro" />
+       <xacro:if value="${BIGMAN_ADD_RAISING_SUPPORT}">
+	       <xacro:include filename="parts/forearm_reference_frame.urdf.xacro" />
+       </xacro:if>
+
+	<!-- ************ HANDS ************ -->
+	<xacro:include filename="parts/soft_hand.urdf.xacro" />
+
+	<!-- multisense_sl_v4 with fixed joints -->
+       <xacro:if value="${BIGMAN_HEAD}">
+                <joint name="neck_joint" type="fixed">
+                     <parent link="NeckPitch"/>
+                     <child link="multisense/head"/>
+                     <origin xyz="0.08765 0 0.06475" rpy="0 0 0" /> 
+                 </joint>
+
+              <xacro:unless value="${BIGMAN_FIXED_MULTISENSE}">
+                     <xacro:include filename="sensors/multisense_sl_simulation.urdf.xacro"/>
+              </xacro:unless>
+              <xacro:if value="${BIGMAN_FIXED_MULTISENSE}">
+                     <xacro:include filename="sensors/multisense_sl.urdf.xacro"/>
+              </xacro:if>
+
+       </xacro:if>	
+</xacro:if>
+
+<xacro:if value="${BIGMAN_LEGS}">
+	<!-- IMU -->
+	<xacro:include filename="sensors/imu.urdf.xacro"/>
+</xacro:if>
+  
+</robot>
+
+
+
+

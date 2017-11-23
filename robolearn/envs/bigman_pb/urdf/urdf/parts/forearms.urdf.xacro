@@ -1,0 +1,274 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+<xacro:property name="mmTom" value="0.001" />
+<xacro:property name="mm2Tom2" value="${0.001*0.001}" />
+<xacro:property name="tonsToKg" value="1000.0" />
+  
+<!-- ****************LINKS**************** -->
+<!-- ****************LEFT FOREARM**************** -->
+
+      <link name ="LForearm">
+        <inertial>
+          <origin xyz="${1.2625599e-02*mmTom} ${4.2975381*mmTom} ${4.4717986e+01*mmTom}" rpy="0 0 0"/>
+          <mass value="2.2127686"/>
+          <inertia ixx="${6.5428368e+03*mm2Tom2}"  ixy="${-4.1196967e+01*mm2Tom2}"  ixz="${3.2727270*mm2Tom2}" iyy="${5.5878290e+03*mm2Tom2}" iyz="${4.2088668e+02*mm2Tom2}" izz="${2.4783023e+03*mm2Tom2}" />
+        </inertial>
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="LForearm_visual">
+            <mesh filename="meshes/Forearm.STL" scale="0.001 -0.001 0.001" />
+          </geometry>
+	  <material name="dark_grey"/>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="LForearm_collision">
+            <mesh filename="meshes/simple/Forearm.STL" scale="0.001 -0.001 0.001" />
+          </geometry>             
+        </collision>
+      </link>
+
+      <link name="LWrMot2">
+        <inertial>
+          <origin xyz="${9.8193770*mmTom} ${1.3797184*mmTom} ${-8.0380065e+01*mmTom}" rpy="0 0 0"/>
+          <mass value="1.2838072"/>
+          <inertia ixx="${1.9941240e+03*mm2Tom2}"  ixy="${2.5697060e+01*mm2Tom2}"  ixz="${1.7443538e+02*mm2Tom2}" iyy="${2.1755329e+03*mm2Tom2}" iyz="${-1.2100987e+02*mm2Tom2}" izz="${1.8303760e+03*mm2Tom2}" />
+        </inertial>
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="LWrMot2_visual">
+            <mesh filename="meshes/ForearmPitch.STL" scale="0.001 -0.001 0.001" />
+          </geometry>
+	  <material name="dark_grey"/>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="LWrMot2_collision">
+            <mesh filename="meshes/simple/ForearmPitch.STL" scale="0.001 -0.001 0.001" />
+          </geometry>             
+        </collision>
+      </link>
+
+<xacro:if value="${BIGMAN_ADD_RAISING_SUPPORT}">
+      <link name="LRaisingSupport">
+        <inertial>
+          <origin xyz="${7.2667838*mmTom} ${1.2370624*mmTom} ${-6.9076044e+01*mmTom}" rpy="0 0 0"/>
+          <mass value="${1.3789343e-03*tonsToKg}"/>
+          <inertia ixx="${5.9368721*mm2Tom2*tonsToKg}"  ixy="${1.6171173e-02*mm2Tom2*tonsToKg}"  ixz="${4.7369581e-02*mm2Tom2*tonsToKg}" iyy="${1.3268985e+01*mm2Tom2*tonsToKg}" iyz="${-1.3188343e-01*mm2Tom2*tonsToKg}" izz="${9.5878298*mm2Tom2*tonsToKg}" />
+        </inertial>
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="LRaisingSupport_visual">
+            <mesh filename="meshes/RaisingSupport.STL" scale="0.001 -0.001 0.001" />
+          </geometry>
+	  <material name="dark_grey"/>
+        </visual>
+        <collision>
+          <origin xyz="0.008 0 -0.076" rpy="0 0 0"/>
+          <!--origin xyz="0 0 0" rpy="0 0 0"/-->
+          <geometry name="LRaisingSupport_collision">
+            <box size="0.218 0.04 0.152" />
+            <!--mesh filename="meshes/simple/RaisingSupport.STL" scale="0.001 -0.001 0.001" /-->
+          </geometry>             
+        </collision>
+      </link>
+</xacro:if>
+
+      <link name="LWrMot3">
+        <inertial>
+          <origin xyz="${7.0380706*mmTom} ${-1.0811188e-02*mmTom} ${-3.9669274e+01*mmTom}" rpy="0 0 0"/>
+          <mass value="4.2801447e-01"/>
+          <inertia ixx="${2.8620156e+02*mm2Tom2}"  ixy="${5.2570457e-02*mm2Tom2}"  ixz="${-3.9174213e+01*mm2Tom2}" iyy="${7.1261855e+02*mm2Tom2}" iyz="${-9.5020266e-02*mm2Tom2}" izz="${6.1444258e+02*mm2Tom2}" />
+        </inertial>
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="LWrMot3_visual">
+            <mesh filename="meshes/ForearmRoll.STL" scale="0.001 -0.001 0.001" />
+          </geometry>
+	  <material name="blue"/>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="LWrMot3_collision">
+            <mesh filename="meshes/simple/ForearmRoll.STL" scale="0.001 -0.001 0.001" />
+          </geometry>             
+        </collision>
+      </link>
+
+<!-- ****************RIGHT FOREARM**************** --> 
+
+      <link name ="RForearm">
+        <inertial>
+          <origin xyz="${1.2625599e-02*mmTom} ${-4.2975381*mmTom} ${4.4717986e+01*mmTom}" rpy="0 0 0"/>
+          <mass value="2.2127686"/>
+          <inertia ixx="${6.5428368e+03*mm2Tom2}"  ixy="${4.1196967e+01*mm2Tom2}"  ixz="${3.2727270*mm2Tom2}" iyy="${5.5878290e+03*mm2Tom2}" iyz="${-4.2088668e+02*mm2Tom2}" izz="${2.4783023e+03*mm2Tom2}" />
+        </inertial>
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="RForearm_visual">
+            <mesh filename="meshes/Forearm.STL" scale="0.001 0.001 0.001" />
+          </geometry>
+	  <material name="dark_grey"/>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="RForearm_collision">
+            <mesh filename="meshes/simple/Forearm.STL" scale="0.001 0.001 0.001" />
+          </geometry>             
+        </collision>
+      </link>
+     
+      <link name="RWrMot2">
+        <inertial>
+          <origin xyz="${9.8193770*mmTom} ${-1.3797184*mmTom} ${-8.0380065e+01*mmTom}" rpy="0 0 0"/>
+          <mass value="1.2838072"/>
+          <inertia ixx="${1.9941240e+03*mm2Tom2}"  ixy="${-2.5697060e+01*mm2Tom2}"  ixz="${1.7443538e+02*mm2Tom2}" iyy="${2.1755329e+03*mm2Tom2}" iyz="${1.2100987e+02*mm2Tom2}" izz="${1.8303760e+03*mm2Tom2}" />
+        </inertial>
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="RWrMot2_visual">
+            <mesh filename="meshes/ForearmPitch.STL" scale="0.001 0.001 0.001" />
+          </geometry>
+	  <material name="dark_grey"/>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="RWrMot2_collision">
+            <mesh filename="meshes/simple/ForearmPitch.STL" scale="0.001 0.001 0.001" />
+          </geometry>             
+        </collision>
+      </link>
+
+<xacro:if value="${BIGMAN_ADD_RAISING_SUPPORT}">
+      <link name="RRaisingSupport">
+        <inertial>
+          <origin xyz="${7.2667838*mmTom} ${-1.2370624*mmTom} ${-6.9076044e+01*mmTom}" rpy="0 0 0"/>
+          <mass value="${1.3789343e-03*tonsToKg}"/>
+          <inertia ixx="${5.9368721*mm2Tom2*tonsToKg}"  ixy="${-1.6171173e-02*mm2Tom2*tonsToKg}"  ixz="${4.7369581e-02*mm2Tom2*tonsToKg}" iyy="${1.3268985e+01*mm2Tom2*tonsToKg}" iyz="${1.3188343e-01*mm2Tom2*tonsToKg}" izz="${9.5878298*mm2Tom2*tonsToKg}" />
+        </inertial>
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="RRaisingSupport_visual">
+            <mesh filename="meshes/RaisingSupport.STL" scale="0.001 0.001 0.001" />
+          </geometry>
+	  <material name="dark_grey"/>
+        </visual>
+        <collision>
+          <origin xyz="0.008 0 -0.076" rpy="0 0 0"/>
+          <!--origin xyz="0 0 0" rpy="0 0 0"/-->
+          <geometry name="RRaisingSupport_collision">
+            <box size="0.218 0.04 0.152" />
+            <!--mesh filename="meshes/simple/RaisingSupport.STL" scale="0.001 0.001 0.001" /-->
+          </geometry>             
+        </collision>
+      </link> 
+</xacro:if>
+
+      <link name="RWrMot3">
+        <inertial>
+          <origin xyz="${7.0380706*mmTom} ${1.0811188e-02*mmTom} ${-3.9669274e+01*mmTom}" rpy="0 0 0"/>
+          <mass value="4.2801447e-01"/>
+          <inertia ixx="${2.8620156e+02*mm2Tom2}"  ixy="${-5.2570457e-02*mm2Tom2}"  ixz="${-3.9174213e+01*mm2Tom2}" iyy="${7.1261855e+02*mm2Tom2}" iyz="${9.5020266e-02*mm2Tom2}" izz="${6.1444258e+02*mm2Tom2}" />
+        </inertial>
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="RWrMot3_visual">
+            <mesh filename="meshes/ForearmRoll.STL" scale="0.001 0.001 0.001" />
+          </geometry>
+	  <material name="blue"/>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry name="RWrMot3_collision">
+            <mesh filename="meshes/simple/ForearmRoll.STL" scale="0.001 0.001 0.001" />
+          </geometry>             
+        </collision>
+      </link> 
+
+<!-- ****************JOINTS**************** -->
+<!-- ****************LEFT FOREARM**************** -->
+<joint name="LForearmPlate" type="revolute">
+    <parent link="LElb"/>
+    <child link="LForearm"/>
+    <origin xyz="-0.075 0.0 -0.1955" rpy="0 0 0"/>
+    <axis xyz="0 0 1" />
+    <limit velocity="6.283" effort="60" lower="-2.529" upper="2.529" />
+    <dynamics friction="0" damping="0.03"/>
+  </joint>
+
+  <joint name="LWrj1" type="revolute">
+    <parent link="LForearm"/>
+    <child link="LWrMot2"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit velocity="6.283" effort="60" lower="-1.48" upper="1.48" />
+    <dynamics friction="0" damping="0.03"/>
+  </joint>
+
+<xacro:if value="${BIGMAN_ADD_RAISING_SUPPORT}">
+  <joint name="LRaisingSupport_joint" type="fixed">
+    <parent link="LWrMot2"/>
+    <child link="LRaisingSupport"/>
+    <origin xyz="0.0 0.0 -0.0505" rpy="0 0 0"/>
+  </joint>
+</xacro:if>
+
+  <joint name="LWrj2" type="revolute">
+    <parent link="LWrMot2"/>
+    <child link="LWrMot3"/>
+    <origin xyz="0 0 -0.092" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit velocity="6.283" effort="60" lower="-1.48" upper="1.48" />
+    <dynamics friction="0" damping="0.03"/>
+  </joint>
+
+  <joint name="l_wrist_joint" type="fixed">
+     <parent link="LWrMot3"/>
+     <child link="l_wrist"/>
+     <origin xyz="0 0 0" rpy="0 0 0" />
+   </joint>
+
+<!-- ****************RIGHT FOREARM**************** -->
+<joint name="RForearmPlate" type="revolute">
+    <parent link="RElb"/>
+    <child link="RForearm"/>
+    <origin xyz="-0.075 0.0 -0.1955" rpy="0 0 0"/>
+    <axis xyz="0 0 1" />
+    <limit velocity="6.283" effort="60" lower="-2.529" upper="2.529" />
+    <dynamics friction="0" damping="0.03"/>
+  </joint>
+
+  <joint name="RWrj1" type="revolute">
+    <parent link="RForearm"/>
+    <child link="RWrMot2"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit velocity="6.283" effort="60" lower="-1.48" upper="1.48" />
+    <dynamics friction="0" damping="0.03"/>
+  </joint>
+
+<xacro:if value="${BIGMAN_ADD_RAISING_SUPPORT}">
+  <joint name="RRaisingSupport_joint" type="fixed">
+    <parent link="RWrMot2"/>
+    <child link="RRaisingSupport"/>
+    <origin xyz="0.0 0.0 -0.0505" rpy="0 0 0"/>
+  </joint>
+</xacro:if>
+
+  <joint name="RWrj2" type="revolute">
+    <parent link="RWrMot2"/>
+    <child link="RWrMot3"/>
+    <origin xyz="0 0 -0.092" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit velocity="6.283" effort="60" lower="-1.48" upper="1.48" />
+    <dynamics friction="0" damping="0.03"/>
+  </joint>
+
+  <joint name="r_wrist_joint" type="fixed">
+      <parent link="RWrMot3"/>
+      <child link="r_wrist"/>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+
+</robot>

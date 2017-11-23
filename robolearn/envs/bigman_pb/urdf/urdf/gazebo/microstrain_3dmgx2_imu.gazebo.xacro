@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+<!--
+  ROS urdf definition of the BIGMAN humanoid robot by Istituto Italiano di Tecnologia
+  
+  Author: Alessio Rocchi
+  
+  This file groups files to use BIGMAN in GAZEBO
+  
+  -->
+
+    <gazebo reference="imu_link">
+        <sensor name="imu_link" type="imu">
+         <always_on>1</always_on>
+         <update_rate>1000</update_rate>
+         <visualize>true</visualize>
+         <topic>__default_topic__</topic>
+	 <imu>
+          <!--
+          <noise>
+           <type>gaussian</type>
+            <rate>
+             <mean>0.0</mean>
+             <stddev>2e-4</stddev>
+             <bias_mean>0.0000075</bias_mean>
+             <bias_stddev>0.0000008</bias_stddev>
+            </rate>
+            <accel>
+             <mean>0.0</mean>
+             <stddev>1.7e-2</stddev>
+             <bias_mean>0.1</bias_mean>
+             <bias_stddev>0.001</bias_stddev>
+            </accel>
+          </noise>
+          -->
+         </imu>
+         <xacro:if value="${BIGMAN_YARP}">
+           <plugin name="bigman_yarp_gazebo_plugin_IMU" filename="libgazebo_yarp_imu.so">
+             <yarpConfigurationFile>model://bigman_urdf/conf/bigman/bigman_gazebo_inertial.ini</yarpConfigurationFile>
+           </plugin>
+         </xacro:if>
+        </sensor>
+       </gazebo>
+
+       <gazebo reference="imu_link2">
+        <sensor name="imu_link2" type="imu">
+         <always_on>1</always_on>
+         <update_rate>1000</update_rate>
+         <visualize>true</visualize>
+         <topic>__default_topic__</topic>
+	 <imu>
+          <!--
+          <noise>
+           <type>gaussian</type>
+            <rate>
+             <mean>0.0</mean>
+             <stddev>2e-4</stddev>
+             <bias_mean>0.0000075</bias_mean>
+             <bias_stddev>0.0000008</bias_stddev>
+            </rate>
+            <accel>
+             <mean>0.0</mean>
+             <stddev>1.7e-2</stddev>
+             <bias_mean>0.1</bias_mean>
+             <bias_stddev>0.001</bias_stddev>
+            </accel>
+          </noise>
+          -->
+         </imu>
+         <xacro:if value="${BIGMAN_YARP}">
+           <plugin name="bigman_yarp_gazebo_plugin_IMU2" filename="libgazebo_yarp_imu.so">
+             <yarpConfigurationFile>model://bigman_urdf/conf/bigman/bigman_gazebo_inertial2.ini</yarpConfigurationFile>
+           </plugin>
+         </xacro:if>
+        </sensor>
+       </gazebo>
+
+</robot>

@@ -1,0 +1,97 @@
+<?xml version="1.0" ?>
+<sdf version="1.5">
+  <model name="big_table">
+    <static>true</static>
+    <link name="link">
+      <collision name="surface">
+        <pose>0 0 1.0 0 0 0</pose>
+        <geometry>
+          <box>
+            <!--size>0.2 0.2 0.03</size-->
+            <size>0.4 0.8 0.03</size>
+          </box>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.6</mu>
+              <mu2>0.6</mu2>
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+      <visual name="surface">
+        <pose>0 0 1.0 0 0 0</pose>
+        <geometry>
+          <box>
+            <!--size>0.2 0.2 0.03</size-->
+            <size>0.4 0.8 0.03</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://scripts/robolearn.material</uri>
+            <!--name>Gazebo/Wood</name-->
+            <name>Robolearn/Metal1</name>
+          </script>
+        </material>
+      </visual>
+      <collision name="leg">
+        <pose>0 0 0.5 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>1.0</length>
+          </cylinder>
+        </geometry>
+      </collision>
+      <visual name="leg">
+        <pose>0 0 0.5 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.02</radius>
+            <length>1.0</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Grey</name>
+          </script>
+        </material>
+      </visual>
+      <collision name="base">
+        <pose>0 0 0.015 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.4 0.4 0.03</size>
+          </box>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.6</mu>
+              <mu2>0.6</mu2>
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+      <visual name="base">
+        <pose>0 0 0.015 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.4 0.4 0.03</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://scripts/robolearn.material</uri>
+            <!--name>Gazebo/Wood</name-->
+            <name>Robolearn/Metal1</name>
+          </script>
+        </material>
+      </visual>
+
+    </link>
+  </model>
+</sdf>

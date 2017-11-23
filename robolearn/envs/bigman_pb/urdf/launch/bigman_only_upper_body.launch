@@ -1,0 +1,15 @@
+<launch>
+
+     <!-- send the bigman robot XML to param server -->
+     <param name="robot_description" command="$(find xacro)/xacro.py '$(find bigman_urdf)/urdf/bigman_only_upper_body.urdf'" />
+     
+     <!-- send the bigman robot XML to param server -->
+    <param name="robot_description_semantic" textfile="$(find bigman_srdf)/srdf/bigman_only_upper_body.srdf" />   
+
+    <!-- start robot state publisher -->
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen" >
+        <!--remap from="joint_states" to="bigman/joints_state"/-->
+        <param name="publish_frequency" type="double" value="50.0" />
+    </node> 
+
+</launch>

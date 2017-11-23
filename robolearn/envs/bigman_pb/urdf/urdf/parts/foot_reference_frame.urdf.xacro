@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+        <xacro:macro name="reference_frame_foot" params="parent name x y">
+	<!-- macro for one reference frame in foot -->
+		<link name="${name}_link"/>
+
+		<joint name="${name}_joint" type="fixed">
+			<origin xyz="${x} ${y} 0" rpy="0 0 0" />
+			<parent link="${parent}"/>
+			<child link="${name}_link"/>
+		</joint>
+	</xacro:macro>
+       
+       <xacro:unless value="${BIGMAN_NEW_FEET}">
+	       <xacro:macro name="references_frame_foot" params="parent name mirror_y">
+	       <!-- macro for reference frames in foot -->
+		       <xacro:reference_frame_foot parent="${parent}" name="${name}_upper_right" x="0.195" y="${mirror_y*-0.07}" />
+		       <xacro:reference_frame_foot parent="${parent}" name="${name}_upper_left" x="0.195" y="${mirror_y*0.09}" />
+		       <xacro:reference_frame_foot parent="${parent}" name="${name}_lower_right" x="-0.111" y="${mirror_y*-0.07}" />
+		       <xacro:reference_frame_foot parent="${parent}" name="${name}_lower_left" x="-0.111" y="${mirror_y*0.09}" />	
+	       </xacro:macro>
+       </xacro:unless>
+       <xacro:if value="${BIGMAN_NEW_FEET}">
+              <xacro:macro name="references_frame_foot" params="parent name mirror_y">
+              <!-- macro for reference frames in foot -->
+                     <xacro:reference_frame_foot parent="${parent}" name="${name}_upper_right" x="0.16" y="${mirror_y*-0.07}" />
+                     <xacro:reference_frame_foot parent="${parent}" name="${name}_upper_left" x="0.16" y="${mirror_y*0.09}" />
+                     <xacro:reference_frame_foot parent="${parent}" name="${name}_lower_right" x="-0.16" y="${mirror_y*-0.07}" />
+                     <xacro:reference_frame_foot parent="${parent}" name="${name}_lower_left" x="-0.16" y="${mirror_y*0.09}" />	
+              </xacro:macro>
+       </xacro:if>
+
+	<xacro:references_frame_foot parent="l_sole" name="l_foot" mirror_y="1.0"/>
+	<xacro:references_frame_foot parent="r_sole" name="r_foot" mirror_y="-1.0"/>
+
+</robot>

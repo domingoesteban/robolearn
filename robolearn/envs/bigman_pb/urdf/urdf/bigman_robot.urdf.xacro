@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<!--robot xmlns:xacro="http://ros.org/wiki/xacro" name="bigman"-->
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="bigman">
+  <!--
+  ROS urdf definition of the BIGMAN humanoid robot by Istituto Italiano di Tecnologia
+  
+  Author: Enrico Mingo
+  
+  This file groups files to use BIGMAN in GAZEBO
+  
+  -->
+
+  <!-- Uncomment this to have the robot rigidly connected to the world -->
+
+<!--  <link name="world"/>
+  
+   <joint name="fixed" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+  </joint>
+  
+  <origin xyz="0.0 0.0 1.5" rpy="0 0 0" /> -->
+
+  <!-- ROBOT -->
+
+  <xacro:include filename="bigman.urdf.xacro" />
+
+<xacro:if value="${BIGMAN_UPPER_BODY}">
+       <xacro:unless value="${BIGMAN_LEGS}">
+
+		  <link name="world"/>
+		  
+		   <joint name="fixed" type="fixed">
+		    <parent link="world"/>
+		    <child link="base_link"/>
+		  </joint>
+		  
+		  <origin xyz="0.0 0.0 1.5" rpy="0 0 0" />
+
+	</xacro:unless>
+</xacro:if>
+
+
+<xacro:if value="${BIGMAN_LEGS}">
+  <origin xyz="0.0 0.0 1.12" rpy="0 0 0" />
+
+  <xacro:include filename="gazebo/microstrain_3dmgx2_imu.gazebo.xacro" />
+
+</xacro:if>
+
+  <xacro:include filename="gazebo/force_torque.gazebo.xacro" />
+
+  <xacro:include filename="gazebo/bigman.gazebo.xacro" />
+  
+  <!-- XBOTCORE PLUGINS for GAZEBO SIMULATION -->
+  <xacro:if value="${BIGMAN_XBOT}">
+    <xacro:include filename="gazebo/xbot_control.gazebo.xacro" />
+  </xacro:if>
+
+<!-- YARP PLUGINS for GAZEBO SIMULATION -->
+  <xacro:if value="${BIGMAN_YARP}">
+    <xacro:include filename="gazebo/yarp_control.gazebo.xacro" />
+  </xacro:if>
+  
+
+  
+  <xacro:include filename="gazebo/bigman_materials.gazebo.xacro" />
+  
+</robot>
+

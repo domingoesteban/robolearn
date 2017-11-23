@@ -1,0 +1,49 @@
+<?xml version="1.0" ?>
+<robot name="big_table">
+  <material name="blue">
+    <color rgba="0 0 0.8 1"/>
+  </material>
+
+  <!--<static>true</static>-->
+  <link name="link1">
+    <collision name="surface">
+      <origin xyz="0 0 0.735"/>
+      <geometry>
+        <box size="0.4 0.8 0.03"/>
+      </geometry>
+    </collision>
+    <visual name="surface">
+      <origin xyz="0 0 0.735"/>
+      <geometry>
+        <box size="0.4 0.8 0.03"/>
+      </geometry>
+      <material name="blue"/>
+    </visual>
+    <collision name="leg">
+      <origin xyz="0 0 0.375"/>
+      <geometry>
+        <cylinder length="0.69" radius="0.02"/>
+      </geometry>
+    </collision>
+    <visual name="leg">
+      <origin xyz="0 0 0.375"/>
+      <geometry>
+        <cylinder length="0.69" radius="0.02"/>
+      </geometry>
+      <material name="blue"/>
+    </visual>
+    <collision name="base">
+      <origin xyz="0 0 0.015"/>
+      <geometry>
+        <box size="0.4 0.4 0.03"/>
+      </geometry>
+    </collision>
+    <visual name="base">
+      <origin xyz="0 0 0.015"/>
+      <geometry>
+        <box size="0.4 0.4 0.03"/>
+      </geometry>
+      <material name="blue"/>
+    </visual>
+  </link>
+</robot>
