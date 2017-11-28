@@ -45,7 +45,11 @@ class ReacherTarget(PyBulletRobot):
     def apply_action(self, action):
         assert (np.isfinite(action).all())
         for n, joint in enumerate(self.ordered_joints):
-            # joint.set_position(float(np.clip(action[n], -1, +1)))
-            joint.set_velocity(action[n])
+            joint.set_position(float(np.clip(action[n], -1, +1)))
+            # joint.set_velocity(action[n])
+
+    def get_position(self):
+        return self.parts['target'].current_position()
+
 
 

@@ -1,6 +1,7 @@
 import numpy as np
 import pybullet as pb
 from robolearn.envs.pybullet.robot_bases import BodyPart, Joint, Camera
+from robolearn.envs.pybullet.bullet_colors import pb_colors
 
 
 class PyBulletRobot(object):
@@ -73,9 +74,9 @@ class PyBulletRobot(object):
                 robot_name = robot_name.decode("utf8")
                 part_name = part_name.decode("utf8")
                 parts[part_name] = BodyPart(part_name, bodies, i, -1)
-                print('MJCF Body', bb, '--', 'part_name:', part_name)
+                # print('MJCF Body', bb, '--', 'part_name:', part_name)
 
-            print('Body %d has %d Joints' % (bb, pb.getNumJoints(bb)))
+            print('Bullet Robot: body id %d has %d Joints' % (bb, pb.getNumJoints(bb)))
             for j in range(pb.getNumJoints(bb)):
                 # print('')
                 # print('body %d=%d' % (bodies[i], bb), '| joint %d' % j)
@@ -121,7 +122,7 @@ class PyBulletRobot(object):
 
                         joints[joint_name].power_coef = 100.0
                         # joints[joint_name].power_coef = 1.0
-                        print(joint_name, 'lower:%f' % joints[joint_name].lowerLimit,
+                        print('joint', joint_name, '| lower:%f' % joints[joint_name].lowerLimit,
                               'upper:%f' % joints[joint_name].upperLimit)
                 else:
                     if joint_name in self.joint_names:
@@ -142,12 +143,6 @@ class PyBulletRobot(object):
         # TODO: FInd a better way to recycle previous data
         self.parts, self.jdict, self.ordered_joints, self.robot_body = None, None, None, None
 
-        print('AHHHHHHHHHAAAA BORRAR')
-        pb.configureDebugVisualizer(pb.COV_ENABLE_WIREFRAME, 0)
-        pb.configureDebugVisualizer(pb.COV_ENABLE_SHADOWS, 0)
-        # pb.configureDebugVisualizer(pb.COV_ENABLE_RENDERING, 1)
-        # pb.configureDebugVisualizer(pb.COV_ENABLE_TINY_RENDERER, 1)
-
         # Spawn the robot again
         if self.self_collision:
             if self.model_type == 'urdf':
@@ -167,10 +162,10 @@ class PyBulletRobot(object):
 
         self.parts, self.jdict, self.ordered_joints, self.robot_body = self.addToScene(model_uid)
 
-        print('')
-        print('parts:', self.parts)
-        print('ordered_j:', self.ordered_joints)
-        print('jdict:', self.jdict)
+        # print('')
+        # print('parts:', self.parts)
+        # print('ordered_j:', self.ordered_joints)
+        # print('jdict:', self.jdict)
 
 
         # Reset
@@ -213,4 +208,36 @@ class PyBulletRobot(object):
     def robot_state(self):
         raise NotImplementedError
 
+    def set_robot_pose(self, position, orientation=(0, 0, 0, 1)):
+        self.robot_body.reset_pose(position, orientation)
+
+    def get_robot_pose(self):
+        return self.robot_body.get_pose()
+
+    def set_state(self, pos, vel):
+        if len(pos) != len(vel):
+            raise ValueError('Positions and Velocities are not the same (%d != %d)' % (len(pos), len(vel)))
+
+        if len(pos) != len(self.ordered_joints):
+            raise ValueError('State size does correspond to current robot (%d != %d)' % (len(pos)*2,
+                                                                                         len(self.ordered_joints)*2))
+
+        for jj, joint in enumerate(self.ordered_joints):
+            print('Setting to joint', pos[jj], vel[jj])
+            joint.set_state(pos[jj], vel[jj])
+
+    def get_state(self):
+        njoints = len(self.ordered_joints)
+        state = np.zeros(njoints*2)
+        for jj, joint in enumerate(self.ordered_joints):
+            state[jj], state[jj+njoints] = joint.get_state()
+
+        return state
+
+    def set_color(self, color):
+        if issubclass(type(color), str):
+            if color.lower() in pb_colors:
+                color = pb_colors[color]
+        color_list = [color for _ in range(self.get_total_bodies())]
+        self.set_body_colors(color_list)
 

@@ -46,6 +46,6 @@ class ReacherMJCRobot(PyBulletRobot):
         assert (np.isfinite(action).all())
         for n, joint in enumerate(self.ordered_joints):
             joint.set_motor_torque(self.power * joint.power_coef * float(np.clip(action[n], -1, +1)))
-            print(self.power * joint.power_coef * float(np.clip(action[n], -1, +1)), joint.power_coef, self.power)
+            # print(self.power * joint.power_coef * float(np.clip(action[n], -1, +1)), joint.power_coef, self.power)
 
 

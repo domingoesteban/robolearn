@@ -32,6 +32,7 @@ class TrajectoryInfo(BundleType):
         }
         BundleType.__init__(self, variables)
 
+
 class IterationData(BundleType):
     """ Collection of iteration variables. """
     def __init__(self):

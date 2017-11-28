@@ -83,6 +83,7 @@ class CentauroBulletEnv(BulletEnv):
         #     pb.changeVisualShape(i, -1, rgbaColor=[0, 0, 0, 0])
 
         robot_state = self._robot.reset()
+        self._robot.set_color('dark_gray')
         self._observation = self.get_env_obs(robot_state)
 
         return np.array(self._observation)

@@ -15,7 +15,7 @@ class BulletEnv(gym.Env):
 
         # Rendering RGB
         self._render_data = dict()
-        self._render_data['dist'] = 3
+        self._render_data['distance'] = 3
         self._render_data['yaw'] = 0  # 0
         self._render_data['pitch'] = -30  # -30
         self._render_data['width'] = 320
@@ -106,6 +106,12 @@ class BulletEnv(gym.Env):
                 else:
                     self.physicsClientId = pb.connect(pb.DIRECT)
         pb.configureDebugVisualizer(pb.COV_ENABLE_GUI, 0)
+        print('BORRAR CONFIGURE DEBUG VISUALIZER')
+        pb.configureDebugVisualizer(pb.COV_ENABLE_WIREFRAME, 0)
+        pb.configureDebugVisualizer(pb.COV_ENABLE_SHADOWS, 0)
+        # pb.configureDebugVisualizer(pb.COV_ENABLE_RENDERING, 1)
+        # pb.configureDebugVisualizer(pb.COV_ENABLE_TINY_RENDERER, 1)
+
 
         if self._is_rendering:
             pb.resetDebugVisualizerCamera(cameraDistance=self._vis_data['distance'],
@@ -178,4 +184,9 @@ class BulletEnv(gym.Env):
 
     def HUD(self, state, a, done):
         pass
+
+    def update_obs_space(self):
+        high = np.inf * np.ones([self._obs_dim])
+        low = -high
+        self.observation_space = gym.spaces.Box(low, high)
 
