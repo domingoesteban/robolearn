@@ -48,7 +48,6 @@ class DiscreteEnv(Env):
         self.last_action = None  # for rendering
         self.nS = nS
         self.nA = nA
-        self.internal_counter = 0
 
         self.action_space = spaces.Discrete(self.nA)
         self.observation_space = spaces.Discrete(self.nS)
@@ -63,7 +62,6 @@ class DiscreteEnv(Env):
     def _reset(self):
         self.s = categorical_sample(self.isd, self.np_random)
         self.last_action = None
-        self.internal_counter = 0
         return self.s
 
     def _step(self, a):
@@ -72,6 +70,5 @@ class DiscreteEnv(Env):
         p, s, r, d = transitions[i]
         self.s = s
         self.last_action = a
-        self.internal_counter += 1
-        return (s, r, d, {"prob" : p})
+        return s, r, d, {'prob': p}
 

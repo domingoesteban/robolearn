@@ -26,6 +26,7 @@ class LinearGaussianPolicy(Policy):
         # super(LinearGaussianPolicy, self).__init__()
 
         # Assume K has the correct shape, and make sure others match.
+
         self.T = K.shape[0]
         self.dU = K.shape[1]
         self.dX = K.shape[2]

@@ -44,6 +44,7 @@ class ILQRAgent(Agent):
         rng = np.random.RandomState()
         rng.seed(seed)
 
+
 def np_random(seed=None):
     if seed is not None and not (isinstance(seed, integer_types) and 0 <= seed):
         raise error.Error('Seed must be a non-negative integer or omitted, not {}'.format(seed))

@@ -1,4 +1,5 @@
 from .reacher_env import ReacherBulletEnv
+from .reacher_multi_env import ReacherMultiBulletEnv
 
 # from gym.envs.registration import registry, register, make, spec
 #

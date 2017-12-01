@@ -15,12 +15,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import sys
-import os
+from six import StringIO, b
 
 from gym import utils
 from robolearn.envs.frozen_lake.discrete_env import DiscreteEnv
@@ -49,16 +45,8 @@ MAPS = {
     ],
 }
 
-MAP_BG_COLORS = {b'S': 'lightblue', b'G': 'green', b'F': 'white', b'H': 'black'}
-MAP_BG_TXT_COLORS = {b'S': 'black', b'G': 'black', b'F': 'white', b'H': 'white'}
 
-COLOR_DICT = dict(zip(mcolors.CSS4_COLORS.keys(), [mcolors.hex2color(color) for color in mcolors.CSS4_COLORS.values()]))
-
-IMG_HEIGHT = 240
-IMG_WIDTH = 240
-
-
-class FrozenLakeEnv(DiscreteEnv):
+class MazeEnv(DiscreteEnv):
     """
     Winter is here. You and your friends were tossing around a frisbee at the park
     when you made a wild throw that left the frisbee out in the middle of the lake.
@@ -84,27 +72,23 @@ class FrozenLakeEnv(DiscreteEnv):
 
     """
 
-    metadata = {'render.modes': ['human', 'ansi', 'rgb_array']}
+    metadata = {'render.modes': ['human', 'ansi']}
 
-    def __init__(self, desc=None, map_name="4x4", is_slippery=True, reward_dict=False):
+    def __init__(self, nrow=None, ncol=None, start=None, goal=None, wall=None, desc=None, map_name="4x4", is_slippery=True, reward_dict=False):
         """
 
         :param desc: 2D array specifying what each grid cell means (used for plotting)
         :param map_name: '4x4' or '8x8'
         :param is_slippery: Frozen surface is slippery or not
         """
-        if desc is None and map_name is None:
-            raise ValueError('Must provide either desc or map_name')
-        elif desc is None:
-            desc = MAPS[map_name]
 
-        self.desc = desc = np.asarray(desc, dtype='c')
-        self.nrow, self.ncol = nrow, ncol = desc.shape
+        self.nrow, self.ncol = nrow, ncol
 
         nA = 4
         nS = nrow * ncol
 
-        isd = np.array(desc == b'S').astype('float64').ravel()
+        # isd = np.array(desc == b'S').astype('float64').ravel()
+        # isd = len(start)/nSnp.array(desc == b'S').astype('float64').ravel()
         isd /= isd.sum()
 
         P = {s: {a: [] for a in range(nA)} for s in range(nS)}
@@ -184,97 +168,19 @@ class FrozenLakeEnv(DiscreteEnv):
 
         super(FrozenLakeEnv, self).__init__(nS, nA, P, isd)
 
-        self.fig, self.ax = None, None
-        self.s_draw = None
-
-    def to_row_col(self, s):
-        row = int(s // self.ncol)
-        col = int(s % self.ncol)
-        return row, col
-
     def _render(self, mode='human', close=False):
         if close:
-            if self.fig is not None:
-                plt.close(self.fig)
-                self.fig = None
-                self.ax = None
-                self.s_draw = None
             return
-        if mode == 'human':
-            if self.fig is None:
-                self._plot_backgound()
-                self._plot_env()
-                plt.ion()
-                plt.show()
-            else:
-                self._plot_env()
-            # self.fig.suptitle('Iter %d' % self.internal_counter)
-            self.fig.canvas.set_window_title('Frozen Lake environment')
-            plt.pause(0.0001)
-            return
+        outfile = StringIO() if mode == 'ansi' else sys.stdout
+
+        row, col = self.s // self.ncol, self.s % self.ncol
+        desc = self.desc.tolist()
+        desc = [[c.decode('utf-8') for c in line] for line in desc]
+        desc[row][col] = utils.colorize(desc[row][col], "red", highlight=True)
+        if self.last_action is not None:
+            outfile.write("  ({})\n".format(["Left", "Down", "Right", "Up"][self.last_action]))
         else:
-            plt.ioff()
-            matplotlib.use('Agg')
-            self._plot_backgound()
-            self._plot_env()
-            dpi = self.fig.get_dpi()
-            self.fig.set_size_inches(float(IMG_HEIGHT) / float(dpi), float(IMG_WIDTH) / float(dpi))
-            self.fig.subplots_adjust(bottom=0., left=0., right=1., top=1.)
-            extent = self.ax.get_window_extent().transformed(self.fig.dpi_scale_trans.inverted())
-            self.fig.savefig('/tmp/temporal_frozen_lake_img', format='png', bbox_inches=extent)
-            self._render(close=True)
-            plt.ion()
-            return plt.imread('/tmp/temporal_frozen_lake_img')[:, :, :3]
+            outfile.write("\n")
+        outfile.write("\n".join(''.join(line) for line in desc)+"\n")
 
-    def _plot_env(self):
-        row, col = self.to_row_col(self.s)
-        self._robot_marker(col, row)
-        self.fig.canvas.draw()
-
-    def _plot_backgound(self):
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(1, 1, 1)
-
-        self.fig.canvas.draw()
-
-        self.env_color = np.ones((self.nrow, self.ncol, 3))
-        for row in range(self.nrow):
-            for col in range(self.ncol):
-                letter = self.desc[row, col]
-                self.env_color[row, col, :] = COLOR_DICT[MAP_BG_COLORS[letter]]
-
-        square_size = 0.5
-        self.env_image = self.ax.imshow(self.env_color, interpolation='nearest')
-        self.ax.set_xticks(np.arange(self.ncol)-square_size)
-        self.ax.set_yticks(np.arange(self.nrow)-square_size)
-        self.ax.set_xticklabels([])
-        self.ax.set_yticklabels([])
-        self.ax.xaxis.set_ticks_position('none')
-        self.ax.yaxis.set_ticks_position('none')
-        for row in range(self.nrow):
-            for col in range(self.ncol):
-                letter = self.desc[row, col]
-                self.ax.text(col, row, str(self.desc[row, col].item().decode()),
-                             color=COLOR_DICT[MAP_BG_TXT_COLORS[letter]], size=10,  verticalalignment='center',
-                             horizontalalignment='center', fontweight='bold')
-                if letter == b'S':
-                    self._robot_marker(col, row)
-        self.ax.grid(color='k', lw=2, ls='-')
-        self.background = self.fig.canvas.copy_from_bbox(self.ax.bbox)  # cache the background
-
-    def _robot_marker(self, x, y, color='red'):
-        if self.s_draw is not None:
-            self.s_draw.remove()
-
-        if self.ncol == 4:
-            zoom = 0.03
-        else:
-            zoom = 0.015
-        image = plt.imread(os.path.join(os.path.dirname(__file__), 'robotio.png'))
-
-        for cc in range(3):
-            image[:, :, cc] = COLOR_DICT[color][cc]
-
-        im = OffsetImage(image, zoom=zoom)
-        ab = AnnotationBbox(im, (x, y), xycoords='data', frameon=False)
-        self.s_draw = self.ax.add_artist(ab)
+        return outfile

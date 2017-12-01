@@ -12,7 +12,7 @@ class Agent(object):
 
     def act(self, **kwargs):
         """
-        Return the action given the current policy
+        Return the action given the current policy.
         :param obs: Environment observations
         :return:
         """
@@ -24,4 +24,5 @@ class Agent(object):
         :param state:
         :return:
         """
-        NotImplementedError
+        raise NotImplementedError
+
