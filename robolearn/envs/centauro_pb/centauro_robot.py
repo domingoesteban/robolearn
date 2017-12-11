@@ -203,6 +203,11 @@ class CentauroBulletRobot(PyBulletRobot):
         self.initial_state[:len(self.active_joints)] = init_conf
         self.ordered_active_joints = [self.ordered_joints[joint]
                                       for joint in self.active_joints]
+        # Deactive all the other joints
+        for jj, joint in enumerate(self.ordered_joints):
+            if jj not in self.active_joints:
+                print('Disabling', jj)
+                joint.disable_motor(CENTAURO_INIT_CONFIG[jj], 0)
 
         self._cameras = list()
         self._cameras.append(self.add_camera('kinect2_rgb_optical_frame'))
@@ -229,6 +234,10 @@ class CentauroBulletRobot(PyBulletRobot):
                 joint.set_velocity(action[n])
             elif self.control_type == 'torque':
                 joint.set_motor_torque(self.power * joint.power_coef * float(np.clip(action[n], -1, +1)))
+
+        for n, joint in enumerate(self.ordered_joints):
+            print(n, joint.get_state())
+        input('cucucu')
 
     def get_image(self, camera_id=-1):
         return self._cameras[camera_id].get_image()

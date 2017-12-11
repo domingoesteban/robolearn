@@ -221,10 +221,10 @@ class Joint:
         p.resetJointState(self.bodies[self.bodyIndex], self.jointIndex, targetValue=position, targetVelocity=velocity)
         self.disable_motor()
 
-    def disable_motor(self):
+    def disable_motor(self, tgt_pos=0, tgt_vel=0):
         p.setJointMotorControl2(self.bodies[self.bodyIndex], self.jointIndex,
                                 controlMode=p.POSITION_CONTROL,
-                                targetPosition=0, targetVelocity=0,
+                                targetPosition=tgt_pos, targetVelocity=tgt_vel,
                                 positionGain=0.1, velocityGain=0.1, force=0)
 
 
