@@ -17,7 +17,7 @@ from pybullet_envs.robot_bases import BodyPart, Joint, Pose_Helper
 from robolearn.envs.reacher import ReacherBulletEnv
 from robolearn.envs.r2d2 import R2D2BulletEnv
 from robolearn.envs.bigman_pb import BigmanBulletEnv
-from robolearn.envs.frozen_like import FrozenLakeEnv
+from robolearn.envs.frozen_lake import FrozenLakeEnv
 from robolearn.envs.bigman_pb.bigman_robot import BIGMAN_INIT_CONFIG
 
 

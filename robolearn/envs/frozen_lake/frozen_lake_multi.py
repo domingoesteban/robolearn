@@ -19,7 +19,7 @@ import sys
 from six import StringIO, b
 
 from gym import utils
-from robolearn.envs.frozen_lake.discrete_env import DiscreteEnv
+from robolearn.envs.discrete_env import DiscreteEnv
 
 LEFT = 0
 DOWN = 1
