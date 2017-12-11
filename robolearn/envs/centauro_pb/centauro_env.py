@@ -15,7 +15,8 @@ class CentauroBulletEnv(BulletEnv):
         'video.frames_per_second': 50
     }
 
-    def __init__(self, render=False):
+    def __init__(self, render=False, active_joints='WB',
+                 control_type='velocity'):
 
         # Environment/Scene
         self.done = False
@@ -28,7 +29,10 @@ class CentauroBulletEnv(BulletEnv):
         # init_pos = [0, 0, 1.05]
         # init_pos = [0, 0, 1.041]
         init_pos = [0, 0, 0.7975]
-        self._robot = CentauroBulletRobot(init_pos=init_pos, control_type='velocity', self_collision=False)
+        self._robot = CentauroBulletRobot(init_pos=init_pos,
+                                          control_type=control_type,
+                                          self_collision=False,
+                                          active_joints=active_joints)
 
         self.action_bounds = [(-np.pi, np.pi) for _ in range(self._robot.action_dim)]
         self._act_dim = self._robot.action_dim + 0

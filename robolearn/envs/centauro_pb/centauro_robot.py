@@ -127,26 +127,43 @@ for ii in change_joint:
 # CENTAURO_JOINT_NAMES = [v for i, v in enumerate(CENTAURO_JOINT_NAMES) if i not in remove_joints]
 # CENTAURO_INIT_CONFIG = [v for i, v in enumerate(CENTAURO_INIT_CONFIG) if i not in remove_joints]
 
+CENTAURO_BODY_PARTS = {'LA': range(1, 8),
+                       'RA': range(8, 15),
+                       'BA': range(1, 15),
+                       'TO': [0],
+                       'HE': range(39, 41),
+                       'UB': range(1, 15)+range(39, 41),
+                       'FL': range(27, 30),
+                       'FR': range(30, 33),
+                       'BL': range(33, 36),
+                       'BR': range(36, 39),
+                       'LEGS': range(27, 39),
+                       'WB': range(0, 41)}
+
 
 class CentauroBulletRobot(PyBulletRobot):
-    def __init__(self, robot_name='pelvis', init_pos=None, self_collision=True, control_type='position'):
+    def __init__(self, robot_name='pelvis', init_pos=None, self_collision=True,
+                 control_type='position', active_joints='WB'):
 
         # urdf_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'urdf/centauro_full_with_imu.urdf')
         # urdf_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'urdf/centauro_full.urdf')
         # urdf_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'urdf/centauro_cvx_hull.urdf')
         urdf_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'urdf/stick_hands3.urdf')
 
-        self.act_dim = 41
-        self.obs_dim = 82
+        self.act_dim = len(CENTAURO_JOINT_NAMES[active_joints])
+        self.obs_dim = len(CENTAURO_JOINT_NAMES[active_joints])*2
         # self.act_dim = 27
         # self.obs_dim = 54
         # self.act_dim = 15
         # self.obs_dim = 30
 
         self.power = 1
+        self.active_joints = active_joints
 
-        super(CentauroBulletRobot, self).__init__('urdf', urdf_xml, robot_name, self.act_dim, self.obs_dim,
-                                                  init_pos=init_pos, joint_names=CENTAURO_JOINT_NAMES,
+        super(CentauroBulletRobot, self).__init__('urdf', urdf_xml, robot_name,
+                                                  self.act_dim, self.obs_dim,
+                                                  init_pos=init_pos,
+                                                  joint_names=CENTAURO_JOINT_NAMES,
                                                   self_collision=self_collision)
 
         if control_type not in ['position', 'velocity', 'torque']:
@@ -182,19 +199,19 @@ class CentauroBulletRobot(PyBulletRobot):
         self._cameras.append(self.add_camera('kinect2_rgb_optical_frame'))
 
     def robot_state(self):
-        self.total_joints = len(self.ordered_joints)
+        self.total_joints = len(self.ordered_joints[self.active_joints])
         self.state_per_joint = 2
 
-        state = np.zeros(self.state_per_joint*len(self.ordered_joints))
+        state = np.zeros(self.state_per_joint*self.total_joints)
 
-        for jj, joint in enumerate(self.ordered_joints):
+        for jj, joint in enumerate(self.ordered_joints[self.active_joints]):
             state[[jj, self.total_joints+jj]] = joint.current_position()
 
         return state
 
     def apply_action(self, action):
         assert (np.isfinite(action).all())
-        for n, joint in enumerate(self.ordered_joints):
+        for n, joint in enumerate(self.ordered_joints[self.active_joints]):
             # joint.set_motor_torque(self.power * joint.power_coef * float(np.clip(action[n], -1, +1)))
             # print(self.power * joint.power_coef * float(np.clip(action[n], -1, +1)), joint.power_coef, self.power)
             if self.control_type == 'position':
