@@ -29,9 +29,10 @@ class CentauroBulletEnv(BulletEnv):
         # init_pos = [0, 0, 1.05]
         # init_pos = [0, 0, 1.041]
         init_pos = [0, 0, 0.7975]
+        collision = True
         self._robot = CentauroBulletRobot(init_pos=init_pos,
                                           control_type=control_type,
-                                          self_collision=False,
+                                          self_collision=collision,
                                           active_joints=active_joints)
 
         self.action_bounds = [(-np.pi, np.pi) for _ in range(self._robot.action_dim)]
