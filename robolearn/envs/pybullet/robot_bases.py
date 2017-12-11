@@ -222,10 +222,17 @@ class Joint:
         self.disable_motor()
 
     def disable_motor(self, tgt_pos=0, tgt_vel=0):
+        print('pppppp', tgt_pos, tgt_vel)
         p.setJointMotorControl2(self.bodies[self.bodyIndex], self.jointIndex,
                                 controlMode=p.POSITION_CONTROL,
                                 targetPosition=tgt_pos, targetVelocity=tgt_vel,
                                 positionGain=0.1, velocityGain=0.1, force=0)
+
+    def lock_motor(self, tgt_pos=0, tgt_vel=0):
+        p.setJointMotorControl2(self.bodies[self.bodyIndex], self.jointIndex,
+                                controlMode=p.POSITION_CONTROL,
+                                targetPosition=tgt_pos, targetVelocity=tgt_vel,
+                                positionGain=0.1, velocityGain=0.1)
 
 
 class Camera:
