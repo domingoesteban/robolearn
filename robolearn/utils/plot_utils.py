@@ -310,7 +310,8 @@ def plot_joint_multi_info(joints_to_plot, data_to_plot,  joint_names, data='posi
                     label_name = jj
                 else:
                     label_name = labels[jj]
-                ax1.plot(data_to_plot[jj, :, joints_to_plot[ii]], label=label_name)
+                ax1.plot(data_to_plot[jj, :, joints_to_plot[ii]],
+                         label=label_name)
 
             if data == 'position':
                 ax1.set_ylabel('Position (rad)', color='k')
@@ -323,7 +324,8 @@ def plot_joint_multi_info(joints_to_plot, data_to_plot,  joint_names, data='posi
             ax1.tick_params('y', colors='k')
             ax1.tick_params(direction='in')
             if legend:
-                legend = ax1.legend(loc='lower right', fontsize='x-small', borderaxespad=0.)
+                legend = ax1.legend(loc='lower right', fontsize='x-small',
+                                    borderaxespad=0.)
                 legend.get_frame().set_alpha(0.4)
                 #legend.get_frame().set_facecolor('#00FFCC')
         else:
@@ -343,7 +345,10 @@ def plot_multi_info(data_list, block=True, cols=3, legend=True, labels=None):
     if labels is None:
         labels = list()
     for ii in range(axs.size):
-        ax1 = axs[ii/cols, ii % cols]
+        if axs.ndim == 1:
+            ax1 = axs[ii % cols]
+        else:
+            ax1 = axs[ii//cols, ii % cols]
         if ii < dData:
             ax1.set_title("Dimension %d" % (ii+1))
             for jj in range(len(data_list)):
@@ -362,10 +367,10 @@ def plot_multi_info(data_list, block=True, cols=3, legend=True, labels=None):
         else:
             plt.setp(ax1, visible=False)
 
-
     if legend:
         # One legend for all figures
-        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5, labelspacing=0., borderaxespad=0.)
+        legend = plt.figlegend(lines, labels, loc='lower center', ncol=5,
+                               labelspacing=0., borderaxespad=0.)
         legend.get_frame().set_alpha(0.4)
 
     fig.subplots_adjust(hspace=0)
@@ -376,7 +381,8 @@ def plot_multi_info(data_list, block=True, cols=3, legend=True, labels=None):
 
 def lqr_forward(traj_distr, traj_info):
     """
-    Perform LQR forward pass. Computes state-action marginals from dynamics and policy.
+    Perform LQR forward pass. Computes state-action marginals from dynamics and
+    policy.
     Args:
         traj_distr: A linear Gaussian policy object.
         traj_info: A TrajectoryInfo object.
@@ -424,8 +430,9 @@ def lqr_forward(traj_distr, traj_info):
     return mu, sigma
 
 
-def plot_3d_gaussian(ax, mu, sigma, edges=100, sigma_axes='XY', linestyle='-.', linewidth=1.0, color='black', alpha=0.1,
-                     label='', markeredgewidth=1.0, marker=None, markersize=5.0):
+def plot_3d_gaussian(ax, mu, sigma, edges=100, sigma_axes='XY', linestyle='-.',
+                     linewidth=1.0, color='black', alpha=0.1, label='',
+                     markeredgewidth=1.0, marker=None, markersize=5.0):
     """
     Plots ellipses in the xy plane representing the Gaussian distributions 
     specified by mu and sigma.
@@ -461,7 +468,8 @@ def plot_3d_gaussian(ax, mu, sigma, edges=100, sigma_axes='XY', linestyle='-.', 
                 markersize=markersize, markeredgewidth=markeredgewidth, alpha=alpha, color=color, label=label)
 
 
-def plot_sample_list_actions(iteration_data_list, samples_idx=None, sample_list_cols=3, colormap=None):
+def plot_sample_list_actions(iteration_data_list, samples_idx=None,
+                             sample_list_cols=3, colormap=None):
     """
     :param iteration_data_list: 
     :param samples_idx: None: plot all samples, else list of samples

@@ -31,11 +31,6 @@ from robolearn.utils.plot_utils import *
 
 import logging
 LOGGER = logging.getLogger(__name__)
-# Logging into console AND file
-LOGGER.setLevel(logging.DEBUG)
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.DEBUG)
-LOGGER.addHandler(ch)
 
 
 class GPS(RLAlgorithm):

@@ -1,9 +1,6 @@
 import pickle
-import logging
 
 import numpy as np
-
-#LOGGER = logging.getLogger(__name__)
 
 
 class SampleList(object):

@@ -5,7 +5,6 @@ Optimization of trajectories with DREPS.
  """
 import sys
 import copy
-import logging
 import numpy as np
 import scipy as sp
 
@@ -14,13 +13,6 @@ from scipy.optimize import minimize
 
 from robolearn.utils.traj_opt.traj_opt import TrajOpt
 from robolearn.utils.traj_opt.config import default_traj_opt_dreps_hyperparams
-
-LOGGER = logging.getLogger(__name__)
-# Logging into console AND file
-LOGGER.setLevel(logging.DEBUG)
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.DEBUG)
-LOGGER.addHandler(ch)
 
 
 class TrajOptDREPS(TrajOpt):

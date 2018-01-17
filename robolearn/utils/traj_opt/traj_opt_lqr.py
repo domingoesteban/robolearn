@@ -3,7 +3,6 @@ This file defines code for iLQG-based trajectory optimization.
 Author: C. Finn et al. Code in https://github.com/cbfinn/gps
 """
 import sys
-import logging
 import copy
 
 import numpy as np
@@ -15,13 +14,6 @@ from robolearn.utils.traj_opt.config import default_traj_opt_lqr_hyperparams
 from robolearn.utils.traj_opt.traj_opt_utils import DGD_MAX_ITER, DGD_MAX_LS_ITER, DGD_MAX_GD_ITER, \
                                                     ALPHA, BETA1, BETA2, EPS, traj_distr_kl, traj_distr_kl_alt
 from robolearn.utils.print_utils import ProgressBar
-
-LOGGER = logging.getLogger(__name__)
-# Logging into console AND file
-LOGGER.setLevel(logging.DEBUG)
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.DEBUG)
-LOGGER.addHandler(ch)
 
 
 class TrajOptLQR(TrajOpt):

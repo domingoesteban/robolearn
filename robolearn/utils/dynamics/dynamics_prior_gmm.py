@@ -18,8 +18,6 @@ DYN_PRIOR_GMM = {
     'strength': 1.0,
 }
 
-LOGGER = logging.getLogger(__name__)
-
 
 class DynamicsPriorGMM(object):
     """
@@ -63,13 +61,16 @@ class DynamicsPriorGMM(object):
         Phi = Phi * m
         return mu0, Phi, m, n0
 
-    def update(self, X, U):
+    def update(self, X, U, logger=None):
         """
         Update prior with additional data.
         Args:
             X: A N x T x dX matrix of sequential state data.
             U: A N x T x dU matrix of sequential control data.
         """
+        if logger is None:
+            LOGGER = logging.getLogger(__name__)
+
         # Constants.
         T = X.shape[1] - 1
 

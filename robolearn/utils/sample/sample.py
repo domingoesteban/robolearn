@@ -42,7 +42,8 @@ class Sample(object):
             obs_idx = range(self.dO)
         else:
             if obs_name not in self._info['obs']['names']:
-                raise AttributeError("There is not any observation with name %s in sample." % obs_name)
+                raise AttributeError("There is not any observation with name %s"
+                                     " in sample." % obs_name)
 
             obs_idx = self._info['obs']['idx'][self._info['obs']['names'].index(obs_name)]
 
@@ -57,7 +58,8 @@ class Sample(object):
             state_idx = range(self.dX)
         else:
             if state_name not in self._info['state']['names']:
-                raise AttributeError("There is not any state with name %s in sample." % state_name)
+                raise AttributeError("There is not any state with name %s "
+                                     "in sample." % state_name)
 
             state_idx = self._info['state']['idx'][self._info['state']['names'].index(state_name)]
 
@@ -73,7 +75,8 @@ class Sample(object):
         else:
             self._noise[t, :] = noise_data
 
-    def set(self, act_data=None, obs_data=None, state_data=None, noise_data=None, t=None):
+    def set(self, act_data=None, obs_data=None, state_data=None,
+            noise_data=None, t=None):
         """ Set trajectory data for a particular sensor. """
         if act_data is not None:
             self.set_acts(act_data, t=t)
@@ -93,7 +96,8 @@ class Sample(object):
         state = self._X if t is None else self._X[t, :]
         if state_name is not None:
             if state_name not in self._info['state']['names']:
-                raise AttributeError("There is not state with name %s in sample." % state_name)
+                raise AttributeError("There is not state with name %s "
+                                     "in sample." % state_name)
 
             state_idx = self._info['state']['idx'][self._info['state']['names'].index(state_name)]
             state = state[:, state_idx]
@@ -104,7 +108,8 @@ class Sample(object):
         obs = self._obs if t is None else self._obs[t, :]
         if obs_name is not None:
             if obs_name not in self._info['obs']['names']:
-                raise AttributeError("There is not observation with name %s in sample." % obs_name)
+                raise AttributeError("There is not observation with name %s "
+                                     "in sample." % obs_name)
 
             obs_idx = self._info['obs']['idx'][self._info['obs']['names'].index(obs_name)]
             obs = obs[:, obs_idx]

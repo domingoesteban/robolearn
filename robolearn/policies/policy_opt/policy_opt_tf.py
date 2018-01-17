@@ -21,14 +21,6 @@ from robolearn.policies.tf_policy import TfPolicy
 from robolearn.policies.policy_opt.policy_opt import PolicyOpt
 from robolearn.policies.policy_opt.tf_utils import TfSolver
 
-
-# LOGGER = logging.getLogger(__name__)
-# # Logging into console AND file
-# LOGGER.setLevel(logging.DEBUG)
-# ch = logging.StreamHandler(sys.stdout)
-# ch.setLevel(logging.DEBUG)
-# LOGGER.addHandler(ch)
-
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 GPU_MEM_PERCENTAGE = 0.4
@@ -199,7 +191,7 @@ class PolicyOptTf(PolicyOpt):
 
         # Assuming that N*T >= self.batch_size.
         batches_per_epoch = np.floor(N*T / self.batch_size)
-        idx = range(N*T)
+        idx = np.arange(N*T)
         average_loss = 0
         np.random.shuffle(idx)
 

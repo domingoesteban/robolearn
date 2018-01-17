@@ -3,13 +3,10 @@ This file defines utilities for trajectory optimization
 Author: C. Finn et al. Code in: https://github.com/cbfinn/gps
 """
 import abc
-import logging
 
 import numpy as np
 import scipy as sp
 
-
-LOGGER = logging.getLogger(__name__)
 
 # Constants used in TrajOptLQR.
 DGD_MAX_ITER = 3  # 50

@@ -22,8 +22,9 @@ class CostSum(Cost):
             self._costs.append(cost['type'](cost))
 
         if len(self._costs) != len(self._weights):
-            raise AttributeError("The number of cost types and weights do not match %d != %d" % (len(self._costs),
-                                                                                                 len(self._weights)))
+            raise AttributeError("The number of cost types and weights"
+                                 "do not match %d != %d"
+                                 % (len(self._costs), len(self._weights)))
 
     def eval(self, sample):
         """
@@ -59,5 +60,9 @@ class CostSum(Cost):
             lxx = lxx + plxx * weight
             luu = luu + pluu * weight
             lux = lux + plux * weight
+
+        # for i in range(len(cost_composition)):
+        #     print(cost_composition[i].sum())
+        # input('yucu')
 
         return l, lx, lu, lxx, luu, lux, cost_composition

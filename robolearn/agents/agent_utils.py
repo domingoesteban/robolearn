@@ -55,7 +55,6 @@ def generate_noise(T, dU, hyperparams):
     else:
         noise = noise*np.sqrt(scale)
 
-
-    # plot_multi_info(temp_noise_list, block=True, cols=3, legend=True)
+    # plot_multi_info(temp_noise_list, block=True, cols=2, legend=True)
 
     return noise

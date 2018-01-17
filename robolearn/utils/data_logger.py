@@ -2,7 +2,6 @@
 Data logger
 Author: C. Finn et al. Code in github.com:cbfinn/gps.git
 """
-import logging
 try:
    import cPickle as pickle
 except:
@@ -10,8 +9,6 @@ except:
 
 import datetime
 import os
-
-LOGGER = logging.getLogger(__name__)
 
 
 class DataLogger(object):
