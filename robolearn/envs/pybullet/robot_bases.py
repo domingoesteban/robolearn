@@ -53,8 +53,12 @@ class MJCFBasedRobot:
                 part_name = part_name.decode("utf8")
                 parts[part_name] = BodyPart(part_name, bodies, i, -1)
             for j in range(p.getNumJoints(bodies[i])):
-                p.setJointMotorControl2(bodies[i], j, p.POSITION_CONTROL, positionGain=0.1, velocityGain=0.1, force=0)
-                _,joint_name,_,_,_,_,_,_,_,_,_,_,part_name = p.getJointInfo(bodies[i], j)
+                p.setJointMotorControl2(bodies[i], j, p.POSITION_CONTROL,
+                                        positionGain=0.1, velocityGain=0.1,
+                                        force=0)
+                joint_info = p.getJointInfo(bodies[i], j)
+                joint_name = joint_info[1]
+                part_name = joint_info[12]
 
                 joint_name = joint_name.decode("utf8")
                 part_name = part_name.decode("utf8")
@@ -87,11 +91,14 @@ class MJCFBasedRobot:
         self.ordered_joints = []
 
         if self.self_collision:
-            self.parts, self.jdict, self.ordered_joints, self.robot_body = self.addToScene(
-                p.loadMJCF(os.path.join(pybullet_data.getDataPath(),"mjcf", self.model_xml), flags=p.URDF_USE_SELF_COLLISION+p.URDF_USE_SELF_COLLISION_EXCLUDE_ALL_PARENTS))
+            self.parts, self.jdict, self.ordered_joints, self.robot_body = \
+                self.addToScene(p.loadMJCF(os.path.join(pybullet_data.getDataPath(),
+                                                        "mjcf", self.model_xml),
+                                           flags=p.URDF_USE_SELF_COLLISION+p.URDF_USE_SELF_COLLISION_EXCLUDE_ALL_PARENTS))
         else:
-            self.parts, self.jdict, self.ordered_joints, self.robot_body = self.addToScene(
-                p.loadMJCF(os.path.join(pybullet_data.getDataPath(),"mjcf", self.model_xml)))
+            self.parts, self.jdict, self.ordered_joints, self.robot_body = \
+                self.addToScene(p.loadMJCF(os.path.join(pybullet_data.getDataPath(),
+                                                        "mjcf", self.model_xml)))
 
         self.robot_specific_reset()
 
@@ -127,7 +134,9 @@ class BodyPart:
         self.initialOrientation = self.current_orientation()
         self.bp_pose = Pose_Helper(self)
 
-    def state_fields_of_pose_of(self, body_id, link_id=-1):  # a method you will most probably need a lot to get pose and orientation
+    # A method you will most probably need a lot to get pose and orientation
+    @staticmethod
+    def state_fields_of_pose_of(body_id, link_id=-1):
         if link_id == -1:
             (x, y, z), (a, b, c, d) = p.getBasePositionAndOrientation(body_id)
         else:
@@ -135,13 +144,16 @@ class BodyPart:
         return np.array([x, y, z, a, b, c, d])
 
     def get_pose(self):
-        return self.state_fields_of_pose_of(self.bodies[self.bodyIndex], self.bodyPartIndex)
+        return self.state_fields_of_pose_of(self.bodies[self.bodyIndex],
+                                            self.bodyPartIndex)
 
     def speed(self):
         if self.bodyPartIndex == -1:
             (vx, vy, vz), _ = p.getBaseVelocity(self.bodies[self.bodyIndex])
         else:
-            (x,y,z), (a,b,c,d), _,_,_,_, (vx, vy, vz), (vr,vp,vy) = p.getLinkState(self.bodies[self.bodyIndex], self.bodyPartIndex, computeLinkVelocity=1)
+            (x,y,z), (a,b,c,d), _,_,_,_, (vx, vy, vz), (vr,vp,vy) = \
+                p.getLinkState(self.bodies[self.bodyIndex], self.bodyPartIndex,
+                               computeLinkVelocity=1)
         return np.array([vx, vy, vz])
 
     def current_position(self):
@@ -151,10 +163,12 @@ class BodyPart:
         return self.get_pose()[3:]
 
     def reset_position(self, position):
-        p.resetBasePositionAndOrientation(self.bodies[self.bodyIndex], position, self.get_orientation())
+        p.resetBasePositionAndOrientation(self.bodies[self.bodyIndex], position,
+                                          self.get_orientation())
 
     def reset_orientation(self, orientation):
-        p.resetBasePositionAndOrientation(self.bodies[self.bodyIndex], self.get_position(), orientation)
+        p.resetBasePositionAndOrientation(self.bodies[self.bodyIndex],
+                                          self.get_position(), orientation)
 
     def reset_pose(self, position, orientation):
         p.resetBasePositionAndOrientation(self.bodies[self.bodyIndex], position, orientation)
@@ -172,13 +186,16 @@ class Joint:
         self.bodyIndex = bodyIndex
         self.jointIndex = jointIndex
         self.joint_name = joint_name
-        _,_,_,_,_,_,_,_,self.lowerLimit, self.upperLimit,_,_,_ = p.getJointInfo(self.bodies[self.bodyIndex], self.jointIndex)
+        joint_info = p.getJointInfo(self.bodies[self.bodyIndex],
+                                    self.jointIndex)
+        self.lowerLimit = joint_info[8]
+        self.upperLimit = joint_info[9]
         self.power_coeff = 0
 
     def set_state(self, x, vx):
         p.resetJointState(self.bodies[self.bodyIndex], self.jointIndex, x, vx)
 
-    def current_position(self): # just some synonyme method
+    def current_position(self):  # just some synonyme method
         return self.get_state()
 
     def current_relative_position(self):
@@ -190,7 +207,8 @@ class Joint:
         )
 
     def get_state(self):
-        x, vx, _, _ = p.getJointState(self.bodies[self.bodyIndex], self.jointIndex)
+        x, vx, _, _ = p.getJointState(self.bodies[self.bodyIndex],
+                                      self.jointIndex)
         return x, vx
 
     def set_position(self, position):
@@ -218,11 +236,11 @@ class Joint:
         self.reset_position(position, velocity)
 
     def reset_position(self, position, velocity):
-        p.resetJointState(self.bodies[self.bodyIndex], self.jointIndex, targetValue=position, targetVelocity=velocity)
+        p.resetJointState(self.bodies[self.bodyIndex], self.jointIndex,
+                          targetValue=position, targetVelocity=velocity)
         self.disable_motor()
 
     def disable_motor(self, tgt_pos=0, tgt_vel=0):
-        print('pppppp', tgt_pos, tgt_vel)
         p.setJointMotorControl2(self.bodies[self.bodyIndex], self.jointIndex,
                                 controlMode=p.POSITION_CONTROL,
                                 targetPosition=tgt_pos, targetVelocity=tgt_vel,

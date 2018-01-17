@@ -3,18 +3,18 @@ import numpy as np
 from robolearn.envs.pybullet.pybullet_robot import PyBulletRobot
 
 
-class ReacherTarget(PyBulletRobot):
+class PusherTarget(PyBulletRobot):
     def __init__(self, robot_name='target', self_collision=True):
 
         mjc_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               'models/reacher_target.xml')
+                               'models/pusher_target.xml')
 
         self.act_dim = 2
         self.obs_dim = 4
 
         self.power = 0.01
 
-        super(ReacherTarget, self).__init__('mjcf', mjc_xml, robot_name,
+        super(PusherTarget, self).__init__('mjcf', mjc_xml, robot_name,
                                             self.act_dim, self.obs_dim,
                                             self_collision=self_collision)
 

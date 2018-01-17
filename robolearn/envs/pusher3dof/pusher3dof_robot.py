@@ -1,24 +1,33 @@
 import os
 import numpy as np
+import logging
 from robolearn.envs.pybullet.pybullet_robot import PyBulletRobot
 
 
-class ReacherMJCRobot(PyBulletRobot):
+class Pusher3DofRobot(PyBulletRobot):
     def __init__(self, robot_name='reacher', self_collision=True):
-        print('New ReacherMJC')
-        mjc_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               'models/reacher_robot.xml')
+        # Logger
+        self.logger = logging.getLogger('pybullet')
+        self.logger.setLevel(logging.INFO)
 
-        self.act_dim = 2
+        self.logger.info('pbPUSHER | Creating new PusherURDF')
+
+        pusher_urdf = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   'models/pusher3dof.urdf')
+
+        self.act_dim = 3
         self.state_per_joint = 2
 
-        self.obs_dim = 4
+        self.obs_dim = self.act_dim*self.state_per_joint
 
         self.power = 0.01
 
-        super(ReacherMJCRobot, self).__init__('mjcf', mjc_xml, 'root',
+        joint_names = ['joint0', 'joint1', 'joint2']
+
+        super(Pusher3DofRobot, self).__init__('urdf', pusher_urdf, 'base_link',
                                               self.act_dim, self.obs_dim,
-                                              self_collision=self_collision)
+                                              self_collision=self_collision,
+                                              joint_names=joint_names)
 
         # Initial / default values
         self.initial_state = np.zeros(self.obs_dim)
@@ -35,7 +44,8 @@ class ReacherMJCRobot(PyBulletRobot):
                                  self.initial_state[self.total_joints+jj])
 
         # Color
-        color_list = [[0.0, 0.4, 0.6, 1] for _ in range(self.get_total_bodies())]
+        color_list = [[0.0, 0.4, 0.6, 1]
+                      for _ in range(self.get_total_bodies())]
         color_list[0] = [0.9, 0.4, 0.6, 1]
         color_list[-1] = [0.0, 0.8, 0.6, 1]
         self.set_body_colors(color_list)
