@@ -8,6 +8,7 @@ from gym.utils import seeding
 from robolearn.envs.pybullet.bullet_env import BulletEnv
 from robolearn.envs.pusher3dof.pusher3dof_robot import Pusher3DofRobot
 from robolearn.envs.pusher3dof.pusher_target import PusherTarget
+from robolearn.envs.pybullet.pybullet_object import PyBulletObject
 
 
 TGT_DEF_COLORS = ['yellow', 'red', 'green', 'white', 'blue']
@@ -105,6 +106,15 @@ class Pusher3DofBulletEnv(BulletEnv):
         for ii in pb_bodies:
             pb.changeVisualShape(ii, -1, rgbaColor=[0.0, 0.0, 0.0, 1])
 
+
+        # target_urdf = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+        #                            'models/pusher_target.urdf')
+        # target1 = PyBulletObject('urdf', target_urdf, 'target',
+        #                          init_pos=(0., -0.5, 0.05))
+        # target1.reset()
+        # target1.set_pose((0., 0.5, 0.05))
+
+
         # Border
         mjcf_xml = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 'models/pusher_border.xml')
@@ -114,9 +124,9 @@ class Pusher3DofBulletEnv(BulletEnv):
         for ii in pb_bodies:
             pb.changeVisualShape(ii, -1, rgbaColor=[0.9, 0.4, 0.6, 1])
 
-        # Target 0
+        # Targets
         for tt, tgt in enumerate(self.tgts):
-            tgt_state = tgt.reset()
+            tgt_pose = tgt.reset()
             if self.tgt_pos_is_rdn:
                 while True:
                     self.tgt_pos[tt] = self.np_random.uniform(low=-.2,
@@ -125,11 +135,13 @@ class Pusher3DofBulletEnv(BulletEnv):
                     if np.linalg.norm(self.tgt_pos[tt]) < 2:
                         break
             tgt.set_color(self.tgt_colors[tt])
-            # des_pos = np.zeros(3)
-            # des_pos[:2] = self.tgt_pos[tt]
-            # tgt.set_robot_pose(des_pos, [0, 0, 0, 1])
+
+            des_pos = np.zeros(3)
+            des_pos[:2] = self.tgt_pos[tt]
+            des_pos[2] = 0.05
+            tgt.set_pose(des_pos, [0, 0, 0, 1])
             # tgt.apply_action(des_pos[:2])
-            tgt.set_state(self.tgt_pos[tt], np.zeros_like(self.tgt_pos[tt]))
+            # tgt.set_state(self.tgt_pos[tt], np.zeros_like(self.tgt_pos[tt]))
 
         # Camera
         self.set_render_data(width=self.img_width, height=self.img_height)
@@ -169,7 +181,8 @@ class Pusher3DofBulletEnv(BulletEnv):
         pos_dof = self._pos_dof
         vec = np.zeros(pos_dof*len(self.tgts))
         for tt, tgt in enumerate(self.tgts):
-            target_pos = tgt.parts['target'].current_position()
+            # target_pos = tgt.parts['target'].current_position()
+            target_pos = tgt.get_pose()[:3]
             vec[tt*pos_dof:(tt+1)*pos_dof] = \
                 gripper_pos[:pos_dof] - target_pos[:pos_dof]
 
@@ -180,7 +193,8 @@ class Pusher3DofBulletEnv(BulletEnv):
 
         if self._obs_mjc_gym:
             theta = robot_observation[:2]
-            tgt_state = np.array([tgt.get_state()[:2] for tgt in self.tgts]).flatten()
+            # tgt_state = np.array([tgt.get_state()[:2] for tgt in self.tgts]).flatten()
+            tgt_state = np.array([tgt.get_pose()[:2] for tgt in self.tgts]).flatten()
             robot_observation = np.concatenate((np.cos(theta), np.sin(theta), tgt_state,
                                                 robot_observation[2:]))
 
@@ -210,7 +224,7 @@ class Pusher3DofBulletEnv(BulletEnv):
 
         reward_dist = np.zeros(len(self.tgts))
         for tt, target in enumerate(self.tgts):
-            target_pos = self.tgts[tt].get_position()
+            target_pos = self.tgts[tt].get_pose()[:3]
             vec = gripper_pos - target_pos
             reward_dist[tt] = -np.linalg.norm(vec) * self.tgt_cost_weights[tt]
         # print('reward -->', target_pos, gripper_pos, vec)

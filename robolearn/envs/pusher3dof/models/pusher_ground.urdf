@@ -1,9 +1,9 @@
 <?xml version="0.0" ?>
 <robot name="plane">
   <link name="planeLink">
-  <contact>
-    <lateral_friction value="1"/>
-  </contact>
+    <contact>
+      <lateral_friction value="1"/>
+    </contact>
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <mass value=".0"/>

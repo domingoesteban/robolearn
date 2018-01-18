@@ -528,7 +528,9 @@ class DualGPS(Algorithm):
                     # Checking NAN
                     nan_number = np.isnan(action)
                     if np.any(nan_number):
-                        print("\e[31mERROR ACTION: NAN!!!!! | type:%s | itr %d | cond%d | i:%d t:%d" % (traj_or_pol, itr+1, cond+1, i+1, t+1))
+                        print("\e[31mERROR ACTION: NAN!!!!! | type:%s | "
+                              "itr %d | cond%d | i:%d t:%d"
+                              % (traj_or_pol, itr+1, cond+1, i+1, t+1))
                     action[nan_number] = 0
                     # self.env.send_action(action)
                     self.env.step(action)

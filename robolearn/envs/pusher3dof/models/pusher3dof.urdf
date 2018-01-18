@@ -50,6 +50,14 @@
     <dynamics damping="0.7"/>
   </joint>
   <link name="coupler0">
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <!--<sphere radius="${radius_axel}"/>-->
+        <cylinder length="0.05" radius="0.045"/>
+      </geometry>
+      <material name="white"/>
+    </collision>
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
@@ -107,6 +115,13 @@
     <dynamics damping="0.7"/>
   </joint>
   <link name="coupler1">
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <cylinder length="0.05" radius="0.045"/>
+      </geometry>
+      <material name="white"/>
+    </collision>
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
@@ -163,6 +178,13 @@
     <dynamics damping="0.7"/>
   </joint>
   <link name="coupler2">
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <cylinder length="0.05" radius="0.045"/>
+      </geometry>
+      <material name="white"/>
+    </collision>
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
@@ -208,27 +230,6 @@
     <origin rpy="0 0 0" xyz="0.1 0 0"/>
   </joint>
   <link name="gripper">
-    <visual>
-      <origin rpy="1.57079632679 0 1.57079632679" xyz="0.0075 0 0"/>
-      <geometry>
-        <box size="0.14 0.025 0.015"/>
-      </geometry>
-      <material name="white"/>
-    </visual>
-    <visual>
-      <origin rpy="1.57079632679 0 1.57079632679" xyz="0.0575 0.06 0"/>
-      <geometry>
-        <box size="0.02 0.025 0.085"/>
-      </geometry>
-      <material name="white"/>
-    </visual>
-    <visual>
-      <origin rpy="1.57079632679 0 1.57079632679" xyz="0.0575 -0.06 0"/>
-      <geometry>
-        <box size="0.02 0.025 0.085"/>
-      </geometry>
-      <material name="white"/>
-    </visual>
     <collision>
       <origin rpy="1.57079632679 0 1.57079632679" xyz="0.0075 0 0"/>
       <geometry>
@@ -250,6 +251,27 @@
       </geometry>
       <material name="white"/>
     </collision>
+    <visual>
+      <origin rpy="1.57079632679 0 1.57079632679" xyz="0.0075 0 0"/>
+      <geometry>
+        <box size="0.14 0.025 0.015"/>
+      </geometry>
+      <material name="white"/>
+    </visual>
+    <visual>
+      <origin rpy="1.57079632679 0 1.57079632679" xyz="0.0575 0.06 0"/>
+      <geometry>
+        <box size="0.02 0.025 0.085"/>
+      </geometry>
+      <material name="white"/>
+    </visual>
+    <visual>
+      <origin rpy="1.57079632679 0 1.57079632679" xyz="0.0575 -0.06 0"/>
+      <geometry>
+        <box size="0.02 0.025 0.085"/>
+      </geometry>
+      <material name="white"/>
+    </visual>
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <mass value="0.1"/>

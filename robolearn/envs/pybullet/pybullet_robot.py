@@ -88,9 +88,15 @@ class PyBulletRobot(object):
                 robot_name = robot_name.decode("utf8")
                 part_name = part_name.decode("utf8")
                 parts[part_name] = BodyPart(part_name, bodies, i, -1)
-                self.logger.info('pbROBOT | Body id:', bb, 'has 0 joints and',
-                                 'part_name:', part_name,
-                                 'has been added to parts dict.')
+                self.logger.info('pbROBOT | Body id: %d has 0 joints and '
+                                 'part_name %s has been added to parts dict.'
+                                 % (bb, part_name))
+                if len(bodies) == 1:
+                    self.logger.warning('pbROBOT | This is not a robotBody but '
+                                        'creating robot_body and robot_uid '
+                                        'anyway.')
+                    self.robot_body = parts[part_name]
+                    self._robot_uid = bb
 
             for j in range(pb.getNumJoints(bb)):
                 self.logger.info('pbROBOT | Joint %d' % j)

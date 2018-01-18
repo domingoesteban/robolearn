@@ -1,0 +1,729 @@
+[10:10:42] 
+[10:10:42] ->DualGPS: itr:01 | Sampling from local trajectories...
+[10:10:42] Resetting environment to condition 00...
+[10:10:45] Generating sample data...
+[10:10:45] The sample was added to Agent's sample list. Now there are 1 sample(s) for condition '0'.
+[10:10:45] Resetting environment to condition 00...
+[10:10:49] Generating sample data...
+[10:10:49] The sample was added to Agent's sample list. Now there are 2 sample(s) for condition '0'.
+[10:10:49] Resetting environment to condition 00...
+[10:10:52] Generating sample data...
+[10:10:52] The sample was added to Agent's sample list. Now there are 3 sample(s) for condition '0'.
+[10:10:52] Resetting environment to condition 00...
+[10:10:55] Generating sample data...
+[10:10:55] The sample was added to Agent's sample list. Now there are 4 sample(s) for condition '0'.
+[10:10:55] Resetting environment to condition 00...
+[10:10:59] Generating sample data...
+[10:10:59] The sample was added to Agent's sample list. Now there are 5 sample(s) for condition '0'.
+[10:10:59] Resetting environment to condition 00...
+[10:11:02] Generating sample data...
+[10:11:02] The sample was added to Agent's sample list. Now there are 6 sample(s) for condition '0'.
+[10:11:02] Resetting environment to condition 01...
+[10:11:05] Generating sample data...
+[10:11:05] The sample was added to Agent's sample list. Now there are 1 sample(s) for condition '1'.
+[10:11:05] Resetting environment to condition 01...
+[10:11:08] Generating sample data...
+[10:11:08] The sample was added to Agent's sample list. Now there are 2 sample(s) for condition '1'.
+[10:11:08] Resetting environment to condition 01...
+[10:11:12] Generating sample data...
+[10:11:12] The sample was added to Agent's sample list. Now there are 3 sample(s) for condition '1'.
+[10:11:12] Resetting environment to condition 01...
+[10:11:15] Generating sample data...
+[10:11:15] The sample was added to Agent's sample list. Now there are 4 sample(s) for condition '1'.
+[10:11:15] Resetting environment to condition 01...
+[10:11:18] Generating sample data...
+[10:11:18] The sample was added to Agent's sample list. Now there are 5 sample(s) for condition '1'.
+[10:11:18] Resetting environment to condition 01...
+[10:11:22] Generating sample data...
+[10:11:22] The sample was added to Agent's sample list. Now there are 6 sample(s) for condition '1'.
+[10:11:22] Resetting environment to condition 02...
+[10:11:25] Generating sample data...
+[10:11:25] The sample was added to Agent's sample list. Now there are 1 sample(s) for condition '2'.
+[10:11:25] Resetting environment to condition 02...
+[10:11:28] Generating sample data...
+[10:11:28] The sample was added to Agent's sample list. Now there are 2 sample(s) for condition '2'.
+[10:11:28] Resetting environment to condition 02...
+[10:11:32] Generating sample data...
+[10:11:32] The sample was added to Agent's sample list. Now there are 3 sample(s) for condition '2'.
+[10:11:32] Resetting environment to condition 02...
+[10:11:35] Generating sample data...
+[10:11:35] The sample was added to Agent's sample list. Now there are 4 sample(s) for condition '2'.
+[10:11:35] Resetting environment to condition 02...
+[10:11:38] Generating sample data...
+[10:11:38] The sample was added to Agent's sample list. Now there are 5 sample(s) for condition '2'.
+[10:11:38] Resetting environment to condition 02...
+[10:11:42] Generating sample data...
+[10:11:42] The sample was added to Agent's sample list. Now there are 6 sample(s) for condition '2'.
+[10:11:42] 
+[10:11:42] ->DualGPS: itr:01 | Updating dynamics linearization...
+[10:12:13] 
+[10:12:13] ->DualGPS: itr:01 | Evaluating samples costs...
+[10:12:13] 
+
+
+[10:12:13] ->DualGPS: itr:01 | S-step for init_traj_distribution (iter=0)...
+[10:12:13] -->Updating Global policy...
+[10:12:14] tensorflow iteration 50, average loss 0.000124
+[10:12:15] tensorflow iteration 100, average loss 0.000045
+[10:12:15] tensorflow iteration 150, average loss 0.000047
+[10:12:15] tensorflow iteration 200, average loss 0.000044
+[10:12:16] tensorflow iteration 250, average loss 0.000043
+[10:12:16] tensorflow iteration 300, average loss 0.000053
+[10:12:17] tensorflow iteration 350, average loss 0.000048
+[10:12:17] tensorflow iteration 400, average loss 0.000046
+[10:12:17] tensorflow iteration 450, average loss 0.000046
+[10:12:18] tensorflow iteration 500, average loss 0.000049
+[10:12:18] tensorflow iteration 550, average loss 0.000044
+[10:12:19] tensorflow iteration 600, average loss 0.000043
+[10:12:19] tensorflow iteration 650, average loss 0.000050
+[10:12:19] tensorflow iteration 700, average loss 0.000052
+[10:12:20] tensorflow iteration 750, average loss 0.000045
+[10:12:20] tensorflow iteration 800, average loss 0.000048
+[10:12:21] tensorflow iteration 850, average loss 0.000047
+[10:12:21] tensorflow iteration 900, average loss 0.000042
+[10:12:21] tensorflow iteration 950, average loss 0.000045
+[10:12:22] tensorflow iteration 1000, average loss 0.000048
+[10:12:22] tensorflow iteration 1050, average loss 0.000054
+[10:12:22] tensorflow iteration 1100, average loss 0.000044
+[10:12:23] tensorflow iteration 1150, average loss 0.000050
+[10:12:23] tensorflow iteration 1200, average loss 0.000045
+[10:12:24] tensorflow iteration 1250, average loss 0.000044
+[10:12:24] tensorflow iteration 1300, average loss 0.000045
+[10:12:24] tensorflow iteration 1350, average loss 0.000045
+[10:12:25] tensorflow iteration 1400, average loss 0.000055
+[10:12:25] tensorflow iteration 1450, average loss 0.000044
+[10:12:25] tensorflow iteration 1500, average loss 0.000051
+[10:12:26] tensorflow iteration 1550, average loss 0.000043
+[10:12:26] tensorflow iteration 1600, average loss 0.000047
+[10:12:26] tensorflow iteration 1650, average loss 0.000044
+[10:12:27] tensorflow iteration 1700, average loss 0.000044
+[10:12:27] tensorflow iteration 1750, average loss 0.000053
+[10:12:27] tensorflow iteration 1800, average loss 0.000047
+[10:12:28] tensorflow iteration 1850, average loss 0.000047
+[10:12:28] tensorflow iteration 1900, average loss 0.000045
+[10:12:29] tensorflow iteration 1950, average loss 0.000048
+[10:12:29] tensorflow iteration 2000, average loss 0.000044
+[10:12:29] 
+[10:12:29] ->DualGPS: itr:01 | Updating global policy linearization...
+[10:12:55] 
+[10:12:55] 
+[10:12:55] ->DualGPS: itr:01 | Getting good and bad trajectories...
+[10:12:55] DualGPS: Defining GOOD trajectory sample 0 | cur_cost=23363.821260 from sample 4
+[10:12:55] DualGPS: Defining GOOD trajectory sample 1 | cur_cost=24120.145631 from sample 2
+[10:12:55] DualGPS: Defining GOOD trajectory sample 0 | cur_cost=23625.831778 from sample 0
+[10:12:55] DualGPS: Defining GOOD trajectory sample 1 | cur_cost=24197.327191 from sample 3
+[10:12:55] DualGPS: Defining GOOD trajectory sample 0 | cur_cost=23613.371995 from sample 2
+[10:12:55] DualGPS: Defining GOOD trajectory sample 1 | cur_cost=23931.649669 from sample 1
+[10:12:55] DualGPS: Defining BAD trajectory sample 0 | cur_cost=26008.173616 from sample 0
+[10:12:55] DualGPS: Defining BAD trajectory sample 1 | cur_cost=26100.613558 from sample 3
+[10:12:55] DualGPS: Defining BAD trajectory sample 0 | cur_cost=27749.185554 from sample 2
+[10:12:55] DualGPS: Defining BAD trajectory sample 1 | cur_cost=27934.911929 from sample 5
+[10:12:55] DualGPS: Defining BAD trajectory sample 0 | cur_cost=26854.375330 from sample 4
+[10:12:55] DualGPS: Defining BAD trajectory sample 1 | cur_cost=28206.224620 from sample 5
+[10:12:55] 
+[10:12:55] ->DualGPS: itr:01 | Updating data of good and bad samples...
+[10:12:55] -->DualGPS: itr:01 | Update g/b dynamics...
+[10:13:14] -->DualGPS: itr:01 | Update g/b costs...
+[10:13:14] -->DualGPS: itr:01 | Update g/b traj dist...
+[10:13:16] -->DualGPS: itr:01 | Divergence btw good/bad trajs: ...
+[10:13:16] --->Divergence btw good/bad trajs is: 35800.173630
+[10:13:17] --->Divergence btw good/bad trajs is: 72364.673802
+[10:13:17] --->Divergence btw good/bad trajs is: 142579.094952
+[10:13:17] 
+[10:13:17] ->DualGPS: itr:01 | Updating trajectories...
+[10:13:17] -->DualGPS: itr:01 | Inner iteration 1/1
+[10:13:17] -->DualGPS: Updating trajectories (local policies)...
+[10:13:17] .
+.
+
+[10:13:17] ____________________________________________________________
+[10:13:17] Running DGD for trajectory(condition) 0,eta: 4.620000, nu: 0.001000, omega: 0.001000
+[10:13:17] ____________________________________________________________
+[10:13:17] ALL DGD iteration 0, ETA bracket: (1.00e-08 , 4.62e+00 , 1.00e+16)
+[10:13:17] ALL DGD iteration 0, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:17] ALL DGD iteration 0, OMEGA bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:17] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:17] kl_step False | abs(con) < 0.1*kl_step | abs(-59.997592) < 6.000000 | 99.995987%
+[10:13:17] kl_bad True | con_bad <= 0 | -11986.476450 < 0.000000 | -1997.746075%
+[10:13:17] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(33416.727501) < 180.000000 | 11138.909167%
+[10:13:17] Modifying ETA
+[10:13:17] KL: 0.002408 <= 60.000000, eta too big,new eta: 4.620e-01
+[10:13:17] consider_bad: True
+[10:13:17] NOT Modifying NU
+[10:13:17] consider_good: True
+[10:13:17] Modifying OMEGA
+[10:13:17] KL: 33716.727501 <= 300.000000, omega too small, new omega: 1.000e-02
+[10:13:17] 
+
+[10:13:17] ++++++++++++++++++++
+[10:13:17] eta_conv False: kl_div < epsilon (0.002408 < 60.000000) | 99.995987%
+[10:13:17] nu_conv True: kl_div > xi (12586.476450 > 600.000000) | 1997.746075%
+[10:13:17] omega_conv False: kl_div < chi (33716.727501 < 300.000000) | 11138.909167%
+[10:13:17] ALL DGD iteration 1, ETA bracket: (1.00e-08 , 4.62e-01 , 4.62e+00)
+[10:13:17] ALL DGD iteration 1, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:17] ALL DGD iteration 1, OMEGA bracket: (1.00e-03 , 1.00e-02 , 5.00e-01)
+[10:13:17] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:18] kl_step False | abs(con) < 0.1*kl_step | abs(-56.564674) < 6.000000 | 94.274457%
+[10:13:18] kl_bad True | con_bad <= 0 | -11983.775676 < 0.000000 | -1997.295946%
+[10:13:18] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(33098.685244) < 180.000000 | 11032.895081%
+[10:13:18] Modifying ETA
+[10:13:18] KL: 3.435326 <= 60.000000, eta too big,new eta: 4.620e-02
+[10:13:18] consider_bad: True
+[10:13:18] NOT Modifying NU
+[10:13:18] consider_good: True
+[10:13:18] Modifying OMEGA
+[10:13:18] KL: 33398.685244 <= 300.000000, omega too small, new omega: 7.071e-02
+[10:13:18] 
+
+[10:13:18] ++++++++++++++++++++
+[10:13:18] eta_conv False: kl_div < epsilon (3.435326 < 60.000000) | 94.274457%
+[10:13:18] nu_conv True: kl_div > xi (12583.775676 > 600.000000) | 1997.295946%
+[10:13:18] omega_conv False: kl_div < chi (33398.685244 < 300.000000) | 11032.895081%
+[10:13:18] ALL DGD iteration 2, ETA bracket: (1.00e-08 , 4.62e-02 , 4.62e-01)
+[10:13:18] ALL DGD iteration 2, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:18] ALL DGD iteration 2, OMEGA bracket: (1.00e-02 , 7.07e-02 , 5.00e-01)
+[10:13:18] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:19] kl_step False | abs(con) < 0.1*kl_step | abs(6488.273360) < 6.000000 | 10813.788934%
+[10:13:19] kl_bad True | con_bad <= 0 | -11296.329837 < 0.000000 | -1882.721640%
+[10:13:19] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(20960.560500) < 180.000000 | 6986.853500%
+[10:13:19] Modifying ETA
+[10:13:19] KL: 6548.273360 <= 60.000000, eta too small,new eta: 1.461e-01
+[10:13:19] consider_bad: True
+[10:13:19] NOT Modifying NU
+[10:13:19] consider_good: True
+[10:13:19] Modifying OMEGA
+[10:13:19] KL: 21260.560500 <= 300.000000, omega too small, new omega: 1.880e-01
+[10:13:19] 
+
+[10:13:19] ++++++++++++++++++++
+[10:13:19] eta_conv False: kl_div < epsilon (6548.273360 < 60.000000) | 10813.788934%
+[10:13:19] nu_conv True: kl_div > xi (11896.329837 > 600.000000) | 1882.721640%
+[10:13:19] omega_conv False: kl_div < chi (21260.560500 < 300.000000) | 6986.853500%
+[10:13:19] ALL DGD iteration 3, ETA bracket: (4.62e-02 , 1.46e-01 , 4.62e-01)
+[10:13:19] ALL DGD iteration 3, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:19] ALL DGD iteration 3, OMEGA bracket: (7.07e-02 , 1.88e-01 , 5.00e-01)
+[10:13:19] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:19] kl_step False | abs(con) < 0.1*kl_step | abs(6124.832177) < 6.000000 | 10208.053628%
+[10:13:19] kl_bad True | con_bad <= 0 | -11251.102036 < 0.000000 | -1875.183673%
+[10:13:19] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(21249.555865) < 180.000000 | 7083.185288%
+[10:13:19] Modifying ETA
+[10:13:19] KL: 6184.832177 <= 60.000000, eta too small,new eta: 2.598e-01
+[10:13:19] consider_bad: True
+[10:13:19] NOT Modifying NU
+[10:13:19] consider_good: True
+[10:13:19] Modifying OMEGA
+[10:13:19] KL: 21549.555865 <= 300.000000, omega too small, new omega: 3.066e-01
+[10:13:19] 
+
+[10:13:19] ++++++++++++++++++++
+[10:13:19] eta_conv False: kl_div < epsilon (6184.832177 < 60.000000) | 10208.053628%
+[10:13:19] nu_conv True: kl_div > xi (11851.102036 > 600.000000) | 1875.183673%
+[10:13:19] omega_conv False: kl_div < chi (21549.555865 < 300.000000) | 7083.185288%
+[10:13:19] ALL DGD iteration 4, ETA bracket: (1.46e-01 , 2.60e-01 , 4.62e-01)
+[10:13:19] ALL DGD iteration 4, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:19] ALL DGD iteration 4, OMEGA bracket: (1.88e-01 , 3.07e-01 , 5.00e-01)
+[10:13:19] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:20] kl_step False | abs(con) < 0.1*kl_step | abs(5622.462021) < 6.000000 | 9370.770035%
+[10:13:20] kl_bad True | con_bad <= 0 | -11266.426170 < 0.000000 | -1877.737695%
+[10:13:20] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(21679.139158) < 180.000000 | 7226.379719%
+[10:13:20] Modifying ETA
+[10:13:20] KL: 5682.462021 <= 60.000000, eta too small,new eta: 3.465e-01
+[10:13:20] consider_bad: True
+[10:13:20] NOT Modifying NU
+[10:13:20] consider_good: True
+[10:13:20] Modifying OMEGA
+[10:13:20] KL: 21979.139158 <= 300.000000, omega too small, new omega: 3.915e-01
+[10:13:20] 
+
+[10:13:20] ++++++++++++++++++++
+[10:13:20] eta_conv False: kl_div < epsilon (5682.462021 < 60.000000) | 9370.770035%
+[10:13:20] nu_conv True: kl_div > xi (11866.426170 > 600.000000) | 1877.737695%
+[10:13:20] omega_conv False: kl_div < chi (21979.139158 < 300.000000) | 7226.379719%
+[10:13:20] ALL DGD iteration 5, ETA bracket: (2.60e-01 , 3.46e-01 , 4.62e-01)
+[10:13:20] ALL DGD iteration 5, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:20] ALL DGD iteration 5, OMEGA bracket: (3.07e-01 , 3.92e-01 , 5.00e-01)
+[10:13:20] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:21] kl_step False | abs(con) < 0.1*kl_step | abs(5342.816454) < 6.000000 | 8904.694090%
+[10:13:21] kl_bad True | con_bad <= 0 | -11278.993164 < 0.000000 | -1879.832194%
+[10:13:21] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(21929.659303) < 180.000000 | 7309.886434%
+[10:13:21] Modifying ETA
+[10:13:21] KL: 5402.816454 <= 60.000000, eta too small,new eta: 4.001e-01
+[10:13:21] consider_bad: True
+[10:13:21] NOT Modifying NU
+[10:13:21] consider_good: True
+[10:13:21] Modifying OMEGA
+[10:13:21] KL: 22229.659303 <= 300.000000, omega too small, new omega: 4.425e-01
+[10:13:21] 
+
+[10:13:21] ++++++++++++++++++++
+[10:13:21] eta_conv False: kl_div < epsilon (5402.816454 < 60.000000) | 8904.694090%
+[10:13:21] nu_conv True: kl_div > xi (11878.993164 > 600.000000) | 1879.832194%
+[10:13:21] omega_conv False: kl_div < chi (22229.659303 < 300.000000) | 7309.886434%
+[10:13:21] ALL DGD iteration 6, ETA bracket: (3.46e-01 , 4.00e-01 , 4.62e-01)
+[10:13:21] ALL DGD iteration 6, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:21] ALL DGD iteration 6, OMEGA bracket: (3.92e-01 , 4.42e-01 , 5.00e-01)
+[10:13:21] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:22] kl_step False | abs(con) < 0.1*kl_step | abs(5200.043308) < 6.000000 | 8666.738847%
+[10:13:22] kl_bad True | con_bad <= 0 | -11286.119095 < 0.000000 | -1881.019849%
+[10:13:22] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(22060.925652) < 180.000000 | 7353.641884%
+[10:13:22] Modifying ETA
+[10:13:22] KL: 5260.043308 <= 60.000000, eta too small,new eta: 4.299e-01
+[10:13:22] consider_bad: True
+[10:13:22] NOT Modifying NU
+[10:13:22] consider_good: True
+[10:13:22] Modifying OMEGA
+[10:13:22] KL: 22360.925652 <= 300.000000, omega too small, new omega: 4.704e-01
+[10:13:22] 
+
+[10:13:22] ++++++++++++++++++++
+[10:13:22] eta_conv False: kl_div < epsilon (5260.043308 < 60.000000) | 8666.738847%
+[10:13:22] nu_conv True: kl_div > xi (11886.119095 > 600.000000) | 1881.019849%
+[10:13:22] omega_conv False: kl_div < chi (22360.925652 < 300.000000) | 7353.641884%
+[10:13:22] ALL DGD iteration 7, ETA bracket: (4.00e-01 , 4.30e-01 , 4.62e-01)
+[10:13:22] ALL DGD iteration 7, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:22] ALL DGD iteration 7, OMEGA bracket: (4.42e-01 , 4.70e-01 , 5.00e-01)
+[10:13:22] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:22] kl_step False | abs(con) < 0.1*kl_step | abs(5128.313868) < 6.000000 | 8547.189780%
+[10:13:22] kl_bad True | con_bad <= 0 | -11289.854607 < 0.000000 | -1881.642435%
+[10:13:22] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(22127.769681) < 180.000000 | 7375.923227%
+[10:13:22] Modifying ETA
+[10:13:22] KL: 5188.313868 <= 60.000000, eta too small,new eta: 4.457e-01
+[10:13:22] consider_bad: True
+[10:13:22] NOT Modifying NU
+[10:13:22] consider_good: True
+[10:13:22] Modifying OMEGA
+[10:13:22] KL: 22427.769681 <= 300.000000, omega too small, new omega: 4.849e-01
+[10:13:22] 
+
+[10:13:22] ++++++++++++++++++++
+[10:13:22] eta_conv False: kl_div < epsilon (5188.313868 < 60.000000) | 8547.189780%
+[10:13:22] nu_conv True: kl_div > xi (11889.854607 > 600.000000) | 1881.642435%
+[10:13:22] omega_conv False: kl_div < chi (22427.769681 < 300.000000) | 7375.923227%
+[10:13:22] ALL DGD iteration 8, ETA bracket: (4.30e-01 , 4.46e-01 , 4.62e-01)
+[10:13:22] ALL DGD iteration 8, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:22] ALL DGD iteration 8, OMEGA bracket: (4.70e-01 , 4.85e-01 , 5.00e-01)
+[10:13:22] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:23] kl_step False | abs(con) < 0.1*kl_step | abs(5092.406015) < 6.000000 | 8487.343359%
+[10:13:23] kl_bad True | con_bad <= 0 | -11291.761279 < 0.000000 | -1881.960213%
+[10:13:23] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(22161.462072) < 180.000000 | 7387.154024%
+[10:13:23] Breaking DGD because it has converged or is stuck
+[10:13:23] ____________________
+[10:13:23] eta: 0.445674 | nu: 0.001000 | omega: 0.484950
+[10:13:23] eta_conv False: kl_div < epsilon (5152.406015 < 60.000000) | 8487.343359%
+[10:13:23] nu_conv True: kl_div > xi (11891.761279 > 600.000000) | 1881.960213%
+[10:13:23] omega_conv False: kl_div < chi (22461.462072 < 300.000000) | 7387.154024%
+[10:13:23] ALL DGD has NOT converged.
+[10:13:23] TODO: commenting a lot of stuff after this print
+[10:13:23] Final KL_step divergence after DGD convergence is too high.
+[10:13:23] Final KL_good divergence after DGD convergence is too high.
+[10:13:23] TODO: Running backward AGAIN with dual_to_check omega, to get traj_dist
+[10:13:23] .
+.
+
+[10:13:23] ____________________________________________________________
+[10:13:23] Running DGD for trajectory(condition) 1,eta: 4.620000, nu: 0.001000, omega: 0.001000
+[10:13:23] ____________________________________________________________
+[10:13:23] ALL DGD iteration 0, ETA bracket: (1.00e-08 , 4.62e+00 , 1.00e+16)
+[10:13:23] ALL DGD iteration 0, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:23] ALL DGD iteration 0, OMEGA bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:23] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:24] kl_step False | abs(con) < 0.1*kl_step | abs(-59.996423) < 6.000000 | 99.994038%
+[10:13:24] kl_bad True | con_bad <= 0 | -7510.568542 < 0.000000 | -1251.761424%
+[10:13:24] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(27677.578425) < 180.000000 | 9225.859475%
+[10:13:24] Modifying ETA
+[10:13:24] KL: 0.003577 <= 60.000000, eta too big,new eta: 4.620e-01
+[10:13:24] consider_bad: True
+[10:13:24] NOT Modifying NU
+[10:13:24] consider_good: True
+[10:13:24] Modifying OMEGA
+[10:13:24] KL: 27977.578425 <= 300.000000, omega too small, new omega: 1.000e-02
+[10:13:24] 
+
+[10:13:24] ++++++++++++++++++++
+[10:13:24] eta_conv False: kl_div < epsilon (0.003577 < 60.000000) | 99.994038%
+[10:13:24] nu_conv True: kl_div > xi (8110.568542 > 600.000000) | 1251.761424%
+[10:13:24] omega_conv False: kl_div < chi (27977.578425 < 300.000000) | 9225.859475%
+[10:13:24] ALL DGD iteration 1, ETA bracket: (1.00e-08 , 4.62e-01 , 4.62e+00)
+[10:13:24] ALL DGD iteration 1, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:24] ALL DGD iteration 1, OMEGA bracket: (1.00e-03 , 1.00e-02 , 5.00e-01)
+[10:13:24] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:25] kl_step False | abs(con) < 0.1*kl_step | abs(-57.202768) < 6.000000 | 95.337947%
+[10:13:25] kl_bad True | con_bad <= 0 | -7513.354657 < 0.000000 | -1252.225776%
+[10:13:25] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(27436.689277) < 180.000000 | 9145.563092%
+[10:13:25] Modifying ETA
+[10:13:25] KL: 2.797232 <= 60.000000, eta too big,new eta: 4.620e-02
+[10:13:25] consider_bad: True
+[10:13:25] NOT Modifying NU
+[10:13:25] consider_good: True
+[10:13:25] Modifying OMEGA
+[10:13:25] KL: 27736.689277 <= 300.000000, omega too small, new omega: 7.071e-02
+[10:13:25] 
+
+[10:13:25] ++++++++++++++++++++
+[10:13:25] eta_conv False: kl_div < epsilon (2.797232 < 60.000000) | 95.337947%
+[10:13:25] nu_conv True: kl_div > xi (8113.354657 > 600.000000) | 1252.225776%
+[10:13:25] omega_conv False: kl_div < chi (27736.689277 < 300.000000) | 9145.563092%
+[10:13:25] ALL DGD iteration 2, ETA bracket: (1.00e-08 , 4.62e-02 , 4.62e-01)
+[10:13:25] ALL DGD iteration 2, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:25] ALL DGD iteration 2, OMEGA bracket: (1.00e-02 , 7.07e-02 , 5.00e-01)
+[10:13:25] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:25] kl_step False | abs(con) < 0.1*kl_step | abs(5016.024172) < 6.000000 | 8360.040287%
+[10:13:25] kl_bad True | con_bad <= 0 | -7107.156052 < 0.000000 | -1184.526009%
+[10:13:25] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(18145.033389) < 180.000000 | 6048.344463%
+[10:13:25] Modifying ETA
+[10:13:25] KL: 5076.024172 <= 60.000000, eta too small,new eta: 1.461e-01
+[10:13:25] consider_bad: True
+[10:13:25] NOT Modifying NU
+[10:13:25] consider_good: True
+[10:13:25] Modifying OMEGA
+[10:13:25] KL: 18445.033389 <= 300.000000, omega too small, new omega: 1.880e-01
+[10:13:25] 
+
+[10:13:25] ++++++++++++++++++++
+[10:13:25] eta_conv False: kl_div < epsilon (5076.024172 < 60.000000) | 8360.040287%
+[10:13:25] nu_conv True: kl_div > xi (7707.156052 > 600.000000) | 1184.526009%
+[10:13:25] omega_conv False: kl_div < chi (18445.033389 < 300.000000) | 6048.344463%
+[10:13:25] ALL DGD iteration 3, ETA bracket: (4.62e-02 , 1.46e-01 , 4.62e-01)
+[10:13:25] ALL DGD iteration 3, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:25] ALL DGD iteration 3, OMEGA bracket: (7.07e-02 , 1.88e-01 , 5.00e-01)
+[10:13:25] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:26] kl_step False | abs(con) < 0.1*kl_step | abs(4708.119129) < 6.000000 | 7846.865215%
+[10:13:26] kl_bad True | con_bad <= 0 | -7062.316644 < 0.000000 | -1177.052774%
+[10:13:26] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(18382.781750) < 180.000000 | 6127.593917%
+[10:13:26] Modifying ETA
+[10:13:26] KL: 4768.119129 <= 60.000000, eta too small,new eta: 2.598e-01
+[10:13:26] consider_bad: True
+[10:13:26] NOT Modifying NU
+[10:13:26] consider_good: True
+[10:13:26] Modifying OMEGA
+[10:13:26] KL: 18682.781750 <= 300.000000, omega too small, new omega: 3.066e-01
+[10:13:26] 
+
+[10:13:26] ++++++++++++++++++++
+[10:13:26] eta_conv False: kl_div < epsilon (4768.119129 < 60.000000) | 7846.865215%
+[10:13:26] nu_conv True: kl_div > xi (7662.316644 > 600.000000) | 1177.052774%
+[10:13:26] omega_conv False: kl_div < chi (18682.781750 < 300.000000) | 6127.593917%
+[10:13:26] ALL DGD iteration 4, ETA bracket: (1.46e-01 , 2.60e-01 , 4.62e-01)
+[10:13:26] ALL DGD iteration 4, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:26] ALL DGD iteration 4, OMEGA bracket: (1.88e-01 , 3.07e-01 , 5.00e-01)
+[10:13:26] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:27] kl_step False | abs(con) < 0.1*kl_step | abs(4311.638559) < 6.000000 | 7186.064266%
+[10:13:27] kl_bad True | con_bad <= 0 | -7067.282462 < 0.000000 | -1177.880410%
+[10:13:27] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(18720.762444) < 180.000000 | 6240.254148%
+[10:13:27] Modifying ETA
+[10:13:27] KL: 4371.638559 <= 60.000000, eta too small,new eta: 3.465e-01
+[10:13:27] consider_bad: True
+[10:13:27] NOT Modifying NU
+[10:13:27] consider_good: True
+[10:13:27] Modifying OMEGA
+[10:13:27] KL: 19020.762444 <= 300.000000, omega too small, new omega: 3.915e-01
+[10:13:27] 
+
+[10:13:27] ++++++++++++++++++++
+[10:13:27] eta_conv False: kl_div < epsilon (4371.638559 < 60.000000) | 7186.064266%
+[10:13:27] nu_conv True: kl_div > xi (7667.282462 > 600.000000) | 1177.880410%
+[10:13:27] omega_conv False: kl_div < chi (19020.762444 < 300.000000) | 6240.254148%
+[10:13:27] ALL DGD iteration 5, ETA bracket: (2.60e-01 , 3.46e-01 , 4.62e-01)
+[10:13:27] ALL DGD iteration 5, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:27] ALL DGD iteration 5, OMEGA bracket: (3.07e-01 , 3.92e-01 , 5.00e-01)
+[10:13:27] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:27] kl_step False | abs(con) < 0.1*kl_step | abs(4092.430963) < 6.000000 | 6820.718271%
+[10:13:27] kl_bad True | con_bad <= 0 | -7073.387496 < 0.000000 | -1178.897916%
+[10:13:27] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(18916.849867) < 180.000000 | 6305.616622%
+[10:13:27] Modifying ETA
+[10:13:27] KL: 4152.430963 <= 60.000000, eta too small,new eta: 4.001e-01
+[10:13:27] consider_bad: True
+[10:13:27] NOT Modifying NU
+[10:13:27] consider_good: True
+[10:13:27] Modifying OMEGA
+[10:13:27] KL: 19216.849867 <= 300.000000, omega too small, new omega: 4.425e-01
+[10:13:27] 
+
+[10:13:27] ++++++++++++++++++++
+[10:13:27] eta_conv False: kl_div < epsilon (4152.430963 < 60.000000) | 6820.718271%
+[10:13:27] nu_conv True: kl_div > xi (7673.387496 > 600.000000) | 1178.897916%
+[10:13:27] omega_conv False: kl_div < chi (19216.849867 < 300.000000) | 6305.616622%
+[10:13:27] ALL DGD iteration 6, ETA bracket: (3.46e-01 , 4.00e-01 , 4.62e-01)
+[10:13:27] ALL DGD iteration 6, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:27] ALL DGD iteration 6, OMEGA bracket: (3.92e-01 , 4.42e-01 , 5.00e-01)
+[10:13:27] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:28] kl_step False | abs(con) < 0.1*kl_step | abs(3980.778059) < 6.000000 | 6634.630099%
+[10:13:28] kl_bad True | con_bad <= 0 | -7077.075721 < 0.000000 | -1179.512620%
+[10:13:28] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(19019.395495) < 180.000000 | 6339.798498%
+[10:13:28] Modifying ETA
+[10:13:28] KL: 4040.778059 <= 60.000000, eta too small,new eta: 4.299e-01
+[10:13:28] consider_bad: True
+[10:13:28] NOT Modifying NU
+[10:13:28] consider_good: True
+[10:13:28] Modifying OMEGA
+[10:13:28] KL: 19319.395495 <= 300.000000, omega too small, new omega: 4.704e-01
+[10:13:28] 
+
+[10:13:28] ++++++++++++++++++++
+[10:13:28] eta_conv False: kl_div < epsilon (4040.778059 < 60.000000) | 6634.630099%
+[10:13:28] nu_conv True: kl_div > xi (7677.075721 > 600.000000) | 1179.512620%
+[10:13:28] omega_conv False: kl_div < chi (19319.395495 < 300.000000) | 6339.798498%
+[10:13:28] ALL DGD iteration 7, ETA bracket: (4.00e-01 , 4.30e-01 , 4.62e-01)
+[10:13:28] ALL DGD iteration 7, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:28] ALL DGD iteration 7, OMEGA bracket: (4.42e-01 , 4.70e-01 , 5.00e-01)
+[10:13:28] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:29] kl_step False | abs(con) < 0.1*kl_step | abs(3924.741161) < 6.000000 | 6541.235268%
+[10:13:29] kl_bad True | con_bad <= 0 | -7079.051922 < 0.000000 | -1179.841987%
+[10:13:29] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(19071.568547) < 180.000000 | 6357.189516%
+[10:13:29] Modifying ETA
+[10:13:29] KL: 3984.741161 <= 60.000000, eta too small,new eta: 4.457e-01
+[10:13:29] consider_bad: True
+[10:13:29] NOT Modifying NU
+[10:13:29] consider_good: True
+[10:13:29] Modifying OMEGA
+[10:13:29] KL: 19371.568547 <= 300.000000, omega too small, new omega: 4.849e-01
+[10:13:29] 
+
+[10:13:29] ++++++++++++++++++++
+[10:13:29] eta_conv False: kl_div < epsilon (3984.741161 < 60.000000) | 6541.235268%
+[10:13:29] nu_conv True: kl_div > xi (7679.051922 > 600.000000) | 1179.841987%
+[10:13:29] omega_conv False: kl_div < chi (19371.568547 < 300.000000) | 6357.189516%
+[10:13:29] ALL DGD iteration 8, ETA bracket: (4.30e-01 , 4.46e-01 , 4.62e-01)
+[10:13:29] ALL DGD iteration 8, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:29] ALL DGD iteration 8, OMEGA bracket: (4.70e-01 , 4.85e-01 , 5.00e-01)
+[10:13:29] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:29] kl_step False | abs(con) < 0.1*kl_step | abs(3896.702606) < 6.000000 | 6494.504343%
+[10:13:29] kl_bad True | con_bad <= 0 | -7080.070061 < 0.000000 | -1180.011677%
+[10:13:29] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(19097.855112) < 180.000000 | 6365.951704%
+[10:13:29] Breaking DGD because it has converged or is stuck
+[10:13:29] ____________________
+[10:13:29] eta: 0.445674 | nu: 0.001000 | omega: 0.484950
+[10:13:29] eta_conv False: kl_div < epsilon (3956.702606 < 60.000000) | 6494.504343%
+[10:13:29] nu_conv True: kl_div > xi (7680.070061 > 600.000000) | 1180.011677%
+[10:13:29] omega_conv False: kl_div < chi (19397.855112 < 300.000000) | 6365.951704%
+[10:13:29] ALL DGD has NOT converged.
+[10:13:29] TODO: commenting a lot of stuff after this print
+[10:13:29] Final KL_step divergence after DGD convergence is too high.
+[10:13:29] Final KL_good divergence after DGD convergence is too high.
+[10:13:29] TODO: Running backward AGAIN with dual_to_check omega, to get traj_dist
+[10:13:30] .
+.
+
+[10:13:30] ____________________________________________________________
+[10:13:30] Running DGD for trajectory(condition) 2,eta: 4.620000, nu: 0.001000, omega: 0.001000
+[10:13:30] ____________________________________________________________
+[10:13:30] ALL DGD iteration 0, ETA bracket: (1.00e-08 , 4.62e+00 , 1.00e+16)
+[10:13:30] ALL DGD iteration 0, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:30] ALL DGD iteration 0, OMEGA bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:30] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:30] kl_step False | abs(con) < 0.1*kl_step | abs(-59.993893) < 6.000000 | 99.989821%
+[10:13:30] kl_bad True | con_bad <= 0 | -26114.417905 < 0.000000 | -4352.402984%
+[10:13:30] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(30288.294785) < 180.000000 | 10096.098262%
+[10:13:30] Modifying ETA
+[10:13:30] KL: 0.006107 <= 60.000000, eta too big,new eta: 4.620e-01
+[10:13:30] consider_bad: True
+[10:13:30] NOT Modifying NU
+[10:13:30] consider_good: True
+[10:13:30] Modifying OMEGA
+[10:13:30] KL: 30588.294785 <= 300.000000, omega too small, new omega: 1.000e-02
+[10:13:30] 
+
+[10:13:30] ++++++++++++++++++++
+[10:13:30] eta_conv False: kl_div < epsilon (0.006107 < 60.000000) | 99.989821%
+[10:13:30] nu_conv True: kl_div > xi (26714.417905 > 600.000000) | 4352.402984%
+[10:13:30] omega_conv False: kl_div < chi (30588.294785 < 300.000000) | 10096.098262%
+[10:13:30] ALL DGD iteration 1, ETA bracket: (1.00e-08 , 4.62e-01 , 4.62e+00)
+[10:13:30] ALL DGD iteration 1, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:30] ALL DGD iteration 1, OMEGA bracket: (1.00e-03 , 1.00e-02 , 5.00e-01)
+[10:13:30] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:31] kl_step False | abs(con) < 0.1*kl_step | abs(-56.838254) < 6.000000 | 94.730423%
+[10:13:31] kl_bad True | con_bad <= 0 | -26129.764914 < 0.000000 | -4354.960819%
+[10:13:31] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(30033.524175) < 180.000000 | 10011.174725%
+[10:13:31] Modifying ETA
+[10:13:31] KL: 3.161746 <= 60.000000, eta too big,new eta: 4.620e-02
+[10:13:31] consider_bad: True
+[10:13:31] NOT Modifying NU
+[10:13:31] consider_good: True
+[10:13:31] Modifying OMEGA
+[10:13:31] KL: 30333.524175 <= 300.000000, omega too small, new omega: 7.071e-02
+[10:13:31] 
+
+[10:13:31] ++++++++++++++++++++
+[10:13:31] eta_conv False: kl_div < epsilon (3.161746 < 60.000000) | 94.730423%
+[10:13:31] nu_conv True: kl_div > xi (26729.764914 > 600.000000) | 4354.960819%
+[10:13:31] omega_conv False: kl_div < chi (30333.524175 < 300.000000) | 10011.174725%
+[10:13:31] ALL DGD iteration 2, ETA bracket: (1.00e-08 , 4.62e-02 , 4.62e-01)
+[10:13:31] ALL DGD iteration 2, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:31] ALL DGD iteration 2, OMEGA bracket: (1.00e-02 , 7.07e-02 , 5.00e-01)
+[10:13:31] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:32] kl_step False | abs(con) < 0.1*kl_step | abs(5312.332548) < 6.000000 | 8853.887580%
+[10:13:32] kl_bad True | con_bad <= 0 | -26084.093872 < 0.000000 | -4347.348979%
+[10:13:32] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(20191.849599) < 180.000000 | 6730.616533%
+[10:13:32] Modifying ETA
+[10:13:32] KL: 5372.332548 <= 60.000000, eta too small,new eta: 1.461e-01
+[10:13:32] consider_bad: True
+[10:13:32] NOT Modifying NU
+[10:13:32] consider_good: True
+[10:13:32] Modifying OMEGA
+[10:13:32] KL: 20491.849599 <= 300.000000, omega too small, new omega: 1.880e-01
+[10:13:32] 
+
+[10:13:32] ++++++++++++++++++++
+[10:13:32] eta_conv False: kl_div < epsilon (5372.332548 < 60.000000) | 8853.887580%
+[10:13:32] nu_conv True: kl_div > xi (26684.093872 > 600.000000) | 4347.348979%
+[10:13:32] omega_conv False: kl_div < chi (20491.849599 < 300.000000) | 6730.616533%
+[10:13:32] ALL DGD iteration 3, ETA bracket: (4.62e-02 , 1.46e-01 , 4.62e-01)
+[10:13:32] ALL DGD iteration 3, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:32] ALL DGD iteration 3, OMEGA bracket: (7.07e-02 , 1.88e-01 , 5.00e-01)
+[10:13:32] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:33] kl_step False | abs(con) < 0.1*kl_step | abs(4987.068803) < 6.000000 | 8311.781339%
+[10:13:33] kl_bad True | con_bad <= 0 | -25988.793238 < 0.000000 | -4331.465540%
+[10:13:33] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(20432.179499) < 180.000000 | 6810.726500%
+[10:13:33] Modifying ETA
+[10:13:33] KL: 5047.068803 <= 60.000000, eta too small,new eta: 2.598e-01
+[10:13:33] consider_bad: True
+[10:13:33] NOT Modifying NU
+[10:13:33] consider_good: True
+[10:13:33] Modifying OMEGA
+[10:13:33] KL: 20732.179499 <= 300.000000, omega too small, new omega: 3.066e-01
+[10:13:33] 
+
+[10:13:33] ++++++++++++++++++++
+[10:13:33] eta_conv False: kl_div < epsilon (5047.068803 < 60.000000) | 8311.781339%
+[10:13:33] nu_conv True: kl_div > xi (26588.793238 > 600.000000) | 4331.465540%
+[10:13:33] omega_conv False: kl_div < chi (20732.179499 < 300.000000) | 6810.726500%
+[10:13:33] ALL DGD iteration 4, ETA bracket: (1.46e-01 , 2.60e-01 , 4.62e-01)
+[10:13:33] ALL DGD iteration 4, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:33] ALL DGD iteration 4, OMEGA bracket: (1.88e-01 , 3.07e-01 , 5.00e-01)
+[10:13:33] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:33] kl_step False | abs(con) < 0.1*kl_step | abs(4569.550332) < 6.000000 | 7615.917220%
+[10:13:33] kl_bad True | con_bad <= 0 | -25970.741928 < 0.000000 | -4328.456988%
+[10:13:33] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(20787.193341) < 180.000000 | 6929.064447%
+[10:13:33] Modifying ETA
+[10:13:33] KL: 4629.550332 <= 60.000000, eta too small,new eta: 3.465e-01
+[10:13:33] consider_bad: True
+[10:13:33] NOT Modifying NU
+[10:13:33] consider_good: True
+[10:13:33] Modifying OMEGA
+[10:13:33] KL: 21087.193341 <= 300.000000, omega too small, new omega: 3.915e-01
+[10:13:33] 
+
+[10:13:33] ++++++++++++++++++++
+[10:13:33] eta_conv False: kl_div < epsilon (4629.550332 < 60.000000) | 7615.917220%
+[10:13:33] nu_conv True: kl_div > xi (26570.741928 > 600.000000) | 4328.456988%
+[10:13:33] omega_conv False: kl_div < chi (21087.193341 < 300.000000) | 6929.064447%
+[10:13:33] ALL DGD iteration 5, ETA bracket: (2.60e-01 , 3.46e-01 , 4.62e-01)
+[10:13:33] ALL DGD iteration 5, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:33] ALL DGD iteration 5, OMEGA bracket: (3.07e-01 , 3.92e-01 , 5.00e-01)
+[10:13:33] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:34] kl_step False | abs(con) < 0.1*kl_step | abs(4338.377408) < 6.000000 | 7230.629013%
+[10:13:34] kl_bad True | con_bad <= 0 | -25965.987774 < 0.000000 | -4327.664629%
+[10:13:34] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(20993.826051) < 180.000000 | 6997.942017%
+[10:13:34] Modifying ETA
+[10:13:34] KL: 4398.377408 <= 60.000000, eta too small,new eta: 4.001e-01
+[10:13:34] consider_bad: True
+[10:13:34] NOT Modifying NU
+[10:13:34] consider_good: True
+[10:13:34] Modifying OMEGA
+[10:13:34] KL: 21293.826051 <= 300.000000, omega too small, new omega: 4.425e-01
+[10:13:34] 
+
+[10:13:34] ++++++++++++++++++++
+[10:13:34] eta_conv False: kl_div < epsilon (4398.377408 < 60.000000) | 7230.629013%
+[10:13:34] nu_conv True: kl_div > xi (26565.987774 > 600.000000) | 4327.664629%
+[10:13:34] omega_conv False: kl_div < chi (21293.826051 < 300.000000) | 6997.942017%
+[10:13:34] ALL DGD iteration 6, ETA bracket: (3.46e-01 , 4.00e-01 , 4.62e-01)
+[10:13:34] ALL DGD iteration 6, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:34] ALL DGD iteration 6, OMEGA bracket: (3.92e-01 , 4.42e-01 , 5.00e-01)
+[10:13:34] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:35] kl_step False | abs(con) < 0.1*kl_step | abs(4220.557618) < 6.000000 | 7034.262697%
+[10:13:35] kl_bad True | con_bad <= 0 | -25964.402436 < 0.000000 | -4327.400406%
+[10:13:35] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(21101.992070) < 180.000000 | 7033.997357%
+[10:13:35] Modifying ETA
+[10:13:35] KL: 4280.557618 <= 60.000000, eta too small,new eta: 4.299e-01
+[10:13:35] consider_bad: True
+[10:13:35] NOT Modifying NU
+[10:13:35] consider_good: True
+[10:13:35] Modifying OMEGA
+[10:13:35] KL: 21401.992070 <= 300.000000, omega too small, new omega: 4.704e-01
+[10:13:35] 
+
+[10:13:35] ++++++++++++++++++++
+[10:13:35] eta_conv False: kl_div < epsilon (4280.557618 < 60.000000) | 7034.262697%
+[10:13:35] nu_conv True: kl_div > xi (26564.402436 > 600.000000) | 4327.400406%
+[10:13:35] omega_conv False: kl_div < chi (21401.992070 < 300.000000) | 7033.997357%
+[10:13:35] ALL DGD iteration 7, ETA bracket: (4.00e-01 , 4.30e-01 , 4.62e-01)
+[10:13:35] ALL DGD iteration 7, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:35] ALL DGD iteration 7, OMEGA bracket: (4.42e-01 , 4.70e-01 , 5.00e-01)
+[10:13:35] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:35] kl_step False | abs(con) < 0.1*kl_step | abs(4161.409307) < 6.000000 | 6935.682179%
+[10:13:35] kl_bad True | con_bad <= 0 | -25963.779729 < 0.000000 | -4327.296621%
+[10:13:35] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(21157.046408) < 180.000000 | 7052.348803%
+[10:13:35] Modifying ETA
+[10:13:35] KL: 4221.409307 <= 60.000000, eta too small,new eta: 4.457e-01
+[10:13:35] consider_bad: True
+[10:13:35] NOT Modifying NU
+[10:13:35] consider_good: True
+[10:13:35] Modifying OMEGA
+[10:13:35] KL: 21457.046408 <= 300.000000, omega too small, new omega: 4.849e-01
+[10:13:35] 
+
+[10:13:35] ++++++++++++++++++++
+[10:13:35] eta_conv False: kl_div < epsilon (4221.409307 < 60.000000) | 6935.682179%
+[10:13:35] nu_conv True: kl_div > xi (26563.779729 > 600.000000) | 4327.296621%
+[10:13:35] omega_conv False: kl_div < chi (21457.046408 < 300.000000) | 7052.348803%
+[10:13:35] ALL DGD iteration 8, ETA bracket: (4.30e-01 , 4.46e-01 , 4.62e-01)
+[10:13:35] ALL DGD iteration 8, NU bracket: (1.00e-08 , 1.00e-03 , 5.00e-01)
+[10:13:35] ALL DGD iteration 8, OMEGA bracket: (4.70e-01 , 4.85e-01 , 5.00e-01)
+[10:13:35] TODO: Running ALL GD backward withdual_to_check nu
+[10:13:36] kl_step False | abs(con) < 0.1*kl_step | abs(4131.810059) < 6.000000 | 6886.350098%
+[10:13:36] kl_bad True | con_bad <= 0 | -25963.507733 < 0.000000 | -4327.251289%
+[10:13:36] kl_good False | abs(con_good) < 0.6*kl_step_good | abs(21184.789627) < 180.000000 | 7061.596542%
+[10:13:36] Breaking DGD because it has converged or is stuck
+[10:13:36] ____________________
+[10:13:36] eta: 0.445674 | nu: 0.001000 | omega: 0.484950
+[10:13:36] eta_conv False: kl_div < epsilon (4191.810059 < 60.000000) | 6886.350098%
+[10:13:36] nu_conv True: kl_div > xi (26563.507733 > 600.000000) | 4327.251289%
+[10:13:36] omega_conv False: kl_div < chi (21484.789627 < 300.000000) | 7061.596542%
+[10:13:36] ALL DGD has NOT converged.
+[10:13:36] TODO: commenting a lot of stuff after this print
+[10:13:36] Final KL_step divergence after DGD convergence is too high.
+[10:13:36] Final KL_good divergence after DGD convergence is too high.
+[10:13:36] TODO: Running backward AGAIN with dual_to_check omega, to get traj_dist
+[10:13:36] 
+[10:13:36] DualGPS:itr:01 | ->| S-step |<-
+[10:13:36] -->Updating Global policy...
+[10:13:37] tensorflow iteration 50, average loss 8.740357
+[10:13:37] tensorflow iteration 100, average loss 9.174232
+[10:13:38] tensorflow iteration 150, average loss 9.022049
+[10:13:38] tensorflow iteration 200, average loss 9.426732
+[10:13:38] tensorflow iteration 250, average loss 9.525568
+[10:13:39] tensorflow iteration 300, average loss 8.171445
+[10:13:39] tensorflow iteration 350, average loss 8.994216
+[10:13:40] tensorflow iteration 400, average loss 9.506676
+[10:13:40] tensorflow iteration 450, average loss 9.021410
+[10:13:40] tensorflow iteration 500, average loss 9.399264
+[10:13:41] tensorflow iteration 550, average loss 8.750294
+[10:13:41] tensorflow iteration 600, average loss 9.543590
+[10:13:42] tensorflow iteration 650, average loss 7.848849
+[10:13:42] tensorflow iteration 700, average loss 8.787140
+[10:13:42] tensorflow iteration 750, average loss 9.563625
+[10:13:43] tensorflow iteration 800, average loss 8.498276
+[10:13:43] tensorflow iteration 850, average loss 9.223937
+[10:13:44] tensorflow iteration 900, average loss 7.593462
+[10:13:44] tensorflow iteration 950, average loss 9.390899
+[10:13:44] tensorflow iteration 1000, average loss 9.099795
+[10:13:45] tensorflow iteration 1050, average loss 8.073792
+[10:13:45] tensorflow iteration 1100, average loss 9.024978
+[10:13:46] tensorflow iteration 1150, average loss 8.862703
+[10:13:46] tensorflow iteration 1200, average loss 9.152114
+[10:13:46] tensorflow iteration 1250, average loss 7.491806
+[10:13:47] tensorflow iteration 1300, average loss 9.062028
+[10:13:47] tensorflow iteration 1350, average loss 8.592717
+[10:13:48] tensorflow iteration 1400, average loss 8.160479
+[10:13:48] tensorflow iteration 1450, average loss 9.076657
+[10:13:49] tensorflow iteration 1500, average loss 8.407738
+[10:13:49] tensorflow iteration 1550, average loss 8.997983
+[10:13:49] tensorflow iteration 1600, average loss 7.468404
+[10:13:50] tensorflow iteration 1650, average loss 9.705094
+[10:13:50] tensorflow iteration 1700, average loss 8.436018
+[10:13:51] tensorflow iteration 1750, average loss 7.837291
+[10:13:51] tensorflow iteration 1800, average loss 9.037149
+[10:13:51] tensorflow iteration 1850, average loss 8.112393
+[10:13:52] tensorflow iteration 1900, average loss 8.445211
+[10:13:52] tensorflow iteration 1950, average loss 7.903706

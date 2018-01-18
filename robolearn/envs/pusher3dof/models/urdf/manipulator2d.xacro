@@ -90,6 +90,15 @@
   </joint>
 
   <link name="coupler0">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <!--<sphere radius="${radius_axel}"/>-->
+        <cylinder length="${height_axel}" radius="${radius_axel}"/>
+      </geometry>
+      <material name="white"/>
+    </collision>
+
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
@@ -98,6 +107,7 @@
       </geometry>
       <material name="white"/>
     </visual>
+
     <inertial>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <mass value="${dummy_mass}"/>
@@ -161,6 +171,14 @@
   </joint>
 
   <link name="coupler1">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder length="${height_axel}" radius="${radius_axel}"/>
+      </geometry>
+      <material name="white"/>
+    </collision>
+
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
@@ -168,6 +186,7 @@
       </geometry>
       <material name="white"/>
     </visual>
+
     <inertial>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <mass value="${dummy_mass}"/>
@@ -230,6 +249,14 @@
   </joint>
 
   <link name="coupler2">
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder length="${height_axel}" radius="${radius_axel}"/>
+      </geometry>
+      <material name="white"/>
+    </collision>
+
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
@@ -237,6 +264,7 @@
       </geometry>
       <material name="white"/>
     </visual>
+
     <inertial>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <mass value="${dummy_mass}"/>
@@ -287,49 +315,49 @@
   </joint>
 
   <link name="gripper">
-    <visual>
+    <collision>
       <origin xyz="${z1/2} 0 0" rpy="${PI/2} 0 ${PI/2}"/>
       <geometry>
         <box size="${yt} ${xt} ${z1}"/>
       </geometry>
       <material name="white"/>
-    </visual>
-    <visual>
+    </collision>
+    <collision>
       <origin xyz="${z1+(zt-z1)/2} ${yt/2-y1/2} 0" rpy="${PI/2} 0 ${PI/2}"/>
       <geometry>
         <box size="${y1} ${xt} ${zt-z1}"/>
       </geometry>
       <material name="white"/>
-    </visual>
-    <visual>
+    </collision>
+    <collision>
       <origin xyz="${z1+(zt-z1)/2} -${yt/2-y1/2} 0" rpy="${PI/2} 0 ${PI/2}"/>
       <geometry>
         <box size="${y1} ${xt} ${zt-z1}"/>
       </geometry>
       <material name="white"/>
-    </visual>
+    </collision>
 
-    <collision>
+    <visual>
       <origin xyz="${z1/2} 0 0" rpy="${PI/2} 0 ${PI/2}"/>
       <geometry>
         <box size="${yt} ${xt} ${z1}"/>
       </geometry>
       <material name="white"/>
-    </collision>
-    <collision>
+    </visual>
+    <visual>
       <origin xyz="${z1+(zt-z1)/2} ${yt/2-y1/2} 0" rpy="${PI/2} 0 ${PI/2}"/>
       <geometry>
         <box size="${y1} ${xt} ${zt-z1}"/>
       </geometry>
       <material name="white"/>
-    </collision>
-    <collision>
+    </visual>
+    <visual>
       <origin xyz="${z1+(zt-z1)/2} -${yt/2-y1/2} 0" rpy="${PI/2} 0 ${PI/2}"/>
       <geometry>
         <box size="${y1} ${xt} ${zt-z1}"/>
       </geometry>
       <material name="white"/>
-    </collision>
+    </visual>
 
     <inertial>
       <origin xyz="0 0 0" rpy="0 0 0"/>
