@@ -35,7 +35,7 @@ class PyBulletObject(object):
         self._bodies_uids = None
 
         # Logger
-        self.logger = logging.getLogger('pybullet')
+        self.logger = logging.getLogger('pybullet_object')
         self.logger.setLevel(logging.WARNING)
 
     def addToScene(self, bodies):

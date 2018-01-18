@@ -25,16 +25,19 @@ class DataLogger(object):
         else:
             self.dir_path = directory_path
 
-    def pickle(self, filename, data):
+    def pickle(self, filename, data, dir_path=None):
         """ Pickle data into file specified by filename. """
-        if not os.path.exists(self.dir_path):
-            os.makedirs(self.dir_path)
+        if dir_path is None:
+            dir_path = self.dir_path
+
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
 
         if filename.endswith('.pkl'):
             filename = filename[:-4]
 
         #filename = filename+datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")+'.pkl'
-        pickle.dump(data, open(self.dir_path+'/'+filename+'.pkl', 'wb'))
+        pickle.dump(data, open(dir_path+'/'+filename+'.pkl', 'wb'))
         return filename
 
     def unpickle(self, filename):

@@ -294,7 +294,7 @@ class DualistTrajOpt(TrajOpt):
         else:
             traj_distr = prev_traj_distr.copy()
 
-        compute_cost_fcn = algorithm.compute_costs
+        compute_cost_fcn = algorithm.compute_traj_cost
 
         # Store pol_wt if necessary
         gps_algo = algorithm.gps_algo
@@ -321,7 +321,7 @@ class DualistTrajOpt(TrajOpt):
         omega0 = omega
         nu0 = nu
 
-        # Run dynamic programming.
+        # Run Dynamic Programming.
         fail = True
         while fail:
             fail = False  # Flip to true on non-symmetric PD.
