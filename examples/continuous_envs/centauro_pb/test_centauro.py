@@ -23,7 +23,7 @@ if __name__ == '__main__':
     tgt_weights = [1.0, -1.0]
     rdn_tgt_pos = True
     tgt_positions = [(0.1, 0.2), (-0.1, -0.2)]  # Values between [-0.2, 0.2]
-    env = CentauroBulletEnv(render=False)
+    env = CentauroBulletEnv(render=True)
 
     env.seed(0)
 
@@ -64,7 +64,7 @@ if __name__ == '__main__':
             print('Step: ', steps_counter, ' | Episode: ', i+1, '/', episode_count)
             action = agent.act(ob, reward, done) * 0.001
             action = np.zeros_like(action)
-            action[0] = 0.005
+            action[0] = 0.5
 
             obs, reward, done, _ = env.step(action)
             if done:
