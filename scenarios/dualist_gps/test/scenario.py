@@ -318,8 +318,8 @@ class Scenario(object):
         # Trajectory Optimization Method
         traj_opt_method = {
             'type': DualistTrajOpt,
-            'good_const': True,  # Use good constraints
-            'bad_const': True,  # Use bad constraints
+            'good_const': self.task_params['consider_good'],  # Use good constraints
+            'bad_const': self.task_params['consider_bad'],  # Use bad constraints
             'del0': 1e-4,  # Eta updates for non-SPD Q-function (non-SPD correction step).
             'del0_good': 1e-4,  # Omega updates for non-SPD Q-function (non-SPD correction step).
             'del0_bad': 1e-8,  # Nu updates for non-SPD Q-function (non-SPD correction step).
@@ -333,7 +333,7 @@ class Scenario(object):
             'step_tol': 0.1,
             'bad_tol': 0.2,
             'good_tol': 0.6, #0.3,
-            'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step.
+            'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step. #TODO: IF TRUE, MAYBE IT DOES WORK WITH MDGPS because it doesn't consider dual vars
             'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
             'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
             }
@@ -379,9 +379,9 @@ class Scenario(object):
             'noisy_samples': True,
             'sample_on_policy': self.task_params['sample_on_policy'],  # Whether generate on-policy samples or off-policy samples
             'smooth_noise': True,  # Apply Gaussian filter to noise generated
-            'smooth_noise_var': 10.0e+0,  # 5.0e+0 np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
+            'smooth_noise_var': 5.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
             'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
-            'noise_var_scale': 5000.e-0*np.ones(self.action_dim),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
+            'noise_var_scale': 1.e-0*np.ones(self.action_dim),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
             # Cost
             'cost': self.cost,
             # Conditions
@@ -408,8 +408,8 @@ class Scenario(object):
 
         return DualGPS(self.agent, self.env, **gps_hyperparams)
 
-    def test_policy(self, type='global', condition=0):
-        return False
-
     def train(self, itr_load=None):
         return self.learn_algo.run(itr_load)
+
+    def test_policy(self, type='global', condition=0, iteration=-1):
+        return False

@@ -3,6 +3,7 @@ import argparse
 import yaml
 import random
 import numpy as np
+import shutil
 
 
 def main():
@@ -21,13 +22,28 @@ def main():
     # ############### #
     # Log directories #
     # ############### #
-    log_dir = args.log_dir+'/run_'+str(args.run_num)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-        os.makedirs(log_dir+'/dir1')
-        os.makedirs(log_dir+'/dir2')
+    # log_dir = args.log_dir
+    log_dir = args.log_dir+('/run_%02d' % args.run_num)
+    if args.mode == 'train':
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+        else:
+            replace_dir = input("Log directory '%s' already exists!. "
+                                "Press [y/Y] to replace it and continue with "
+                                "the script"
+                                "replace it? [y/Y]: " % log_dir)
+            # replace_dir = 'y'
+            if replace_dir.lower() == 'y':
+                shutil.rmtree(log_dir)
+                os.makedirs(log_dir)
+            else:
+                print('Finishing the script!!!')
+                exit()
+
+    elif args.mode == 'test':
+        print("Testing script with log directory '%s'!")
     else:
-        print("Log directory '%s' already exists!. Using it." % log_dir)
+        raise ValueError('Wrong script option')
 
     # ############# #
     # Load Scenario #
@@ -46,7 +62,6 @@ def main():
     # ############# #
     random.seed(args.seed)
     np.random.seed(args.seed)
-    # TODO: Set also env
     scenario.env.seed(args.seed)
 
     # ####################### #

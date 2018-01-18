@@ -5,7 +5,7 @@ Ts: 0.01 # 0.01
 Tend: 3  # 0.7
 
 # Env parameters
-render: True
+render: False
 obs_like_mjc: False
 ntargets: 2
 tgt_weights: [1.0, -1.0]
@@ -16,7 +16,6 @@ tgt_positions: [[0.1, 0.2], [-0.1, -0.2]]  # Values between [-0.2, 0.2]
 init_cond: [
 #           [90, 0, 0, 0.0, 0.79, 0.6, -0.2],
 #           [0, 0, 0, 0.8, 0.0, 0.6, -0.2],
-           [-60, -20, 0, 0.3, -0.1, 0.6, -0.2],
            [-60, -20, 0, 0.7, 0.0, 0.6, -0.2],
            [60, 20, 0, 0.7, 0.0, 0.6, 0.2],
 #           [45, 0, 0.2, 0.0, -0.1, 0.2],
@@ -25,13 +24,17 @@ train_cond: [0, 1]  # Indexes
 test_cond: [0, 1]
 
 # Agent
-tf_iterations: 2000 # 5000 # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
+tf_iterations: 5000 # 5000 # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
 
 
-# Learning parameters
-iterations: 20
+# Learning interaction parameters
+iterations: 5
 num_samples: 6 # Samples for exploration trajs --> N samples
 sample_on_policy: False # Whether generate on-policy samples or off-policy samples
 use_global_policy: True
 test_after_iter: True # If test the learned policy after an iteration in the RL algorithm
-test_n_samples: 2  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
+test_n_samples: 1  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
+
+# Dualist GPS parameters
+consider_good: False
+consider_bad: False

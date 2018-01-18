@@ -4,7 +4,7 @@
 # VARS #
 # #### #
 scenario='test'
-log_dir='test_log_dir'
+log_dir='normal_gps'
 
 seeds=(0 50 100)
 init_index=0
@@ -16,6 +16,7 @@ end_index=1
 total_seeds=${#seeds[@]}
 seeds=("${seeds[@]:${init_index}:${end_index}}")
 
+echo "Dualist GPS"
 echo "Total seeds: ${#seeds[@]}"
 echo "Experiment seeds: ${seeds[@]}"
 echo ""
