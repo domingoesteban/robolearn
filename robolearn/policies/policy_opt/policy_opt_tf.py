@@ -1,29 +1,22 @@
 """
 This file defines policy optimization for a tensorflow policy.
 Author: C. Finn et al. Original code in: https://github.com/cbfinn/gps
+Modified by robolearn collaborators
 """
 import copy
 import logging
 import os
-import tempfile
 
-import sys
 import numpy as np
 
-# NOTE: Order of these imports matters for some reason.
-# Changing it can lead to segmentation faults on some machines.
-
-from robolearn.policies.policy_opt.config import POLICY_OPT_TF
 import tensorflow as tf
-# from tensorflow.core.protobuf import saver_pb2  # If we need Saver v1
+from robolearn.policies.policy_opt.config import POLICY_OPT_TF
 
 from robolearn.policies.tf_policy import TfPolicy
 from robolearn.policies.policy_opt.policy_opt import PolicyOpt
 from robolearn.policies.policy_opt.tf_utils import TfSolver
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-
-GPU_MEM_PERCENTAGE = 0.4
 
 
 class PolicyOptTf(PolicyOpt):
@@ -48,25 +41,23 @@ class PolicyOptTf(PolicyOpt):
         self.log_dir = self._hyperparams['log_dir']
         self._log_counter = 0
 
-
         self.act_op = None  # mu_hat
         self.feat_op = None  # feature from obs operation
         self.loss_scalar = None
         self.obs_tensor = None
         self.precision_tensor = None
         self.action_tensor = None  # mu true
-        self.solver = None
+        self.solver = None  # Class with Solver op and a call method
         self.feat_vals = None  # Feature values
-        self.fc_vars = None
-        self.last_conv_vars = None
-        self.grads = None
-        self.saver = None
-        self.graph = tf.Graph()
+        self.fc_vars = None  # FC variables
+        self.last_conv_vars = None  # Conv variables
+        self.grads = None  # TF gradients
+        self.saver = None  # TF saver
+        self.graph = tf.Graph()  # TF graph
         self.init_network()
         self.init_solver()
         self.var = self._hyperparams['init_var'] * np.ones(dU)
         config = tf.ConfigProto()
-        #config.gpu_options.per_process_gpu_memory_fraction = GPU_MEM_PERCENTAGE
         config.gpu_options.per_process_gpu_memory_fraction = \
             self._hyperparams['gpu_mem_percentage']
         self.sess = tf.Session(graph=self.graph, config=config)
@@ -75,8 +66,10 @@ class PolicyOptTf(PolicyOpt):
                                copy_param_scope=self._hyperparams['copy_param_scope'],
                                tf_graph=self.graph)
 
-        # List of indices for state (vector) data and image (tensor) data in observation.
-        self.x_idx, self.img_idx, i = [], [], 0
+        # List of indices for state (vector) data
+        self.x_idx = []
+        # List of indices for image (tensor) data in observation.
+        self.img_idx = []
 
         # TODO: Commented by DOMINGO!!
         #if 'obs_image_data' not in self._hyperparams['network_params']:
@@ -91,6 +84,7 @@ class PolicyOptTf(PolicyOpt):
 
         # DOMINGO NEW VERSION
         obs_names = self._hyperparams['network_params']['obs_names']
+        i = 0
         for sensor_id, sensor_name in enumerate(obs_names):
             dim = self._hyperparams['network_params']['obs_dof'][sensor_id]
             if sensor_name == 'rgb_camera':
@@ -127,9 +121,11 @@ class PolicyOptTf(PolicyOpt):
         self.fc_vars = fc_vars
         self.last_conv_vars = last_conv_vars
 
-        # Setup the gradients
+        # Setup the gradients: X:obs, Y:actions
         with self.graph.as_default():
-            self.grads = [tf.gradients(self.act_op[:, u], self.obs_tensor)[0] for u in range(self._dU)]
+            # sum(dy/dx) for each x in xs | Do it for each action
+            self.grads = [tf.gradients(self.act_op[:, u], self.obs_tensor)[0]
+                          for u in range(self._dU)]
 
     def init_solver(self):
         """
@@ -146,7 +142,6 @@ class PolicyOptTf(PolicyOpt):
                                last_conv_vars=self.last_conv_vars,
                                tf_graph=self.graph)
         with self.graph.as_default():
-            # self.saver = tf.train.Saver(write_version=saver_pb2.SaverDef.V1)
             self.saver = tf.train.Saver()
 
     def update(self, obs, tgt_mu, tgt_prc, tgt_wt, LOGGER=None):
@@ -190,18 +185,23 @@ class PolicyOptTf(PolicyOpt):
 
         # TODO: Find entries with very low weights?
 
-        # TODO: DOM, CHECK IF THERE IS ANY PROBLEM WITH OBS NORMALIZATION IS DONE ONLY AT THE BEGINNING
+        # TODO: DOM, CHECK IF THERE IS ANY PROBLEM WITH OBS NORMALIZATION.
+        # TODO: BECAUSE IT IS DONE THE FIRST TIME
         # Normalize obs, but only compute normalization at the beginning.
         if self.policy.scale is None or self.policy.bias is None:
-            self.policy.x_idx = self.x_idx
-            # 1e-3 to avoid infs if some state dimensions don't change in the first batch of samples
-            self.policy.scale = np.diag(1.0 / np.maximum(np.std(obs[:, self.x_idx], axis=0), 1e-3))
-            self.policy.bias = -np.mean(obs[:, self.x_idx].dot(self.policy.scale), axis=0)
-        obs[:, self.x_idx] = obs[:, self.x_idx].dot(self.policy.scale) + self.policy.bias
+            self.policy.x_idx = self.x_idx  # State index
+            # 1e-3 to avoid infs if some state dimensions don't change in the
+            # first batch of samples
+            self.policy.scale = np.diag(
+                1.0 / np.maximum(np.std(obs[:, self.x_idx], axis=0), 1e-3))
+            self.policy.bias = \
+                -np.mean(obs[:, self.x_idx].dot(self.policy.scale), axis=0)
+        obs[:, self.x_idx] = obs[:, self.x_idx].dot(self.policy.scale) \
+                             + self.policy.bias
 
         # Assuming that N*T >= self.batch_size.
         batches_per_epoch = np.floor(N*T / self.batch_size)
-        idx = np.arange(N*T)
+        idx = list(range(N*T))
         average_loss = 0
         np.random.shuffle(idx)
 
@@ -224,51 +224,57 @@ class PolicyOptTf(PolicyOpt):
                 average_loss += train_loss
 
                 if (i+1) % 500 == 0:
-                    LOGGER.info('tensorflow iteration %d, average loss %f', i+1, average_loss/500)
+                    LOGGER.info('tensorflow iteration %d, average loss %f', i+1,
+                                average_loss/500)
                     average_loss = 0
             average_loss = 0
 
         # Actual training.
         for i in range(self._hyperparams['iterations']):
             # Load in data for this batch.
-            start_idx = int(i * self.batch_size % (batches_per_epoch * self.batch_size))
+            start_idx = int(i * self.batch_size %
+                            (batches_per_epoch * self.batch_size))
             idx_i = idx[start_idx:start_idx+self.batch_size]
 
             nan_number = np.isnan(obs)
             if np.any(nan_number):
-                LOGGER.info('%%%\n'*5)
-                LOGGER.info('tensorflow ERROR!!! GIVING OBS NAN NUMBER')
+                LOGGER.error('%%%\n'*5)
+                LOGGER.error('tensorflow ERROR!!! GIVING OBS NAN NUMBER')
             nan_number = np.isnan(tgt_mu)
             if np.any(nan_number):
-                LOGGER.info('%%%\n'*5)
-                LOGGER.info('tensorflow ERROR!!! GIVING TGT_MU NAN NUMBER')
+                LOGGER.error('%%%\n'*5)
+                LOGGER.error('tensorflow ERROR!!! GIVING TGT_MU NAN NUMBER')
             nan_number = np.isnan(tgt_prc)
             if np.any(nan_number):
-                LOGGER.info('%%%\n'*5)
-                LOGGER.info('tensorflow ERROR!!! GIVING  TGT_PRC NUMBER')
+                LOGGER.error('%%%\n'*5)
+                LOGGER.error('tensorflow ERROR!!! GIVING  TGT_PRC NUMBER')
 
             feed_dict = {self.obs_tensor: obs[idx_i],
                          self.action_tensor: tgt_mu[idx_i],
                          self.precision_tensor: tgt_prc[idx_i]}
-            train_loss = self.solver(feed_dict, self.sess, device_string=self.device_string)
+            train_loss = self.solver(feed_dict, self.sess,
+                                     device_string=self.device_string)
 
             average_loss += train_loss
             if (i+1) % 50 == 0:
-                LOGGER.info('tensorflow iteration %d, average loss %f', i+1, average_loss/50)
+                LOGGER.info('tensorflow iteration %d, average loss %f',
+                            i+1, average_loss/50)
                 average_loss = 0
 
+        # Get features from obs (if the policy consider images)
         feed_dict = {self.obs_tensor: obs}
         num_values = obs.shape[0]
-
-        # Get features from obs (if the policy consider images)
         if self.feat_op is not None:
-            self.feat_vals = self.solver.get_var_values(self.sess, self.feat_op, feed_dict, num_values, self.batch_size)
+            self.feat_vals = self.solver.get_var_values(self.sess, self.feat_op,
+                                                        feed_dict, num_values,
+                                                        self.batch_size)
 
         # Keep track of tensorflow iterations for loading solver states.
         self.tf_iter += self._hyperparams['iterations']
 
         # Optimize variance.
-        A = np.sum(tgt_prc_orig, 0) + 2 * N * T * self._hyperparams['ent_reg'] * np.ones((dU, dU))
+        A = np.sum(tgt_prc_orig, 0) \
+            + 2 * N * T * self._hyperparams['ent_reg'] * np.ones((dU, dU))
         A = A / np.sum(tgt_wt)
 
         # TODO - Use dense covariance?
@@ -304,6 +310,7 @@ class PolicyOptTf(PolicyOpt):
                     output[i, t, :] = self.sess.run(self.act_op,
                                                     feed_dict=feed_dict)
 
+        # Same variance for all time steps
         pol_sigma = np.tile(np.diag(self.var), [N, T, 1, 1])
         pol_prec = np.tile(np.diag(1.0 / self.var), [N, T, 1, 1])
         pol_det_sigma = np.tile(np.prod(self.var), [N, T])
@@ -328,12 +335,6 @@ class PolicyOptTf(PolicyOpt):
 
     # For pickling.
     def __getstate__(self):
-        # with tempfile.NamedTemporaryFile('w+b', delete=True) as f:
-        #     self.save_model(f.name)  # TODO - is this implemented.
-        #     f.seek(0)
-        #     print('-------------->', f.name)
-        #     with open(f.name, 'r') as f2:
-        #         wts = f2.read()
         vars_dir = self.log_dir + '/tf_vars/tf_log_' + \
                    str('%02d' % self._log_counter)
         self.save_model(vars_dir)
@@ -354,7 +355,9 @@ class PolicyOptTf(PolicyOpt):
     # For unpickling.
     def __setstate__(self, state):
         from tensorflow.python.framework import ops
-        ops.reset_default_graph()  # we need to destroy the default graph before re_init or checkpoint won't restore.
+        # We need to destroy the default graph before re_init or
+        # checkpoint won't restore.
+        ops.reset_default_graph()
         self.__init__(state['hyperparams'], state['dO'], state['dU'])
         self.policy.scale = state['scale']
         self.policy.bias = state['bias']
@@ -362,17 +365,6 @@ class PolicyOptTf(PolicyOpt):
         self.policy.chol_pol_covar = state['chol_pol_covar']
         self.tf_iter = state['tf_iter']
 
-        # with tempfile.NamedTemporaryFile('w+b', delete=True) as f:
-        #     f.write(state['wts'])
-        #     f.seek(0)
-        #     self.restore_model(f.name)
-        # vars_dir = self.log_dir + '/tf_vars/' + stat[]
-        #            str('%02d' % state['vars_dir'])
         vars_dir = state['vars_dir']
         self.restore_model(vars_dir)
         self._log_counter = int(vars_dir.split('log_', 1)[1]) + 1
-
-        # with tempfile.NamedTemporaryFile('w+b', delete=True) as f:
-        #     f.write(state['wts'])
-        #     f.seek(0)
-        #     self.restore_model(f.name)

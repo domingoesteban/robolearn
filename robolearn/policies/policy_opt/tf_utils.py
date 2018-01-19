@@ -9,8 +9,9 @@ def check_list_and_convert(the_object):
 
 
 class TfMap:
-    """ A container for inputs, outputs, and loss in a tf graph. This object exists only
-    to make well-defined the tf inputs, outputs, and losses used in the policy_opt_tf class."""
+    """ A container for inputs, outputs, and loss in a tf graph. This object
+    exists only to make well-defined the tf inputs, outputs, and losses used in
+    the policy_opt_tf class."""
 
     def __init__(self, input_tensor, target_output_tensor,
                  precision_tensor, output_op, loss_op, fp=None):
@@ -69,8 +70,8 @@ class TfSolver:
     A container for holding solver hyperparams in tensorflow.
     Used to execute backwards pass.
     """
-    def __init__(self, loss_scalar, solver_name='adam', base_lr=None, lr_policy=None,
-                 momentum=None, weight_decay=None, fc_vars=None,
+    def __init__(self, loss_scalar, solver_name='adam', base_lr=None,
+                 lr_policy=None, momentum=None, weight_decay=None, fc_vars=None,
                  last_conv_vars=None, vars_to_opt=None,
                  tf_graph=None):
         self.base_lr = base_lr
@@ -78,11 +79,14 @@ class TfSolver:
         self.momentum = momentum
         self.solver_name = solver_name
         self.loss_scalar = loss_scalar
+        if self.lr_policy != 'fixed':
+            raise NotImplementedError('learning rate policies other than fixed '
+                                      'are not implemented')
 
         self.graph = tf_graph
-        if self.lr_policy != 'fixed':
-            raise NotImplementedError('learning rate policies other than fixed are not implemented')
 
+        # Weight decay prevents the weights from growing too large, and can be
+        # seen as gradient descent on a quadratic regularization term
         self.weight_decay = weight_decay
         if weight_decay is not None:
             if vars_to_opt is None:

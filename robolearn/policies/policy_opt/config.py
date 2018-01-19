@@ -1,13 +1,15 @@
-""" Default configuration for policy optimization. """
-try:
-    from gps.algorithm.policy_opt.policy_opt_utils import construct_fc_network
-except ImportError:
-    construct_fc_network = None
-
-import os
+"""
+Default configuration for policy optimization.
+Authors: Finn et al
+Modified by: robolearn collaborators
+"""
 
 # config options shared by both caffe and tf.
 GENERIC_CONFIG = {
+}
+
+
+POLICY_OPT_TF = {
     # Initialization.
     'init_var': 0.1,  # Initial policy variance.
     'ent_reg': 0.0,  # Entropy regularizer.
@@ -20,33 +22,14 @@ GENERIC_CONFIG = {
     'weight_decay': 0.005,  # Weight decay.
     'solver_type': 'Adam',  # Solver type (e.g. 'SGD', 'Adam', etc.).
     # set gpu usage.
-    'use_gpu': 1,  # Whether or not to use the GPU for caffe training.
+    'use_gpu': True,  # Whether or not to use the GPU for caffe training.
     'gpu_id': 0,
     'random_seed': 1,
-}
-
-
-POLICY_OPT_CAFFE = {
-    # Other hyperparameters.
-    'network_model': construct_fc_network,  # Either a filename string
-                                            # or a function to call to
-                                            # create NetParameter.
-    'network_arch_params': {},  # Arguments to pass to method above.
-    'weights_file_prefix': '',
-}
-
-POLICY_OPT_CAFFE.update(GENERIC_CONFIG)
-
-
-POLICY_OPT_TF = {
     # Other hyperparameters.
     'copy_param_scope': 'conv_params',
     'fc_only_iterations': 0,
     'gpu_mem_percentage': 0.4,
 }
 
-POLICY_OPT_TF.update(GENERIC_CONFIG)
-
 
 POLICY_OPT_RANDOM = {}
-POLICY_OPT_RANDOM.update(GENERIC_CONFIG)

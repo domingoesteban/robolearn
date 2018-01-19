@@ -13,8 +13,8 @@ end_index=1
 # #### #
 # RUNS #
 # #### #
-total_seeds=${#seeds[@]}
 seeds=("${seeds[@]:${init_index}:${end_index}}")
+total_seeds=${#seeds[@]}
 
 echo "Dualist GPS"
 echo "Total seeds: ${#seeds[@]}"

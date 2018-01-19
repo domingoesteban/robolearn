@@ -111,7 +111,7 @@ class Scenario(object):
         policy_params = {
             'network_model': tf_network,  # tf_network, multi_modal_network, multi_modal_network_fp
             'network_params': {
-                'n_layers': 2,  # Hidden layers??
+                'n_layers': 2,  # Number of Hidden layers
                 'dim_hidden': [40, 40],  # List of size per n_layers
                 'obs_names': self.env.get_obs_info()['names'],
                 'obs_dof': self.env.get_obs_info()['dimensions'],  # DoF for observation data tensor
@@ -126,13 +126,14 @@ class Scenario(object):
             'lr_policy': 'fixed',  # Learning rate policy.
             'momentum': 0.9,  # Momentum.
             'weight_decay': 0.005,  # Weight decay.
-            'solver_type': 'Adam',  # Solver type (e.g. 'SGD', 'Adam', etc.).
+            'solver_type': 'Adam',  # Solver type (e.g. 'SGD', 'Adam', 'RMSPROP', 'MOMENTUM', 'ADAGRAD').
             # set gpu usage.
-            'use_gpu': 1,  # Whether or not to use the GPU for training.
+            'use_gpu': True,  # Whether or not to use the GPU for training.
             'gpu_id': 0,
             'random_seed': 1,
-            'fc_only_iterations': 0,  # TODO: Only forwardcontrol? if it is CNN??
+            'fc_only_iterations': 0,  # Iterations of only FC before normal training
             'gpu_mem_percentage': 0.2,
+            'log_dir': self.hyperparams['log_dir'],
             # 'weights_file_prefix': EXP_DIR + 'policy',
         }
 
@@ -143,7 +144,7 @@ class Scenario(object):
 
         agent = GPSAgent(act_dim=self.action_dim, obs_dim=self.obs_dim,
                          state_dim=self.state_dim, policy_opt=policy_opt,
-                         agent_name='agent'+str(self.hyperparams['run_num']))
+                         agent_name='agent'+str('%02d' % self.hyperparams['run_num']))
         print("Agent:%s OK\n" % type(agent).__name__)
 
         return agent
@@ -213,9 +214,9 @@ class Scenario(object):
             'type': CostState,
             'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
             'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
-            'l1': 0.0,  # Weight for l1 norm
-            'l2': 1.0,  # Weight for l2 norm
-            'alpha': 1e-2,  # Constant added in square root in l1 norm
+            'l1': 1.0,  # Weight for l1 norm
+            'l2': 0.0,  # Weight for l2 norm
+            'alpha': 1e-5,  # Constant added in square root in l1 norm
             'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
             'data_types': {
                 'tgt0': {
@@ -232,9 +233,9 @@ class Scenario(object):
             'type': CostState,
             'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
             'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
-            'l1': 0.0,  # Weight for l1 norm
-            'l2': 1.0,  # Weight for l2 norm
-            'alpha': 1e-2,  # Constant added in square root in l1 norm
+            'l1': 1.0,  # Weight for l1 norm
+            'l2': 0.0,  # Weight for l2 norm
+            'alpha': 1e-5,  # Constant added in square root in l1 norm
             'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
             'data_types': {
                 'tgt0': {
@@ -250,14 +251,14 @@ class Scenario(object):
 
         # Sum costs
         # costs_and_weights = [(act_cost, 1.0e-1),
-        costs_and_weights = [(act_cost, 1.0e+0),
+        costs_and_weights = [(act_cost, 1.0e-1),
                              # # (fk_cost, 1.0e-0),
                              # (fk_l1_cost, 1.5e-1),
                              # (fk_l2_cost, 1.0e-0),
                              # # (fk_final_cost, 1.0e-0),
                              # (fk_l1_final_cost, 1.5e-1),
                              # (fk_l2_final_cost, 1.0e-0),
-                             (state_cost_distance, 8.0e-1),
+                             (state_cost_distance, 8.0e-0),
                              (state_final_cost_distance, 1.0e+3),
                              ]
 
@@ -289,9 +290,6 @@ class Scenario(object):
 
         # Learning params
         resume_training_itr = None  # Resume from previous training iteration
-        # data_files_dir = 'GPS_2017-09-01_15:22:55'  # None  # In case we want to resume from previous training
-        data_files_dir = None  # 'GPS_2017-09-05_13:07:23'  # None  # In case we want to resume from previous training
-        data_files_dir = self.hyperparams['log_dir']
 
         # Dynamics
         learned_dynamics = {'type': DynamicsLRPrior,
@@ -403,7 +401,7 @@ class Scenario(object):
             'use_global_policy': self.task_params['use_global_policy'],  # KL prev or policy(MDGPS)
             # Others
             'gps_algo_hyperparams': gps_algo_hyperparams,
-            'data_files_dir': data_files_dir,
+            'data_files_dir': self.hyperparams['log_dir'],
         }
 
         return DualGPS(self.agent, self.env, **gps_hyperparams)
@@ -412,4 +410,41 @@ class Scenario(object):
         return self.learn_algo.run(itr_load)
 
     def test_policy(self, type='global', condition=0, iteration=-1):
-        return False
+        noise = np.zeros((self.task_params['T'], self.agent.act_dim))
+
+        if iteration == -1:
+            for rr in range(600):
+                temp_path = self.hyperparams['log_dir'] + ('/itr_%02d' % rr)
+                if os.path.exists(temp_path):
+                    iteration += 1
+
+        if iteration == -1:
+            return False
+
+        dir_path = 'itr_%02d/' % iteration
+
+        if type == 'global':
+            traj_opt_file = dir_path + 'policy_opt_itr_%02d.pkl' % iteration
+
+            change_print_color.change('BLUE')
+            print("\nLoading policy '%s'..." % traj_opt_file)
+
+            prev_policy_opt = self.learn_algo.data_logger.unpickle(traj_opt_file)
+            if prev_policy_opt is None:
+                print("Error: cannot find '%s.'" % traj_opt_file)
+                os._exit(1)
+            else:
+                self.agent.policy_opt.__dict__.update(prev_policy_opt.__dict__)
+
+            self.agent.policy = self.agent.policy_opt.policy
+
+            policy = None
+        else:
+            raise NotImplementedError('Not implemented error')
+
+        self.env.reset(condition=condition)
+        input('Press a key to start sampling...')
+        sample = self.agent.sample(self.env, condition, self.task_params['T'],
+                                   self.task_params['Ts'], noise, policy=policy,
+                                   save=False)
+        return True

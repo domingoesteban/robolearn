@@ -436,10 +436,12 @@ class DualGPS(Algorithm):
                               ('sample_pol_first_itr' in self._hyperparams
                                and self._hyperparams['sample_pol_first_itr'])):
                 policy = None
-                print("On-policy sampling: %s!" % type(policy).__name__)
+                self.logger.info("On-policy sampling: %s!"
+                                 % type(policy).__name__)
             else:
                 policy = self.cur[cond].traj_distr
-                print("Off-policy sampling: %s!" % type(policy).__name__)
+                self.logger.info("Off-policy sampling: %s!"
+                                 % type(policy).__name__)
 
             for i in range(total_samples):
                 if traj_or_pol == 'traj':

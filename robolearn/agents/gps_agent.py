@@ -39,7 +39,8 @@ class GPSAgent(Agent):
             if not issubclass(policy_opt['type'], PolicyOpt):
                 raise TypeError("'policy_opt' type %s is not a PolicyOpt class"
                                 % str(policy_opt['type']))
-            policy_opt['hyperparams']['name'] = agent_name
+            # policy_opt['hyperparams']['name'] = agent_name
+            policy_opt['hyperparams']['name'] = ""
             self.policy_opt = policy_opt['type'](policy_opt['hyperparams'],
                                                  obs_dim, act_dim)
 

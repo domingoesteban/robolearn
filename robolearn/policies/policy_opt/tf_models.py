@@ -10,33 +10,28 @@ import numpy as np
 
 def init_weights(shape, name=None, tf_graph=None):
     if tf_graph is None:
-        return tf.get_variable(name, initializer=tf.random_normal(shape, stddev=0.01))
-    else:
-        with tf_graph.as_default():
-            return tf.get_variable(name, initializer=tf.random_normal(shape, stddev=0.01))
+        tf_graph = tf.get_default_graph()
+    with tf_graph.as_default():
+        return tf.get_variable(name, initializer=tf.random_normal(shape,
+                                                                  stddev=0.01))
 
 
 def init_bias(shape, name=None, tf_graph=None):
     if tf_graph is None:
+        tf_graph = tf.get_default_graph()
+    with tf_graph.as_default():
         return tf.get_variable(name, initializer=tf.zeros(shape, dtype='float'))
-    else:
-        with tf_graph.as_default():
-            return tf.get_variable(name, initializer=tf.zeros(shape, dtype='float'))
 
 
 def batched_matrix_vector_multiply(vector, matrix, tf_graph=None):
     """ computes x^T A in mini-batches. """
     if tf_graph is None:
+        tf_graph = tf.get_default_graph()
+    with tf_graph.as_default():
         vector_batch_as_matrices = tf.expand_dims(vector, [1])
         # mult_result = tf.batch_matmul(vector_batch_as_matricies, matrix)
         mult_result = tf.matmul(vector_batch_as_matrices, matrix)
         squeezed_result = tf.squeeze(mult_result, [1])
-    else:
-        with tf_graph.as_default():
-            vector_batch_as_matrices = tf.expand_dims(vector, [1])
-            # mult_result = tf.batch_matmul(vector_batch_as_matricies, matrix)
-            mult_result = tf.matmul(vector_batch_as_matrices, matrix)
-            squeezed_result = tf.squeeze(mult_result, [1])
     return squeezed_result
 
 
@@ -44,79 +39,90 @@ def euclidean_loss_layer(action, mlp_out, precision, batch_size, tf_graph=None):
     """ Math:  out = (action - mlp_out)'*precision*(action-mlp_out)
                     = (u-uhat)'*A*(u-uhat)"""
     if tf_graph is None:
+        tf_graph = tf.get_default_graph()
+    with tf_graph.as_default():
         scale_factor = tf.constant(2*batch_size, dtype='float')
-    else:
-        with tf_graph.as_default():
-            scale_factor = tf.constant(2*batch_size, dtype='float')
 
-    uP = batched_matrix_vector_multiply(action-mlp_out, precision, tf_graph=tf_graph)
+    uP = batched_matrix_vector_multiply(action-mlp_out, precision,
+                                        tf_graph=tf_graph)
 
     if tf_graph is None:
-        uPu = tf.reduce_sum(uP*(action-mlp_out))  # this last dot product is then summed, so we just the sum all at once.
-    else:
-        with tf_graph.as_default():
-            uPu = tf.reduce_sum(uP*(action-mlp_out))  # this last dot product is then summed, so we just the sum all at once.
+        tf_graph = tf.get_default_graph()
+    with tf_graph.as_default():
+        # This last dot product is then summed, so we just the sum all at once.
+        uPu = tf.reduce_sum(uP*(action-mlp_out))
 
     return uPu/scale_factor
 
 
 def get_input_layer(dim_input, dim_output, network_name="", tf_graph=None):
-    """ Produce the placeholder inputs that are used to run ops forward and backwards.
-        Return:
-            net_input: usually an observation.
-            action: mu, the ground truth actions we're trying to learn.
-            precision: precision matrix used to compute loss."""
+    """
+    Produce the placeholder inputs that are used to run ops forward and
+    backwards.
+    Return:
+        net_input: usually an observation.
+        action: mu, the ground truth actions we're trying to learn.
+        precision: precision matrix used to compute loss.
+    """
     if tf_graph is None:
-        net_input = tf.placeholder('float', [None, dim_input], name=network_name+'nn_input')
-        action = tf.placeholder('float', [None, dim_output], name=network_name+'action')
-        precision = tf.placeholder('float', [None, dim_output, dim_output], name=network_name+'precision')
-    else:
-        with tf_graph.as_default():
-            net_input = tf.placeholder('float', [None, dim_input], name=network_name+'nn_input')
-            action = tf.placeholder('float', [None, dim_output], name=network_name+'action')
-            precision = tf.placeholder('float', [None, dim_output, dim_output], name=network_name+'precision')
+        tf_graph = tf.get_default_graph()
+
+    with tf_graph.as_default():
+        net_input = tf.placeholder('float', [None, dim_input],
+                                   name=network_name+'nn_input')
+        action = tf.placeholder('float', [None, dim_output],
+                                name=network_name+'action')
+        precision = tf.placeholder('float', [None, dim_output, dim_output],
+                                   name=network_name+'precision')
     return net_input, action, precision
 
 
-def get_mlp_layers(mlp_input, number_layers, dimension_hidden, network_name="", tf_graph=None):
-    """ Compute MLP with specified number of layers.
-        math: sigma(Wx + b)
-        for each layer, where sigma is by default relu"""
+def get_mlp_layers(mlp_input, number_layers, dimension_hidden, network_name="",
+                   tf_graph=None):
+    """
+    Compute MLP with specified number of layers.
+    math: sigma(Wx + b)
+    for each layer, where sigma is by default relu
+    """
     cur_top = mlp_input
     weights = []
     biases = []
+    if tf_graph is None:
+        tf_graph = tf.get_default_graph()
+
+    print(cur_top)
     for layer_step in range(0, number_layers):
         in_shape = cur_top.get_shape().dims[1].value
-        cur_weight = init_weights([in_shape, dimension_hidden[layer_step]], name=network_name + 'w_' + str(layer_step), tf_graph=tf_graph)
-        cur_bias = init_bias([dimension_hidden[layer_step]], name=network_name + 'b_' + str(layer_step), tf_graph=tf_graph)
+        cur_weight = init_weights([in_shape, dimension_hidden[layer_step]],
+                                  name=network_name + 'w_' + str(layer_step),
+                                  tf_graph=tf_graph)
+        cur_bias = init_bias([dimension_hidden[layer_step]],
+                             name=network_name + 'b_' + str(layer_step),
+                             tf_graph=tf_graph)
         weights.append(cur_weight)
         biases.append(cur_bias)
         if layer_step != number_layers-1:  # final layer has no RELU
-            if tf_graph is None:
+            with tf_graph.as_default():
                 cur_top = tf.nn.relu(tf.matmul(cur_top, cur_weight) + cur_bias)
-            else:
-                with tf_graph.as_default():
-                    cur_top = tf.nn.relu(tf.matmul(cur_top, cur_weight) + cur_bias)
         else:
-            if tf_graph is None:
+            with tf_graph.as_default():
                 cur_top = tf.matmul(cur_top, cur_weight) + cur_bias
-            else:
-                with tf_graph.as_default():
-                    cur_top = tf.matmul(cur_top, cur_weight) + cur_bias
 
     return cur_top, weights, biases
 
 
 def get_loss_layer(mlp_out, action, precision, batch_size, tf_graph=None):
-    """The loss layer used for the MLP network is obtained through this class."""
+    """
+    The loss layer used for the MLP network is obtained through this class.
+    """
     if tf_graph is None:
-        return euclidean_loss_layer(action, mlp_out, precision=precision, batch_size=batch_size)
-    else:
-        with tf_graph.as_default():
-            return euclidean_loss_layer(action, mlp_out, precision=precision, batch_size=batch_size)
+        tf_graph = tf.get_default_graph()
+    return euclidean_loss_layer(action, mlp_out, precision=precision,
+                                batch_size=batch_size, tf_graph=tf_graph)
 
 
-def tf_network(dim_input=27, dim_output=7, batch_size=25, network_config=None, network_name="", tf_graph=None):
+def tf_network(dim_input=27, dim_output=7, batch_size=25, network_config=None,
+               network_name="", tf_graph=None):
     """
     Specifying a fully-connected network in TensorFlow.
 
@@ -125,26 +131,41 @@ def tf_network(dim_input=27, dim_output=7, batch_size=25, network_config=None, n
         dim_output: Dimensionality of the output.
         batch_size: Batch size.
         network_config: dictionary of network structure parameters
+        network_name: TODO
+        tf_graph: TODO
     Returns:
-        a TfMap object used to serialize, inputs, outputs, and loss.
+        a TfMap object used to serialize inputs, outputs, and loss.
+        list with tf_network parameters (TF variables)
+        an empty list
     """
+    # if tf_graph is None:
+    #     raise NotImplementedError("Not implemented for custom tf_graph")
     if tf_graph is None:
-        raise NotImplementedError("Not implemented for custom tf_graph")
-    n_layers = 2 if 'n_layers' not in network_config else network_config['n_layers'] + 1
-    dim_hidden = (n_layers - 1) * [40] if 'dim_hidden' not in network_config else network_config['dim_hidden']
+        tf_graph = tf.get_default_graph()
+
+    n_layers = 2 if 'n_layers' not in network_config \
+        else network_config['n_layers'] + 1
+    dim_hidden = (n_layers - 1) * [40] if 'dim_hidden' not in network_config \
+        else network_config['dim_hidden']
     dim_hidden.append(dim_output)
 
-    nn_input, action, precision = get_input_layer(dim_input, dim_output, network_name=network_name, tf_graph=tf_graph)
-    mlp_applied, weights_FC, biases_FC = get_mlp_layers(nn_input, n_layers, dim_hidden,
-                                                        network_name=network_name, tf_graph=tf_graph)
+    nn_input, action, precision = get_input_layer(dim_input, dim_output,
+                                                  network_name=network_name,
+                                                  tf_graph=tf_graph)
+    mlp_applied, weights_FC, biases_FC = \
+        get_mlp_layers(nn_input, n_layers, dim_hidden,
+                       network_name=network_name, tf_graph=tf_graph)
     fc_vars = weights_FC + biases_FC
-    loss_out = get_loss_layer(mlp_out=mlp_applied, action=action, precision=precision, batch_size=batch_size,
+    loss_out = get_loss_layer(mlp_out=mlp_applied, action=action,
+                              precision=precision, batch_size=batch_size,
                               tf_graph=tf_graph)
 
-    return TfMap.init_from_lists([nn_input, action, precision], [mlp_applied], [loss_out]), fc_vars, []
+    return TfMap.init_from_lists([nn_input, action, precision],
+                                 [mlp_applied], [loss_out]), fc_vars, []
 
 
-def multi_modal_network(dim_input=27, dim_output=7, batch_size=25, network_config=None, tf_graph=None):
+def multi_modal_network(dim_input=27, dim_output=7, batch_size=25,
+                        network_config=None, tf_graph=None):
     """
     An example a network in tf that has both state and image inputs.
 
@@ -153,6 +174,7 @@ def multi_modal_network(dim_input=27, dim_output=7, batch_size=25, network_confi
         dim_output: Dimensionality of the output.
         batch_size: Batch size.
         network_config: dictionary of network structure parameters
+        tf_graph: TF graph
     Returns:
         A tfMap object that stores inputs, outputs, and scalar loss.
     """
@@ -187,7 +209,8 @@ def multi_modal_network(dim_input=27, dim_output=7, batch_size=25, network_confi
     im_height = network_config['image_height']
     im_width = network_config['image_width']
     num_channels = network_config['image_channels']
-    image_input = tf.reshape(image_input, [-1, im_width, im_height, num_channels])
+    image_input = tf.reshape(image_input,
+                             [-1, im_width, im_height, num_channels])
 
     # we pool twice, each time reducing the image size by a factor of 2.
     conv_out_size = int(im_width/(2.0*pool_size)*im_height/(2.0*pool_size)*num_filters[1])
@@ -218,8 +241,10 @@ def multi_modal_network(dim_input=27, dim_output=7, batch_size=25, network_confi
 
     fc_output, _, _ = get_mlp_layers(fc_input, n_layers, dim_hidden)
 
-    loss = euclidean_loss_layer(a=action, b=fc_output, precision=precision, batch_size=batch_size)
-    return TfMap.init_from_lists([nn_input, action, precision], [fc_output], [loss])
+    loss = euclidean_loss_layer(a=action, b=fc_output, precision=precision,
+                                batch_size=batch_size)
+    return TfMap.init_from_lists([nn_input, action, precision],
+                                 [fc_output],[loss])
 
 
 def multi_modal_network_fp(dim_input=27, dim_output=7, batch_size=25, network_config=None, tf_graph=None):
@@ -328,18 +353,16 @@ def multi_modal_network_fp(dim_input=27, dim_output=7, batch_size=25, network_co
 
 
 def conv2d(img, w, b, strides=[1, 1, 1, 1]):
-    if tf_graph is None:
-        raise NotImplementedError("Not implemented for custom tf_graph")
-    return tf.nn.relu(tf.nn.bias_add(tf.nn.conv2d(img, w, strides=strides, padding='SAME'), b))
+    return tf.nn.relu(tf.nn.bias_add(tf.nn.conv2d(img, w, strides=strides,
+                                                  padding='SAME'), b))
 
 
 def max_pool(img, k):
-    if tf_graph is None:
-        raise NotImplementedError("Not implemented for custom tf_graph")
-    return tf.nn.max_pool(img, ksize=[1, k, k, 1], strides=[1, k, k, 1], padding='SAME')
+    return tf.nn.max_pool(img, ksize=[1, k, k, 1], strides=[1, k, k, 1],
+                          padding='SAME')
 
 
-def get_xavier_weights(filter_shape, poolsize=(2, 2)):
+def get_xavier_weights(filter_shape, poolsize=(2, 2), tf_graph=None):
     if tf_graph is None:
         raise NotImplementedError("Not implemented for custom tf_graph")
     fan_in = np.prod(filter_shape[1:])

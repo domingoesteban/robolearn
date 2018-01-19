@@ -91,9 +91,9 @@ def main():
         raise ValueError('Wrong script option')
 
     if successful:
-        print('#'*35)
+        print('#'*40)
         print('The script has finished successfully!!!')
-        print('#'*35)
+        print('#'*40)
     else:
         print('The script has NOT finished successfully!!!')
 
