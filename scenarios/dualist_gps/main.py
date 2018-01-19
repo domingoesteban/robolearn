@@ -15,7 +15,8 @@ def main():
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--mode', type=str, default='train')
     parser.add_argument('--run_num', type=int, default=0)
-    parser.add_argument('--log_dir', type=str, default='test1')
+    parser.add_argument('--log_dir', type=str, default='test_log')
+    parser.add_argument('--itr', type=int, default=-1)
     args = parser.parse_args()
     print('command_line args:', args)
 
@@ -39,9 +40,12 @@ def main():
             else:
                 print('Finishing the script!!!')
                 exit()
-
     elif args.mode == 'test':
-        print("Testing script with log directory '%s'!")
+        if not os.path.exists(log_dir):
+            raise ValueError("It does not exist log directory '%s'"
+                             % log_dir)
+        else:
+            print("Testing script with log directory '%s'!" % log_dir)
     else:
         raise ValueError('Wrong script option')
 
@@ -82,12 +86,14 @@ def main():
     if args.mode == 'train':
         successful = scenario.train()
     elif args.mode == 'test':
-        successful = scenario.test()
+        successful = scenario.test_policy(iteration=args.itr)
     else:
         raise ValueError('Wrong script option')
 
     if successful:
+        print('#'*35)
         print('The script has finished successfully!!!')
+        print('#'*35)
     else:
         print('The script has NOT finished successfully!!!')
 
