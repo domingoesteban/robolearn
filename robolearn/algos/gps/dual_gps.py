@@ -30,11 +30,6 @@ from robolearn.utils.traj_opt.traj_opt_utils import traj_distr_kl, traj_distr_kl
 from robolearn.policies.lin_gauss_policy import LinearGaussianPolicy
 from robolearn.algos.gps.gps_utils import gauss_fit_joint_prior
 
-from robolearn.envs.gym_environment import GymEnv
-from robolearn.envs.pybullet.bullet_env import BulletEnv
-import rospy
-import time
-
 import logging
 
 
@@ -96,7 +91,8 @@ class DualGPS(Algorithm):
             for ii in range(self.max_iterations):
                 for cond in range(self.M):
                     for n in range(self._hyperparams['num_samples']):
-                        self.noise_data[ii, cond, n, :, :] = self.get_noise()
+                        self.noise_data[ii, cond, n, :, :] = \
+                            generate_noise(self.T, self.dU, self._hyperparams)
 
         # IterationData objects for each condition.
         self.cur = [IterationData() for _ in range(self.M)]
@@ -215,10 +211,14 @@ class DualGPS(Algorithm):
         if self.use_global_policy:
             for m in range(self.M):
                 # Same policy prior in MDGPS for good/bad
-                self.good_duality_info[m].pol_info = PolicyInfo(self._hyperparams['gps_algo_hyperparams'])
-                self.good_duality_info[m].pol_info.policy_prior = policy_prior['type'](policy_prior)
-                self.bad_duality_info[m].pol_info = PolicyInfo(self._hyperparams['gps_algo_hyperparams'])
-                self.bad_duality_info[m].pol_info.policy_prior = policy_prior['type'](policy_prior)
+                self.good_duality_info[m].pol_info = \
+                    PolicyInfo(self._hyperparams['gps_algo_hyperparams'])
+                self.good_duality_info[m].pol_info.policy_prior = \
+                    policy_prior['type'](policy_prior)
+                self.bad_duality_info[m].pol_info = \
+                    PolicyInfo(self._hyperparams['gps_algo_hyperparams'])
+                self.bad_duality_info[m].pol_info.policy_prior = \
+                    policy_prior['type'](policy_prior)
 
     def run(self, itr_load=None):
         """
@@ -234,7 +234,13 @@ class DualGPS(Algorithm):
         run_successfully = True
 
         try:
-            itr_start = self._initialize(itr_load)
+            if itr_load is None:
+                print('Starting GPS from zero!')
+                itr_start = 0
+            else:
+                itr_start = self._restore_algo_state(itr_load)
+
+            # Start/Continue iteration
             for itr in range(itr_start, self.max_iterations):
                 self._iteration(itr)
 
@@ -288,7 +294,8 @@ class DualGPS(Algorithm):
 
         # On the first iteration, need to catch policy up to init_traj_distr.
         if self.use_global_policy and self.iteration_count == 0:
-            self.new_traj_distr = [self.cur[cond].traj_distr for cond in range(self.M)]
+            self.new_traj_distr = [self.cur[cond].traj_distr
+                                   for cond in range(self.M)]
             logger.info("\n"*2)
             logger.info('DualGPS: itr:%02d | '
                         'S-step for init_traj_distribution (iter=0)...'
@@ -331,18 +338,19 @@ class DualGPS(Algorithm):
                     'Updating data of good and bad samples...' % (itr+1))
         logger.info('-DualGPS: itr:%02d | '
                     'Update g/b dynamics...' % (itr+1))
-        self._update_good_bad_dynamics(option=self._hyperparams['gps_algo_hyperparams']['duality_dynamics_type'])
+        option = self._hyperparams['gps_algo_hyperparams']['duality_dynamics_type']
+        self._update_good_bad_dynamics(option=option)
         logger.info('-DualGPS: itr:%02d | '
                     'Update g/b costs...' % (itr+1))
         self._eval_good_bad_costs()
         logger.info('-DualGPS: itr:%02d | '
                     'Update g/b traj dist...' % (itr+1))
-        self._fit_good_bad_traj_dist()
+        self._update_good_bad_fit()
         logger.info('-DualGPS: itr:%02d | '
                     'Divergence btw good/bad trajs: ...' % (itr+1))
         self._check_kl_div_good_bad()
 
-        # Run inner loop to compute new policies.
+        # Run inner loop to compute new trajectories (update them).
         logger.info('')
         logger.info('DualGPS: itr:%02d | '
                     'Updating trajectories...' % (itr+1))
@@ -371,9 +379,9 @@ class DualGPS(Algorithm):
             for m in range(self.M):
                 pol_sample_lists.append(self.cur[m].pol_info.policy_samples)
 
-            pol_sample_lists_costs,\
-            pol_sample_lists_cost_compositions = \
-                self._eval_conditions_sample_list_cost(pol_sample_lists)
+            pol_costs = self._eval_conditions_sample_list_cost(pol_sample_lists)
+            pol_sample_lists_costs = pol_costs[0]
+            pol_sample_lists_cost_compositions = pol_costs[1]
 
             for m in range(self.M):
                 print('&'*10)
@@ -405,7 +413,7 @@ class DualGPS(Algorithm):
         :return:
         """
         # If 'pol' sampling, do it with zero noise
-        zero_noise = np.zeros(self.dU)
+        zero_noise = np.zeros((self.T, self.dU))
 
         self.logger.info("Sampling with mode:'%s'" % traj_or_pol)
 
@@ -427,101 +435,28 @@ class DualGPS(Algorithm):
             if on_policy and (self.iteration_count > 0 or
                               ('sample_pol_first_itr' in self._hyperparams
                                and self._hyperparams['sample_pol_first_itr'])):
-                policy = self.agent.policy
+                policy = None
                 print("On-policy sampling: %s!" % type(policy).__name__)
             else:
                 policy = self.cur[cond].traj_distr
                 print("Off-policy sampling: %s!" % type(policy).__name__)
 
             for i in range(total_samples):
-                # Create a sample class
-                sample = Sample(self.env, self.T)
-                history = [None] * self.T
-                obs_hist = [None] * self.T
-
-                # sample = self._take_fake_sample(itr, cond, i, verbose=True,
-                #                                 save=True, noisy=True,
-                #                                 on_policy=False)
-
-                self.logger.info("Resetting environment to condition %02d..."
-                                 % cond)
-                self.env.reset(condition=cond)
-
-                # if issubclass(type(self.env), GymEnv):
-                if issubclass(type(self.env), BulletEnv):
-                    gym_ts = self.dt
+                if traj_or_pol == 'traj':
+                    noise = self.noise_data[itr, cond, i, :, :]
                 else:
-                    ros_rate = rospy.Rate(int(1/self.dt))  # hz
+                    noise = zero_noise
 
-                # Collect history
+                self.env.reset(condition=cond)
                 sample_text = "'%s' sampling | itr:%d/%d, cond:%d/%d, s:%d/%d"\
                               % (traj_or_pol, itr+1, self.max_iterations,
                                  cond+1, len(self._train_cond_idx),
                                  i+1, total_samples)
 
                 self.logger.info(sample_text)
-                sampling_bar = ProgressBar(self.T, bar_title=sample_text,
-                                           total_lines=20)
-
-                for t in range(self.T):
-                    sampling_bar.update(t)
-                    sample_time_text = sample_text + (" | t:%d/%d"
-                                                      % (t+1, self.T))
-                    state = self.env.get_state()
-                    obs = self.env.get_observation()
-                    # Checking NAN
-                    nan_number = np.isnan(obs)
-                    if np.any(nan_number):
-                        self.logger.error("\e[31mERROR OBSERVATION: NAN!!!!! | "
-                                          "type:%s | itr %d | cond%d | "
-                                          "i:%d t:%d"
-                                          % (traj_or_pol, itr+1, cond+1,
-                                             i+1, t+1))
-                    if traj_or_pol == 'traj':
-                        noise = self.noise_data[itr, cond, i, t, :]
-                    else:
-                        noise = zero_noise
-                    # TODO: Avoid TF policy writes in obs
-                    action = policy.eval(state.copy(), obs.copy(), t,
-                                         noise.copy())
-                    # Checking NAN
-                    nan_number = np.isnan(action)
-                    if np.any(nan_number):
-                        print("\e[31mERROR ACTION: NAN!!!!! | type:%s | "
-                              "itr %d | cond%d | i:%d t:%d"
-                              % (traj_or_pol, itr+1, cond+1, i+1, t+1))
-                    action[nan_number] = 0
-                    # self.env.send_action(action)
-                    self.env.step(action)
-
-                    obs_hist[t] = (obs, action)
-                    history[t] = (state, action)
-
-                    # if issubclass(type(self.env), GymEnv):
-                    if issubclass(type(self.env), BulletEnv):
-                        time.sleep(gym_ts)
-                    else:
-                        ros_rate.sleep()
-
-                sampling_bar.end()
-
-                # Stop environment
-                self.env.stop()
-
-                self.logger.info("Generating sample data...")
-                all_actions = np.array([hist[1] for hist in history])
-                all_states = np.array([hist[0] for hist in history])
-                all_obs = np.array([hist[0] for hist in obs_hist])
-                sample.set_acts(all_actions)
-                sample.set_obs(all_obs)
-                sample.set_states(all_states)
-                sample.set_noise(self.noise_data[itr])
-
-                if save:  # Save sample in agent sample list
-                    sample_id = self.agent.add_sample(sample, cond)
-                    self.logger.info("The sample was added to Agent's sample "
-                                     "list. Now there are %d sample(s) for "
-                                     "condition '%d'." % (sample_id+1, cond))
+                sample = self.agent.sample(self.env, cond, self.T,
+                                           self.dt, noise, policy=policy,
+                                           save=save)
 
                 if traj_or_pol == 'pol':
                     pol_samples[cond].append(sample)
@@ -540,72 +475,6 @@ class DualGPS(Algorithm):
             #print("G/B KL_div: %f " % kl_div_good_bad)
             self.logger.info('--->Divergence btw good/bad trajs is: %f'
                              % kl_div_good_bad)
-
-    def get_noise(self):
-        return generate_noise(self.T, self.dU, self._hyperparams)
-
-    def _initialize(self, itr_load):
-        """
-        Initialize from the specified iteration.
-        Args:
-            itr_load: If specified, loads algorithm state from that
-                iteration, and resumes training at the next iteration.
-        Returns:
-            itr_start: Iteration to start from.
-        """
-        if itr_load is None:
-            print('Starting GPS from zero!')
-            return 0
-        else:
-            print('Loading previous GPS from iteration %d!' % itr_load)
-            itr_load -= 1
-            algorithm_file = '%s_algorithm_itr_%02d.pkl' % (self.gps_algo.upper(), itr_load)
-            prev_algorithm = self.data_logger.unpickle(algorithm_file)
-            if prev_algorithm is None:
-                print("Error: cannot find '%s.'" % algorithm_file)
-                os._exit(1)
-            else:
-                self.__dict__.update(prev_algorithm.__dict__)
-
-            print('Loading agent_itr...')
-            agent_file = 'agent_itr_%02d.pkl' % itr_load
-            prev_agent = self.data_logger.unpickle(agent_file)
-            if prev_agent is None:
-                print("Error: cannot find '%s.'" % agent_file)
-                os._exit(1)
-            else:
-                self.agent.__dict__.update(prev_agent.__dict__)
-
-                print('Loading policy_opt_itr...')
-                traj_opt_file = 'policy_opt_itr_%02d.pkl' % itr_load
-                prev_policy_opt = self.data_logger.unpickle(traj_opt_file)
-                if prev_policy_opt is None:
-                    print("Error: cannot find '%s.'" % traj_opt_file)
-                    os._exit(1)
-                else:
-                    self.agent.policy_opt.__dict__.update(prev_policy_opt.__dict__)
-                self.agent.policy = self.agent.policy_opt.policy
-
-            if self.gps_algo.upper() == 'MDREPS':
-                self.load_duality_vars(itr_load)
-
-            # self.algorithm = self.data_logger.unpickle(algorithm_file)
-            # if self.algorithm is None:
-            #     print("Error: cannot find '%s.'" % algorithm_file)
-            #     os._exit(1) # called instead of sys.exit(), since this is in a thread
-
-            # if self.gui:
-            #     traj_sample_lists = self.data_logger.unpickle(self._data_files_dir +
-            #                                                   ('traj_sample_itr_%02d.pkl' % itr_load))
-            #     if self.algorithm.cur[0].pol_info:
-            #         pol_sample_lists = self.data_logger.unpickle(self._data_files_dir +
-            #                                                      ('pol_sample_itr_%02d.pkl' % itr_load))
-            #     else:
-            #         pol_sample_lists = None
-            #     self.gui.set_status_text(
-            #         ('Resuming training from algorithm state at iteration %d.\n' +
-            #          'Press \'go\' to begin.') % itr_load)
-            return itr_load + 1
 
     def compute_traj_cost(self, cond, eta, omega, nu, augment=True):
         """
@@ -700,7 +569,7 @@ class DualGPS(Algorithm):
 
         return fCm, fcv
 
-    def _fit_good_bad_traj_dist(self):
+    def _update_good_bad_fit(self):
         min_good_var = self._hyperparams['gps_algo_hyperparams']['min_good_var']
         min_bad_var = self._hyperparams['gps_algo_hyperparams']['min_bad_var']
 
@@ -1079,7 +948,8 @@ class DualGPS(Algorithm):
         policy_prior.update(samples, self.policy_opt, mode)
 
         # Fit linearization and store in pol_info.
-        pol_info.pol_K, pol_info.pol_k, pol_info.pol_S = policy_prior.fit(X, pol_mu, pol_sig)
+        pol_info.pol_K, pol_info.pol_k, pol_info.pol_S = \
+            policy_prior.fit(X, pol_mu, pol_sig)
         for t in range(T):
             pol_info.chol_pol_S[t, :, :] = sp.linalg.cholesky(pol_info.pol_S[t, :, :])
 
@@ -1471,6 +1341,66 @@ class DualGPS(Algorithm):
 
         return LinearGaussianPolicy(pol_K, pol_k, pol_S, chol_pol_S, inv_pol_S)
 
+    def _restore_algo_state(self, itr_load):
+        """
+        Initialize from the specified iteration.
+        Args:
+            itr_load: If specified, loads algorithm state from that
+                iteration, and resumes training at the next iteration.
+        Returns:
+            itr_start: Iteration to start from.
+        """
+        print('Loading previous GPS from iteration %d!' % itr_load)
+        itr_load -= 1
+        algorithm_file = '%s_algorithm_itr_%02d.pkl' % (self.gps_algo.upper(),
+                                                        itr_load)
+        prev_algorithm = self.data_logger.unpickle(algorithm_file)
+        if prev_algorithm is None:
+            print("Error: cannot find '%s.'" % algorithm_file)
+            os._exit(1)
+        else:
+            self.__dict__.update(prev_algorithm.__dict__)
+
+        print('Loading agent_itr...')
+        agent_file = 'agent_itr_%02d.pkl' % itr_load
+        prev_agent = self.data_logger.unpickle(agent_file)
+        if prev_agent is None:
+            print("Error: cannot find '%s.'" % agent_file)
+            os._exit(1)
+        else:
+            self.agent.__dict__.update(prev_agent.__dict__)
+
+            print('Loading policy_opt_itr...')
+            traj_opt_file = 'policy_opt_itr_%02d.pkl' % itr_load
+            prev_policy_opt = self.data_logger.unpickle(traj_opt_file)
+            if prev_policy_opt is None:
+                print("Error: cannot find '%s.'" % traj_opt_file)
+                os._exit(1)
+            else:
+                self.agent.policy_opt.__dict__.update(prev_policy_opt.__dict__)
+            self.agent.policy = self.agent.policy_opt.policy
+
+        if self.gps_algo.upper() == 'MDREPS':
+            self.load_duality_vars(itr_load)
+
+        # self.algorithm = self.data_logger.unpickle(algorithm_file)
+        # if self.algorithm is None:
+        #     print("Error: cannot find '%s.'" % algorithm_file)
+        #     os._exit(1) # called instead of sys.exit(), since this is in a thread
+
+        # if self.gui:
+        #     traj_sample_lists = self.data_logger.unpickle(self._data_files_dir +
+        #                                                   ('traj_sample_itr_%02d.pkl' % itr_load))
+        #     if self.algorithm.cur[0].pol_info:
+        #         pol_sample_lists = self.data_logger.unpickle(self._data_files_dir +
+        #                                                      ('pol_sample_itr_%02d.pkl' % itr_load))
+        #     else:
+        #         pol_sample_lists = None
+        #     self.gui.set_status_text(
+        #         ('Resuming training from algorithm state at iteration %d.\n' +
+        #          'Press \'go\' to begin.') % itr_load)
+        return itr_load + 1
+
     def _log_iter_data(self, itr, traj_sample_lists, pol_sample_lists=None,
                        pol_sample_lists_costs=None,
                        pol_sample_lists_cost_compositions=None):
@@ -1484,7 +1414,7 @@ class DualGPS(Algorithm):
         """
         LOGGER = self.logger
         LOGGER.warning('*'*20)
-        LOGGER.warning('NO LOGGING ITERATION DATAAAAAAAAAAAAAAAA')
+        LOGGER.warning('NO LOGGING AGENT, POL AND ALGO DATAAAAAAAAAAAAAAAA')
         LOGGER.warning('*'*20)
 
         dir_path = self.data_logger.dir_path + ('/itr_%02d' % itr)
