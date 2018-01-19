@@ -40,13 +40,16 @@ class DataLogger(object):
         pickle.dump(data, open(dir_path+'/'+filename+'.pkl', 'wb'))
         return filename
 
-    def unpickle(self, filename):
+    def unpickle(self, filename, dir_path=None):
         """ Unpickle dta from file specified by filename. """
+        if dir_path is None:
+            dir_path = self.dir_path
+
         try:
             if filename.endswith('.pkl'):
-                return pickle.load(open(self.dir_path+'/'+filename, 'rb'))
+                return pickle.load(open(dir_path+'/'+filename, 'rb'))
             else:
-                return pickle.load(open(self.dir_path+'/'+filename+'.pkl', 'rb'))
+                return pickle.load(open(dir_path+'/'+filename+'.pkl', 'rb'))
         except IOError:
             print('Unpickle error. Cannot find file: %s', filename)
             return None

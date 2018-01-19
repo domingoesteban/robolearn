@@ -1425,19 +1425,20 @@ class DualGPS(Algorithm):
         #     # copy.copy(temp_dict)
         #     copy.copy(self.agent)
         # )
-        # if self.use_global_policy:
-        #     LOGGER.info("Logging Policy_Opt... ")
-        #     self.data_logger.pickle(
-        #         ('dualgps_policy_opt_itr_%02d.pkl' % itr),
-        #         self.agent.policy_opt
-        #     )
-        #     print("TODO: NOT LOGGING POLICY!!!")
-        #     #LOGGER.info("Logging Policy... ")
-        #     #self.agent.policy_opt.policy.pickle_policy(self.dO, self.dU,
-        #     #                                           self.data_logger.dir_path + '/' + ('dualgps_policy_itr_%02d' % itr),
-        #     #                                           goal_state=None,
-        #     #                                           should_hash=False)
-        #
+        if self.use_global_policy:
+            LOGGER.info("Logging Policy_Opt... ")
+            self.data_logger.pickle(
+                ('policy_opt_itr_%02d.pkl' % itr),
+                self.agent.policy_opt,
+                dir_path=dir_path
+            )
+            print("TODO: NOT LOGGING POLICY!!!")
+            #LOGGER.info("Logging Policy... ")
+            #self.agent.policy_opt.policy.pickle_policy(self.dO, self.dU,
+            #                                           self.data_logger.dir_path + '/' + ('dualgps_policy_itr_%02d' % itr),
+            #                                           goal_state=None,
+            #                                           should_hash=False)
+
         # print("TODO: CHECK HOW TO SOLVE LOGGING DUAL ALGO")
         # # print("Logging GPS algorithm state... ")
         # # self.data_logger.pickle(

@@ -22,15 +22,18 @@ class TfPolicy(Policy):
     taken to be the mean, and Gaussian noise is added on top of it.
     U = net.forward(obs) + noise, where noise ~ N(0, diag(var))
     Args:
-        obs_tensor: tensor representing tf observation. Used in feed dict for forward pass.
+        obs_tensor: tensor representing tf observation. Used in feed dict for
+                    forward pass.
         act_op: tf op to execute the forward pass. Use sess.run on this op.
-        feat_opt: tf op to get image features 
+        feat_op: tf op to get image features
         var: Du-dimensional noise variance vector.
         sess: tf session.
         device_string: tf device string for running on either gpu or cpu.
         copy_param_scope: TODO
+        tf_graph: TODO
     """
-    def __init__(self, dU, obs_tensor, act_op, feat_op, var, sess, device_string, copy_param_scope=None, tf_graph=None):
+    def __init__(self, dU, obs_tensor, act_op, feat_op, var, sess,
+                 device_string, copy_param_scope=None, tf_graph=None):
         print('Creating TfPolicy')
         Policy.__init__(self)
         self.dU = dU
@@ -84,7 +87,9 @@ class TfPolicy(Policy):
             u = action_mean
         else:
             u = action_mean + self.chol_pol_covar.T.dot(noise)
-        return u[0]  # the DAG computations are batched by default, but we use batch size 1.
+
+        # The DAG computations are batched by default, but we use batch size 1.
+        return u[0]
 
     def get_features(self, obs):
         """
@@ -112,7 +117,8 @@ class TfPolicy(Policy):
         return self.get_copy_params()
 
     # def pickle_policy(self, deg_obs, deg_action, checkpoint_path, goal_state=None, should_hash=False):
-    def pickle_policy(self, deg_obs, deg_action, policy_dict_path, goal_state=None, should_hash=False):
+    def pickle_policy(self, deg_obs, deg_action, policy_dict_path,
+                      goal_state=None, should_hash=False):
         """
         We can save just the policy if we are only interested in running forward at a later point
         without needing a policy optimization class. Useful for debugging and deploying.
@@ -126,9 +132,12 @@ class TfPolicy(Policy):
         if not os.path.exists(checkpoint_path):
             os.makedirs(checkpoint_path)
         checkpoint_path += '/tf_pol'
-        pickled_pol = {'deg_obs': deg_obs, 'deg_action': deg_action, 'chol_pol_covar': self.chol_pol_covar,
-                       'checkpoint_path_tf': checkpoint_path + '_tf_data', 'scale': self.scale, 'bias': self.bias,
-                       'device_string': self.device_string, 'goal_state': goal_state, 'x_idx': self.x_idx}
+        pickled_pol = {'deg_obs': deg_obs, 'deg_action': deg_action,
+                       'chol_pol_covar': self.chol_pol_covar,
+                       'checkpoint_path_tf': checkpoint_path + '_tf_data',
+                       'scale': self.scale, 'bias': self.bias,
+                       'device_string': self.device_string,
+                       'goal_state': goal_state, 'x_idx': self.x_idx}
         pickle.dump(pickled_pol, open(checkpoint_path, "wb"))
         if self.graph is None:
             saver = tf.train.Saver()
@@ -141,12 +150,13 @@ class TfPolicy(Policy):
     @classmethod
     def load_policy(cls, policy_dict_path, tf_generator, network_config=None):
         """
-        For when we only need to load a policy for the forward pass. For instance, to run on the robot from
-        a checkpointed policy.
+        For when we only need to load a policy for the forward pass.
+        For instance, to run on the robot from a checkpointed policy.
         """
         ops.reset_default_graph()  # we need to destroy the default graph before re_init or checkpoint won't restore.
         pol_dict = pickle.load(open(policy_dict_path, "rb"))
-        tf_map = tf_generator(dim_input=pol_dict['deg_obs'], dim_output=pol_dict['deg_action'],
+        tf_map = tf_generator(dim_input=pol_dict['deg_obs'],
+                              dim_output=pol_dict['deg_action'],
                               batch_size=1, network_config=network_config)
         config = tf.ConfigProto()
         config.gpu_options.per_process_gpu_memory_fraction = GPU_MEM_PERCENTAGE
@@ -160,7 +170,8 @@ class TfPolicy(Policy):
 
         device_string = pol_dict['device_string']
 
-        cls_init = cls(pol_dict['deg_action'], tf_map.get_input_tensor(), tf_map.get_output_op(), np.zeros((1,)),
+        cls_init = cls(pol_dict['deg_action'], tf_map.get_input_tensor(),
+                       tf_map.get_output_op(), np.zeros((1,)),
                        sess, device_string)
         cls_init.chol_pol_covar = pol_dict['chol_pol_covar']
         cls_init.scale = pol_dict['scale']

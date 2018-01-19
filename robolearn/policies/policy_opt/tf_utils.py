@@ -65,7 +65,10 @@ class TfMap:
 
 
 class TfSolver:
-    """ A container for holding solver hyperparams in tensorflow. Used to execute backwards pass. """
+    """
+    A container for holding solver hyperparams in tensorflow.
+    Used to execute backwards pass.
+    """
     def __init__(self, loss_scalar, solver_name='adam', base_lr=None, lr_policy=None,
                  momentum=None, weight_decay=None, fc_vars=None,
                  last_conv_vars=None, vars_to_opt=None,
