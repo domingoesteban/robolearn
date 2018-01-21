@@ -2,7 +2,7 @@ learning_algorithm: 'MDREPS'
 
 # Task parameters
 Ts: 0.01 # 0.01
-Tend: 1  # 0.7
+Tend: 3  # 0.7
 
 # Env parameters
 render: False
@@ -28,8 +28,8 @@ tf_iterations: 500 # 5000 # Number of iterations per inner iteration (Default:50
 
 
 # Learning interaction parameters
-iterations: 5
-num_samples: 4 # Samples for exploration trajs --> N samples
+iterations: 30
+num_samples: 6 # Samples for exploration trajs --> N samples
 sample_on_policy: False # Whether generate on-policy samples or off-policy samples
 use_global_policy: True
 test_after_iter: True # If test the learned policy after an iteration in the RL algorithm

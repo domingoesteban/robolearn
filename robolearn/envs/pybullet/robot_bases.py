@@ -223,8 +223,10 @@ class Joint:
         self.set_torque(torque)
 
     def set_torque(self, torque):
-        p.setJointMotorControl2(bodyIndex=self.bodies[self.bodyIndex], jointIndex=self.jointIndex,
-                                controlMode=p.TORQUE_CONTROL, force=torque) #, positionGain=0.1, velocityGain=0.1)
+        p.setJointMotorControl2(bodyIndex=self.bodies[self.bodyIndex],
+                                jointIndex=self.jointIndex,
+                                controlMode=p.TORQUE_CONTROL, force=torque)
+                                # positionGain=0.1, velocityGain=0.1)
 
     def get_motor_torque(self):  # just some synonym method
         return self.get_torque()

@@ -9,7 +9,7 @@
   <xacro:property name="inner_radius_base" value="0.008" />
   <xacro:property name="joints_radius" value="0.025" />
   <xacro:property name="joints_inner_radius" value="0.0245" />
-  <xacro:property name="height_base" value="0.01" /> <!-- Base -->
+  <xacro:property name="height_base" value="0.10" /> <!-- Base -->
   <xacro:property name="height1" value="0.3" /> <!-- Link 1 -->
   <xacro:property name="height2" value="0.2" /> <!-- Link 2 -->
   <xacro:property name="height3" value="0.1" /> <!-- Link 3 -->
@@ -33,6 +33,7 @@
   <xacro:property name="xt" value="0.025" />
   <xacro:property name="gripper_mass" value="0.1" />
   <xacro:property name="dummy_mass" value="0.001" />
+  <xacro:property name="dummy_inertia" value="0.001" />
 
   <!--&lt;!&ndash; Import all Gazebo-customization elements, including Gazebo colors &ndash;&gt;-->
   <!--<xacro:include filename="$(find manipulator2d_description)/urdf/manipulator2d.gazebo" />-->
@@ -112,9 +113,9 @@
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <mass value="${dummy_mass}"/>
       <inertia
-          ixx="1.0" ixy="0.0" ixz="0.0"
-          iyy="1.0" iyz="0.0"
-          izz="1.0"/>
+          ixx="${dummy_inertia}" ixy="0.0" ixz="0.0"
+          iyy="${dummy_inertia}" iyz="0.0"
+          izz="${dummy_inertia}"/>
     </inertial>
   </link>
 
@@ -191,9 +192,9 @@
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <mass value="${dummy_mass}"/>
       <inertia
-          ixx="1.0" ixy="0.0" ixz="0.0"
-          iyy="1.0" iyz="0.0"
-          izz="1.0"/>
+          ixx="${dummy_inertia}" ixy="0.0" ixz="0.0"
+          iyy="${dummy_inertia}" iyz="0.0"
+          izz="${dummy_inertia}"/>
     </inertial>
   </link>
 
@@ -269,9 +270,9 @@
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <mass value="${dummy_mass}"/>
       <inertia
-          ixx="1.0" ixy="0.0" ixz="0.0"
-          iyy="1.0" iyz="0.0"
-          izz="1.0"/>
+          ixx="${dummy_inertia}" ixy="0.0" ixz="0.0"
+          iyy="${dummy_inertia}" iyz="0.0"
+          izz="${dummy_inertia}"/>
     </inertial>
   </link>
 
@@ -363,9 +364,9 @@
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <mass value="${gripper_mass}"/>
       <inertia
-          ixx="1.0" ixy="0.0" ixz="0.0"
-          iyy="1.0" iyz="0.0"
-          izz="1.0"/>
+          ixx="${dummy_inertia}" ixy="0.0" ixz="0.0"
+          iyy="${dummy_inertia}" iyz="0.0"
+          izz="${dummy_inertia}"/>
     </inertial>
   </link>
 
@@ -387,9 +388,9 @@
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <mass value="${dummy_mass}"/>
       <inertia
-          ixx="1.0" ixy="0.0" ixz="0.0"
-          iyy="1.0" iyz="0.0"
-          izz="1.0"/>
+          ixx="${dummy_inertia}" ixy="0.0" ixz="0.0"
+          iyy="${dummy_inertia}" iyz="0.0"
+          izz="${dummy_inertia}"/>
     </inertial>
   </link>
 

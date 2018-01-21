@@ -8,9 +8,16 @@ from robolearn.envs.pybullet.bullet_scenes import SingleRobotScene
 
 class BulletEnv(gym.Env):
 
-    def __init__(self, gravity=9.8, sim_timestep=0.001, frameskip=1, render=False):
+    def __init__(self, gravity=9.8, sim_timestep=0.001, frameskip=1,
+                 render=False):
         self._p = pb
         self.physicsClientId = -1
+
+        # Environment/Scene
+        self._scene = None
+        self.gravity = gravity
+        self.sim_timestep = sim_timestep
+        self.frame_skip = frameskip
 
         # Rendering RGB
         self._render_data = dict()
@@ -29,12 +36,6 @@ class BulletEnv(gym.Env):
         self._vis_data['target_pos'] = [0, 0, 0]
         self.viewer = None
         self._is_rendering = render
-
-        # Environment/Scene
-        self._scene = None
-        self.gravity = gravity
-        self.sim_timestep = sim_timestep
-        self.frame_skip = frameskip
 
         self.metadata = {
             'render.modes': ['human', 'rgb_array'],
@@ -60,7 +61,8 @@ class BulletEnv(gym.Env):
 
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
-        # self._robot.np_random = self.np_random # use the same np_randomizer for robot as for env
+        # use the same np_randomizer for robot as for env
+        # self._robot.np_random = self.np_random
         return [seed]
 
     def reset_model(self):
@@ -70,7 +72,8 @@ class BulletEnv(gym.Env):
     def viewer_setup(self):
         raise NotImplementedError
 
-    def set_visualizer_data(self, distance=None, yaw=None, pitch=None, target_pos=None):
+    def set_visualizer_data(self, distance=None, yaw=None, pitch=None,
+                            target_pos=None):
         if distance is not None:
             self._vis_data['distance'] = distance
         if yaw is not None:
@@ -80,7 +83,8 @@ class BulletEnv(gym.Env):
         if target_pos is not None:
             self._vis_data['target_pos'] = target_pos
 
-    def set_render_data(self, distance=None, yaw=None, pitch=None, target_pos=None, width=None, height=None):
+    def set_render_data(self, distance=None, yaw=None, pitch=None,
+                        target_pos=None, width=None, height=None):
         if distance is not None:
             self._render_data['distance'] = distance
         if yaw is not None:
@@ -118,7 +122,8 @@ class BulletEnv(gym.Env):
                                           cameraTargetPosition=self._vis_data['target_pos'])
 
         if self._scene is None:
-            self._scene = SingleRobotScene(self.gravity, self.sim_timestep, self.frame_skip)
+            self._scene = SingleRobotScene(self.gravity, self.sim_timestep,
+                                           self.frame_skip)
 
         # Restart Scene
         if not self._scene.multiplayer:
@@ -160,7 +165,9 @@ class BulletEnv(gym.Env):
                 nearVal=0.1, farVal=100.0)
 
             (_, _, px, _, _) = pb.getCameraImage(
-                width=self._render_data['width'], height=self._render_data['height'], viewMatrix=view_matrix,
+                width=self._render_data['width'],
+                height=self._render_data['height'],
+                viewMatrix=view_matrix,
                 projectionMatrix=proj_matrix,
                 # renderer=pb.ER_TINY_RENDERER
                 renderer=pb.ER_BULLET_HARDWARE_OPENGL

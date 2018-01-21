@@ -47,7 +47,7 @@ class PyBulletRobot(object):
 
         # Logger
         self.logger = logging.getLogger('pybullet')
-        self.logger.setLevel(logging.WARNING)
+        self.logger.setLevel(logging.INFO)
 
     def addToScene(self, bodies):
         self.logger.info('*'*40)

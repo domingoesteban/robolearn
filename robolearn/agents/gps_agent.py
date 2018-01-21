@@ -75,6 +75,8 @@ class GPSAgent(Agent):
             # TODO: Avoid TF policy writes in obs
             action = policy.eval(state.copy(), obs.copy(), t,
                                  noise[t].copy())
+
+            # action = np.zeros_like(action)
             # Checking NAN
             nan_number = np.isnan(action)
             if np.any(nan_number):

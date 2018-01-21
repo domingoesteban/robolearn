@@ -21,10 +21,11 @@ if __name__ == '__main__':
     obs_like_mjc = True
     ntargets = 2
     tgt_weights = [1.0, -1.0]
-    rdn_tgt_pos = True
+    rdn_tgt_pos = False
     tgt_positions = [(0.1, 0.2), (-0.1, -0.2)]  # Values between [-0.2, 0.2]
     # env = gym.make('ReacherBullet-v5')
-    env = Pusher3DofBulletEnv(render=True, obs_with_img=env_with_img, obs_mjc_gym=obs_like_mjc, ntargets=ntargets,
+    env = Pusher3DofBulletEnv(render=True, obs_with_img=env_with_img,
+                              obs_mjc_gym=obs_like_mjc, ntargets=ntargets,
                               rdn_tgt_pos=rdn_tgt_pos)
 
     env.seed(0)
@@ -49,9 +50,9 @@ if __name__ == '__main__':
 
     # env.render(mode='human')  # Only if we want at the beginning
     for i in range(episode_count):
-        input('Press key to reset episode %d/%d' % (i+1, episode_count))
-        ob = env.reset()
-        # input('Press key to start episode %d/%d' % (i+1, episode_count))
+        # input('Press key to reset episode %d/%d' % (i+1, episode_count))
+        obs = env.reset()
+        input('Press key to start episode %d/%d' % (i+1, episode_count))
 
         EndTime = 5.0
         ts = env.dt
@@ -63,12 +64,14 @@ if __name__ == '__main__':
         temp_obs3 = []
         # while True:
         while steps_counter < total_steps:
-            print(steps_counter+1, '/', total_steps)
-            action = agent.act(ob, reward, done) * 0.001
+            # input('22aa')
+            action = agent.act(obs, reward, done) * 0.001
             action = np.zeros_like(action)
-            action[2] = -1
+            # action[2] = -1
+            action[0] = 1
 
             obs, reward, done, _ = env.step(action)
+            print(steps_counter+1, '/', total_steps, obs[:6])
             if done:
                 print('ENVIRONMENT DONE!!!')
                 break
@@ -94,6 +97,7 @@ if __name__ == '__main__':
         # fig = plt.figure()
         # plt.plot(temp_obs3)
             time.sleep(ts)
+            steps_counter += 1
 
     env.close()
     input('Press a key to finish the script...')

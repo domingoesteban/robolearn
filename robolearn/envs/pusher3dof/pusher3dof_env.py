@@ -21,7 +21,8 @@ class Pusher3DofBulletEnv(BulletEnv):
     }
 
     def __init__(self, render=False, obs_with_img=False, obs_mjc_gym=False,
-                 ntargets=1, rdn_tgt_pos=True, sim_timestep=0.01):
+                 ntargets=1, rdn_tgt_pos=True, sim_timestep=0.001,
+                 frame_skip=10):
         self.np_random = None
         self._obs_with_img = obs_with_img
         self._obs_mjc_gym = obs_mjc_gym
@@ -30,7 +31,7 @@ class Pusher3DofBulletEnv(BulletEnv):
         self.done = False
         gravity = 9.8
         # sim_timestep = 1./100.
-        frame_skip = 1
+        frame_skip = frame_skip  # Like the control rate (multiplies sim_ts)
         self._pos_dof = 2  # 2 or 3
 
         # Robot
@@ -138,7 +139,7 @@ class Pusher3DofBulletEnv(BulletEnv):
 
             des_pos = np.zeros(3)
             des_pos[:2] = self.tgt_pos[tt]
-            des_pos[2] = 0.05
+            des_pos[2] = 0.06
             tgt.set_pose(des_pos, [0, 0, 0, 1])
             # tgt.apply_action(des_pos[:2])
             # tgt.set_state(self.tgt_pos[tt], np.zeros_like(self.tgt_pos[tt]))

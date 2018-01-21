@@ -20,7 +20,8 @@ class Pusher3DofRobot(PyBulletRobot):
 
         self.obs_dim = self.act_dim*self.state_per_joint
 
-        self.power = 0.01
+        # self.power = 0.01  # Because each joint has power of 100
+        self.power = 0.01# * 0.01
 
         joint_names = ['joint0', 'joint1', 'joint2']
 
