@@ -154,12 +154,6 @@ class Pusher3DofBulletEnv(BulletEnv):
         return np.array(self._observation)
 
     def _step(self, action):
-        # Move target at any step
-        # if not hasattr(self, 'dummy_pos'):
-        #     self.dummy_pos = self.tgts[0].parts['target'].current_position()[:2]
-        # self.dummy_pos = [0.1, -0.1]
-        # self.tgts[0].apply_action(self.dummy_pos)
-
         self._robot.apply_action(action)
 
         self.do_simulation()

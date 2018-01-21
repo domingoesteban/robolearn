@@ -55,18 +55,18 @@ class DualGPS(Algorithm):
         # Specifies if it is MDGPS or only TrajOpt version
         self.use_global_policy = self._hyperparams['use_global_policy']
 
-        # Number of initial conditions
-        self.M = self._hyperparams['conditions']
-
-        # Get/Define train and test conditions
+        # Get/Define train and test conditions idxs
         if 'train_conditions' in self._hyperparams \
                 and self._hyperparams['train_conditions'] is not None:
             self._train_cond_idx = self._hyperparams['train_conditions']
             self._test_cond_idx = self._hyperparams['test_conditions']
         else:
-            self._train_cond_idx = self._test_cond_idx = range(self.M)
+            self._train_cond_idx = self._test_cond_idx = list(range(self.M))
             self._hyperparams['train_conditions'] = self._train_cond_idx
             self._hyperparams['test_conditions'] = self._test_cond_idx
+
+        # Number of initial conditions
+        self.M = len(self._train_cond_idx)
 
         # Log and Data files
         if 'data_files_dir' in self._hyperparams:
@@ -118,7 +118,9 @@ class DualGPS(Algorithm):
                 self.cur[m].traj_info.dynamics = dynamics['type'](dynamics)
 
             # Get the initial trajectory distribution hyperparams
-            init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'], self._train_cond_idx[m])
+            # init_traj_distr = self._hyperparams['init_traj_distr']
+            init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'],
+                                                self._train_cond_idx[m])
 
             # Instantiate Trajectory Distribution: init_lqr or init_pd
             self.cur[m].traj_distr = init_traj_distr['type'](init_traj_distr)
@@ -193,7 +195,9 @@ class DualGPS(Algorithm):
 
             # TODO: Using same init traj
             # Get the initial trajectory distribution hyperparams
-            init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'], self._train_cond_idx[m])
+            # init_traj_distr = self._hyperparams['init_traj_distr']
+            init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'],
+                                                self._train_cond_idx[m])
             # Instantiate Trajectory Distribution: init_lqr or init_pd
             self.good_duality_info[m].traj_dist = init_traj_distr['type'](init_traj_distr)
             self.bad_duality_info[m].traj_dist = init_traj_distr['type'](init_traj_distr)
@@ -383,7 +387,7 @@ class DualGPS(Algorithm):
             pol_sample_lists_costs = pol_costs[0]
             pol_sample_lists_cost_compositions = pol_costs[1]
 
-            for m in range(self.M):
+            for m in range(len(self._test_cond_idx)):
                 print('&'*10)
                 print('Average Cost')
                 print('Condition:%02d' % m)
@@ -417,19 +421,22 @@ class DualGPS(Algorithm):
 
         self.logger.info("Sampling with mode:'%s'" % traj_or_pol)
 
-        for cond in range(self.M):
-            if traj_or_pol == 'traj':
-                on_policy = self._hyperparams['sample_on_policy']
-                total_samples = self._hyperparams['num_samples']
-                save = True  # Add sample to agent sample list
+        if traj_or_pol == 'traj':
+            on_policy = self._hyperparams['sample_on_policy']
+            total_samples = self._hyperparams['num_samples']
+            save = True  # Add sample to agent sample list
+            conditions = self._train_cond_idx
 
-            elif traj_or_pol == 'pol':
-                on_policy = True
-                total_samples = self._hyperparams['test_samples']
-                save = False  # Add sample to agent sample list TODO: CHECK THIS
-                pol_samples = [list() for _ in range(len(self._test_cond_idx))]
-            else:
-                raise ValueError("Wrong traj_or_pol option %s" % traj_or_pol)
+        elif traj_or_pol == 'pol':
+            on_policy = True
+            total_samples = self._hyperparams['test_samples']
+            save = False  # Add sample to agent sample list TODO: CHECK THIS
+            conditions = self._test_cond_idx
+            pol_samples = [list() for _ in range(len(self._test_cond_idx))]
+        else:
+            raise ValueError("Wrong traj_or_pol option %s" % traj_or_pol)
+
+        for cond in range(len(conditions)):
 
             # On-policy or Off-policy
             if on_policy and (self.iteration_count > 0 or

@@ -142,7 +142,7 @@ class PolicyOptTf(PolicyOpt):
                                last_conv_vars=self.last_conv_vars,
                                tf_graph=self.graph)
         with self.graph.as_default():
-            self.saver = tf.train.Saver()
+            self.saver = tf.train.Saver(max_to_keep=100)
 
     def update(self, obs, tgt_mu, tgt_prc, tgt_wt, LOGGER=None):
         """

@@ -9,7 +9,7 @@
   <xacro:property name="inner_radius_base" value="0.008" />
   <xacro:property name="joints_radius" value="0.025" />
   <xacro:property name="joints_inner_radius" value="0.0245" />
-  <xacro:property name="height_base" value="0.10" /> <!-- Base -->
+  <xacro:property name="height_base" value="0.05" /> <!-- Base -->
   <xacro:property name="height1" value="0.3" /> <!-- Link 1 -->
   <xacro:property name="height2" value="0.2" /> <!-- Link 2 -->
   <xacro:property name="height3" value="0.1" /> <!-- Link 3 -->

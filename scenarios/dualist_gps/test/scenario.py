@@ -251,14 +251,14 @@ class Scenario(object):
 
         # Sum costs
         # costs_and_weights = [(act_cost, 1.0e-1),
-        costs_and_weights = [(act_cost, 1.0e-1),
+        costs_and_weights = [(act_cost, 1.0e-3),
                              # # (fk_cost, 1.0e-0),
                              # (fk_l1_cost, 1.5e-1),
                              # (fk_l2_cost, 1.0e-0),
                              # # (fk_final_cost, 1.0e-0),
                              # (fk_l1_final_cost, 1.5e-1),
                              # (fk_l2_final_cost, 1.0e-0),
-                             (state_cost_distance, 8.0e-0),
+                             (state_cost_distance, 10.0e-0),
                              (state_final_cost_distance, 1.0e+3),
                              ]
 
@@ -304,7 +304,7 @@ class Scenario(object):
                             }
 
         init_traj_distr = {'type': init_pd,
-                           'init_var': np.array([1.0, 1.0, 1.0])*1.0e-02,
+                           'init_var': np.array([1.0, 1.0, 1.0])*1.0e-01,
                            'pos_gains': 0.001,  # float or array
                            'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
                            'init_action_offset': None,
@@ -379,13 +379,13 @@ class Scenario(object):
             'smooth_noise': True,  # Apply Gaussian filter to noise generated
             'smooth_noise_var': 5.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
             'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
-            'noise_var_scale': 1.e-0*np.ones(self.action_dim),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
+            'noise_var_scale': 5.e-0*np.ones(self.action_dim),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
             # Cost
             'cost': self.cost,
             # Conditions
             'conditions': len(self.init_cond),  # Total number of initial conditions
-            'train_conditions': range(len(self.init_cond)),  # Indexes of conditions used for training
-            'test_conditions': range(len(self.init_cond)),  # Indexes of conditions used for testing
+            'train_conditions': self.task_params['train_cond'],  # Indexes of conditions used for training
+            'test_conditions': self.task_params['test_cond'],  # Indexes of conditions used for testing
             # KL step (epsilon)
             'kl_step': 0.2,  # Kullback-Leibler step (base_step)
             'min_step_mult': 0.01,  # Min possible value of step multiplier (multiplies kl_step in LQR)
@@ -419,6 +419,8 @@ class Scenario(object):
                     iteration += 1
 
         if iteration == -1:
+            print("There is not itr_XX data in '%s'"
+                  % self.hyperparams['log_dir'])
             return False
 
         dir_path = 'itr_%02d/' % iteration
