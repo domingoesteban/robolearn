@@ -3,7 +3,7 @@
 # #### #
 # VARS #
 # #### #
-scenario='test'
+scenario='reacher'
 log_dir='normal_gps'
 
 seeds=(0 50 100)
