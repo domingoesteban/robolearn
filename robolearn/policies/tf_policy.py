@@ -81,6 +81,7 @@ class TfPolicy(Policy):
         # Normalize obs.
         if len(obs.shape) == 1:
             obs = np.expand_dims(obs, axis=0)
+        print('safasdfsadfsdaf', self.scale, self.bias)
         obs[:, self.x_idx] = obs[:, self.x_idx].dot(self.scale) + self.bias
         with tf.device(self.device_string):
             action_mean = self.sess.run(self.act_op,

@@ -34,6 +34,10 @@ import logging
 
 
 class DualGPS(Algorithm):
+    """
+    Sample-based joint policy learning and trajectory optimization with
+    (approximate) mirror descent guided policy search algorithm.
+    """
     def __init__(self, agent, env, **kwargs):
         super(DualGPS, self).__init__(DEFAULT_GPS_HYPERPARAMS, kwargs)
         self.agent = agent
@@ -51,9 +55,6 @@ class DualGPS(Algorithm):
         # GPS algorithm
         self.gps_algo = 'mdgps_mdreps'
         # self.gps_algo = 'mdreps'
-
-        # Specifies if it is MDGPS or only TrajOpt version
-        self.use_global_policy = self._hyperparams['use_global_policy']
 
         # Get/Define train and test conditions idxs
         if 'train_conditions' in self._hyperparams \
@@ -118,9 +119,8 @@ class DualGPS(Algorithm):
                 self.cur[m].traj_info.dynamics = dynamics['type'](dynamics)
 
             # Get the initial trajectory distribution hyperparams
-            # init_traj_distr = self._hyperparams['init_traj_distr']
-            init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'],
-                                                self._train_cond_idx[m])
+            init_traj_distr = extract_condition(
+                self._hyperparams['init_traj_distr'], self._train_cond_idx[m])
 
             # Instantiate Trajectory Distribution: init_lqr or init_pd
             self.cur[m].traj_distr = init_traj_distr['type'](init_traj_distr)
@@ -131,21 +131,25 @@ class DualGPS(Algorithm):
         # Traj Opt (Local policy opt) method #
         # ---------------------------------- #
         # Options: LQR, PI2, MDREPS
-        self.traj_opt = self._hyperparams['traj_opt']['type'](self._hyperparams['traj_opt'])
+        self.traj_opt = \
+            self._hyperparams['traj_opt']['type'](self._hyperparams['traj_opt'])
         self.traj_opt.set_logger(self.logger)
 
         # Cost function #
         # ------------- #
         if self._hyperparams['cost'] is None:
             raise AttributeError("Cost function has not been defined")
+        total_conditions = self._train_cond_idx + self._test_cond_idx
         if isinstance(type(self._hyperparams['cost']), list):
             # One cost function type for each condition
-            self.cost_function = [self._hyperparams['cost'][i]['type'](self._hyperparams['cost'][i])
-                                  for i in range(self.M)]
+            self.cost_function = \
+                [self._hyperparams['cost'][i]['type'](self._hyperparams['cost'][i])
+                 for i in total_conditions]
         else:
             # Same cost function type for all conditions
-            self.cost_function = [self._hyperparams['cost']['type'](self._hyperparams['cost'])
-                                  for _ in range(self.M)]
+            self.cost_function = \
+                [self._hyperparams['cost']['type'](self._hyperparams['cost'])
+                 for _ in total_conditions]
 
         # KL step #
         # ------- #
@@ -154,24 +158,24 @@ class DualGPS(Algorithm):
         # Global Policy #
         # ------------- #
         self.policy_opt = self.agent.policy_opt
+        self._policy_samples = [None for _ in self._test_cond_idx]
+
+        # MDGPS data #
+        # ---------- #
+        self._hyperparams['gps_algo_hyperparams']['T'] = self.T
+        self._hyperparams['gps_algo_hyperparams']['dU'] = self.dU
+        self._hyperparams['gps_algo_hyperparams']['dX'] = self.dX
+        policy_prior = self._hyperparams['gps_algo_hyperparams']['policy_prior']
+        for m in range(self.M):
+            # Same policy prior type for all conditions
+            self.cur[m].pol_info = PolicyInfo(self._hyperparams['gps_algo_hyperparams'])
+            self.cur[m].pol_info.policy_prior = policy_prior['type'](policy_prior)
 
         # Duality Data #
         # ------------ #
         # Duality data with: [sample_list, samples_cost, cs_traj, traj_dist, pol_info]
         self.good_duality_info = [DualityInfo() for _ in range(self.M)]
         self.bad_duality_info = [DualityInfo() for _ in range(self.M)]
-
-        # MDGPS data #
-        # ---------- #
-        if self.use_global_policy:
-            self._hyperparams['gps_algo_hyperparams']['T'] = self.T
-            self._hyperparams['gps_algo_hyperparams']['dU'] = self.dU
-            self._hyperparams['gps_algo_hyperparams']['dX'] = self.dX
-            policy_prior = self._hyperparams['gps_algo_hyperparams']['policy_prior']
-            for m in range(self.M):
-                # Same policy prior type for all conditions
-                self.cur[m].pol_info = PolicyInfo(self._hyperparams['gps_algo_hyperparams'])
-                self.cur[m].pol_info.policy_prior = policy_prior['type'](policy_prior)
 
         # TrajectoryInfo for good and bad trajectories
         self.good_trajectories_info = [None for _ in range(self.M)]
@@ -211,18 +215,17 @@ class DualGPS(Algorithm):
         self.base_kl_good = self._hyperparams['gps_algo_hyperparams']['base_kl_good']
         self.base_kl_bad = self._hyperparams['gps_algo_hyperparams']['base_kl_bad']
 
-        # MDGPS data
-        if self.use_global_policy:
-            for m in range(self.M):
-                # Same policy prior in MDGPS for good/bad
-                self.good_duality_info[m].pol_info = \
-                    PolicyInfo(self._hyperparams['gps_algo_hyperparams'])
-                self.good_duality_info[m].pol_info.policy_prior = \
-                    policy_prior['type'](policy_prior)
-                self.bad_duality_info[m].pol_info = \
-                    PolicyInfo(self._hyperparams['gps_algo_hyperparams'])
-                self.bad_duality_info[m].pol_info.policy_prior = \
-                    policy_prior['type'](policy_prior)
+        # Duality MDGPS data
+        for m in range(self.M):
+            # Same policy prior in MDGPS for good/bad
+            self.good_duality_info[m].pol_info = \
+                PolicyInfo(self._hyperparams['gps_algo_hyperparams'])
+            self.good_duality_info[m].pol_info.policy_prior = \
+                policy_prior['type'](policy_prior)
+            self.bad_duality_info[m].pol_info = \
+                PolicyInfo(self._hyperparams['gps_algo_hyperparams'])
+            self.bad_duality_info[m].pol_info.policy_prior = \
+                policy_prior['type'](policy_prior)
 
     def run(self, itr_load=None):
         """
@@ -270,7 +273,7 @@ class DualGPS(Algorithm):
         logger.info('DualGPS: itr:%02d | Sampling from local trajectories...'
                     % (itr+1))
         traj_or_pol = 'traj'
-        self._take_sample(traj_or_pol, itr)
+        self._take_sample(traj_or_pol, itr, 'train')
 
         # Get last samples from agent
         n_samples = self._hyperparams['num_samples']
@@ -294,10 +297,10 @@ class DualGPS(Algorithm):
         logger.info('DualGPS: itr:%02d | '
                     'Evaluating samples costs...' % (itr+1))
         for m in range(self.M):
-            self._eval_current_samples_cost(m)
+            self._eval_iter_samples_cost(m)
 
         # On the first iteration, need to catch policy up to init_traj_distr.
-        if self.use_global_policy and self.iteration_count == 0:
+        if self.iteration_count == 0:
             self.new_traj_distr = [self.cur[cond].traj_distr
                                    for cond in range(self.M)]
             logger.info("\n"*2)
@@ -308,26 +311,22 @@ class DualGPS(Algorithm):
 
         # Update global policy linearizations.
         logger.info('')
-        if self.use_global_policy:
-            logger.info('DualGPS: itr:%02d | '
-                        'Updating global policy linearization...'
-                        % (itr+1))
-            for m in range(self.M):
-                self._update_policy_fit(m)
+        logger.info('DualGPS: itr:%02d | '
+                    'Updating global policy linearization...' % (itr+1))
+        for m in range(self.M):
+            self._update_policy_fit(m)
 
         logger.info('')
-        if self.use_global_policy and self.iteration_count > 0:
+        if self.iteration_count > 0:
             logger.info('DualGPS: itr:%02d | '
                         'Updating KL step size with GLOBAL policy...'
                         % (itr+1))
             self._update_step_size_global_policy()
-        #    self._update_good_size_global_policy()
-        #    self._update_bad_size_global_policy()
-        elif self.iteration_count > 0:
-            logger.info('DualGPS: itr:%02d | '
-                        'Updating KL step size with prev LOCAL policy.'
-                        % (itr+1))
-            self._update_step_size()
+        # elif self.iteration_count > 0:
+        #     logger.info('DualGPS: itr:%02d | '
+        #                 'Updating KL step size with prev LOCAL policy.'
+        #                 % (itr+1))
+        #     self._update_step_size()
 
         logger.info('')
         logger.info('DualGPS: itr:%02d | '
@@ -366,10 +365,9 @@ class DualGPS(Algorithm):
                            ['inner_iterations']))
             self._update_trajectories()
 
-        if self.use_global_policy:
-            logger.info('')
-            logger.info('DualGPS:itr:%02d | ->| S-step |<-' % (itr+1))
-            self._update_policy()
+        logger.info('')
+        logger.info('DualGPS:itr:%02d | ->| S-step |<-' % (itr+1))
+        self._update_policy()
 
         # test_after_iter
         if self._hyperparams['test_after_iter']:
@@ -377,15 +375,25 @@ class DualGPS(Algorithm):
             logger.info('DualGPS: itr:%02d | '
                         'Testing global policy...' % (itr+1))
             traj_or_pol = 'pol'
-            self._take_sample(traj_or_pol, itr)
+            self._take_sample(traj_or_pol, itr, 'test')
 
-            pol_sample_lists = list()
-            for m in range(self.M):
-                pol_sample_lists.append(self.cur[m].pol_info.policy_samples)
+            #
+            # pol_sample_lists = list()
+            # for m in range(self.M):
+            #     pol_sample_lists.append(self.cur[m].pol_info.policy_samples)
 
-            pol_costs = self._eval_conditions_sample_list_cost(pol_sample_lists)
-            pol_sample_lists_costs = pol_costs[0]
-            pol_sample_lists_cost_compositions = pol_costs[1]
+            pol_sample_lists_costs = [None for _ in self._test_cond_idx]
+            pol_sample_lists_cost_compositions = [None for _ in self._test_cond_idx]
+            for cc, cond in enumerate(self._test_cond_idx):
+                sample_list = self._policy_samples[cc]
+                cost_fcn = self.cost_function[cond]
+                costs = self._eval_sample_list_cost(sample_list, cost_fcn)
+                pol_sample_lists_costs[cc] = costs[0]
+                pol_sample_lists_cost_compositions[cc] = costs[2]
+
+            # pol_costs = self._eval_conditions_sample_list_cost(self._policy_samples)
+            # pol_sample_lists_costs = pol_costs[0]
+            # pol_sample_lists_cost_compositions = pol_costs[1]
 
             for m in range(len(self._test_cond_idx)):
                 print('&'*10)
@@ -396,19 +404,18 @@ class DualGPS(Algorithm):
                 print('&'*10)
 
         else:
-            pol_sample_lists = None
             pol_sample_lists_costs = None
             pol_sample_lists_cost_compositions = None
 
         # Log data
-        self._log_iter_data(itr, traj_sample_lists, pol_sample_lists,
+        self._log_iter_data(itr, traj_sample_lists, self._policy_samples,
                             pol_sample_lists_costs,
                             pol_sample_lists_cost_compositions)
 
         # Prepare everything for next iteration
         self._advance_iteration_variables()
 
-    def _take_sample(self, traj_or_pol, itr):
+    def _take_sample(self, traj_or_pol, itr, train_or_test='train'):
         """
         Collect a sample from the environment.
         :param traj_or_pol: Use trajectory distributions or current policy.
@@ -421,18 +428,23 @@ class DualGPS(Algorithm):
 
         self.logger.info("Sampling with mode:'%s'" % traj_or_pol)
 
+        if train_or_test == 'train':
+            conditions = self._train_cond_idx
+        elif train_or_test == 'test':
+            conditions = self._test_cond_idx
+        else:
+            raise ValueError("Wrong train_or_test option %s" % train_or_test)
+
         if traj_or_pol == 'traj':
             on_policy = self._hyperparams['sample_on_policy']
             total_samples = self._hyperparams['num_samples']
             save = True  # Add sample to agent sample list
-            conditions = self._train_cond_idx
 
         elif traj_or_pol == 'pol':
             on_policy = True
             total_samples = self._hyperparams['test_samples']
             save = False  # Add sample to agent sample list TODO: CHECK THIS
-            conditions = self._test_cond_idx
-            pol_samples = [list() for _ in range(len(self._test_cond_idx))]
+            pol_samples = [list() for _ in conditions]
         else:
             raise ValueError("Wrong traj_or_pol option %s" % traj_or_pol)
 
@@ -471,8 +483,12 @@ class DualGPS(Algorithm):
                     pol_samples[cond].append(sample)
 
             if traj_or_pol == 'pol':
-                self.cur[cond].pol_info.policy_samples = \
-                    SampleList(pol_samples[cond])
+                if train_or_test == 'train':
+                    self.cur[cond].pol_info.policy_samples = \
+                        SampleList(pol_samples[cond])
+                else:
+                    self._policy_samples[cond] = \
+                        SampleList(pol_samples[cond])
 
     def _check_kl_div_good_bad(self):
         for cond in range(self.M):
@@ -622,7 +638,8 @@ class DualGPS(Algorithm):
         for n in range(N):
             sample = dual_sample_list[n]
             # Get costs.
-            l, lx, lu, lxx, luu, lux, _ = self.cost_function[cond].eval(sample)
+            l, lx, lu, lxx, luu, lux, cost_composition = \
+                self.cost_function[cond].eval(sample)
             cc[n, :] = l
             cs[n, :] = l
 
@@ -1072,17 +1089,20 @@ class DualGPS(Algorithm):
             if prior:
                 mu0, Phi, priorm, n0 = prior.initial_state()
                 N = len(cur_data)
-                self.cur[m].traj_info.x0sigma += Phi + (N*priorm) / (N+priorm) * np.outer(x0mu-mu0, x0mu-mu0) / (N+n0)
+                self.cur[m].traj_info.x0sigma += \
+                    Phi + (N*priorm) / (N+priorm) * \
+                    np.outer(x0mu-mu0, x0mu-mu0) / (N+n0)
 
     def _update_trajectories(self):
         """
-        Compute new linear Gaussian controllers.
+        Compute new linear Gaussian controllers using the TrajOpt algorithm.
         """
         LOGGER = self.logger
 
         LOGGER.info('-->DualGPS: Updating trajectories (local policies)...')
         if self.new_traj_distr is None:
-            self.new_traj_distr = [self.cur[cond].traj_distr for cond in range(self.M)]
+            self.new_traj_distr = [self.cur[cond].traj_distr
+                                   for cond in range(self.M)]
         for cond in range(self.M):
             traj_opt_outputs = self.traj_opt.update(cond, self)
             self.new_traj_distr[cond] = traj_opt_outputs[0]
@@ -1090,10 +1110,29 @@ class DualGPS(Algorithm):
             self.cur[cond].omega = traj_opt_outputs[2]
             self.cur[cond].nu = traj_opt_outputs[3]
 
-    def _eval_sample_list_cost(self, sample_list, cond):
+    def _eval_iter_samples_cost(self, cond):
         """
         Evaluate costs for all current samples for a condition.
         Args:
+            cond: Condition to evaluate cost on.
+        """
+        sample_list = self.cur[cond].sample_list
+        cost_fcn = self.cost_function[cond]
+
+        true_cost, cost_estimate, _ = self._eval_sample_list_cost(sample_list,
+                                                                  cost_fcn)
+        self.cur[cond].cs = true_cost  # True value of cost.
+
+        # Cost estimate.
+        self.cur[cond].traj_info.Cm = cost_estimate[0]  # Quadratic term (matrix).
+        self.cur[cond].traj_info.cv = cost_estimate[1]  # Linear term (vector).
+        self.cur[cond].traj_info.cc = cost_estimate[2]  # Constant term (scalar).
+
+    def _eval_sample_list_cost(self, sample_list, cost_fcn):
+        """
+        Evaluate costs for a sample_list using a specific cost function.
+        Args:
+            cost: self.cost_function[cond]
             cond: Condition to evaluate cost on.
         """
         # Constants.
@@ -1105,10 +1144,11 @@ class DualGPS(Algorithm):
         cc = np.zeros((N, T))
         cv = np.zeros((N, T, dX+dU))
         Cm = np.zeros((N, T, dX+dU, dX+dU))
+        cost_composition = [None for _ in range(N)]
         for n in range(N):
             sample = sample_list[n]
             # Get costs.
-            l, lx, lu, lxx, luu, lux, _ = self.cost_function[cond].eval(sample)
+            l, lx, lu, lxx, luu, lux, cost_composition[n] = cost_fcn.eval(sample)
             cc[n, :] = l
             cs[n, :] = l
 
@@ -1134,57 +1174,12 @@ class DualGPS(Algorithm):
         cv = np.mean(cv, 0)  # Linear term (vector).
         Cm = np.mean(Cm, 0)  # Quadratic term (matrix).
 
-        return cs, (Cm, cv, cc)
-
-    def _eval_current_samples_cost(self, cond):
-        """
-        Evaluate costs for all current samples for a condition.
-        Args:
-            cond: Condition to evaluate cost on.
-        """
-        # Constants.
-        T, dX, dU = self.T, self.dX, self.dU
-        N = len(self.cur[cond].sample_list)
-
-        # Compute cost.
-        cs = np.zeros((N, T))
-        cc = np.zeros((N, T))
-        cv = np.zeros((N, T, dX+dU))
-        Cm = np.zeros((N, T, dX+dU, dX+dU))
-        for n in range(N):
-            sample = self.cur[cond].sample_list[n]
-            # Get costs.
-            l, lx, lu, lxx, luu, lux, _ = self.cost_function[cond].eval(sample)
-            cc[n, :] = l
-            cs[n, :] = l
-
-            # Assemble matrix and vector.
-            cv[n, :, :] = np.c_[lx, lu]
-            Cm[n, :, :, :] = np.concatenate(
-                (np.c_[lxx, np.transpose(lux, [0, 2, 1])], np.c_[lux, luu]),
-                axis=1
-            )
-
-            # Adjust for expanding cost around a sample.
-            X = sample.get_states()
-            U = sample.get_acts()
-            yhat = np.c_[X, U]
-            rdiff = -yhat
-            rdiff_expand = np.expand_dims(rdiff, axis=2)
-            cv_update = np.sum(Cm[n, :, :, :] * rdiff_expand, axis=1)
-            cc[n, :] += np.sum(rdiff * cv[n, :, :], axis=1) + 0.5 * np.sum(rdiff * cv_update, axis=1)
-            cv[n, :, :] += cv_update
-
-        # Fill in cost estimate.
-        self.cur[cond].traj_info.cc = np.mean(cc, 0)  # Constant term (scalar).
-        self.cur[cond].traj_info.cv = np.mean(cv, 0)  # Linear term (vector).
-        self.cur[cond].traj_info.Cm = np.mean(Cm, 0)  # Quadratic term (matrix).
-
-        self.cur[cond].cs = cs  # True value of cost.
+        return cs, (Cm, cv, cc), cost_composition
 
     def _advance_iteration_variables(self):
         """
-        Move all 'cur' variables to 'prev', and advance iteration counter.
+        Move all 'cur' variables to 'prev', and advance iteration counter of
+        the algorithm.
         :return: None
         """
         self.iteration_count += 1
@@ -1197,10 +1192,12 @@ class DualGPS(Algorithm):
         self.cur = [IterationData() for _ in range(self.M)]
         for m in range(self.M):
             self.cur[m].traj_info = TrajectoryInfo()
-            self.cur[m].traj_info.dynamics = copy.deepcopy(self.prev[m].traj_info.dynamics)
+            self.cur[m].traj_info.dynamics = \
+                copy.deepcopy(self.prev[m].traj_info.dynamics)
             self.cur[m].step_mult = self.prev[m].step_mult
             self.cur[m].eta = self.prev[m].eta
             self.cur[m].traj_distr = self.new_traj_distr[m]
+            self.cur[m].pol_info = copy.deepcopy(self.prev[m].pol_info)
         self.new_traj_distr = None
 
         # Duality variables
@@ -1208,9 +1205,8 @@ class DualGPS(Algorithm):
             self.cur[m].nu = self.prev[m].nu
             self.cur[m].omega = self.prev[m].omega
 
-            if self.use_global_policy:
-                self.cur[m].traj_info.last_kl_step = self.prev[m].traj_info.last_kl_step
-                self.cur[m].pol_info = copy.deepcopy(self.prev[m].pol_info)
+            self.cur[m].traj_info.last_kl_step = \
+                self.prev[m].traj_info.last_kl_step
 
     def _set_new_mult(self, predicted_impr, actual_impr, m):
         """
@@ -1223,9 +1219,11 @@ class DualGPS(Algorithm):
         # Optimize I w.r.t. KL: 0 = predicted_dI + 2 * penalty * KL =>
         # KL' = (-predicted_dI)/(2*penalty) = (pred/2*(pred-act)) * KL.
         # Therefore, the new multiplier is given by pred/2*(pred-act).
-        new_mult = predicted_impr / (2.0 * max(1e-4, predicted_impr - actual_impr))
+        new_mult = predicted_impr / (2.0 * max(1e-4,
+                                               predicted_impr - actual_impr))
         new_mult = max(0.1, min(5.0, new_mult))
-        new_step = max(min(new_mult * self.cur[m].step_mult, self._hyperparams['max_step_mult']),
+        new_step = max(min(new_mult * self.cur[m].step_mult,
+                           self._hyperparams['max_step_mult']),
                        self._hyperparams['min_step_mult'])
         self.cur[m].step_mult = new_step
 
@@ -1235,29 +1233,6 @@ class DualGPS(Algorithm):
         else:
             self.logger.info('DualGPS: Decreasing step size multiplier to %f',
                              new_step)
-
-    def _set_new_good_mult(self, predicted_impr, actual_impr, m):
-        """
-        Adjust good multiplier according to the predicted versus actual
-        improvement.
-        """
-        LOGGER = self.logger
-
-        # Model improvement as I = predicted_dI * KL + penalty * KL^2,
-        # where predicted_dI = pred/KL and penalty = (act-pred)/(KL^2).
-        # Optimize I w.r.t. KL: 0 = predicted_dI + 2 * penalty * KL =>
-        # KL' = (-predicted_dI)/(2*penalty) = (pred/2*(pred-act)) * KL.
-        # Therefore, the new multiplier is given by pred/2*(pred-act).
-        new_mult = predicted_impr / (2.0 * max(1e-4, predicted_impr - actual_impr))
-        new_mult = max(0.1, min(5.0, new_mult))
-        new_good = max(min(new_mult * self.cur[m].step_mult, self._hyperparams['max_step_mult']),
-                       self._hyperparams['min_step_mult'])
-        self.cur[m].step_mult = new_good
-
-        if new_mult > 1:
-            LOGGER.debug('DualGPS: Increasing good multiplier to %f', new_good)
-        else:
-            LOGGER.debug('DualGPS: Decreasing good multiplier to %f', new_good)
 
     def _measure_ent(self, cond):
         """
@@ -1434,19 +1409,18 @@ class DualGPS(Algorithm):
         #     # copy.copy(temp_dict)
         #     copy.copy(self.agent)
         # )
-        if self.use_global_policy:
-            LOGGER.info("Logging Policy_Opt... ")
-            self.data_logger.pickle(
-                ('policy_opt_itr_%02d.pkl' % itr),
-                self.agent.policy_opt,
-                dir_path=dir_path
-            )
-            print("TODO: NOT LOGGING POLICY!!!")
-            #LOGGER.info("Logging Policy... ")
-            #self.agent.policy_opt.policy.pickle_policy(self.dO, self.dU,
-            #                                           self.data_logger.dir_path + '/' + ('dualgps_policy_itr_%02d' % itr),
-            #                                           goal_state=None,
-            #                                           should_hash=False)
+        LOGGER.info("Logging Policy_Opt... ")
+        self.data_logger.pickle(
+            ('policy_opt_itr_%02d.pkl' % itr),
+            self.agent.policy_opt,
+            dir_path=dir_path
+        )
+        print("TODO: NOT LOGGING POLICY!!!")
+        #LOGGER.info("Logging Policy... ")
+        #self.agent.policy_opt.policy.pickle_policy(self.dO, self.dU,
+        #                                           self.data_logger.dir_path + '/' + ('dualgps_policy_itr_%02d' % itr),
+        #                                           goal_state=None,
+        #                                           should_hash=False)
 
         # print("TODO: CHECK HOW TO SOLVE LOGGING DUAL ALGO")
         # # print("Logging GPS algorithm state... ")
