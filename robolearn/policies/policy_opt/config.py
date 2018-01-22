@@ -26,7 +26,7 @@ POLICY_OPT_TF = {
     'gpu_id': 0,
     'random_seed': 1,
     # Other hyperparameters.
-    'copy_param_scope': 'conv_params',
+    'copy_param_scope': '',
     'fc_only_iterations': 0,
     'gpu_mem_percentage': 0.4,
 }

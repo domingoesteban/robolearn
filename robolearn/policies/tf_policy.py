@@ -48,24 +48,25 @@ class TfPolicy(Policy):
         self.bias = None  # must be set from elsewhere based on observations
         self.x_idx = None  # must be set from elsewhere based on observations
 
-        if copy_param_scope:
-            if self.graph is None:
-                self.copy_params = tf.get_collection(tf.GraphKeys.VARIABLES, scope=copy_param_scope)
-                self.copy_params_assign_placeholders = [tf.placeholder(tf.float32, shape=param.get_shape()) for
-                                                          param in self.copy_params]
+        if tf_graph is None:
+            tf_graph = tf.get_default_graph()
 
-                self.copy_params_assign_ops = [tf.assign(self.copy_params[i],
-                                                         self.copy_params_assign_placeholders[i])
-                                               for i in range(len(self.copy_params))]
+        with tf_graph.as_default():
+            if copy_param_scope:
+                self.copy_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                                     scope=copy_param_scope)
             else:
-                with self.graph.as_default():
-                    self.copy_params = tf.get_collection(tf.GraphKeys.VARIABLES, scope=copy_param_scope)
-                    self.copy_params_assign_placeholders = [tf.placeholder(tf.float32, shape=param.get_shape()) for
-                                                            param in self.copy_params]
+                self.copy_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                                     scope=copy_param_scope)
 
-                    self.copy_params_assign_ops = [tf.assign(self.copy_params[i],
-                                                             self.copy_params_assign_placeholders[i])
-                                                   for i in range(len(self.copy_params))]
+            self.copy_params_assign_placeholders = \
+                [tf.placeholder(tf.float32, shape=param.get_shape())
+                 for param in self.copy_params]
+
+            self.copy_params_assign_ops = \
+                [tf.assign(self.copy_params[i],
+                           self.copy_params_assign_placeholders[i])
+                 for i in range(len(self.copy_params))]
 
     def eval(self, state=None, obs=None, t=None, noise=None):
         """
@@ -82,7 +83,8 @@ class TfPolicy(Policy):
             obs = np.expand_dims(obs, axis=0)
         obs[:, self.x_idx] = obs[:, self.x_idx].dot(self.scale) + self.bias
         with tf.device(self.device_string):
-            action_mean = self.sess.run(self.act_op, feed_dict={self.obs_tensor: obs})
+            action_mean = self.sess.run(self.act_op,
+                                        feed_dict={self.obs_tensor: obs})
         if noise is None:
             u = action_mean
         else:
@@ -106,11 +108,14 @@ class TfPolicy(Policy):
 
     def get_copy_params(self):
         param_values = self.sess.run(self.copy_params)
-        return {self.copy_params[i].name: param_values[i] for i in range(len(self.copy_params))}
+        return {self.copy_params[i].name: param_values[i]
+                for i in range(len(self.copy_params))}
 
     def set_copy_params(self, param_values):
-        value_list = [param_values[self.copy_params[i].name] for i in range(len(self.copy_params))]
-        feeds = {self.copy_params_assign_placeholders[i]:value_list[i] for i in range(len(self.copy_params))}
+        value_list = [param_values[self.copy_params[i].name]
+                      for i in range(len(self.copy_params))]
+        feeds = {self.copy_params_assign_placeholders[i]: value_list[i]
+                 for i in range(len(self.copy_params))}
         self.sess.run(self.copy_params_assign_ops, feed_dict=feeds)
 
     def get_params(self):
