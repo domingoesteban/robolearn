@@ -1544,8 +1544,8 @@ class DualGPS(Algorithm):
     # For pickling.
     def __getstate__(self):
         state = self.__dict__.copy()
-        if 'agents' in state:
-            state.pop('agents')
+        if 'agent' in state:
+            state.pop('agent')
         if 'env' in state:
             state.pop('env')
         if 'cost_function' in state:

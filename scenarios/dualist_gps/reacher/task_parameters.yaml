@@ -5,7 +5,7 @@ Ts: 0.01 # 0.01
 Tend: 4  # 0.7
 
 # Env parameters
-render: True
+render: False
 obs_like_mjc: False
 ntargets: 2
 tgt_weights: [1.0, -1.0]

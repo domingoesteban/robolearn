@@ -62,6 +62,10 @@ class Scenario(object):
         Ts = self.task_params['Ts']
         self.task_params['T'] = int(Tend/Ts)
 
+        if self.hyperparams['render']:
+            self.task_params['render'] = self.hyperparams['render']
+
+
         # Numpy max
         os.environ['OMP_NUM_THREADS'] = str(self.task_params['np_threads'])
 

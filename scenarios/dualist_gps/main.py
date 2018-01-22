@@ -18,8 +18,10 @@ def main():
     parser.add_argument('--log_dir', type=str, default='reacher_log')
     parser.add_argument('--itr', type=int, default=-1)
     parser.add_argument('--cond', type=int, default=0)
+    parser.add_argument('--render', action="store_true")
     args = parser.parse_args()
     print('command_line args:', args)
+
 
     # ############### #
     # Log directories #
@@ -58,6 +60,7 @@ def main():
     param_dict['seed'] = args.seed
     param_dict['run_num'] = args.run_num
     param_dict['log_dir'] = log_dir
+    param_dict['render'] = args.render
 
     scenario_module = __import__(args.scenario)
     scenario = scenario_module.Scenario(param_dict)
