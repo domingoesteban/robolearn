@@ -62,6 +62,9 @@ class Scenario(object):
         Ts = self.task_params['Ts']
         self.task_params['T'] = int(Tend/Ts)
 
+        # Numpy max
+        os.environ['OMP_NUM_THREADS'] = str(self.task_params['np_threads'])
+
         # Environment
         self.env = self.create_environment()
 
@@ -128,11 +131,11 @@ class Scenario(object):
             'weight_decay': 0.005,  # Weight decay.
             'solver_type': 'Adam',  # Solver type (e.g. 'SGD', 'Adam', 'RMSPROP', 'MOMENTUM', 'ADAGRAD').
             # set gpu usage.
-            'use_gpu': True,  # Whether or not to use the GPU for training.
+            'use_gpu': self.task_params['use_gpu'],  # Whether or not to use the GPU for training.
             'gpu_id': 0,
             'random_seed': 1,
             'fc_only_iterations': 0,  # Iterations of only FC before normal training
-            'gpu_mem_percentage': 0.2,
+            'gpu_mem_percentage': self.task_params['gpu_mem_percentage'],
             'log_dir': self.hyperparams['log_dir'],
             # 'weights_file_prefix': EXP_DIR + 'policy',
         }
@@ -220,10 +223,9 @@ class Scenario(object):
             'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
             'data_types': {
                 'tgt0': {
-                    # 'wp': np.ones_like(target_state),  # State weights - must be set.
                     'wp': np.array([1.0, 1.0]),  # State weights - must be set.
                     'target_state': target_distance_object,  # Target state - must be set.
-                    'average': None,  # (12, 3),
+                    'average': None,
                     'data_idx': self.env.get_state_info(name='tgt0')['idx']
                 },
             },
@@ -239,10 +241,9 @@ class Scenario(object):
             'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
             'data_types': {
                 'tgt0': {
-                    # 'wp': np.ones_like(target_state),  # State weights - must be set.
                     'wp': np.array([1.0, 1.0]),  # State weights - must be set.
                     'target_state': target_distance_object,  # Target state - must be set.
-                    'average': None,  # (12, 3),
+                    'average': None,
                     'data_idx': self.env.get_state_info(name='tgt0')['idx']
                 },
             },
@@ -258,7 +259,7 @@ class Scenario(object):
                              # # (fk_final_cost, 1.0e-0),
                              # (fk_l1_final_cost, 1.5e-1),
                              # (fk_l2_final_cost, 1.0e-0),
-                             (state_cost_distance, 10.0e-0),
+                             (state_cost_distance, 5.0e-0),
                              (state_final_cost_distance, 1.0e+3),
                              ]
 
@@ -304,7 +305,7 @@ class Scenario(object):
                             }
 
         init_traj_distr = {'type': init_pd,
-                           'init_var': np.array([1.0, 1.0, 1.0])*1.0e-01,
+                           'init_var': np.array([1.0, 1.0, 1.0])*5.0e-01,
                            'pos_gains': 0.001,  # float or array
                            'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
                            'init_action_offset': None,

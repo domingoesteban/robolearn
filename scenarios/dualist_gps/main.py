@@ -11,11 +11,11 @@ def main():
     # Commandline Arguments #
     # ##################### #
     parser = argparse.ArgumentParser()
-    parser.add_argument('--scenario', type=str, default='test')
+    parser.add_argument('--scenario', type=str, default='reacher')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--mode', type=str, default='train')
     parser.add_argument('--run_num', type=int, default=0)
-    parser.add_argument('--log_dir', type=str, default='test_log2')
+    parser.add_argument('--log_dir', type=str, default='reacher_log')
     parser.add_argument('--itr', type=int, default=-1)
     parser.add_argument('--cond', type=int, default=0)
     args = parser.parse_args()
@@ -68,6 +68,7 @@ def main():
     random.seed(args.seed)
     np.random.seed(args.seed)
     scenario.env.seed(args.seed)
+
 
     # ####################### #
     # Dump Parameters to file #

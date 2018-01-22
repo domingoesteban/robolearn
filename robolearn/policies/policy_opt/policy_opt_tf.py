@@ -57,7 +57,9 @@ class PolicyOptTf(PolicyOpt):
         self.init_network()
         self.init_solver()
         self.var = self._hyperparams['init_var'] * np.ones(dU)
-        config = tf.ConfigProto(log_device_placement=False)
+        config = tf.ConfigProto(log_device_placement=False,
+                                allow_soft_placement=True,
+                                device_count={'GPU': self._hyperparams['use_gpu']})
         config.gpu_options.per_process_gpu_memory_fraction = \
             self._hyperparams['gpu_mem_percentage']
         self.sess = tf.Session(graph=self.graph, config=config)
@@ -96,7 +98,8 @@ class PolicyOptTf(PolicyOpt):
         with self.graph.as_default():
             init_op = tf.global_variables_initializer()
 
-        self.sess.run(init_op)
+        with tf.device(self.device_string):
+            self.sess.run(init_op)
 
     def init_network(self):
         """
