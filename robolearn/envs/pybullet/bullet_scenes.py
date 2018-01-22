@@ -90,7 +90,7 @@ class World:
         pb.resetSimulation()
         pb.setGravity(0, 0, -self.gravity)
         pb.setDefaultContactERP(self.erp)
-        print(self.timestep*self.frame_skip, self.frame_skip)
+        # print(self.timestep*self.frame_skip, self.frame_skip)
         # input('sfasdf')
         # pb.setPhysicsEngineParameter(fixedTimeStep=self.timestep*self.frame_skip,
         pb.setPhysicsEngineParameter(fixedTimeStep=self.timestep,

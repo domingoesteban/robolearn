@@ -316,17 +316,18 @@ class DualGPS(Algorithm):
         for m in range(self.M):
             self._update_policy_fit(m)
 
+        # Update KL step
         logger.info('')
         if self.iteration_count > 0:
             logger.info('DualGPS: itr:%02d | '
                         'Updating KL step size with GLOBAL policy...'
                         % (itr+1))
-            self._update_step_size_global_policy()
+            self._update_step_size_mdgps()
         # elif self.iteration_count > 0:
         #     logger.info('DualGPS: itr:%02d | '
         #                 'Updating KL step size with prev LOCAL policy.'
         #                 % (itr+1))
-        #     self._update_step_size()
+        #     self._update_step_size_traj_opt()
 
         logger.info('')
         logger.info('DualGPS: itr:%02d | '
@@ -345,7 +346,7 @@ class DualGPS(Algorithm):
         self._update_good_bad_dynamics(option=option)
         logger.info('-DualGPS: itr:%02d | '
                     'Update g/b costs...' % (itr+1))
-        self._eval_good_bad_costs()
+        self._eval_good_bad_samples_costs()
         logger.info('-DualGPS: itr:%02d | '
                     'Update g/b traj dist...' % (itr+1))
         self._update_good_bad_fit()
@@ -353,7 +354,7 @@ class DualGPS(Algorithm):
                     'Divergence btw good/bad trajs: ...' % (itr+1))
         self._check_kl_div_good_bad()
 
-        # Run inner loop to compute new trajectories (update them).
+        # C-step
         logger.info('')
         logger.info('DualGPS: itr:%02d | '
                     'Updating trajectories...' % (itr+1))
@@ -365,11 +366,12 @@ class DualGPS(Algorithm):
                            ['inner_iterations']))
             self._update_trajectories()
 
+        # S-step
         logger.info('')
         logger.info('DualGPS:itr:%02d | ->| S-step |<-' % (itr+1))
         self._update_policy()
 
-        # test_after_iter
+        # Test policy after iteration
         if self._hyperparams['test_after_iter']:
             logger.info('')
             logger.info('DualGPS: itr:%02d | '
@@ -391,14 +393,10 @@ class DualGPS(Algorithm):
                 pol_sample_lists_costs[cc] = costs[0]
                 pol_sample_lists_cost_compositions[cc] = costs[2]
 
-            # pol_costs = self._eval_conditions_sample_list_cost(self._policy_samples)
-            # pol_sample_lists_costs = pol_costs[0]
-            # pol_sample_lists_cost_compositions = pol_costs[1]
-
-            for m in range(len(self._test_cond_idx)):
+            for m, cond in enumerate(self._test_cond_idx):
                 print('&'*10)
                 print('Average Cost')
-                print('Condition:%02d' % m)
+                print('Condition:%02d' % cond)
                 print('Avg cost: %f'
                       % pol_sample_lists_costs[m].sum(axis=1).mean())
                 print('&'*10)
@@ -444,9 +442,11 @@ class DualGPS(Algorithm):
             on_policy = True
             total_samples = self._hyperparams['test_samples']
             save = False  # Add sample to agent sample list TODO: CHECK THIS
-            pol_samples = [list() for _ in conditions]
         else:
             raise ValueError("Wrong traj_or_pol option %s" % traj_or_pol)
+
+        if on_policy:
+            pol_samples = [list() for _ in conditions]
 
         for cond in range(len(conditions)):
 
@@ -456,7 +456,7 @@ class DualGPS(Algorithm):
                                and self._hyperparams['sample_pol_first_itr'])):
                 policy = None
                 self.logger.info("On-policy sampling: %s!"
-                                 % type(policy).__name__)
+                                 % type(self.agent.policy).__name__)
             else:
                 policy = self.cur[cond].traj_distr
                 self.logger.info("Off-policy sampling: %s!"
@@ -479,10 +479,10 @@ class DualGPS(Algorithm):
                                            self.dt, noise, policy=policy,
                                            save=save)
 
-                if traj_or_pol == 'pol':
+                if on_policy:
                     pol_samples[cond].append(sample)
 
-            if traj_or_pol == 'pol':
+            if on_policy:
                 if train_or_test == 'train':
                     self.cur[cond].pol_info.policy_samples = \
                         SampleList(pol_samples[cond])
@@ -490,16 +490,119 @@ class DualGPS(Algorithm):
                     self._policy_samples[cond] = \
                         SampleList(pol_samples[cond])
 
-    def _check_kl_div_good_bad(self):
+    def _update_dynamic_model(self):
+        """
+        Instantiate dynamics objects and update prior.
+        Fit dynamics to current samples.
+        """
+        for m in range(self.M):
+            cur_data = self.cur[m].sample_list
+            X = cur_data.get_states()
+            U = cur_data.get_actions()
+
+            # Update prior and fit dynamics.
+            self.cur[m].traj_info.dynamics.update_prior(cur_data)
+            self.cur[m].traj_info.dynamics.fit(X, U)
+
+            # Fit x0mu/x0sigma.
+            x0 = X[:, 0, :]
+            x0mu = np.mean(x0, axis=0)
+            self.cur[m].traj_info.x0mu = x0mu
+            self.cur[m].traj_info.x0sigma = \
+                np.diag(np.maximum(np.var(x0, axis=0),
+                                   self._hyperparams['initial_state_var']))
+
+            prior = self.cur[m].traj_info.dynamics.get_prior()
+            if prior:
+                mu0, Phi, priorm, n0 = prior.initial_state()
+                N = len(cur_data)
+                self.cur[m].traj_info.x0sigma += \
+                    Phi + (N*priorm) / (N+priorm) * \
+                          np.outer(x0mu-mu0, x0mu-mu0) / (N+n0)
+
+    def _eval_iter_samples_cost(self, cond):
+        """
+        Evaluate costs for all current samples for a condition.
+        Args:
+            cond: Condition to evaluate cost on.
+        """
+        sample_list = self.cur[cond].sample_list
+        cost_fcn = self.cost_function[cond]
+
+        true_cost, cost_estimate, _ = self._eval_sample_list_cost(sample_list,
+                                                                  cost_fcn)
+        self.cur[cond].cs = true_cost  # True value of cost.
+
+        # Cost estimate.
+        self.cur[cond].traj_info.Cm = cost_estimate[0]  # Quadratic term (matrix).
+        self.cur[cond].traj_info.cv = cost_estimate[1]  # Linear term (vector).
+        self.cur[cond].traj_info.cc = cost_estimate[2]  # Constant term (scalar).
+
+    def _eval_sample_list_cost(self, sample_list, cost_fcn):
+        """
+        Evaluate costs for a sample_list using a specific cost function.
+        Args:
+            cost: self.cost_function[cond]
+            cond: Condition to evaluate cost on.
+        """
+        # Constants.
+        T, dX, dU = self.T, self.dX, self.dU
+        N = len(sample_list)
+
+        # Compute cost.
+        cs = np.zeros((N, T))
+        cc = np.zeros((N, T))
+        cv = np.zeros((N, T, dX+dU))
+        Cm = np.zeros((N, T, dX+dU, dX+dU))
+        cost_composition = [None for _ in range(N)]
+        for n in range(N):
+            sample = sample_list[n]
+            # Get costs.
+            l, lx, lu, lxx, luu, lux, cost_composition[n] = cost_fcn.eval(sample)
+            cc[n, :] = l
+            cs[n, :] = l
+
+            # Assemble matrix and vector.
+            cv[n, :, :] = np.c_[lx, lu]
+            Cm[n, :, :, :] = np.concatenate(
+                (np.c_[lxx, np.transpose(lux, [0, 2, 1])], np.c_[lux, luu]),
+                axis=1
+            )
+
+            # Adjust for expanding cost around a sample.
+            X = sample.get_states()
+            U = sample.get_acts()
+            yhat = np.c_[X, U]
+            rdiff = -yhat
+            rdiff_expand = np.expand_dims(rdiff, axis=2)
+            cv_update = np.sum(Cm[n, :, :, :] * rdiff_expand, axis=1)
+            cc[n, :] += np.sum(rdiff * cv[n, :, :], axis=1) \
+                        + 0.5 * np.sum(rdiff * cv_update, axis=1)
+            cv[n, :, :] += cv_update
+
+        # Fill in cost estimate.
+        cc = np.mean(cc, 0)  # Constant term (scalar).
+        cv = np.mean(cv, 0)  # Linear term (vector).
+        Cm = np.mean(Cm, 0)  # Quadratic term (matrix).
+
+        return cs, (Cm, cv, cc), cost_composition
+
+    def _update_trajectories(self):
+        """
+        Compute new linear Gaussian controllers using the TrajOpt algorithm.
+        """
+        LOGGER = self.logger
+
+        LOGGER.info('-->DualGPS: Updating trajectories (local policies)...')
+        if self.new_traj_distr is None:
+            self.new_traj_distr = [self.cur[cond].traj_distr
+                                   for cond in range(self.M)]
         for cond in range(self.M):
-            good_distr = self.good_duality_info[cond].traj_dist
-            bad_distr = self.bad_duality_info[cond].traj_dist
-            mu_good, sigma_good = lqr_forward(good_distr, self.good_trajectories_info[cond])
-            mu_bad, sigma_bad = lqr_forward(bad_distr, self.bad_trajectories_info[cond])
-            kl_div_good_bad = traj_distr_kl_alt(mu_good, sigma_good, good_distr, bad_distr, tot=True)
-            #print("G/B KL_div: %f " % kl_div_good_bad)
-            self.logger.info('--->Divergence btw good/bad trajs is: %f'
-                             % kl_div_good_bad)
+            traj_opt_outputs = self.traj_opt.update(cond, self)
+            self.new_traj_distr[cond] = traj_opt_outputs[0]
+            self.cur[cond].eta = traj_opt_outputs[1]
+            self.cur[cond].omega = traj_opt_outputs[2]
+            self.cur[cond].nu = traj_opt_outputs[3]
 
     def compute_traj_cost(self, cond, eta, omega, nu, augment=True):
         """
@@ -606,66 +709,46 @@ class DualGPS(Algorithm):
                 self.fit_traj_dist(self.bad_duality_info[cond].sample_list,
                                    min_bad_var)
 
-    def _eval_good_bad_costs(self):
+    def _eval_good_bad_samples_costs(self):
         """
         Evaluate costs for all current samples for a condition.
         Args:
             cond: Condition to evaluate cost on.
         """
         for cond in range(self.M):
-            cs, cc, cv, Cm = self._eval_dual_costs(cond, self.good_duality_info[cond].sample_list)
-            self.good_duality_info[cond].traj_cost = cs
-            self.good_trajectories_info[cond].cc = cc
-            self.good_trajectories_info[cond].cv = cv
-            self.good_trajectories_info[cond].Cm = Cm
+            cost_fcn = self.cost_function[cond]
+            good_sample_list = self.good_duality_info[cond].sample_list
+            bad_sample_list = self.bad_duality_info[cond].sample_list
 
-            cs, cc, cv, Cm = self._eval_dual_costs(cond, self.bad_duality_info[cond].sample_list)
-            self.bad_duality_info[cond].traj_cost = cs
-            self.bad_trajectories_info[cond].cc = cc
-            self.bad_trajectories_info[cond].cv = cv
-            self.bad_trajectories_info[cond].Cm = Cm
+            good_true_cost, good_cost_estimate, _ = \
+                self._eval_sample_list_cost(good_sample_list, cost_fcn)
+            bad_true_cost, bad_cost_estimate, _ = \
+                self._eval_sample_list_cost(bad_sample_list, cost_fcn)
 
-    def _eval_dual_costs(self, cond, dual_sample_list):
-        # Constants.
-        T, dX, dU = self.T, self.dX, self.dU
-        N = len(dual_sample_list)
+            # True value of cost.
+            self.good_duality_info[cond].traj_cost = good_true_cost
+            self.bad_duality_info[cond].traj_cost = bad_true_cost
 
-        # Compute cost.
-        cs = np.zeros((N, T))
-        cc = np.zeros((N, T))
-        cv = np.zeros((N, T, dX+dU))
-        Cm = np.zeros((N, T, dX+dU, dX+dU))
-        for n in range(N):
-            sample = dual_sample_list[n]
-            # Get costs.
-            l, lx, lu, lxx, luu, lux, cost_composition = \
-                self.cost_function[cond].eval(sample)
-            cc[n, :] = l
-            cs[n, :] = l
+            # Cost estimate.
+            self.good_trajectories_info[cond].Cm = good_cost_estimate[0]  # Quadratic term (matrix).
+            self.good_trajectories_info[cond].cv = good_cost_estimate[1]  # Linear term (vector).
+            self.good_trajectories_info[cond].cc = good_cost_estimate[2]  # Constant term (scalar).
 
-            # Assemble matrix and vector.
-            cv[n, :, :] = np.c_[lx, lu]
-            Cm[n, :, :, :] = np.concatenate(
-                (np.c_[lxx, np.transpose(lux, [0, 2, 1])], np.c_[lux, luu]),
-                axis=1
-            )
+            self.bad_trajectories_info[cond].Cm = bad_cost_estimate[0]  # Quadratic term (matrix).
+            self.bad_trajectories_info[cond].cv = bad_cost_estimate[1]  # Linear term (vector).
+            self.bad_trajectories_info[cond].cc = bad_cost_estimate[2]  # Constant term (scalar).
 
-            # Adjust for expanding cost around a sample.
-            X = sample.get_states()
-            U = sample.get_acts()
-            yhat = np.c_[X, U]
-            rdiff = -yhat
-            rdiff_expand = np.expand_dims(rdiff, axis=2)
-            cv_update = np.sum(Cm[n, :, :, :] * rdiff_expand, axis=1)
-            cc[n, :] += np.sum(rdiff * cv[n, :, :], axis=1) + 0.5 * np.sum(rdiff * cv_update, axis=1)
-            cv[n, :, :] += cv_update
 
-        # Fill in cost estimate.
-        cc = np.mean(cc, 0)  # Constant term (scalar).
-        cv = np.mean(cv, 0)  # Linear term (vector).
-        Cm = np.mean(Cm, 0)  # Quadratic term (matrix).
-
-        return cs, cc, cv, Cm
+    def _check_kl_div_good_bad(self):
+        for cond in range(self.M):
+            good_distr = self.good_duality_info[cond].traj_dist
+            bad_distr = self.bad_duality_info[cond].traj_dist
+            mu_good, sigma_good = lqr_forward(good_distr, self.good_trajectories_info[cond])
+            mu_bad, sigma_bad = lqr_forward(bad_distr, self.bad_trajectories_info[cond])
+            kl_div_good_bad = traj_distr_kl_alt(mu_good, sigma_good, good_distr, bad_distr, tot=True)
+            #print("G/B KL_div: %f " % kl_div_good_bad)
+            self.logger.info('--->Divergence btw good/bad trajs is: %f'
+                             % kl_div_good_bad)
 
     def _update_good_bad_dynamics(self, option='duality'):
         """
@@ -745,8 +828,9 @@ class DualGPS(Algorithm):
             # Get current best trajectory
             if self.bad_duality_info[cond].sample_list is None:
                 for bb, bad_index in enumerate(worst_indeces):
-                    LOGGER.info("DualGPS: Defining BAD trajectory sample %d | cur_cost=%f from sample %d" % (bb,
-                                                                                          np.sum(cs[bad_index, :]), bad_index))
+                    LOGGER.info("DualGPS: Defining BAD trajectory sample %d | "
+                                "cur_cost=%f from sample %d"
+                                % (bb, np.sum(cs[bad_index, :]), bad_index))
                 self.bad_duality_info[cond].sample_list = SampleList([sample_list[bad_index] for bad_index in worst_indeces])
                 self.bad_duality_info[cond].samples_cost = cs[worst_indeces, :]
             else:
@@ -832,78 +916,14 @@ class DualGPS(Algorithm):
                 else:
                     raise ValueError("DualGPS: Wrong get_good_grajectories option: %s" % option)
 
-    def _update_step_size(self):
-        """ Evaluate costs on samples, and adjust the step size. """
-        # Evaluate cost function for all conditions and samples.
-        #for m in range(self.M):
-        #    self._eval_samples_cost(m)
-
-        # Adjust step size relative to the previous iteration.
-        for m in range(self.M):
-            if self.iteration_count >= 1 and self.prev[m].sample_list:
-                self._step_adjust(m)
-
-    def _step_adjust(self, m):
+    def _update_step_size_mdgps(self):
         """
-        Calculate new step sizes.
-        Args:
-            m: Condition
+        Calculate new step sizes. This version uses the same step size for all
+        conditions.
         """
         LOGGER = self.logger
 
-        # Compute values under Laplace approximation. This is the policy
-        # that the previous samples were actually drawn from under the
-        # dynamics that were estimated from the previous samples.
-        previous_laplace_obj = self.traj_opt.estimate_cost(
-            self.prev[m].traj_distr, self.prev[m].traj_info
-        )
-        # This is the policy that we just used under the dynamics that
-        # were estimated from the previous samples (so this is the cost
-        # we thought we would have).
-        new_predicted_laplace_obj = self.traj_opt.estimate_cost(
-            self.cur[m].traj_distr, self.prev[m].traj_info
-        )
-
-        # This is the actual cost we have under the current trajectory
-        # based on the latest samples.
-        new_actual_laplace_obj = self.traj_opt.estimate_cost(
-            self.cur[m].traj_distr, self.cur[m].traj_info
-        )
-
-        # Measure the entropy of the current trajectory (for printout).
-        ent = self._measure_ent(m)
-
-        # Compute actual objective values based on the samples.
-        previous_mc_obj = np.mean(np.sum(self.prev[m].cs, axis=1), axis=0)
-        new_mc_obj = np.mean(np.sum(self.cur[m].cs, axis=1), axis=0)
-
-        LOGGER.debug('DualGPS: Trajectory step: ent: %f cost: %f -> %f',
-                     ent, previous_mc_obj, new_mc_obj)
-
-        # Compute predicted and actual improvement.
-        predicted_impr = np.sum(previous_laplace_obj) - \
-                         np.sum(new_predicted_laplace_obj)
-        actual_impr = np.sum(previous_laplace_obj) - \
-                      np.sum(new_actual_laplace_obj)
-
-        # Print improvement details.
-        LOGGER.debug('DualGPS: Previous cost: Laplace: %f MC: %f',
-                     np.sum(previous_laplace_obj), previous_mc_obj)
-        LOGGER.debug('DualGPS: Predicted new cost: Laplace: %f MC: %f',
-                     np.sum(new_predicted_laplace_obj), new_mc_obj)
-        LOGGER.debug('DualGPS: Actual new cost: Laplace: %f MC: %f',
-                     np.sum(new_actual_laplace_obj), new_mc_obj)
-        LOGGER.debug('DualGPS: Predicted/actual improvement: %f / %f',
-                     predicted_impr, actual_impr)
-
-        self._set_new_mult(predicted_impr, actual_impr, m)
-
-    def _update_step_size_global_policy(self):
-        """
-        Calculate new step sizes. This version uses the same step size for all conditions.
-        """
-        LOGGER = self.logger
-
+        estimate_cost_fcn = self.traj_opt.estimate_cost
 
         # Compute previous cost and previous expected cost.
         prev_M = len(self.prev)  # May be different in future.
@@ -914,22 +934,28 @@ class DualGPS(Algorithm):
             prev_nn = self.prev[m].pol_info.traj_distr()
             prev_lg = self.prev[m].new_traj_distr
 
-            # Compute values under Laplace approximation. This is the policy that the previous samples were actually
-            # drawn from under the dynamics that were estimated from the previous samples.
-            prev_laplace[m] = self.traj_opt.estimate_cost(prev_nn, self.prev[m].traj_info).sum()
+            # Compute values under Laplace approximation. This is the policy
+            # that the previous samples were actually drawn from under the
+            # dynamics that were estimated from the previous samples.
+            prev_laplace[m] = estimate_cost_fcn(prev_nn,
+                                                self.prev[m].traj_info).sum()
             # This is the actual cost that we experienced.
             prev_mc[m] = self.prev[m].cs.mean(axis=0).sum()
-            # This is the policy that we just used under the dynamics that were estimated from the prev samples (so
-            # this is the cost we thought we would have).
-            prev_predicted[m] = self.traj_opt.estimate_cost(prev_lg, self.prev[m].traj_info).sum()
+            # This is the policy that we just used under the dynamics that
+            # were estimated from the prev samples (so this is the cost
+            # we thought we would have).
+            prev_predicted[m] = estimate_cost_fcn(prev_lg,
+                                                  self.prev[m].traj_info).sum()
 
         # Compute current cost.
         cur_laplace = np.empty(self.M)
         cur_mc = np.empty(self.M)
         for m in range(self.M):
             cur_nn = self.cur[m].pol_info.traj_distr()
-            # This is the actual cost we have under the current trajectory based on the latest samples.
-            cur_laplace[m] = self.traj_opt.estimate_cost(cur_nn, self.cur[m].traj_info).sum()
+            # This is the actual cost we have under the current trajectory
+            # based on the latest samples.
+            cur_laplace[m] = estimate_cost_fcn(cur_nn,
+                                               self.cur[m].traj_info).sum()
             cur_mc[m] = self.cur[m].cs.mean(axis=0).sum()
 
         # Compute predicted and actual improvement.
@@ -944,9 +970,11 @@ class DualGPS(Algorithm):
         elif self._hyperparams['gps_algo_hyperparams']['step_rule'] == 'mc':
             predicted_impr = prev_mc - prev_predicted
             actual_impr = prev_mc - cur_mc
-        LOGGER.debug('DualGPS: Previous cost: Laplace: %f, MC: %f', prev_laplace, prev_mc)
+        LOGGER.debug('DualGPS: Previous cost: Laplace: %f, MC: %f',
+                     prev_laplace, prev_mc)
         LOGGER.debug('DualGPS: Predicted cost: Laplace: %f', prev_predicted)
-        LOGGER.debug('DualGPS: Actual cost: Laplace: %f, MC: %f', cur_laplace, cur_mc)
+        LOGGER.debug('DualGPS: Actual cost: Laplace: %f, MC: %f',
+                     cur_laplace, cur_mc)
 
         for m in range(self.M):
             self._set_new_mult(predicted_impr, actual_impr, m)
@@ -1018,164 +1046,6 @@ class DualGPS(Algorithm):
 
         self.policy_opt.update(obs_data, tgt_mu, tgt_prc, tgt_wt, LOGGER=logger)
 
-    def _take_fake_sample(self, noisy=True):
-        """
-        Create a fake sample.
-        :param noisy:
-        :return:
-        """
-        print('Fake sample!!!')
-
-        if noisy:
-            noise = generate_noise(self.T, self.dU, self._hyperparams)
-        else:
-            noise = np.zeros((self.T, self.dU))
-
-        # Create a sample class
-        sample = Sample(self.env, self.T)
-
-        all_obs = np.random.randn(self.T, self.dO)
-        all_states = np.random.randn(self.T, self.dX)
-        all_actions = np.random.randn(self.T, self.dU)
-
-        sample.set_acts(all_actions)
-        sample.set_obs(all_obs)
-        sample.set_states(all_states)
-        sample.set_noise(noise)
-
-        return sample
-
-    def _eval_conditions_sample_list_cost(self, cond_sample_list):
-        costs = list()
-        cost_compositions = list()
-        total_cond = len(cond_sample_list)
-        for cond in range(total_cond):
-            N = len(cond_sample_list[cond])
-            cs = np.zeros((N, self.T))
-            cond_cost_composition = [None for _ in range(N)]
-            for n in range(N):
-                sample = cond_sample_list[cond][n]
-                # Get costs.
-                result = np.array(self.cost_function[cond].eval(sample))
-                cs[n, :] = result[0]
-                cond_cost_composition[n] = result[-1]
-            costs.append(cs)
-            cost_compositions.append(cond_cost_composition)
-        return costs, cost_compositions
-
-    def _update_dynamic_model(self):
-        """
-        Instantiate dynamics objects and update prior.
-        Fit dynamics to current samples.
-        """
-        for m in range(self.M):
-            cur_data = self.cur[m].sample_list
-            X = cur_data.get_states()
-            U = cur_data.get_actions()
-
-            # Update prior and fit dynamics.
-            self.cur[m].traj_info.dynamics.update_prior(cur_data)
-            self.cur[m].traj_info.dynamics.fit(X, U)
-
-            # Fit x0mu/x0sigma.
-            x0 = X[:, 0, :]
-            x0mu = np.mean(x0, axis=0)
-            self.cur[m].traj_info.x0mu = x0mu
-            self.cur[m].traj_info.x0sigma = \
-                np.diag(np.maximum(np.var(x0, axis=0),
-                                   self._hyperparams['initial_state_var']))
-
-            prior = self.cur[m].traj_info.dynamics.get_prior()
-            if prior:
-                mu0, Phi, priorm, n0 = prior.initial_state()
-                N = len(cur_data)
-                self.cur[m].traj_info.x0sigma += \
-                    Phi + (N*priorm) / (N+priorm) * \
-                    np.outer(x0mu-mu0, x0mu-mu0) / (N+n0)
-
-    def _update_trajectories(self):
-        """
-        Compute new linear Gaussian controllers using the TrajOpt algorithm.
-        """
-        LOGGER = self.logger
-
-        LOGGER.info('-->DualGPS: Updating trajectories (local policies)...')
-        if self.new_traj_distr is None:
-            self.new_traj_distr = [self.cur[cond].traj_distr
-                                   for cond in range(self.M)]
-        for cond in range(self.M):
-            traj_opt_outputs = self.traj_opt.update(cond, self)
-            self.new_traj_distr[cond] = traj_opt_outputs[0]
-            self.cur[cond].eta = traj_opt_outputs[1]
-            self.cur[cond].omega = traj_opt_outputs[2]
-            self.cur[cond].nu = traj_opt_outputs[3]
-
-    def _eval_iter_samples_cost(self, cond):
-        """
-        Evaluate costs for all current samples for a condition.
-        Args:
-            cond: Condition to evaluate cost on.
-        """
-        sample_list = self.cur[cond].sample_list
-        cost_fcn = self.cost_function[cond]
-
-        true_cost, cost_estimate, _ = self._eval_sample_list_cost(sample_list,
-                                                                  cost_fcn)
-        self.cur[cond].cs = true_cost  # True value of cost.
-
-        # Cost estimate.
-        self.cur[cond].traj_info.Cm = cost_estimate[0]  # Quadratic term (matrix).
-        self.cur[cond].traj_info.cv = cost_estimate[1]  # Linear term (vector).
-        self.cur[cond].traj_info.cc = cost_estimate[2]  # Constant term (scalar).
-
-    def _eval_sample_list_cost(self, sample_list, cost_fcn):
-        """
-        Evaluate costs for a sample_list using a specific cost function.
-        Args:
-            cost: self.cost_function[cond]
-            cond: Condition to evaluate cost on.
-        """
-        # Constants.
-        T, dX, dU = self.T, self.dX, self.dU
-        N = len(sample_list)
-
-        # Compute cost.
-        cs = np.zeros((N, T))
-        cc = np.zeros((N, T))
-        cv = np.zeros((N, T, dX+dU))
-        Cm = np.zeros((N, T, dX+dU, dX+dU))
-        cost_composition = [None for _ in range(N)]
-        for n in range(N):
-            sample = sample_list[n]
-            # Get costs.
-            l, lx, lu, lxx, luu, lux, cost_composition[n] = cost_fcn.eval(sample)
-            cc[n, :] = l
-            cs[n, :] = l
-
-            # Assemble matrix and vector.
-            cv[n, :, :] = np.c_[lx, lu]
-            Cm[n, :, :, :] = np.concatenate(
-                (np.c_[lxx, np.transpose(lux, [0, 2, 1])], np.c_[lux, luu]),
-                axis=1
-            )
-
-            # Adjust for expanding cost around a sample.
-            X = sample.get_states()
-            U = sample.get_acts()
-            yhat = np.c_[X, U]
-            rdiff = -yhat
-            rdiff_expand = np.expand_dims(rdiff, axis=2)
-            cv_update = np.sum(Cm[n, :, :, :] * rdiff_expand, axis=1)
-            cc[n, :] += np.sum(rdiff * cv[n, :, :], axis=1) + 0.5 * np.sum(rdiff * cv_update, axis=1)
-            cv[n, :, :] += cv_update
-
-        # Fill in cost estimate.
-        cc = np.mean(cc, 0)  # Constant term (scalar).
-        cv = np.mean(cv, 0)  # Linear term (vector).
-        Cm = np.mean(Cm, 0)  # Quadratic term (matrix).
-
-        return cs, (Cm, cv, cc), cost_composition
-
     def _advance_iteration_variables(self):
         """
         Move all 'cur' variables to 'prev', and advance iteration counter of
@@ -1197,16 +1067,16 @@ class DualGPS(Algorithm):
             self.cur[m].step_mult = self.prev[m].step_mult
             self.cur[m].eta = self.prev[m].eta
             self.cur[m].traj_distr = self.new_traj_distr[m]
+            # MDGPS
             self.cur[m].pol_info = copy.deepcopy(self.prev[m].pol_info)
+            self.cur[m].traj_info.last_kl_step = \
+                self.prev[m].traj_info.last_kl_step
         self.new_traj_distr = None
 
         # Duality variables
         for m in range(self.M):
             self.cur[m].nu = self.prev[m].nu
             self.cur[m].omega = self.prev[m].omega
-
-            self.cur[m].traj_info.last_kl_step = \
-                self.prev[m].traj_info.last_kl_step
 
     def _set_new_mult(self, predicted_impr, actual_impr, m):
         """
@@ -1247,6 +1117,71 @@ class DualGPS(Algorithm):
             )
         return ent
 
+    def _update_step_size_traj_opt(self):
+        """ Evaluate costs on samples, and adjust the step size. """
+        # Evaluate cost function for all conditions and samples.
+        #for m in range(self.M):
+        #    self._eval_samples_cost(m)
+
+        # Adjust step size relative to the previous iteration.
+        for m in range(self.M):
+            if self.iteration_count >= 1 and self.prev[m].sample_list:
+                self._adjust_cond_step(m)
+
+    def _adjust_cond_step(self, m):
+        """
+        Calculate new step sizes.
+        Args:
+            m: Condition
+        """
+        LOGGER = self.logger
+
+        # Compute values under Laplace approximation. This is the policy
+        # that the previous samples were actually drawn from under the
+        # dynamics that were estimated from the previous samples.
+        previous_laplace_obj = self.traj_opt.estimate_cost(
+            self.prev[m].traj_distr, self.prev[m].traj_info
+        )
+        # This is the policy that we just used under the dynamics that
+        # were estimated from the previous samples (so this is the cost
+        # we thought we would have).
+        new_predicted_laplace_obj = self.traj_opt.estimate_cost(
+            self.cur[m].traj_distr, self.prev[m].traj_info
+        )
+
+        # This is the actual cost we have under the current trajectory
+        # based on the latest samples.
+        new_actual_laplace_obj = self.traj_opt.estimate_cost(
+            self.cur[m].traj_distr, self.cur[m].traj_info
+        )
+
+        # Measure the entropy of the current trajectory (for printout).
+        ent = self._measure_ent(m)
+
+        # Compute actual objective values based on the samples.
+        previous_mc_obj = np.mean(np.sum(self.prev[m].cs, axis=1), axis=0)
+        new_mc_obj = np.mean(np.sum(self.cur[m].cs, axis=1), axis=0)
+
+        LOGGER.debug('DualGPS: Trajectory step: ent: %f cost: %f -> %f',
+                     ent, previous_mc_obj, new_mc_obj)
+
+        # Compute predicted and actual improvement.
+        predicted_impr = np.sum(previous_laplace_obj) - \
+                         np.sum(new_predicted_laplace_obj)
+        actual_impr = np.sum(previous_laplace_obj) - \
+                      np.sum(new_actual_laplace_obj)
+
+        # Print improvement details.
+        LOGGER.debug('DualGPS: Previous cost: Laplace: %f MC: %f',
+                     np.sum(previous_laplace_obj), previous_mc_obj)
+        LOGGER.debug('DualGPS: Predicted new cost: Laplace: %f MC: %f',
+                     np.sum(new_predicted_laplace_obj), new_mc_obj)
+        LOGGER.debug('DualGPS: Actual new cost: Laplace: %f MC: %f',
+                     np.sum(new_actual_laplace_obj), new_mc_obj)
+        LOGGER.debug('DualGPS: Predicted/actual improvement: %f / %f',
+                     predicted_impr, actual_impr)
+
+        self._set_new_mult(predicted_impr, actual_impr, m)
 
     @staticmethod
     def fit_traj_dist(sample_list, min_variance):
@@ -1324,6 +1259,33 @@ class DualGPS(Algorithm):
             inv_pol_S[t, :, :] = np.linalg.inv(pol_S[t, :, :])
 
         return LinearGaussianPolicy(pol_K, pol_k, pol_S, chol_pol_S, inv_pol_S)
+
+    def _take_fake_sample(self, noisy=True):
+        """
+        Create a fake sample.
+        :param noisy:
+        :return:
+        """
+        print('Fake sample!!!')
+
+        if noisy:
+            noise = generate_noise(self.T, self.dU, self._hyperparams)
+        else:
+            noise = np.zeros((self.T, self.dU))
+
+        # Create a sample class
+        sample = Sample(self.env, self.T)
+
+        all_obs = np.random.randn(self.T, self.dO)
+        all_states = np.random.randn(self.T, self.dX)
+        all_actions = np.random.randn(self.T, self.dU)
+
+        sample.set_acts(all_actions)
+        sample.set_obs(all_obs)
+        sample.set_states(all_states)
+        sample.set_noise(noise)
+
+        return sample
 
     def _restore_algo_state(self, itr_load):
         """

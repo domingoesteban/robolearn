@@ -119,7 +119,7 @@ class Scenario(object):
             'network_model': tf_network,  # tf_network, multi_modal_network, multi_modal_network_fp
             'network_params': {
                 'n_layers': 2,  # Number of Hidden layers
-                'dim_hidden': [40, 40],  # List of size per n_layers
+                'dim_hidden': [32, 32],  # List of size per n_layers
                 'obs_names': self.env.get_obs_info()['names'],
                 'obs_dof': self.env.get_obs_info()['dimensions'],  # DoF for observation data tensor
             },
@@ -256,15 +256,15 @@ class Scenario(object):
 
         # Sum costs
         # costs_and_weights = [(act_cost, 1.0e-1),
-        costs_and_weights = [(act_cost, 1.0e-3),
+        costs_and_weights = [(act_cost, 1.0e-4),
                              # # (fk_cost, 1.0e-0),
                              # (fk_l1_cost, 1.5e-1),
                              # (fk_l2_cost, 1.0e-0),
                              # # (fk_final_cost, 1.0e-0),
                              # (fk_l1_final_cost, 1.5e-1),
                              # (fk_l2_final_cost, 1.0e-0),
-                             (state_cost_distance, 5.0e-0),
-                             (state_final_cost_distance, 1.0e+3),
+                             (state_cost_distance, 1.0e-0),
+                             (state_final_cost_distance, 0.0e+3),
                              ]
 
         cost_sum = {
@@ -344,7 +344,7 @@ class Scenario(object):
         good_trajs = None
         bad_trajs = None
         gps_algo_hyperparams = {
-            'inner_iterations': 1,  # Times the trajectories are updated
+            'inner_iterations': self.task_params['inner_iterations'],  # Times the trajectories are updated
             'good_samples': good_trajs,  # Good samples demos
             'bad_samples': bad_trajs,  # Bad samples demos
             'n_bad_samples': 2,  # Number of bad samples per each trajectory
@@ -374,7 +374,7 @@ class Scenario(object):
         gps_hyperparams = {
             'T': self.task_params['T'],  # Total points
             'dt': self.task_params['Ts'],
-            'iterations': self.task_params['iterations'],  # GPS episodes, "inner iterations" --> K iterations
+            'iterations': self.task_params['iterations'],  # GPS episodes --> K iterations
             'test_after_iter': self.task_params['test_after_iter'],  # If test the learned policy after an iteration in the RL algorithm
             'test_samples': self.task_params['test_n_samples'],  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
             # Samples
@@ -403,7 +403,6 @@ class Scenario(object):
             # TrajOpt
             'traj_opt': traj_opt_method,
             'max_ent_traj': 0.0,  # Weight of maximum entropy term in trajectory optimization #TODO: CHECK THIS VALUE
-            'use_global_policy': self.task_params['use_global_policy'],  # KL prev or policy(MDGPS)
             # Others
             'gps_algo_hyperparams': gps_algo_hyperparams,
             'data_files_dir': self.hyperparams['log_dir'],
