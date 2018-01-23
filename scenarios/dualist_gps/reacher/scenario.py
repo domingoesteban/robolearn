@@ -256,14 +256,14 @@ class Scenario(object):
 
         # Sum costs
         # costs_and_weights = [(act_cost, 1.0e-1),
-        costs_and_weights = [(act_cost, 1.0e-4),
+        costs_and_weights = [(act_cost, 1.0e-5),
                              # # (fk_cost, 1.0e-0),
                              # (fk_l1_cost, 1.5e-1),
                              # (fk_l2_cost, 1.0e-0),
                              # # (fk_final_cost, 1.0e-0),
                              # (fk_l1_final_cost, 1.5e-1),
                              # (fk_l2_final_cost, 1.0e-0),
-                             (state_cost_distance, 1.0e-0),
+                             (state_cost_distance, 5.0e-0),
                              (state_final_cost_distance, 0.0e+3),
                              ]
 
