@@ -71,7 +71,7 @@ class GPSAgent(Agent):
             nan_number = np.isnan(obs)
             if np.any(nan_number):
                 print("\e[31mERROR OBSERVATION: NAN!!!!! | ")
-
+            print(obs)
             # TODO: Avoid TF policy writes in obs
             action = policy.eval(state.copy(), obs.copy(), t,
                                  noise[t].copy())
@@ -88,11 +88,11 @@ class GPSAgent(Agent):
             obs_hist[t] = (obs, action)
             history[t] = (state, action)
 
-            # if issubclass(type(self.env), GymEnv):
-            if issubclass(type(env), BulletEnv):
-                time.sleep(dt)
-            else:
-                ros_rate.sleep()
+            ## if issubclass(type(self.env), GymEnv):
+            #if issubclass(type(env), BulletEnv):
+            #    time.sleep(dt)
+            #else:
+            #    ros_rate.sleep()
 
         sampling_bar.end()
 

@@ -69,7 +69,5 @@ class CostState(Cost):
             final_lx[:, config['data_idx']] = ls
             temp_idx = np.ix_(config['data_idx'], config['data_idx'])
             final_lxx[:, temp_idx[0], temp_idx[1]] = lss
-            #sample.agent.pack_data_x(final_lx, ls, data_types=[data_type])
-            #sample.agent.pack_data_x(final_lxx, lss,
-            #                         data_types=[data_type, data_type])
+
         return final_l, final_lx, final_lu, final_lxx, final_luu, final_lux
