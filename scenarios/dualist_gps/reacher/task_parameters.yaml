@@ -5,7 +5,7 @@ Ts: 0.01 # 0.01
 Tend: 5  # 0.7
 
 # Env parameters
-render: True
+render: False
 obs_like_mjc: False
 ntargets: 2
 tgt_weights: [1.0, -1.0]
@@ -38,7 +38,7 @@ test_after_iter: True # If test the learned policy after an iteration in the RL 
 test_n_samples: 1  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
 
 # TrajOpt parameters
-inner_iterations: 2
+inner_iterations: 1
 
 # Dualist GPS parameters
 consider_good: False

@@ -471,7 +471,7 @@ class DualGPS(Algorithm):
                 self.env.reset(condition=cond)
                 sample_text = "'%s' sampling | itr:%d/%d, cond:%d/%d, s:%d/%d"\
                               % (traj_or_pol, itr+1, self.max_iterations,
-                                 cond+1, len(self._train_cond_idx),
+                                 cond+1, len(conditions),
                                  i+1, total_samples)
 
                 self.logger.info(sample_text)
@@ -604,7 +604,7 @@ class DualGPS(Algorithm):
             self.cur[cond].omega = traj_opt_outputs[2]
             self.cur[cond].nu = traj_opt_outputs[3]
 
-    def compute_traj_cost(self, cond, eta, omega, nu, augment=True):
+    def compute_traj_cost_OLD(self, cond, eta, omega, nu, augment=True):
         """
         Compute cost estimates used in the LQR backward pass.
 
@@ -694,6 +694,108 @@ class DualGPS(Algorithm):
                 K_bad[t, :, :].T.dot(ipc_bad[t, :, :]).dot(k_bad[t, :]),
                 -ipc_bad[t, :, :].dot(k_bad[t, :])
             ])
+
+        return fCm, fcv
+
+    def compute_traj_cost(self, cond, eta, omega, nu, augment=True):
+        """
+        Compute cost estimates used in the LQR backward pass.
+
+        :param cond: Number of condition
+        :param eta: Dual variable corresponding to KL divergence with
+                    previous policy.
+        :param omega: Dual variable(s) corresponding to KL divergence with
+                      good trajectories.
+        :param nu: Dual variable(s) corresponding to KL divergence with
+                   bad trajectories.
+        :param augment: True if we want a KL constraint for all time-steps.
+                        False otherwise. True for MDGPS
+        :return: Cm and cv
+        """
+        traj_info = self.cur[cond].traj_info
+        traj_distr = self.cur[cond].traj_distr
+        good_distr = self.good_duality_info[cond].traj_dist
+        bad_distr = self.bad_duality_info[cond].traj_dist
+        if not augment:  # Whether to augment cost with term to penalize KL
+            return traj_info.Cm, traj_info.cv
+
+        T = self.T
+        dX = self.dX
+        dU = self.dU
+        Cm, cv = np.copy(traj_info.Cm), np.copy(traj_info.cv)
+
+        # Pol_info
+        pol_info = self.cur[cond].pol_info
+
+        # Weight of maximum entropy term in trajectory optimization
+        multiplier = self._hyperparams['max_ent_traj']
+
+        # omega = 0
+        # nu = 0
+
+        # Surrogate cost
+        PKLm = np.zeros((T, dX+dU, dX+dU))
+        PKLv = np.zeros((T, dX+dU))
+
+        divisor = (eta + omega - nu + multiplier)
+        fCm = Cm / divisor
+        fcv = cv / divisor
+
+        # We are dividing the surrogate cost calculation for debugging purposes
+
+        # Add in the KL divergence with previous policy.
+        for t in range(self.T):
+            # Policy KL-divergence terms.
+            inv_pol_S = np.linalg.solve(
+                pol_info.chol_pol_S[t, :, :],
+                np.linalg.solve(pol_info.chol_pol_S[t, :, :].T, np.eye(dU))
+            )
+            KB = pol_info.pol_K[t, :, :]
+            kB = pol_info.pol_k[t, :]
+
+            PKLm[t, :, :] = np.vstack([
+                np.hstack([KB.T.dot(inv_pol_S).dot(KB), -KB.T.dot(inv_pol_S)]),
+                np.hstack([-inv_pol_S.dot(KB), inv_pol_S])
+            ])
+            PKLv[t, :] = np.concatenate([
+                KB.T.dot(inv_pol_S).dot(kB), -inv_pol_S.dot(kB)
+            ])
+            fCm[t, :, :] += PKLm[t, :, :] * eta / divisor
+            fcv[t, :] += PKLv[t, :] * eta / divisor
+
+        # Add in the KL divergence with good trajectories.
+        for t in range(self.T):
+            # Good KL-divergence terms.
+            inv_pol_S = good_distr.inv_pol_covar[t, :, :]
+            KB = good_distr.K[t, :, :]
+            kB = good_distr.k[t, :]
+
+            PKLm[t, :, :] = np.vstack([
+                np.hstack([KB.T.dot(inv_pol_S).dot(KB), -KB.T.dot(inv_pol_S)]),
+                np.hstack([-inv_pol_S.dot(KB), inv_pol_S])
+            ])
+            PKLv[t, :] = np.concatenate([
+                KB.T.dot(inv_pol_S).dot(kB), -inv_pol_S.dot(kB)
+            ])
+            fCm[t, :, :] += PKLm[t, :, :] * omega / divisor
+            fcv[t, :] += PKLv[t, :] * omega / divisor
+
+        # Subtract in the KL divergence with bad trajectories.
+        for t in range(self.T):
+            # Bad KL-divergence terms.
+            inv_pol_S = bad_distr.inv_pol_covar[t, :, :]
+            KB = bad_distr.K[t, :, :]
+            kB = bad_distr.k[t, :]
+
+            PKLm[t, :, :] = np.vstack([
+                np.hstack([KB.T.dot(inv_pol_S).dot(KB), -KB.T.dot(inv_pol_S)]),
+                np.hstack([-inv_pol_S.dot(KB), inv_pol_S])
+            ])
+            PKLv[t, :] = np.concatenate([
+                KB.T.dot(inv_pol_S).dot(kB), -inv_pol_S.dot(kB)
+            ])
+            fCm[t, :, :] -= PKLm[t, :, :] * omega / divisor
+            fcv[t, :] -= PKLv[t, :] * omega / divisor
 
         return fCm, fcv
 
