@@ -255,7 +255,6 @@ class Scenario(object):
             },
         }
 
-        target_distance_object = np.zeros(2)
         cost_safe_distance = {
             'type': CostSafeDistance,
             'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time.
@@ -263,7 +262,7 @@ class Scenario(object):
             'data_types': {
                 'tgt1': {
                     'wp': np.array([1.0, 1.0]),  # State weights - must be set.
-                    'safe_distance': np.array([0.3347, 0.08]),
+                    'safe_distance': np.array([0.08, 0.08]),
                     'outside_cost': np.array([0.0, 0.0]),
                     'inside_cost': np.array([1.0, 1.0]),
                     'data_idx': self.env.get_state_info(name='tgt1')['idx']
@@ -281,7 +280,7 @@ class Scenario(object):
                              # # (fk_final_cost, 1.0e-0),
                              # (fk_l1_final_cost, 1.5e-1),
                              # (fk_l2_final_cost, 1.0e-0),
-                             (cost_safe_distance, 8.0e-0),
+                             (cost_safe_distance, 1.0e+1),
                              (state_cost_distance, 5.0e-0),
                              (state_final_cost_distance, 0.0e+3),
                              ]
