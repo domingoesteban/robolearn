@@ -23,28 +23,28 @@
   </joint>
   <link name="base_link">
     <collision>
-      <origin rpy="0 0 0" xyz="0 0 0.05"/>
+      <origin rpy="0 0 0" xyz="0 0 0.025"/>
       <geometry>
-        <cylinder length="0.1" radius="0.01"/>
+        <cylinder length="0.05" radius="0.01"/>
       </geometry>
     </collision>
     <visual>
-      <origin rpy="0 0 0" xyz="0 0 0.05"/>
+      <origin rpy="0 0 0" xyz="0 0 0.025"/>
       <geometry>
-        <cylinder length="0.1" radius="0.01"/>
+        <cylinder length="0.05" radius="0.01"/>
       </geometry>
       <material name="black"/>
     </visual>
     <inertial>
-      <origin rpy="0 0 0" xyz="0 0 0.05"/>
-      <mass value="4.93230046614"/>
-      <inertia ixx="0.0042335579001" ixy="0.0" ixz="0.0" iyy="0.0042335579001" iyz="0.0" izz="0.000246615023307"/>
+      <origin rpy="0 0 0" xyz="0 0 0.025"/>
+      <mass value="2.46615023307"/>
+      <inertia ixx="0.000575435054383" ixy="0.0" ixz="0.0" iyy="0.000575435054383" iyz="0.0" izz="0.000123307511653"/>
     </inertial>
   </link>
   <joint name="joint0" type="revolute">
     <parent link="base_link"/>
     <child link="coupler0"/>
-    <origin rpy="0 0 0" xyz="0 0 0.075"/>
+    <origin rpy="0 0 0" xyz="0 0 0.05"/>
     <limit effort="100.0" lower="-2.18" upper="2.18" velocity="0.5"/>
     <axis xyz="0 0 1"/>
     <dynamics damping="0.7"/>
