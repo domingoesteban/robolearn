@@ -14,11 +14,12 @@ tgt_positions: [[0.1, 0.2], [-0.1, -0.2]]  # Values between [-0.2, 0.2]
 
 # Initial conditions  [pos1, pos2, tgt1x, tgt1y, tgt2x, tgt2y]
 init_cond: [
-#           [90, 0, 0, 0.0, 0.79, 0.6, -0.2],
-#           [0, 0, 0, 0.8, 0.0, 0.6, -0.2],
-           [-60, -20, 0, 0.7, 0.0, -0.6, -0.2],
-           [60, 20, 0, 0.7, 0.0, -0.6, 0.2],
-           [-60, -20, 0, 0.5, -0.1, -0.6, -0.2],
+           [-90, 20, 2, 0.2, 0.7, 0.5, 0.0],
+           [-90, 20, 3, 0.5, 0.0, 0.5, -0.5],
+           [-90, 20, 2, 0.7, 0.3, 0.65, -0.2],
+#           [-60, -20, 0, 0.7, 0.3, 0.7, 0.0],
+#           [60, 20, 0, 0.7, 0.0, -0.6, 0.2],
+#           [-60, -20, 0, 0.5, -0.1, -0.6, -0.2],
 #           [45, 0, 0.2, 0.0, -0.1, 0.2],
            ]
 train_cond: [0, 1]  # Indexes
@@ -31,8 +32,8 @@ gpu_mem_percentage: 0.2
 np_threads: 1
 
 # Learning interaction parameters
-iterations: 40
-num_samples: 10 # Samples for exploration trajs --> N samples
+iterations: 10
+num_samples: 4 # Samples for exploration trajs --> N samples
 sample_on_policy: False # Whether generate on-policy samples or off-policy samples
 test_after_iter: True # If test the learned policy after an iteration in the RL algorithm
 test_n_samples: 1  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)

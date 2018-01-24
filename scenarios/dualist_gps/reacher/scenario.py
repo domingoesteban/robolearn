@@ -11,9 +11,11 @@ from robolearn.utils.sample.sampler import Sampler
 
 from robolearn.agents import GPSAgent
 from robolearn.algos.gps.dual_gps import DualGPS
+# Costs
 from robolearn.costs.cost_action import CostAction
 # from robolearn.costs.cost_fk import CostFK
 from robolearn.costs.cost_state import CostState
+from robolearn.costs.cost_safe_distance import CostSafeDistance
 from robolearn.costs.cost_sum import CostSum
 from robolearn.costs.cost_utils import RAMP_FINAL_ONLY, RAMP_CONSTANT
 from robolearn.costs.cost_utils import evall1l2term
@@ -253,6 +255,22 @@ class Scenario(object):
             },
         }
 
+        target_distance_object = np.zeros(2)
+        cost_safe_distance = {
+            'type': CostSafeDistance,
+            'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time.
+            'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
+            'data_types': {
+                'tgt1': {
+                    'wp': np.array([1.0, 1.0]),  # State weights - must be set.
+                    'safe_distance': np.array([0.3347, 0.08]),
+                    'outside_cost': np.array([0.0, 0.0]),
+                    'inside_cost': np.array([1.0, 1.0]),
+                    'data_idx': self.env.get_state_info(name='tgt1')['idx']
+                },
+            },
+        }
+
 
         # Sum costs
         # costs_and_weights = [(act_cost, 1.0e-1),
@@ -263,6 +281,7 @@ class Scenario(object):
                              # # (fk_final_cost, 1.0e-0),
                              # (fk_l1_final_cost, 1.5e-1),
                              # (fk_l2_final_cost, 1.0e-0),
+                             (cost_safe_distance, 8.0e-0),
                              (state_cost_distance, 5.0e-0),
                              (state_final_cost_distance, 0.0e+3),
                              ]
@@ -332,10 +351,10 @@ class Scenario(object):
             'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
             'max_omega': 5.0e-1,  #1e16,  # At max_omega, kl_div < kl_step
             'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
-            'max_nu': 5.0e-1,  # At max_nu, kl_div < kl_step,
+            'max_nu': 1.0e5,  # At max_nu, kl_div < kl_step,
             'step_tol': 0.1,
-            'bad_tol': 0.2,
-            'good_tol': 0.6, #0.3,
+            'bad_tol': 0.1,
+            'good_tol': 0.1,
             'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step. #TODO: IF TRUE, MAYBE IT DOES WORK WITH MDGPS because it doesn't consider dual vars
             'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
             'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
@@ -363,11 +382,11 @@ class Scenario(object):
             'min_step_mult': 0.01,  # Min possible value of step multiplier (multiplies kl_step)
             'max_step_mult': 10.0,  # Max possible value of step multiplier (multiplies kl_step)
             # KL bad (xi)
-            'base_kl_bad': 2, #4.2  # (xi) to be used with multiplier | kl_div_b >= kl_bad
+            'kl_bad': 2, #4.2  # Xi KL base value | kl_div_b >= kl_bad
             'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad)
             'max_bad_mult': 1.0,  # Max possible value of step multiplier (multiplies base_kl_bad)
             # KL good (chi)
-            'base_kl_good': 1.0, #2.0,  # (chi) to be used with multiplier | kl_div_g <= kl_good
+            'kl_good': 1.0,  #2.0,  # Chi KL base value  | kl_div_g <= kl_good
             'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good)
             'max_good_mult': 1.0,  # Max possible value of step multiplier (multiplies base_kl_good)
             # LinearPolicy 'projection'

@@ -130,7 +130,7 @@ class DualGPS(Algorithm):
 
         # Traj Opt (Local policy opt) method #
         # ---------------------------------- #
-        # Options: LQR, PI2, MDREPS
+        # Options: LQR, PI2, DualistTrajOpt
         self.traj_opt = \
             self._hyperparams['traj_opt']['type'](self._hyperparams['traj_opt'])
         self.traj_opt.set_logger(self.logger)
@@ -151,9 +151,16 @@ class DualGPS(Algorithm):
                 [self._hyperparams['cost']['type'](self._hyperparams['cost'])
                  for _ in total_conditions]
 
-        # KL step #
-        # ------- #
+        # KL base values #
+        # -------------- #
         self.base_kl_step = self._hyperparams['gps_algo_hyperparams']['kl_step']
+        self.base_kl_good = self._hyperparams['gps_algo_hyperparams']['kl_good']
+        self.base_kl_bad = self._hyperparams['gps_algo_hyperparams']['kl_bad']
+        # Set initial dual variables
+        for m in range(self.M):
+            self.cur[m].eta = self._hyperparams['gps_algo_hyperparams']['init_eta']
+            self.cur[m].nu = self._hyperparams['gps_algo_hyperparams']['init_nu']
+            self.cur[m].omega = self._hyperparams['gps_algo_hyperparams']['init_omega']
 
         # Global Policy #
         # ------------- #
@@ -178,15 +185,15 @@ class DualGPS(Algorithm):
         self.bad_duality_info = [DualityInfo() for _ in range(self.M)]
 
         # TrajectoryInfo for good and bad trajectories
-        self.good_trajectories_info = [None for _ in range(self.M)]
-        self.bad_trajectories_info = [None for _ in range(self.M)]
+        self.good_trajs_info = [None for _ in range(self.M)]
+        self.bad_trajs_info = [None for _ in range(self.M)]
         for m in range(self.M):
-            self.good_trajectories_info[m] = TrajectoryInfo()
-            self.bad_trajectories_info[m] = TrajectoryInfo()
+            self.good_trajs_info[m] = TrajectoryInfo()
+            self.bad_trajs_info[m] = TrajectoryInfo()
 
             if self._hyperparams['fit_dynamics']:
-                self.good_trajectories_info[m].dynamics = dynamics['type'](dynamics)
-                self.bad_trajectories_info[m].dynamics = dynamics['type'](dynamics)
+                self.good_trajs_info[m].dynamics = dynamics['type'](dynamics)
+                self.bad_trajs_info[m].dynamics = dynamics['type'](dynamics)
 
             # TODO: Use demonstration trajectories
             # # Get the initial trajectory distribution hyperparams
@@ -204,18 +211,7 @@ class DualGPS(Algorithm):
             self.good_duality_info[m].traj_dist = init_traj_distr['type'](init_traj_distr)
             self.bad_duality_info[m].traj_dist = init_traj_distr['type'](init_traj_distr)
 
-            # Set initial dual variables
-            self.cur[m].eta = self._hyperparams['gps_algo_hyperparams']['init_eta']
-            self.cur[m].nu = self._hyperparams['gps_algo_hyperparams']['init_nu']
-            self.cur[m].omega = self._hyperparams['gps_algo_hyperparams']['init_omega']
-
-        # Good/Bad bounds
-        self.base_kl_good = self._hyperparams['gps_algo_hyperparams']['base_kl_good']
-        self.base_kl_bad = self._hyperparams['gps_algo_hyperparams']['base_kl_bad']
-
-        # Duality MDGPS data
-        for m in range(self.M):
-            # Same policy prior in MDGPS for good/bad
+            # Same policy prior than GlobalPol for good/bad
             self.good_duality_info[m].pol_info = \
                 PolicyInfo(self._hyperparams['gps_algo_hyperparams'])
             self.good_duality_info[m].pol_info.policy_prior = \
@@ -330,9 +326,9 @@ class DualGPS(Algorithm):
         logger.info('')
         logger.info('DualGPS: itr:%02d | '
                     'Getting good and bad trajectories...' % (itr+1))
-        self._get_good_trajs(option=self._hyperparams['gps_algo_hyperparams']
+        self._get_good_samples(option=self._hyperparams['gps_algo_hyperparams']
                              ['good_traj_selection_type'])
-        self._get_bad_trajs(option=self._hyperparams['gps_algo_hyperparams']
+        self._get_bad_samples(option=self._hyperparams['gps_algo_hyperparams']
                             ['bad_traj_selection_type'])
 
         logger.info('')
@@ -830,21 +826,21 @@ class DualGPS(Algorithm):
             self.bad_duality_info[cond].traj_cost = bad_true_cost
 
             # Cost estimate.
-            self.good_trajectories_info[cond].Cm = good_cost_estimate[0]  # Quadratic term (matrix).
-            self.good_trajectories_info[cond].cv = good_cost_estimate[1]  # Linear term (vector).
-            self.good_trajectories_info[cond].cc = good_cost_estimate[2]  # Constant term (scalar).
+            self.good_trajs_info[cond].Cm = good_cost_estimate[0]  # Quadratic term (matrix).
+            self.good_trajs_info[cond].cv = good_cost_estimate[1]  # Linear term (vector).
+            self.good_trajs_info[cond].cc = good_cost_estimate[2]  # Constant term (scalar).
 
-            self.bad_trajectories_info[cond].Cm = bad_cost_estimate[0]  # Quadratic term (matrix).
-            self.bad_trajectories_info[cond].cv = bad_cost_estimate[1]  # Linear term (vector).
-            self.bad_trajectories_info[cond].cc = bad_cost_estimate[2]  # Constant term (scalar).
+            self.bad_trajs_info[cond].Cm = bad_cost_estimate[0]  # Quadratic term (matrix).
+            self.bad_trajs_info[cond].cv = bad_cost_estimate[1]  # Linear term (vector).
+            self.bad_trajs_info[cond].cc = bad_cost_estimate[2]  # Constant term (scalar).
 
 
     def _check_kl_div_good_bad(self):
         for cond in range(self.M):
             good_distr = self.good_duality_info[cond].traj_dist
             bad_distr = self.bad_duality_info[cond].traj_dist
-            mu_good, sigma_good = lqr_forward(good_distr, self.good_trajectories_info[cond])
-            mu_bad, sigma_bad = lqr_forward(bad_distr, self.bad_trajectories_info[cond])
+            mu_good, sigma_good = lqr_forward(good_distr, self.good_trajs_info[cond])
+            mu_bad, sigma_bad = lqr_forward(bad_distr, self.bad_trajs_info[cond])
             kl_div_good_bad = traj_distr_kl_alt(mu_good, sigma_good, good_distr, bad_distr, tot=True)
             #print("G/B KL_div: %f " % kl_div_good_bad)
             self.logger.info('--->Divergence btw good/bad trajs is: %f'
@@ -868,36 +864,36 @@ class DualGPS(Algorithm):
             U_bad = bad_data.get_actions()
 
             # Update prior and fit dynamics.
-            self.good_trajectories_info[m].dynamics.update_prior(good_data)
-            self.good_trajectories_info[m].dynamics.fit(X_good, U_good)
-            self.bad_trajectories_info[m].dynamics.update_prior(bad_data)
-            self.bad_trajectories_info[m].dynamics.fit(X_bad, U_bad)
+            self.good_trajs_info[m].dynamics.update_prior(good_data)
+            self.good_trajs_info[m].dynamics.fit(X_good, U_good)
+            self.bad_trajs_info[m].dynamics.update_prior(bad_data)
+            self.bad_trajs_info[m].dynamics.fit(X_bad, U_bad)
 
             # Fit x0mu/x0sigma.
             x0_good = X_good[:, 0, :]
             x0mu_good = np.mean(x0_good, axis=0)  # TODO: SAME X0 FOR ALL??
-            self.good_trajectories_info[m].x0mu = x0mu_good
-            self.good_trajectories_info[m].x0sigma = np.diag(np.maximum(np.var(x0_good, axis=0),
+            self.good_trajs_info[m].x0mu = x0mu_good
+            self.good_trajs_info[m].x0sigma = np.diag(np.maximum(np.var(x0_good, axis=0),
                                                                         self._hyperparams['initial_state_var']))
             x0_bad = X_bad[:, 0, :]
             x0mu_bad = np.mean(x0_bad, axis=0)  # TODO: SAME X0 FOR ALL??
-            self.bad_trajectories_info[m].x0mu = x0mu_bad
-            self.bad_trajectories_info[m].x0sigma = np.diag(np.maximum(np.var(x0_bad, axis=0),
+            self.bad_trajs_info[m].x0mu = x0mu_bad
+            self.bad_trajs_info[m].x0sigma = np.diag(np.maximum(np.var(x0_bad, axis=0),
                                                                        self._hyperparams['initial_state_var']))
 
-            prior_good = self.good_trajectories_info[m].dynamics.get_prior()
+            prior_good = self.good_trajs_info[m].dynamics.get_prior()
             if prior_good:
                 mu0, Phi, priorm, n0 = prior_good.initial_state()
                 N = len(good_data)
-                self.good_trajectories_info[m].x0sigma += Phi + (N*priorm) / (N+priorm) * np.outer(x0mu_good-mu0, x0mu_good-mu0) / (N+n0)
+                self.good_trajs_info[m].x0sigma += Phi + (N*priorm) / (N+priorm) * np.outer(x0mu_good-mu0, x0mu_good-mu0) / (N+n0)
 
-            prior_bad = self.good_trajectories_info[m].dynamics.get_prior()
+            prior_bad = self.good_trajs_info[m].dynamics.get_prior()
             if prior_bad:
                 mu0, Phi, priorm, n0 = prior_bad.initial_state()
                 N = len(bad_data)
-                self.bad_trajectories_info[m].x0sigma += Phi + (N*priorm) / (N+priorm) * np.outer(x0mu_bad-mu0, x0mu_bad-mu0) / (N+n0)
+                self.bad_trajs_info[m].x0sigma += Phi + (N*priorm) / (N+priorm) * np.outer(x0mu_bad-mu0, x0mu_bad-mu0) / (N+n0)
 
-    def _get_bad_trajs(self, option='only_traj'):
+    def _get_bad_samples(self, option='only_traj'):
         """
         Get bad trajectory samples.
         :param option(str):
@@ -925,7 +921,7 @@ class DualGPS(Algorithm):
             else:
                 worst_indeces = np.argpartition(np.sum(cs, axis=1), -n_bad)[-n_bad:]
 
-            # Get current best trajectory
+            # Get current worst sample
             if self.bad_duality_info[cond].sample_list is None:
                 for bb, bad_index in enumerate(worst_indeces):
                     LOGGER.info("DualGPS: Defining BAD trajectory sample %d | "
@@ -954,9 +950,10 @@ class DualGPS(Algorithm):
                         self.bad_duality_info[cond].sample_list.set_sample(bb, sample_list[bad_index])
                         self.bad_duality_info[cond].samples_cost[bb, :] = cs[bad_index, :]
                 else:
-                    raise ValueError("DualGPS: Wrong get_bad_grajectories option: %s" % option)
+                    raise ValueError("DualGPS: Wrong get_bad_samples option: %s"
+                                     % option)
 
-    def _get_good_trajs(self, option='only_traj'):
+    def _get_good_samples(self, option='only_traj'):
         """
         Get good trajectory samples.
         
@@ -1014,7 +1011,8 @@ class DualGPS(Algorithm):
                         self.good_duality_info[cond].sample_list.set_sample(gg, sample_list[good_index])
                         self.good_duality_info[cond].samples_cost[gg, :] = cs[good_index, :]
                 else:
-                    raise ValueError("DualGPS: Wrong get_good_grajectories option: %s" % option)
+                    raise ValueError("DualGPS: Wrong get_good_samples option: %s"
+                                     % option)
 
     def _update_step_size_mdgps(self):
         """
@@ -1534,12 +1532,12 @@ class DualGPS(Algorithm):
         LOGGER.info("Logging God/Bad duality data")
         self.data_logger.pickle(
             ('good_trajectories_info_itr_%02d.pkl' % itr),
-            copy.copy(self.good_trajectories_info),
+            copy.copy(self.good_trajs_info),
             dir_path=dir_path
         )
         self.data_logger.pickle(
             ('bad_trajectories_info_itr_%02d.pkl' % itr),
-            copy.copy(self.bad_trajectories_info),
+            copy.copy(self.bad_trajs_info),
             dir_path=dir_path
         )
         self.data_logger.pickle(

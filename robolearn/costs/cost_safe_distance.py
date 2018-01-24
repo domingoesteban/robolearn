@@ -3,17 +3,17 @@ import copy
 
 import numpy as np
 
-from robolearn.costs.config import COST_BINARY_REGION
+from robolearn.costs.config import COST_SAFE_DISTANCE
 from robolearn.costs.cost import Cost
 from robolearn.costs.cost_utils import evall1l2term, get_ramp_multiplier
 
 
-class CostBinaryRegion(Cost):
+class CostSafeDistance(Cost):
     """ Computes binary cost that determines if the object 
     is inside the given region around the target state.
     """
     def __init__(self, hyperparams):
-        config = copy.deepcopy(COST_BINARY_REGION)
+        config = copy.deepcopy(COST_SAFE_DISTANCE)
         config.update(hyperparams)
         Cost.__init__(self, config)
 
@@ -27,22 +27,20 @@ class CostBinaryRegion(Cost):
         Du = sample.dU
         Dx = sample.dX
 
-        final_l = np.zeros(T)
-        final_lu = np.zeros((T, Du))
-        final_lx = np.zeros((T, Dx))
-        final_luu = np.zeros((T, Du, Du))
-        final_lxx = np.zeros((T, Dx, Dx))
-        final_lux = np.zeros((T, Du, Dx))
+        l = np.zeros(T)
+        lu = np.zeros((T, Du))
+        lx = np.zeros((T, Dx))
+        luu = np.zeros((T, Du, Du))
+        lxx = np.zeros((T, Dx, Dx))
+        lux = np.zeros((T, Du, Dx))
 
-        tt_total = 0
         for data_type in self._hyperparams['data_types']:
             config = self._hyperparams['data_types'][data_type]
             wp = config['wp']
-            tgt = config['target_state']
-            max_distance = config['max_distance']
+            safe_distance = config['safe_distance']
             outside_cost = config['outside_cost']
             inside_cost = config['inside_cost']
-            x = sample.get(data_type)
+            x = sample.get_states(data_type)
             _, dim_sensor = x.shape
 
             wpm = get_ramp_multiplier(
@@ -52,13 +50,18 @@ class CostBinaryRegion(Cost):
             wp = wp * np.expand_dims(wpm, axis=-1)
 
             # Compute binary region penalty.
-            dist = np.abs(x - tgt)
-            for t in range(T):
-                # If at least one of the coordinates is outside of 
-                # the region assign outside_cost, otherwise inside_cost.
-                if np.sum(dist[t]) > max_distance:
-                    final_l[t] += outside_cost
-                else:
-                    final_l[t] += inside_cost 
+            dist = safe_distance - np.abs(x)
 
-        return final_l, final_lx, final_lu, final_lxx, final_luu, final_lux
+            dist_violation = dist > 0
+
+            l += np.sum(dist*(dist_violation*inside_cost
+                        + ~dist_violation*outside_cost), axis=1)
+
+            # l += np.sum(dist * temp_cost, axis=1)
+
+            # Cost derivative of c*max(0, d - |x|) --> c*I(d-|x|)*-1*x/|x|
+            idx = np.array(config['data_idx'])
+            lx[:, idx] += wp*inside_cost*dist_violation*-1*x/np.abs(x) \
+                          + wp*outside_cost*~dist_violation*-1*x/np.abs(x)
+
+        return l, lx, lu, lxx, luu, lux

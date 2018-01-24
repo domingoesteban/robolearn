@@ -68,6 +68,21 @@ COST_BINARY_REGION = {
     'inside_cost': 0.0,
 }
 
+# CostBinaryRegion
+COST_SAFE_DISTANCE = {
+    'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time.
+    'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
+    'data_types': {
+        'link_position': {
+            'wp': None,  # State weights - must be set.
+            'safe_distance': None,  # Target state - must be set.
+            'outside_cost': 1.0,
+            'inside_cost': 1.0,
+            'data_idx': [],
+        },
+    },
+}
+
 # CostSum
 COST_SUM = {
     'costs': [],  # A list of hyperparam dictionaries for each cost.
