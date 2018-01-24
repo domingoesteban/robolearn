@@ -102,6 +102,7 @@ def main():
         print('#'*40)
     else:
         print('The script has NOT finished successfully!!!')
+    input("Press a key to close the script")
 
 
 if __name__ == '__main__':

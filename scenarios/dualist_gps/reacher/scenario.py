@@ -343,32 +343,41 @@ class Scenario(object):
 
         good_trajs = None
         bad_trajs = None
-        gps_algo_hyperparams = {
+        dmgps_hyperparams = {
             'inner_iterations': self.task_params['inner_iterations'],  # Times the trajectories are updated
+            # G/B samples selection | Fitting
             'good_samples': good_trajs,  # Good samples demos
             'bad_samples': bad_trajs,  # Bad samples demos
             'n_bad_samples': 2,  # Number of bad samples per each trajectory
             'n_good_samples': 2,  # Number of good samples per each trajectory
-            'base_kl_bad': 2, #4.2  # (xi) to be used with multiplier | kl_div_b >= kl_bad
-            'base_kl_good': 1.0, #2.0,  # (chi) to be used with multiplier | kl_div_g <= kl_good
             'bad_traj_selection_type': 'only_traj',  # 'always', 'only_traj'
             'good_traj_selection_type': 'only_traj',  # 'always', 'only_traj'
             'duality_dynamics_type': 'duality',  # Samples to use to update the dynamics 'duality', 'iteration'
+            # Initial dual variables
             'init_eta': 4.62,
             'init_nu': 0.001,
             'init_omega': 0.001,
-            'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad in LQR)
-            'max_bad_mult': 1.0,  # Max possible value of step multiplier (multiplies base_kl_bad in LQR)
-            'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good in LQR)
-            'max_good_mult': 1.0,  # Max possible value of step multiplier (multiplies base_kl_good in LQR)
-            'min_bad_var': np.array([3.0, 3.0, 3.0])*1.0e-02,
-            'min_good_var': np.array([3.0, 3.0, 3.0])*1.0e-02,
-            'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
-            'policy_sample_mode': 'add',
+            # KL step (epsilon)
             'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
+            'kl_step': 0.2,  # Kullback-Leibler step (base_step)
+            'min_step_mult': 0.01,  # Min possible value of step multiplier (multiplies kl_step)
+            'max_step_mult': 10.0,  # Max possible value of step multiplier (multiplies kl_step)
+            # KL bad (xi)
+            'base_kl_bad': 2, #4.2  # (xi) to be used with multiplier | kl_div_b >= kl_bad
+            'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad)
+            'max_bad_mult': 1.0,  # Max possible value of step multiplier (multiplies base_kl_bad)
+            # KL good (chi)
+            'base_kl_good': 1.0, #2.0,  # (chi) to be used with multiplier | kl_div_g <= kl_good
+            'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good)
+            'max_good_mult': 1.0,  # Max possible value of step multiplier (multiplies base_kl_good)
+            # LinearPolicy 'projection'
+            'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
+            'policy_sample_mode': 'add',  # Mode to update dynamics prior (Not used in ConstantPolicyPrior)
             'policy_prior': {'type': ConstantPolicyPrior,
                              'strength': 1e-4,
                              },
+            'min_bad_var': np.array([3.0, 3.0, 3.0])*1.0e-02,
+            'min_good_var': np.array([3.0, 3.0, 3.0])*1.0e-02,
             }
 
         gps_hyperparams = {
@@ -391,10 +400,6 @@ class Scenario(object):
             'conditions': len(self.init_cond),  # Total number of initial conditions
             'train_conditions': self.task_params['train_cond'],  # Indexes of conditions used for training
             'test_conditions': self.task_params['test_cond'],  # Indexes of conditions used for testing
-            # KL step (epsilon)
-            'kl_step': 0.2,  # Kullback-Leibler step (base_step)
-            'min_step_mult': 0.01,  # Min possible value of step multiplier (multiplies kl_step in LQR)
-            'max_step_mult': 10.0,  # Max possible value of step multiplier (multiplies kl_step in LQR)
             # TrajDist
             'init_traj_distr': init_traj_distr,
             'fit_dynamics': True,
@@ -404,7 +409,7 @@ class Scenario(object):
             'traj_opt': traj_opt_method,
             'max_ent_traj': 0.0,  # Weight of maximum entropy term in trajectory optimization #TODO: CHECK THIS VALUE
             # Others
-            'gps_algo_hyperparams': gps_algo_hyperparams,
+            'gps_algo_hyperparams': dmgps_hyperparams,
             'data_files_dir': self.hyperparams['log_dir'],
         }
 
