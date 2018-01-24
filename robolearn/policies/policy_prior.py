@@ -79,7 +79,8 @@ class ConstantPolicyPrior(object):
             # Slightly regularize on first timestep.
             if t == 0:
                 sig_reg[:dX, :dX] = 1e-8
-            pol_K[t, :, :], pol_k[t, :], pol_S[t, :, :] = gauss_fit_joint_prior(Ys, mu0, Phi, mm, n0, dwts,
-                                                                                dX, dU, sig_reg)
+            pol_K[t, :, :], pol_k[t, :], pol_S[t, :, :] = \
+                gauss_fit_joint_prior(Ys, mu0, Phi, mm, n0, dwts,
+                                      dX, dU, sig_reg)
         pol_S += pol_sig  # Add policy covariances mean
         return pol_K, pol_k, pol_S

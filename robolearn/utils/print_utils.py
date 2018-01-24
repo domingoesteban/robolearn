@@ -11,6 +11,7 @@ class PrintColors(object):
             'MAGENTA': "\033[1;35m",
             'CYAN': "\033[1;36m",
             'GRAY': "\033[1;37m",
+            'PURPLE': "\033[1;57m",
             'RESET': "\033[0;0m",
             'BOLD': "\033[;1m",
             'REVERSE': "\033[;7m",
@@ -49,6 +50,7 @@ class ProgressBar(object):
     def end(self):
         sys.stdout.write("#" * (self.total_lines - self.progress - 1) + "]\n")
         sys.stdout.flush()
+
 
 def print_skull():
     #print("   _                   _ ")

@@ -153,7 +153,7 @@ class DualGPS(Algorithm):
 
         # KL step #
         # ------- #
-        self.base_kl_step = self._hyperparams['kl_step']
+        self.base_kl_step = self._hyperparams['gps_algo_hyperparams']['kl_step']
 
         # Global Policy #
         # ------------- #
@@ -180,8 +180,6 @@ class DualGPS(Algorithm):
         # TrajectoryInfo for good and bad trajectories
         self.good_trajectories_info = [None for _ in range(self.M)]
         self.bad_trajectories_info = [None for _ in range(self.M)]
-        self.base_kl_good = None
-        self.base_kl_bad = None
         for m in range(self.M):
             self.good_trajectories_info[m] = TrajectoryInfo()
             self.bad_trajectories_info[m] = TrajectoryInfo()
@@ -1107,7 +1105,8 @@ class DualGPS(Algorithm):
         pol_info.pol_K, pol_info.pol_k, pol_info.pol_S = \
             policy_prior.fit(X, pol_mu, pol_sig)
         for t in range(T):
-            pol_info.chol_pol_S[t, :, :] = sp.linalg.cholesky(pol_info.pol_S[t, :, :])
+            pol_info.chol_pol_S[t, :, :] = \
+                sp.linalg.cholesky(pol_info.pol_S[t, :, :])
 
     def _update_policy(self):
         """
@@ -1195,8 +1194,8 @@ class DualGPS(Algorithm):
                                                predicted_impr - actual_impr))
         new_mult = max(0.1, min(5.0, new_mult))
         new_step = max(min(new_mult * self.cur[m].step_mult,
-                           self._hyperparams['max_step_mult']),
-                       self._hyperparams['min_step_mult'])
+                           self._hyperparams['gps_algo_hyperparams']['max_step_mult']),
+                       self._hyperparams['gps_algo_hyperparams']['min_step_mult'])
         self.cur[m].step_mult = new_step
 
         if new_mult > 1:
