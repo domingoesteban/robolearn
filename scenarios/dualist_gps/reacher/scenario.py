@@ -224,7 +224,7 @@ class Scenario(object):
             'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
             'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
             'l1': 1.0,  # Weight for l1 norm
-            'l2': 0.0,  # Weight for l2 norm
+            'l2': 1.0,  # Weight for l2 norm
             'alpha': 1e-5,  # Constant added in square root in l1 norm
             'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
             'data_types': {
@@ -242,7 +242,7 @@ class Scenario(object):
             'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
             'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
             'l1': 1.0,  # Weight for l1 norm
-            'l2': 0.0,  # Weight for l2 norm
+            'l2': 1.0,  # Weight for l2 norm
             'alpha': 1e-5,  # Constant added in square root in l1 norm
             'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
             'data_types': {
@@ -282,7 +282,7 @@ class Scenario(object):
                              # (fk_l2_final_cost, 1.0e-0),
                              (cost_safe_distance, 1.0e+1),
                              (state_cost_distance, 5.0e-0),
-                             (state_final_cost_distance, 0.0e+3),
+                             (state_final_cost_distance, 1.0e+3),
                              ]
 
         cost_sum = {

@@ -2,7 +2,7 @@ learning_algorithm: 'MDREPS'
 
 # Task parameters
 Ts: 0.01 # 0.01
-Tend: 1  # 0.7
+Tend: 10  # 0.7
 
 # Env parameters
 render: False
@@ -14,7 +14,7 @@ tgt_positions: [[0.1, 0.2], [-0.1, -0.2]]  # Values between [-0.2, 0.2]
 
 # Initial conditions  [pos1, pos2, tgt1x, tgt1y, tgt2x, tgt2y]
 init_cond: [
-           [-90, 20, 2, 0.2, 0.7, 0.5, 0.0],
+           [-90, 20, 2, 0.2, 0.5, 0.6, 0.0],
            [-90, 20, 3, 0.5, 0.0, 0.5, -0.5],
            [-90, 20, 2, 0.7, 0.3, 0.65, -0.2],
 #           [-60, -20, 0, 0.7, 0.3, 0.7, 0.0],
@@ -26,14 +26,14 @@ train_cond: [0, 1]  # Indexes
 test_cond: [2]
 
 # Agent
-tf_iterations: 1000 # 5000 # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
+tf_iterations: 5000 # 5000 # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
 use_gpu: True
 gpu_mem_percentage: 0.2
-np_threads: 1
+np_threads: 5
 
 # Learning interaction parameters
-iterations: 10
-num_samples: 4 # Samples for exploration trajs --> N samples
+iterations: 50
+num_samples: 10 # Samples for exploration trajs --> N samples
 sample_on_policy: False # Whether generate on-policy samples or off-policy samples
 test_after_iter: True # If test the learned policy after an iteration in the RL algorithm
 test_n_samples: 1  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
