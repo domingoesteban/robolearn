@@ -17,6 +17,7 @@ from robolearn.costs.cost_action import CostAction
 from robolearn.costs.cost_state import CostState
 from robolearn.costs.cost_safe_distance import CostSafeDistance
 from robolearn.costs.cost_state_difference import CostStateDifference
+from robolearn.costs.cost_safe_state_difference import CostSafeStateDifference
 from robolearn.costs.cost_sum import CostSum
 from robolearn.costs.cost_utils import RAMP_FINAL_ONLY, RAMP_CONSTANT
 from robolearn.costs.cost_utils import evall1l2term
@@ -272,7 +273,7 @@ class Scenario(object):
             },
         }
 
-        state_cost_difference = {
+        cost_state_difference = {
             'type': CostStateDifference,
             'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
             'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
@@ -287,6 +288,25 @@ class Scenario(object):
                     'average': None,
                     'tgt_idx': self.env.get_state_info(name='tgt0')['idx'],
                     'data_idx': self.env.get_state_info(name='ee')['idx'],
+                    'idx_to_use': [0, 1, 2],  # All: X, Y, theta
+                },
+            },
+        }
+
+        cost_safe_state_difference = {
+            'type': CostSafeStateDifference,
+            'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time.
+            'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
+            'data_types': {
+                'ee': {
+                    'wp': np.array([1.0, 1.0]),  # State weights - must be set.
+                    'safe_distance': np.array([0.08, 0.08]),
+                    'outside_cost': np.array([0.0, 0.0]),
+                    'inside_cost': np.array([1.0, 1.0]),
+                    'target_state': 'tgt1',  # Target state - must be set.
+                    'tgt_idx': self.env.get_state_info(name='tgt1')['idx'][:2],
+                    'data_idx': self.env.get_state_info(name='ee')['idx'][:2],
+                    'idx_to_use': [0, 1],  # Only X and Y
                 },
             },
         }
@@ -301,7 +321,8 @@ class Scenario(object):
                              # # (fk_final_cost, 1.0e-0),
                              # (fk_l1_final_cost, 1.5e-1),
                              # (fk_l2_final_cost, 1.0e-0),
-                             (state_cost_difference, 5.0e-0),
+                             (cost_state_difference, 5.0e-0),
+                             (cost_safe_state_difference, 1.0e+1),
                              # WORKING:
                              # (cost_safe_distance, 1.0e+1),
                              # (state_cost_distance, 5.0e-0),

@@ -38,6 +38,9 @@ class CostStateDifference(Cost):
             tgt = sample.get_states(config['target_state'])
             x = sample.get_states(data_type)
 
+            tgt = tgt[:, config['idx_to_use']]
+            x = x[:, config['idx_to_use']]
+
             if config['average'] is not None:  # From superball_gps
                 raise NotImplementedError('Not implemented for average')
                 x = np.mean(x.reshape((T,) + config['average']), axis=1)
@@ -57,6 +60,7 @@ class CostStateDifference(Cost):
                 # Compute state penalty.
                 dist = (tgt - x)
 
+                # Jd = [Jtgt Jx]
                 Jd = np.c_[np.eye(dim_sensor), -np.eye(dim_sensor)]
 
                 # Evaluate penalty term.
@@ -70,13 +74,15 @@ class CostStateDifference(Cost):
             final_l += l
 
             # Tgt idx
-            final_lx[:, config['tgt_idx']] = ls[:, :dim_sensor]
-            temp_idx = np.ix_(config['tgt_idx'], config['tgt_idx'])
+            tgt_idx = np.array(config['tgt_idx'])[config['idx_to_use']]
+            final_lx[:, tgt_idx] = ls[:, :dim_sensor]
+            temp_idx = np.ix_(tgt_idx, tgt_idx)
             final_lxx[:, temp_idx[0], temp_idx[1]] = lss[:, :dim_sensor, :dim_sensor]
 
             # Data idx
-            final_lx[:, config['data_idx']] = ls[:, dim_sensor:]
-            temp_idx = np.ix_(config['data_idx'], config['data_idx'])
+            data_idx = np.array(config['data_idx'])[config['idx_to_use']]
+            final_lx[:, data_idx] = ls[:, dim_sensor:]
+            temp_idx = np.ix_(data_idx, data_idx)
             final_lxx[:, temp_idx[0], temp_idx[1]] = lss[:, dim_sensor:, dim_sensor:]
 
         return final_l, final_lx, final_lu, final_lxx, final_luu, final_lux
