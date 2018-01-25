@@ -717,7 +717,8 @@ class DualistTrajOpt(TrajOpt):
                 traj_distr, eta, omega, nu = \
                     self.backward(prev_traj_distr, traj_info,
                                   eta, omega, nu,
-                                  algorithm, m, dual_to_check='nu')
+                                  # algorithm, m, dual_to_check='nu')
+                                  algorithm, m, dual_to_check='eta')
             elif not self.consider_good and self.consider_bad:
                 self.LOGGER.info("Running ALL GD backward with "
                                  "dual_to_check NU2")

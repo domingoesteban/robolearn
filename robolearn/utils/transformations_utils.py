@@ -1,5 +1,8 @@
 import numpy as np
-import tf
+from transforms3d.quaternions import mat2quat, quat2mat
+from transforms3d.euler import euler2mat, mat2euler
+from transforms3d.derivations.eulerangles import x_rotation, y_rotation, z_rotation
+# import tf
 
 
 def multiply_quat(quat1, quat2):
@@ -49,28 +52,43 @@ def homogeneous_matrix(rot=np.identity(3), pos=np.zeros(3)):
     return transform_matrix
 
 
-def compute_cartesian_error(des, current, rotation_rep='quat'):
+def compute_cartesian_error(des, current, rotation_rep='quat', first='ori'):
     """
     Compute the cartesian error between two poses: error = des-current
     :param des: Desired cartesian pose (orientation+position)
     :param current: Actual cartesian pose (orientation+position)
     :param rotation_rep: Orientation units:
+    :param first: 'ori' or 'pos'
     :return: 
     """
-    position_error = des[-3:] - current[-3:]
+    if first == 'pos':
+        position_error = des[:3] - current[:3]
+    else:
+        position_error = des[-3:] - current[-3:]
+
     if rotation_rep == 'quat':
         #orientation_error = current[3]*des[:3] - des[3]*current[:3] - np.cross(des[:3], current[:3])  # Previous
         #orientation_error = des[3]*current[:3] - current[3]*des[:3] + quat_vector_cross(des[:3]).dot(current[:3])  # From Nakanishi
-        orientation_error = quat_difference(des[:4], current[:4])
+        if first == 'pos':
+            orientation_error = quat_difference(des[-4:], current[-4:])
+        else:
+            orientation_error = quat_difference(des[:4], current[:4])
     elif rotation_rep == 'rpy':
-        orientation_error = des[:3] - current[:3]
+        if first == 'pos':
+            orientation_error = des[-3:] - current[-3:]
+        else:
+            orientation_error = des[:3] - current[:3]
     else:
         raise NotImplementedError("Only quaternion has been implemented")
 
-    return np.concatenate((orientation_error, position_error))
+    if first == 'pos':
+        return np.concatenate((position_error, orientation_error))
+    else:
+        return np.concatenate((orientation_error, position_error))
 
 
-def create_quat_pose(pos_x=0, pos_y=0, pos_z=0, rot_roll=0, rot_pitch=0, rot_yaw=0):
+def create_quat_pose(pos_x=0, pos_y=0, pos_z=0, rot_roll=0, rot_pitch=0,
+                     rot_yaw=0, first='ori', order='xyzw'):
     """
     Rotation assuming first yaw, then pitch, and then yaw.
     :param pos_x: 
@@ -82,11 +100,50 @@ def create_quat_pose(pos_x=0, pos_y=0, pos_z=0, rot_roll=0, rot_pitch=0, rot_yaw
     :return: 
     """
     pose = np.zeros(7)
-    pose[:4] = tf.transformations.quaternion_from_matrix(tf.transformations.euler_matrix(rot_roll, rot_pitch, rot_yaw))
-    pose[4] = pos_x
-    pose[5] = pos_y
-    pose[6] = pos_z
+    quat = create_quat(rot_roll=rot_roll, rot_pitch=rot_pitch,
+                       rot_yaw=rot_yaw, order=order)
+    if first == 'ori':
+        pose[:4] = quat
+        pose[4] = pos_x
+        pose[5] = pos_y
+        pose[6] = pos_z
+    else:
+        pose[0] = pos_x
+        pose[1] = pos_y
+        pose[2] = pos_z
+        pose[3:] = quat
+
     return pose
+
+
+def create_quat(rot_roll=0, rot_pitch=0, rot_yaw=0, order='xyzw'):
+    # pose[:4] = tf.transformations.quaternion_from_matrix(tf.transformations.euler_matrix(rot_roll, rot_pitch, rot_yaw))
+    # rot = x_rotation(rot_roll)*y_rotation(rot_pitch)*z_rotation(rot_yaw)
+    rot = euler2mat(rot_roll, rot_pitch, rot_yaw, 'sxyz')
+    quat = mat2quat(np.array(rot).astype(float))
+    if order == 'wxyz':
+        return quat
+    elif order == 'xyzw':
+        return np.take(quat, [1, 2, 3, 0])
+    else:
+        raise AttributeError('Wrong order option')
+
+
+def euler_from_quat(quat, order='xyzw'):
+    """
+
+    :param quat:
+    :param order:
+    :return: [rot_x, rot_y, rot_z]
+    """
+    if order == 'xyzw':
+        quat = np.take(quat, [3, 0, 1, 2])
+    elif order == 'wxyz':
+        pass
+    else:
+        raise AttributeError('Wrong order option')
+
+    return mat2euler(np.array(quat2mat(quat)).astype(float))
 
 
 def pose_transform(frame_pose, relative_pose):
@@ -100,3 +157,27 @@ def pose_transform(frame_pose, relative_pose):
     pose[:4] = tf.transformations.quaternion_from_matrix(transform_matrix)
     return pose
 
+
+def normalize_angle(angle, range='pi'):
+    """
+
+    :param angle:
+    :param range: 'pi' or '2pi'
+    :return:
+    """
+    if range == 'pi':
+        # reduce the angle
+        angle = angle % np.pi
+
+        # Force it to be the positive remainder, so that 0 <= angle < 360
+        angle = (angle + np.pi) % np.pi
+
+        # Force into the minimum absolute value residue class, so that
+        # -180 < angle <= 180
+        if angle > np.pi/2:
+            angle -= np.pi
+
+        return angle
+
+    else:
+        raise NotImplementedError('Only implemented with -pi/pi')

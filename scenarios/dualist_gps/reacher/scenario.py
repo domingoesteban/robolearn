@@ -16,6 +16,7 @@ from robolearn.costs.cost_action import CostAction
 # from robolearn.costs.cost_fk import CostFK
 from robolearn.costs.cost_state import CostState
 from robolearn.costs.cost_safe_distance import CostSafeDistance
+from robolearn.costs.cost_state_difference import CostStateDifference
 from robolearn.costs.cost_sum import CostSum
 from robolearn.costs.cost_utils import RAMP_FINAL_ONLY, RAMP_CONSTANT
 from robolearn.costs.cost_utils import evall1l2term
@@ -28,6 +29,7 @@ from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
 from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
 # from robolearn.utils.iit.iit_robots_params import bigman_params
 from robolearn.utils.print_utils import change_print_color
+from robolearn.utils.transformations_utils import create_quat_pose
 # from robolearn.utils.robot_model import RobotModel
 # from robolearn.utils.tasks.bigman.reach_drill_utils import Reset_condition_bigman_drill_gazebo
 # from robolearn.utils.tasks.bigman.reach_drill_utils import create_bigman_drill_condition
@@ -270,6 +272,25 @@ class Scenario(object):
             },
         }
 
+        state_cost_difference = {
+            'type': CostStateDifference,
+            'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+            'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
+            'l1': 1.0,  # Weight for l1 norm
+            'l2': 1.0,  # Weight for l2 norm
+            'alpha': 1e-5,  # Constant added in square root in l1 norm
+            'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
+            'data_types': {
+                'ee': {
+                    'wp': np.array([1.0, 1.0, 1.0]),  # State weights - must be set.
+                    'target_state': 'tgt0',  # Target state - must be set.
+                    'average': None,
+                    'tgt_idx': self.env.get_state_info(name='tgt0')['idx'],
+                    'data_idx': self.env.get_state_info(name='ee')['idx'],
+                },
+            },
+        }
+
 
         # Sum costs
         # costs_and_weights = [(act_cost, 1.0e-1),
@@ -280,9 +301,11 @@ class Scenario(object):
                              # # (fk_final_cost, 1.0e-0),
                              # (fk_l1_final_cost, 1.5e-1),
                              # (fk_l2_final_cost, 1.0e-0),
-                             (cost_safe_distance, 1.0e+1),
-                             (state_cost_distance, 5.0e-0),
-                             (state_final_cost_distance, 1.0e+3),
+                             (state_cost_difference, 5.0e-0),
+                             # WORKING:
+                             # (cost_safe_distance, 1.0e+1),
+                             # (state_cost_distance, 5.0e-0),
+                             # (state_final_cost_distance, 1.0e+3),
                              ]
 
         cost_sum = {
@@ -298,11 +321,27 @@ class Scenario(object):
         print("\nCreating Initial Conditions...")
         initial_cond = self.task_params['init_cond']
 
+        ddof = 3  # Data dof (file): x, y, theta
+        pdof = 3  # Pose dof (env): x, y, theta
+        ntgt = self.task_params['ntargets']
+
         for cc, cond in enumerate(initial_cond):
             condition = np.zeros(self.env.get_obs_dim())
             condition[:self.env.get_action_dim()] = np.deg2rad(cond[:3])
-            condition[2*self.env.get_action_dim():] = cond[3:]
-            print('Adding condition %d: %s' % (cc, condition))
+            cond_idx = 2*self.env.get_action_dim() + pdof  # EE pose will be obtained from sim
+            data_idx = self.env.get_action_dim()
+            for tt in range(self.task_params['ntargets']):
+                tgt_data = cond[data_idx:data_idx+ddof]
+                # tgt_pose = create_quat_pose(pos_x=tgt_data[0],
+                #                             pos_y=tgt_data[1],
+                #                             pos_z=z_fix,
+                #                             rot_yaw=np.deg2rad(tgt_data[2]))
+                # condition[cond_idx:cond_idx+pdof] = tgt_pose
+                tgt_data[2] = np.deg2rad(tgt_data[2])
+                condition[cond_idx:cond_idx+pdof] = tgt_data
+                cond_idx += pdof
+                data_idx += ddof
+
             self.env.add_init_cond(condition)
 
         return self.env.get_conditions()

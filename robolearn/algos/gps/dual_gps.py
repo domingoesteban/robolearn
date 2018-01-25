@@ -1,5 +1,5 @@
 """
-input('aa')n et al
+Author: Finn et al
 Adapted by robolearn collaborators
 """
 
@@ -443,7 +443,6 @@ class DualGPS(Algorithm):
             pol_samples = [list() for _ in conditions]
 
         for cond in range(len(conditions)):
-
             # On-policy or Off-policy
             if on_policy and (self.iteration_count > 0 or
                               ('sample_pol_first_itr' in self._hyperparams
@@ -834,14 +833,16 @@ class DualGPS(Algorithm):
             self.bad_trajs_info[cond].cv = bad_cost_estimate[1]  # Linear term (vector).
             self.bad_trajs_info[cond].cc = bad_cost_estimate[2]  # Constant term (scalar).
 
-
     def _check_kl_div_good_bad(self):
         for cond in range(self.M):
             good_distr = self.good_duality_info[cond].traj_dist
             bad_distr = self.bad_duality_info[cond].traj_dist
-            mu_good, sigma_good = lqr_forward(good_distr, self.good_trajs_info[cond])
-            mu_bad, sigma_bad = lqr_forward(bad_distr, self.bad_trajs_info[cond])
-            kl_div_good_bad = traj_distr_kl_alt(mu_good, sigma_good, good_distr, bad_distr, tot=True)
+            mu_good, sigma_good = lqr_forward(good_distr,
+                                              self.good_trajs_info[cond])
+            mu_bad, sigma_bad = lqr_forward(bad_distr,
+                                            self.bad_trajs_info[cond])
+            kl_div_good_bad = traj_distr_kl_alt(mu_good, sigma_good,
+                                                good_distr, bad_distr, tot=True)
             #print("G/B KL_div: %f " % kl_div_good_bad)
             self.logger.info('--->Divergence btw good/bad trajs is: %f'
                              % kl_div_good_bad)

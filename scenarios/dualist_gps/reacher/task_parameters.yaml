@@ -2,7 +2,7 @@ learning_algorithm: 'MDREPS'
 
 # Task parameters
 Ts: 0.01 # 0.01
-Tend: 10  # 0.7
+Tend: 15  # 0.7
 
 # Env parameters
 render: False
@@ -12,18 +12,22 @@ tgt_weights: [1.0, -1.0]
 rdn_tgt_pos: True
 tgt_positions: [[0.1, 0.2], [-0.1, -0.2]]  # Values between [-0.2, 0.2]
 
-# Initial conditions  [pos1, pos2, tgt1x, tgt1y, tgt2x, tgt2y]
+# Initial conditions  [pos1, pos2, tgt1x, tgt1y, tgt1ori, tgt2x, tgt2y, tgt2ori]
 init_cond: [
-           [-90, 20, 2, 0.2, 0.5, 0.6, 0.0],
-           [-90, 20, 3, 0.5, 0.0, 0.5, -0.5],
-           [-90, 20, 2, 0.7, 0.3, 0.65, -0.2],
+           [-90, 20, 2, 0.74, 0.26, 35, -0.6, 0.0, 0],  # 5, 20, 10
+           [-90, 20, 3, 0.72, 0.14, -15, -0.6, 0.0, 0],  # 40, -45, -10
+           [-90, 20, -2, 0.02, 0.56, 170, -0.6, 0.0, 0],  # 50, 40, 80
+           [-90, 20, 2, 0.65, -0.1, 55, -0.6, 0.0, 0],  # -45, 45, 45
+#           [-90, 20, 2, 0.2, 0.5, 45, -0.6, 0.0, 0],
+#           [-90, 20, 3, 0.5, 0.0, 45, -0.5, -0.5, 0],
+#           [-90, 20, 2, 0.7, 0.3, 45, -0.65, -0.2, 0],
 #           [-60, -20, 0, 0.7, 0.3, 0.7, 0.0],
 #           [60, 20, 0, 0.7, 0.0, -0.6, 0.2],
 #           [-60, -20, 0, 0.5, -0.1, -0.6, -0.2],
 #           [45, 0, 0.2, 0.0, -0.1, 0.2],
            ]
-train_cond: [0, 1]  # Indexes
-test_cond: [2]
+train_cond: [0, 1, 2]  # Indexes
+test_cond: [3]
 
 # Agent
 tf_iterations: 5000 # 5000 # Number of iterations per inner iteration (Default:5000). Recommended: 1000?

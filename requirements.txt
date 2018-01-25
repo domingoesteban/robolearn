@@ -5,4 +5,5 @@ rospy
 scipy
 rbdl
 tf
+transforms3d
 future

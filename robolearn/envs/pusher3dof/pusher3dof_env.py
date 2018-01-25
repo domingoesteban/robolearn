@@ -9,6 +9,11 @@ from robolearn.envs.pybullet.bullet_env import BulletEnv
 from robolearn.envs.pusher3dof.pusher3dof_robot import Pusher3DofRobot
 from robolearn.envs.pusher3dof.pusher_target import PusherTarget
 from robolearn.envs.pybullet.pybullet_object import PyBulletObject
+from robolearn.utils.transformations_utils import compute_cartesian_error
+from robolearn.utils.transformations_utils import euler_from_quat
+from robolearn.utils.transformations_utils import create_quat
+from robolearn.utils.transformations_utils import normalize_angle
+from pybullet import getEulerFromQuaternion, getQuaternionFromEuler
 
 
 TGT_DEF_COLORS = ['yellow', 'red', 'green', 'white', 'blue']
@@ -32,7 +37,7 @@ class Pusher3DofBulletEnv(BulletEnv):
         gravity = 9.8
         # sim_timestep = 1./100.
         frame_skip = frame_skip  # Like the control rate (multiplies sim_ts)
-        self._pos_dof = 2  # 2 or 3
+        self._pose_dof = 3   # [x, y, theta]
 
         # Robot
         self._robot = Pusher3DofRobot()
@@ -40,7 +45,7 @@ class Pusher3DofBulletEnv(BulletEnv):
 
         # Target(s)
         self.tgt_pos_is_rdn = rdn_tgt_pos
-        self.tgt_pos = [(0, 0.1) for _ in range(ntargets)]
+        self.tgt_pos = [(0, 0.1, 0) for _ in range(ntargets)]
         self.tgt_colors = [TGT_DEF_COLORS[cc] for cc in range(ntargets)]
         self.tgt_cost_weights = [1. for _ in range(ntargets)]
         self.tgts = [PusherTarget() for _ in range(ntargets)]
@@ -51,7 +56,8 @@ class Pusher3DofBulletEnv(BulletEnv):
         self.img_width = 320
         self.img_height = 320
 
-        self._obs_dim = self._robot.observation_dim + self._pos_dof*ntargets
+        self._obs_dim = self._robot.observation_dim + self._pose_dof + \
+                        self._pose_dof*ntargets
         if self._obs_with_img:
             self._obs_dim += self.img_width*self.img_height*3
         if self._obs_mjc_gym:
@@ -92,7 +98,7 @@ class Pusher3DofBulletEnv(BulletEnv):
         self.logger = logging.getLogger('robolearn_env')
         self.logger.setLevel(logging.WARNING)
 
-    def reset_model(self):
+    def reset_model(self, condition=None):
         self.done = False
         self.time_counter = 0
 
@@ -130,17 +136,20 @@ class Pusher3DofBulletEnv(BulletEnv):
             tgt_pose = tgt.reset()
             if self.tgt_pos_is_rdn:
                 while True:
-                    self.tgt_pos[tt] = self.np_random.uniform(low=-.2,
-                                                              high=.2,
-                                                              size=2)
+                    self.tgt_pos[tt][:2] = self.np_random.uniform(low=-.2,
+                                                                  high=.2,
+                                                                  size=2)
                     if np.linalg.norm(self.tgt_pos[tt]) < 2:
                         break
+                self.tgt_pos[tt][2] = self.np_random.uniform(low=-np.pi,
+                                                             high=np.pi,
+                                                             size=1)
             tgt.set_color(self.tgt_colors[tt])
 
             des_pos = np.zeros(3)
-            des_pos[:2] = self.tgt_pos[tt]
-            des_pos[2] = 0.06
-            tgt.set_pose(des_pos, [0, 0, 0, 1])
+            des_pos[:2] = self.tgt_pos[tt][:2]
+            des_pos[2] = 0.055
+            tgt.set_pose(des_pos, create_quat(rot_yaw=self.tgt_pos[tt][2]))
             # tgt.apply_action(des_pos[:2])
             # tgt.set_state(self.tgt_pos[tt], np.zeros_like(self.tgt_pos[tt]))
 
@@ -165,21 +174,41 @@ class Pusher3DofBulletEnv(BulletEnv):
 
         self.time_counter += self.dt
         self.done = self._termination()
-        return np.array(self._observation), reward, self.done, dict(reward_dist=rw_dist, reward_ctrl=rw_ctrl)
+        return (np.array(self._observation), reward, self.done,
+               dict(reward_dist=rw_dist, reward_ctrl=rw_ctrl))
 
     def get_observation(self):
         return np.array(self._observation)
 
     def get_env_obs(self, robot_observation):
-        gripper_pos = self._robot.parts['gripper_center'].current_position()
+        gripper_pos = self._robot.parts['gripper_center'].get_pose()[:3]
 
-        pos_dof = self._pos_dof
-        vec = np.zeros(pos_dof*len(self.tgts))
-        for tt, tgt in enumerate(self.tgts):
+        pose_dof = self._pose_dof
+        vec = np.zeros(pose_dof + pose_dof*len(self.tgts))
+        gripper_pose = self._robot.parts['gripper_center'].get_pose()
+        xy = gripper_pose[:2]
+        ori = getEulerFromQuaternion(gripper_pose[3:])[2]
+        # ori = normalize_angle(ori, range='pi')
+        vec[:pose_dof] = [xy[0], xy[1], ori]
+        last_idx = pose_dof
+        for tgt in self.tgts:
             # target_pos = tgt.parts['target'].current_position()
-            target_pos = tgt.get_pose()[:3]
-            vec[tt*pos_dof:(tt+1)*pos_dof] = \
-                gripper_pos[:pos_dof] - target_pos[:pos_dof]
+            # target_pos = tgt.get_pose()[:3]
+            # vec[tt*pose_dof:(tt+1)*pose_dof] = \
+            #     gripper_pos[:pose_dof] - target_pos[:pose_dof]
+
+            tgt_pose = tgt.get_pose()
+            xy = tgt_pose[:2]
+            # ori = euler_from_quat(tgt_pose[3:], order='xyzw')[2]
+            ori = getEulerFromQuaternion(tgt_pose[3:])[2]
+            # ori = normalize_angle(ori, range='pi')
+
+            # cartesian_error = \
+            #     compute_cartesian_error(tgt_pose, gripper_pose, first='pos')
+            # vec[tt*pose_dof:(tt+1)*pose_dof] = \
+            #     cartesian_error[err_idx]
+            vec[last_idx:last_idx+pose_dof] = [xy[0], xy[1], ori]
+            last_idx += pose_dof
 
         if self._obs_with_img:
             np_img_arr = self.render(mode='rgb_array').flatten()
@@ -188,7 +217,7 @@ class Pusher3DofBulletEnv(BulletEnv):
 
         if self._obs_mjc_gym:
             theta = robot_observation[:2]
-            # tgt_state = np.array([tgt.get_state()[:2] for tgt in self.tgts]).flatten()
+            # tgt_state = np.array([tgt.get_state()[:2] for tgt ineuler_from_quat self.tgts]).flatten()
             tgt_state = np.array([tgt.get_pose()[:2] for tgt in self.tgts]).flatten()
             robot_observation = np.concatenate((np.cos(theta), np.sin(theta), tgt_state,
                                                 robot_observation[2:]))
@@ -200,11 +229,17 @@ class Pusher3DofBulletEnv(BulletEnv):
     def get_obs_types(self):
         obs_types = list(self._robot.get_state_info())
 
+        # End-effector
+        new_idx = obs_types[-1]['idx'][-1] + 1
+        obs_types.append({'name': 'ee',
+                          'idx': list(range(new_idx,
+                                            new_idx+self._pose_dof))})
+
         for tt in range(len(self.tgts)):
             new_idx = obs_types[-1]['idx'][-1] + 1
             obs_types.append({'name': 'tgt'+str(tt),
                               'idx': list(range(new_idx,
-                                                new_idx+self._pos_dof))})
+                                                new_idx+self._pose_dof))})
 
         return obs_types
 
@@ -298,7 +333,8 @@ class Pusher3DofBulletEnv(BulletEnv):
     def get_env_info(self):
         """
         Return Observation and State info dictionary.
-        :return: Dictionary with obs_info and state_info dictionaries. Each one with keys: names, dimensions and idx.
+        :return: Dictionary with obs_info and state_info dictionaries. Each one
+                 with keys: names, dimensions and idx.
         """
         env_info = {'obs': self.get_obs_info(),
                     'state': self.get_state_info()}
@@ -326,11 +362,16 @@ class Pusher3DofBulletEnv(BulletEnv):
             init_state = self.init_cond[condition][:self._robot.observation_dim]
             self._robot.set_initial_state(init_state)
             # Targets
-            tgt_pos = self.init_cond[condition][self._robot.observation_dim:]
-            self.set_tgt_pos([tgt_pos[:2], tgt_pos[-2:]])
-
+            no_target_last_idx = self._robot.observation_dim + self._pose_dof
+            tgt_pos = self.init_cond[condition][no_target_last_idx:]
+            self.set_tgt_pos([tgt_pos[:self._pose_dof],
+                              tgt_pos[-self._pose_dof:]])
 
         super(Pusher3DofBulletEnv, self).reset()
+
+        # Replace init_cond with current state
+        if condition is not None:
+            self.init_cond[condition] = np.copy(self._observation)
 
     def get_total_joints(self):
         return self._robot.total_joints

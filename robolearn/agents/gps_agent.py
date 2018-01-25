@@ -67,11 +67,12 @@ class GPSAgent(Agent):
             sampling_bar.update(t)
             state = env.get_state()
             obs = env.get_observation()
+
             # Checking NAN
             nan_number = np.isnan(obs)
             if np.any(nan_number):
                 print("\e[31mERROR OBSERVATION: NAN!!!!! | ")
-            print(obs)
+            # print(obs)
             # TODO: Avoid TF policy writes in obs
             action = policy.eval(state.copy(), obs.copy(), t,
                                  noise[t].copy())
