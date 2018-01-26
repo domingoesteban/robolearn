@@ -105,9 +105,10 @@ class Scenario(object):
         ntargets = self.task_params['ntargets']
         tgt_weights = self.task_params['tgt_weights']
         tgt_positions = self.task_params['tgt_positions']
+        tgt_types = self.task_params['tgt_types']
         env = Pusher3DofBulletEnv(render=render, obs_with_img=env_with_img,
                                   obs_mjc_gym=obs_like_mjc, ntargets=ntargets,
-                                  rdn_tgt_pos=rdn_tgt_pos)
+                                  rdn_tgt_pos=rdn_tgt_pos, tgt_types=tgt_types)
 
         env.set_tgt_cost_weights(tgt_weights)
         env.set_tgt_pos(tgt_positions)
@@ -265,7 +266,7 @@ class Scenario(object):
             'data_types': {
                 'tgt1': {
                     'wp': np.array([1.0, 1.0]),  # State weights - must be set.
-                    'safe_distance': np.array([0.08, 0.08]),
+                    'safe_distance': np.array([0.15, 0.15]),
                     'outside_cost': np.array([0.0, 0.0]),
                     'inside_cost': np.array([1.0, 1.0]),
                     'data_idx': self.env.get_state_info(name='tgt1')['idx']
@@ -300,7 +301,7 @@ class Scenario(object):
             'data_types': {
                 'ee': {
                     'wp': np.array([1.0, 1.0]),  # State weights - must be set.
-                    'safe_distance': np.array([0.08, 0.08]),
+                    'safe_distance': np.array([0.15, 0.15]),
                     'outside_cost': np.array([0.0, 0.0]),
                     'inside_cost': np.array([1.0, 1.0]),
                     'target_state': 'tgt1',  # Target state - must be set.

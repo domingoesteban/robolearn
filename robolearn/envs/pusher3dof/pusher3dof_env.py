@@ -27,7 +27,7 @@ class Pusher3DofBulletEnv(BulletEnv):
 
     def __init__(self, render=False, obs_with_img=False, obs_mjc_gym=False,
                  ntargets=1, rdn_tgt_pos=True, sim_timestep=0.001,
-                 frame_skip=10):
+                 frame_skip=10, tgt_types=None):
         self.np_random = None
         self._obs_with_img = obs_with_img
         self._obs_mjc_gym = obs_mjc_gym
@@ -48,7 +48,9 @@ class Pusher3DofBulletEnv(BulletEnv):
         self.tgt_pos = [(0, 0.1, 0) for _ in range(ntargets)]
         self.tgt_colors = [TGT_DEF_COLORS[cc] for cc in range(ntargets)]
         self.tgt_cost_weights = [1. for _ in range(ntargets)]
-        self.tgts = [PusherTarget() for _ in range(ntargets)]
+        if tgt_types is None:
+            tgt_types = ['C' for _ in range(ntargets)]
+        self.tgts = [PusherTarget(type=tgt_type) for tgt_type in tgt_types]
 
         # OBS/ACT
         self.action_bounds = [(-np.pi, np.pi) for _ in range(self._robot.action_dim)]

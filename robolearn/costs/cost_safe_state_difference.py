@@ -51,11 +51,11 @@ class CostSafeStateDifference(Cost):
             wp = wp * np.expand_dims(wpm, axis=-1)
 
             # Compute binary region penalty.
-            difference = tgt-x
+            difference = x-tgt
+            abs_diff = np.abs(difference)
 
-            difference = np.ones_like(difference)*0.079
-
-            dist = safe_distance - np.abs(difference)
+            dist = safe_distance - abs_diff
+            norm_dist = np.linalg.norm(dist, axis=1, keepdims=True)
 
             dist_violation = dist > 0
 
@@ -65,13 +65,14 @@ class CostSafeStateDifference(Cost):
             # l += np.sum(dist * temp_cost, axis=1)
 
             # Cost derivative of c*max(0, d - |x|) --> c*I(d-|x|)*-1*x/|x|
-            jacob = wp*inside_cost*dist_violation*-1*difference/np.abs(difference) \
-                    + wp*outside_cost*~dist_violation*-1*difference/np.abs(difference)
+            jacob = wp*inside_cost*dist_violation*-1*dist/norm_dist \
+                    + wp*outside_cost*~dist_violation*-1*dist/norm_dist
+
             # Tgt
-            idx = np.array(config['data_idx'])[config['idx_to_use']]
+            idx = np.array(config['tgt_idx'])[config['idx_to_use']]
             lx[:, idx] += jacob
             # State
-            idx = np.array(config['tgt_idx'])[config['idx_to_use']]
+            idx = np.array(config['data_idx'])[config['idx_to_use']]
             lx[:, idx] -= jacob
 
         return l, lx, lu, lxx, luu, lux
