@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--itr', type=int, default=-1)
     parser.add_argument('--cond', type=int, default=0)
     parser.add_argument('--render', action="store_true")
+    parser.add_argument('--local', action="store_true")
     args = parser.parse_args()
     print('command_line args:', args)
 
@@ -91,8 +92,13 @@ def main():
     if args.mode == 'train':
         successful = scenario.train()
     elif args.mode == 'test':
+        if args.local:
+            pol_type = 'local'
+        else:
+            pol_type = 'global'
         successful = scenario.test_policy(iteration=args.itr,
-                                          condition=args.cond)
+                                          condition=args.cond,
+                                          pol_type=pol_type)
     else:
         raise ValueError('Wrong script option')
 

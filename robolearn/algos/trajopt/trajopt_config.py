@@ -30,3 +30,10 @@ DEFAULT_MDREPS_HYPERPARAMS = {
     'xi': 0.1,
     'chi': 0.1,
 }
+
+DEFAULT_DUALTRAJOPT_HYPERPARAMS = {
+    'inner_iterations': 1,
+    'epsilon': 0.1,
+    'xi': 0.1,
+    'chi': 0.1,
+}

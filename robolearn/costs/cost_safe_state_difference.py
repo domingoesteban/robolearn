@@ -64,7 +64,8 @@ class CostSafeStateDifference(Cost):
 
             # l += np.sum(dist * temp_cost, axis=1)
 
-            # Cost derivative of c*max(0, d - |x|) --> c*I(d-|x|)*-1*x/|x|
+            # Cost derivative of c*max(0, d - |x|) --> c*I(d-|x|)*-1*x/||x||
+            # http://math.mit.edu/classes/18.086/2006/am57.pdf
             jacob = wp*inside_cost*dist_violation*-1*dist/norm_dist \
                     + wp*outside_cost*~dist_violation*-1*dist/norm_dist
 

@@ -169,8 +169,8 @@ class DualistTrajOpt(TrajOpt):
         # traj_info = algorithm.cur[m].traj_info
         #
         # # Get the trajectory distribution that is going to be used as constraint
-        # gps_algo = algorithm.gps_algo
-        # if gps_algo.lower() in ['mdgps' or 'mdgps_mdreps']:
+        # gps_algo = type(algorithm).__name__
+        # if gps_algo in ['MDGPS' or 'DualGPS']:
         #     # For MDGPS, constrain to previous NN linearization
         #     prev_traj_distr = algorithm.cur[m].pol_info.traj_distr()
         # else:
@@ -306,7 +306,7 @@ class DualistTrajOpt(TrajOpt):
         compute_cost_fcn = algorithm.compute_traj_cost
 
         # Store pol_wt if necessary
-        gps_algo = algorithm.gps_algo
+        gps_algo = type(algorithm).__name__
         if gps_algo.lower() == 'badmm':
             pol_wt = algorithm.cur[m].pol_info.pol_wt
 
@@ -360,7 +360,7 @@ class DualistTrajOpt(TrajOpt):
 
                 # Add in the value function from the next time step.
                 if t < T - 1:
-                    gps_algo = algorithm.gps_algo
+                    gps_algo = type(algorithm).__name__
                     if gps_algo.lower() == 'badmm':
                         # multiplier = (pol_wt[t+1] + eta)/(pol_wt[t] + eta)
                         raise NotImplementedError("not implemented badmm in "
@@ -638,8 +638,8 @@ class DualistTrajOpt(TrajOpt):
         traj_info = algorithm.cur[m].traj_info
 
         # Get the trajectory distribution that is going to be used as constraint
-        gps_algo = algorithm.gps_algo
-        if gps_algo.lower() in ['mdgps' or 'mdgps_mdreps']:
+        gps_algo = type(algorithm).__name__
+        if gps_algo in ['DualGPS', 'MDGPS']:
             # For MDGPS, constrain to previous NN linearization
             prev_traj_distr = algorithm.cur[m].pol_info.traj_distr()
         else:

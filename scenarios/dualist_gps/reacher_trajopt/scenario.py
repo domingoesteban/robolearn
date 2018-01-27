@@ -9,8 +9,8 @@ import numpy as np
 from robolearn.envs.pusher3dof import Pusher3DofBulletEnv
 from robolearn.utils.sample.sampler import Sampler
 
-from robolearn.agents import GPSAgent
-from robolearn.algos.gps.dual_gps import DualGPS
+from robolearn.agents import NoPolAgent
+from robolearn.algos.trajopt.dual_trajopt import DualTrajOpt
 # Costs
 from robolearn.costs.cost_action import CostAction
 # from robolearn.costs.cost_fk import CostFK
@@ -110,45 +110,19 @@ class Scenario(object):
 
     def create_agent(self):
         change_print_color.change('CYAN')
-        print("\nCreating Bigman Agent...")
+        print("\nCreating Agent...")
 
-        policy_params = {
-            'network_model': tf_network,  # tf_network, multi_modal_network, multi_modal_network_fp
-            'network_params': {
-                'n_layers': 2,  # Number of Hidden layers
-                'dim_hidden': [32, 32],  # List of size per n_layers
-                'obs_names': self.env.get_obs_info()['names'],
-                'obs_dof': self.env.get_obs_info()['dimensions'],  # DoF for observation data tensor
-            },
-            # Initialization.
-            'init_var': 0.1,  # Initial policy variance.
-            'ent_reg': 0.0,  # Entropy regularizer (Used to update policy variance)
-            # Solver hyperparameters.
-            'iterations': self.task_params['tf_iterations'],  # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
-            'batch_size': 15,
-            'lr': 0.001,  # Base learning rate (by default it's fixed).
-            'lr_policy': 'fixed',  # Learning rate policy.
-            'momentum': 0.9,  # Momentum.
-            'weight_decay': 0.005,  # Weight decay.
-            'solver_type': 'Adam',  # Solver type (e.g. 'SGD', 'Adam', 'RMSPROP', 'MOMENTUM', 'ADAGRAD').
-            # set gpu usage.
-            'use_gpu': self.task_params['use_gpu'],  # Whether or not to use the GPU for training.
-            'gpu_id': 0,
-            'random_seed': 1,
-            'fc_only_iterations': 0,  # Iterations of only FC before normal training
-            'gpu_mem_percentage': self.task_params['gpu_mem_percentage'],
-            'log_dir': self.hyperparams['log_dir'],
-            # 'weights_file_prefix': EXP_DIR + 'policy',
-        }
+        policy_params = {}
 
         policy_opt = {
             'type': PolicyOptTf,
             'hyperparams': policy_params
         }
 
-        agent = GPSAgent(act_dim=self.action_dim, obs_dim=self.obs_dim,
-                         state_dim=self.state_dim, policy_opt=policy_opt,
-                         agent_name='agent'+str('%02d' % self.hyperparams['run_num']))
+        agent = NoPolAgent(act_dim=self.action_dim, obs_dim=self.obs_dim,
+                           state_dim=self.state_dim,
+                           agent_name='agent'+str('%02d' %
+                                                  self.hyperparams['run_num']))
         print("Agent:%s OK\n" % type(agent).__name__)
 
         return agent
@@ -413,7 +387,7 @@ class Scenario(object):
 
         good_trajs = None
         bad_trajs = None
-        dmgps_hyperparams = {
+        dualtrajopt_hyperparams = {
             'inner_iterations': self.task_params['inner_iterations'],  # Times the trajectories are updated
             # G/B samples selection | Fitting
             'good_samples': good_trajs,  # Good samples demos
@@ -454,12 +428,9 @@ class Scenario(object):
             'T': self.task_params['T'],  # Total points
             'dt': self.task_params['Ts'],
             'iterations': self.task_params['iterations'],  # GPS episodes --> K iterations
-            'test_after_iter': self.task_params['test_after_iter'],  # If test the learned policy after an iteration in the RL algorithm
-            'test_samples': self.task_params['test_n_samples'],  # Samples from learned policy after an iteration PER CONDITION (only if 'test_after_iter':True)
             # Samples
             'num_samples': self.task_params['num_samples'],  # Samples for exploration trajs --> N samples
             'noisy_samples': True,
-            'sample_on_policy': self.task_params['sample_on_policy'],  # Whether generate on-policy samples or off-policy samples
             'smooth_noise': True,  # Apply Gaussian filter to noise generated
             'smooth_noise_var': 5.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
             'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
@@ -469,7 +440,6 @@ class Scenario(object):
             # Conditions
             'conditions': len(self.init_cond),  # Total number of initial conditions
             'train_conditions': self.task_params['train_cond'],  # Indexes of conditions used for training
-            'test_conditions': self.task_params['test_cond'],  # Indexes of conditions used for testing
             # TrajDist
             'init_traj_distr': init_traj_distr,
             'fit_dynamics': True,
@@ -479,16 +449,16 @@ class Scenario(object):
             'traj_opt': traj_opt_method,
             'max_ent_traj': 0.0,  # Weight of maximum entropy term in trajectory optimization #TODO: CHECK THIS VALUE
             # Others
-            'algo_hyperparams': dmgps_hyperparams,
+            'algo_hyperparams': dualtrajopt_hyperparams,
             'data_files_dir': self.hyperparams['log_dir'],
         }
 
-        return DualGPS(self.agent, self.env, **gps_hyperparams)
+        return DualTrajOpt(self.agent, self.env, **gps_hyperparams)
 
     def train(self, itr_load=None):
         return self.learn_algo.run(itr_load)
 
-    def test_policy(self, pol_type='global', condition=0, iteration=-1):
+    def test_policy(self, pol_type=None, condition=0, iteration=-1):
         noise = np.zeros((self.task_params['T'], self.agent.act_dim))
 
         if iteration == -1:
@@ -504,30 +474,13 @@ class Scenario(object):
 
         dir_path = 'itr_%02d/' % iteration
 
-        if pol_type == 'global':
-            traj_opt_file = dir_path + 'policy_opt_itr_%02d.pkl' % iteration
+        itr_data_file = dir_path + 'iteration_data_itr_%02d.pkl' % iteration
 
-            change_print_color.change('BLUE')
-            print("\nLoading policy '%s'..." % traj_opt_file)
+        change_print_color.change('BLUE')
+        print("\nLoading iteration data '%s'..." % itr_data_file)
 
-            prev_policy_opt = self.learn_algo.data_logger.unpickle(traj_opt_file)
-            if prev_policy_opt is None:
-                print("Error: cannot find '%s.'" % traj_opt_file)
-                os._exit(1)
-            else:
-                self.agent.policy_opt.__dict__.update(prev_policy_opt.__dict__)
-
-            self.agent.policy = self.agent.policy_opt.policy
-
-            policy = None
-        else:
-            itr_data_file = dir_path + 'iteration_data_itr_%02d.pkl' % iteration
-
-            change_print_color.change('BLUE')
-            print("\nLoading iteration data '%s'..." % itr_data_file)
-
-            itr_data = self.learn_algo.data_logger.unpickle(itr_data_file)
-            policy = itr_data[condition].traj_distr
+        itr_data = self.learn_algo.data_logger.unpickle(itr_data_file)
+        policy = itr_data[condition].traj_distr
 
         self.env.reset(condition=condition)
         input('Press a key to start sampling...')
