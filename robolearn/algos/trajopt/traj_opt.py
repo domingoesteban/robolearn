@@ -70,7 +70,6 @@ class TrajOpt(Algorithm):
         self.cur = [IterationData() for _ in range(self.M)]
         self.prev = [IterationData() for _ in range(self.M)]
 
-
         # Initial trajectory hyperparams
         init_traj_distr = self._hyperparams['init_traj_distr']
         init_traj_distr['x0'] = env.get_conditions()
