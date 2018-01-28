@@ -11,7 +11,7 @@ def main():
     # Commandline Arguments #
     # ##################### #
     parser = argparse.ArgumentParser()
-    parser.add_argument('--scenario', type=str, default='reacher')
+    parser.add_argument('--scenario', type=str, default='reacher_gps')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--mode', type=str, default='train')
     parser.add_argument('--run_num', type=int, default=0)
