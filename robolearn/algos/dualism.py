@@ -34,9 +34,7 @@ class Dualism(object):
             # self.good_duality_infor = init_traj_distr['type'](init_traj_distr)
             # self.bad_duality_infor = init_traj_distr['type'](init_traj_distr)
 
-            # TODO: Using same init traj
             # Get the initial trajectory distribution hyperparams
-            # init_traj_distr = self._hyperparams['init_traj_distr']
             init_traj_distr = extract_condition(self._hyperparams['init_traj_distr'],
                                                 self._train_cond_idx[m])
             # Instantiate Trajectory Distribution: init_lqr or init_pd

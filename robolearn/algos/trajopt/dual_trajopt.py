@@ -29,7 +29,6 @@ class DualTrajOpt(TrajOpt, Dualism):
 
         # Traj Opt (Local policy opt) method #
         # ---------------------------------- #
-        # Options: LQR, PI2, DualistTrajOpt
         if self._hyperparams['traj_opt']['type'].__name__ != 'DualistTrajOpt':
             raise ValueError("The selected traj_opt method is not %s!"
                              % DualistTrajOpt.__name__)
@@ -79,6 +78,7 @@ class DualTrajOpt(TrajOpt, Dualism):
                     'Updating dynamics linearization...' % (itr+1))
         self._update_dynamic_model()
 
+        # Evaluate cost function for all conditions and samples.
         logger.info('')
         logger.info('DualTrajOpt: itr:%02d | '
                     'Evaluating samples costs...' % (itr+1))
@@ -171,7 +171,6 @@ class DualTrajOpt(TrajOpt, Dualism):
         good_distr = self.good_duality_info[cond].traj_dist
         bad_distr = self.bad_duality_info[cond].traj_dist
 
-
         if not augment:  # Whether to augment cost with term to penalize KL
             return traj_info.Cm, traj_info.cv
 
@@ -198,7 +197,7 @@ class DualTrajOpt(TrajOpt, Dualism):
         # We are dividing the surrogate cost calculation for debugging purposes
 
         # Add in the KL divergence with previous policy.
-        for t in range(self.T):
+        for t in range(self.T-1, -1, -1):
             # Policy KL-divergence terms.
             KB = traj_distr.K[t, :, :]
             kB = traj_distr.k[t, :]
@@ -215,7 +214,7 @@ class DualTrajOpt(TrajOpt, Dualism):
             fcv[t, :] += PKLv[t, :] * eta / divisor
 
         # Add in the KL divergence with good trajectories.
-        for t in range(self.T):
+        for t in range(self.T-1, -1, -1):
             # Good KL-divergence terms.
             inv_pol_S = good_distr.inv_pol_covar[t, :, :]
             KB = good_distr.K[t, :, :]
@@ -232,7 +231,7 @@ class DualTrajOpt(TrajOpt, Dualism):
             fcv[t, :] += PKLv[t, :] * omega / divisor
 
         # Subtract in the KL divergence with bad trajectories.
-        for t in range(self.T):
+        for t in range(self.T-1, -1, -1):
             # Bad KL-divergence terms.
             inv_pol_S = bad_distr.inv_pol_covar[t, :, :]
             KB = bad_distr.K[t, :, :]
@@ -322,8 +321,8 @@ class DualTrajOpt(TrajOpt, Dualism):
         :return: None
         """
         TrajOpt._log_iter_data(self, itr, traj_sample_lists,
-                               sample_lists_costs=None,
-                               sample_lists_cost_compositions=None)
+                               sample_lists_costs=sample_lists_costs,
+                               sample_lists_cost_compositions=sample_lists_cost_compositions)
 
         LOGGER = self.logger
         dir_path = self.data_logger.dir_path + ('/itr_%02d' % itr)

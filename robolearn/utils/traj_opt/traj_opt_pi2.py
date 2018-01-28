@@ -208,3 +208,4 @@ class TrajOptPI2(TrajOpt):
                 + max_costs
                 + eta * np.log(
                         (1.0 / len(costs)) * np.sum(np.exp(exponent / eta))))
+

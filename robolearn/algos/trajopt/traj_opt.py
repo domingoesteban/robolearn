@@ -78,6 +78,11 @@ class TrajOpt(Algorithm):
         init_traj_distr['dt'] = self.dt
         init_traj_distr['T'] = self.T
         for m in range(self.M):
+            self.cur[m].traj_info = TrajectoryInfo()
+
+            if self._hyperparams['fit_dynamics']:
+                self.cur[m].traj_info.dynamics = dynamics['type'](dynamics)
+
             # Get the initial trajectory distribution hyperparams
             init_traj_distr = extract_condition(
                 self._hyperparams['init_traj_distr'], self._train_cond_idx[m])
@@ -233,6 +238,8 @@ class TrajOpt(Algorithm):
         Args:
             m: Condition
         """
+        # traj_dist to obtain Ks, traj_info to obtain dynamics.
+
         # Compute values under Laplace approximation. This is the policy
         # that the previous samples were actually drawn from under the
         # dynamics that were estimated from the previous samples.

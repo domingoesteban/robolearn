@@ -14,5 +14,9 @@ class TrajOpt(object):
         """ Update trajectory distributions. """
         raise NotImplementedError("Must be implemented in subclass.")
 
+    def set_logger(self, logger):
+        self.logger = logger
+
+
 
 # TODO - Interface with C++ traj opt?

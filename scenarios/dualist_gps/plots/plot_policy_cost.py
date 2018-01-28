@@ -22,16 +22,18 @@ final_itr = 200
 samples_idx = [-1]  # List of samples / None: all samples
 max_traj_plots = None  # None, plot all
 last_n_iters = None  # 5  # None, plot all iterations
-itr_to_load = list(range(10))
+itr_to_load = list(range(5))
 # itr_to_load = [0, 4, 8]
 
 plot_cs = True
-if method == 'gps':
-    plot_policy_costs = True
-    plot_cost_types = True
-else:
-    plot_policy_costs = False
-    plot_cost_types = False
+plot_policy_costs = True
+plot_cost_types = True
+# if method == 'gps':
+#     plot_policy_costs = True
+#     plot_cost_types = True
+# else:
+#     plot_policy_costs = False
+#     plot_cost_types = False
 
 colormap = plt.cm.rainbow  # nipy_spectral, Set1, Paired, winter
 plot_sample_list_max_min = False
@@ -130,8 +132,13 @@ for gps, gps_directory_name in enumerate(gps_directory_names):
 
             if plot_policy_costs:
                 # Pol Cost
-                file_to_load = itr_path + 'pol_sample_cost_itr_' + \
-                               str('%02d' % itr_idx)+'.pkl'
+                if method == 'gps':
+                    file_to_load = itr_path + 'pol_sample_cost_itr_' + \
+                                   str('%02d' % itr_idx)+'.pkl'
+                else:
+                    file_to_load = itr_path + 'sample_cost_itr_' + \
+                                   str('%02d' % itr_idx)+'.pkl'
+
                 if os.path.isfile(file_to_load):
                     print('Loading policy sample cost from iteration %02d'
                           % itr_idx)
@@ -152,8 +159,12 @@ for gps, gps_directory_name in enumerate(gps_directory_names):
 
             if plot_cost_types:
                 # Pol Cost Composition
-                file_to_load = itr_path + 'pol_sample_cost_composition_itr_' + \
-                               str('%02d' % itr_idx)+'.pkl'
+                if method == 'gps':
+                    file_to_load = itr_path + 'pol_sample_cost_composition_itr_' + \
+                                   str('%02d' % itr_idx)+'.pkl'
+                else:
+                    file_to_load = itr_path + 'sample_cost_composition_itr_' + \
+                                   str('%02d' % itr_idx)+'.pkl'
                 if os.path.isfile(file_to_load):
                     print('Loading policy sample cost composition from '
                           'iteration %02d' % itr_idx)
@@ -193,8 +204,6 @@ for gps, gps_directory_name in enumerate(gps_directory_names):
             del pol_cost_comp_data
 
 
-
-# Important data
 if plot_cs:
     total_runs = len(cs_list[-1])
     total_cond = cs_list[-1][-1].shape[0]

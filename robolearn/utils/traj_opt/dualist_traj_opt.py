@@ -56,9 +56,6 @@ class DualistTrajOpt(TrajOpt):
 
         self.LOGGER = logging.getLogger(__name__)
 
-    def set_logger(self, logger):
-        self.LOGGER = logger
-
     # TODO - Add arg and return spec on this function.
     def update(self, m, algorithm):
         """
