@@ -243,7 +243,27 @@ class Scenario(object):
             'type': CostStateDifference,
             'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
             'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
-            'l1': 1.0,  # Weight for l1 norm
+            'l1': 1.5,  # Weight for l1 norm
+            'l2': 1.0,  # Weight for l2 norm
+            'alpha': 1e-5,  # Constant added in square root in l1 norm
+            'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
+            'data_types': {
+                'ee': {
+                    'wp': np.array([1.0, 1.0, 1.0]),  # State weights - must be set.
+                    'target_state': 'tgt0',  # Target state - must be set.
+                    'average': None,
+                    'tgt_idx': self.env.get_state_info(name='tgt0')['idx'],
+                    'data_idx': self.env.get_state_info(name='ee')['idx'],
+                    'idx_to_use': [0, 1, 2],  # All: X, Y, theta
+                },
+            },
+        }
+
+        cost_final_state_difference = {
+            'type': CostStateDifference,
+            'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+            'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
+            'l1': 1.5,  # Weight for l1 norm
             'l2': 1.0,  # Weight for l2 norm
             'alpha': 1e-5,  # Constant added in square root in l1 norm
             'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
@@ -288,6 +308,7 @@ class Scenario(object):
                              # (fk_l1_final_cost, 1.5e-1),
                              # (fk_l2_final_cost, 1.0e-0),
                              (cost_state_difference, 5.0e-0),
+                             (cost_final_state_difference, 1.0e+5),
                              (cost_safe_state_difference, 1.0e+1),
                              # WORKING:
                              # (cost_safe_distance, 1.0e+1),

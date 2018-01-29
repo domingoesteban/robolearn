@@ -260,7 +260,8 @@ if plot_policy_costs:
     total_itr = pol_sample_lists_costs[-1][-1].shape[1]
     total_samples = pol_sample_lists_costs[-1][-1].shape[2]
     T = pol_sample_lists_costs[-1][-1].shape[3]
-    total_cost_types = pol_sample_lists_cost_compos[-1][-1].shape[3]
+    if plot_cost_types:
+        total_cost_types = pol_sample_lists_cost_compos[-1][-1].shape[3]
 
     if plots_type.lower() == 'iteration':
         #marker = 'o'
