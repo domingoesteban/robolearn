@@ -261,7 +261,7 @@ class Scenario(object):
 
         cost_final_state_difference = {
             'type': CostStateDifference,
-            'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+            'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
             'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
             'l1': 1.5,  # Weight for l1 norm
             'l2': 1.0,  # Weight for l2 norm
