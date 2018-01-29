@@ -2,8 +2,7 @@ import numpy as np
 from robolearn.algos.gps.gps_utils import PolicyInfo, extract_condition
 from robolearn.algos.gps.gps_utils import TrajectoryInfo, DualityInfo
 from robolearn.utils.traj_opt.traj_opt_utils import traj_distr_kl, traj_distr_kl_alt
-from robolearn.utils.plot_utils import lqr_forward
-from robolearn.utils.policy_utils import fit_linear_gaussian_policy
+from robolearn.utils.policy_utils import fit_linear_gaussian_policy, lqr_forward
 
 from robolearn.utils.sample.sample import Sample
 from robolearn.utils.sample.sample_list import SampleList
@@ -55,7 +54,7 @@ class Dualism(object):
             self.bad_duality_info[m].pol_info.policy_prior = \
                 policy_prior['type'](policy_prior)
 
-    def _get_bad_samples(self, option='only_traj'):
+    def _update_bad_samples(self, option='only_traj'):
         """
         Get bad trajectory samples.
         :param option(str):
@@ -65,10 +64,10 @@ class Dualism(object):
                  'always': Update bad_duality_info sample list with the worst
                            trajectory samples in the current iteration.
 
-        :return:
+        :return: None
         """
 
-        LOGGER = self.logger
+        logger = self.logger
 
         for cond in range(self.M):
             # Sample costs estimate.
@@ -77,59 +76,65 @@ class Dualism(object):
 
             # Get index of sample with worst Return
             #worst_index = np.argmax(np.sum(cs, axis=1))
-            n_bad = self._hyperparams['algo_hyperparams']['n_bad_samples']
+            n_bad = self._hyperparams['algo_hyperparams']['n_bad_buffer']
             if n_bad == cs.shape[0]:
                 worst_indeces = range(n_bad)
             else:
-                worst_indeces = np.argpartition(np.sum(cs, axis=1), -n_bad)[-n_bad:]
+                worst_indeces = np.argpartition(np.sum(cs, axis=1),
+                                                -n_bad)[-n_bad:]
 
             # Get current worst sample
             if self.bad_duality_info[cond].sample_list is None:
                 for bb, bad_index in enumerate(worst_indeces):
-                    LOGGER.info("DualGPS: Defining BAD trajectory sample %d | "
+                    logger.info("Dualism: Defining BAD sample %02d for "
+                                "trajectory %02d | "
                                 "cur_cost=%f from sample %d"
-                                % (bb, np.sum(cs[bad_index, :]), bad_index))
-                self.bad_duality_info[cond].sample_list = SampleList([sample_list[bad_index] for bad_index in worst_indeces])
+                                % (bb, cond, np.sum(cs[bad_index, :]),
+                                   bad_index))
+                self.bad_duality_info[cond].sample_list = \
+                    SampleList([sample_list[bad_index]
+                                for bad_index in worst_indeces])
                 self.bad_duality_info[cond].samples_cost = cs[worst_indeces, :]
             else:
                 # Update only if it is better than before
+                bad_samples_cost = self.bad_duality_info[cond].samples_cost
                 if option == 'only_traj':
                     for bad_index in worst_indeces:
-                        least_worst_index = np.argpartition(np.sum(self.bad_duality_info[cond].samples_cost, axis=1), 1)[:1]
-                        if np.sum(self.bad_duality_info[cond].samples_cost[least_worst_index, :]) < np.sum(cs[bad_index, :]):
-                            LOGGER.info("DualGPS: Updating BAD trajectory sample %d | cur_cost=%f < new_cost=%f"
+                        least_worst_index = \
+                            np.argpartition(np.sum(bad_samples_cost, axis=1), 1)[:1]
+                        if np.sum(bad_samples_cost[least_worst_index, :]) < np.sum(cs[bad_index, :]):
+                            logger.info("Dualism: Updating BAD trajectory "
+                                        "sample %d | cur_cost=%f < new_cost=%f"
                                         % (least_worst_index,
-                                           np.sum(self.bad_duality_info[cond].samples_cost[least_worst_index, :]),
+                                           np.sum(bad_samples_cost[least_worst_index, :]),
                                            np.sum(cs[bad_index, :])))
                             self.bad_duality_info[cond].sample_list.set_sample(least_worst_index, sample_list[bad_index])
-                            self.bad_duality_info[cond].samples_cost[least_worst_index, :] = cs[bad_index, :]
+                            bad_samples_cost[least_worst_index, :] = cs[bad_index, :]
                 elif option == 'always':
                     for bb, bad_index in enumerate(worst_indeces):
                         print("Worst bad index is %d | and replaces %d" % (bad_index, bb))
-                        LOGGER.info("DualGPS: Updating BAD trajectory sample %d | cur_cost=%f < new_cost=%f"
-                                    % (bb, np.sum(self.bad_duality_info[cond].samples_cost[bb, :]),
+                        logger.info("Dualism: Updating BAD trajectory sample %d | cur_cost=%f < new_cost=%f"
+                                    % (bb, np.sum(bad_samples_cost[bb, :]),
                                        np.sum(cs[bad_index, :])))
                         self.bad_duality_info[cond].sample_list.set_sample(bb, sample_list[bad_index])
-                        self.bad_duality_info[cond].samples_cost[bb, :] = cs[bad_index, :]
+                        bad_samples_cost[bb, :] = cs[bad_index, :]
                 else:
-                    raise ValueError("DualGPS: Wrong get_bad_samples option: %s"
+                    raise ValueError("Dualism: Wrong get_bad_samples option: %s"
                                      % option)
 
-    def _get_good_samples(self, option='only_traj'):
+    def _update_good_samples(self, option='only_traj'):
         """
         Get good trajectory samples.
+        :param option(str):
+                 'only_traj': update good_duality_info sample list only when the
+                              trajectory sample is better than any previous
+                              sample.
+                 'always': Update good_duality_info sample list with the best
+                           trajectory samples in the current iteration.
 
-        Args:
-            option (str): 'only_traj': update good_duality_info sample list only when the trajectory sample is better
-                                       than any previous sample.
-                          'always': update good_duality_info sample list with the best trajectory samples in the current
-                                    iteration.
-
-        Returns:
-            None
-
+        :return: None
         """
-        LOGGER = self.logger
+        logger = self.logger
 
         for cond in range(self.M):
             # Sample costs estimate.
@@ -138,7 +143,7 @@ class Dualism(object):
 
             # Get index of sample with best Return
             #best_index = np.argmin(np.sum(cs, axis=1))
-            n_good = self._hyperparams['algo_hyperparams']['n_good_samples']
+            n_good = self._hyperparams['algo_hyperparams']['n_good_buffer']
             if n_good == cs.shape[0]:
                 best_indeces = range(n_good)
             else:
@@ -147,8 +152,9 @@ class Dualism(object):
             # Get current best trajectory
             if self.good_duality_info[cond].sample_list is None:
                 for gg, good_index in enumerate(best_indeces):
-                    LOGGER.info("DualGPS: Defining GOOD trajectory sample %d | cur_cost=%f from sample %d" % (gg,
-                                                                                                              np.sum(cs[good_index, :]), good_index))
+                    logger.info("Dualism: Defining GOOD trajectory sample %d | "
+                                "cur_cost=%f from sample %d"
+                                % (gg, np.sum(cs[good_index, :]), good_index))
                 self.good_duality_info[cond].sample_list = SampleList([sample_list[good_index] for good_index in best_indeces])
                 self.good_duality_info[cond].samples_cost = cs[best_indeces, :]
             else:
@@ -158,7 +164,8 @@ class Dualism(object):
                     for good_index in best_indeces:
                         least_best_index = np.argpartition(np.sum(self.good_duality_info[cond].samples_cost, axis=1), -1)[-1:]
                         if np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]) > np.sum(cs[good_index, :]):
-                            LOGGER.info("DualGPS: Updating GOOD trajectory sample %d | cur_cost=%f > new_cost=%f"
+                            logger.info("Dualism: Updating GOOD trajectory "
+                                        "sample %d | cur_cost=%f > new_cost=%f"
                                         % (least_best_index,
                                            np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]),
                                            np.sum(cs[good_index, :])))
@@ -167,13 +174,13 @@ class Dualism(object):
                 elif option == 'always':
                     for gg, good_index in enumerate(best_indeces):
                         print("Best good index is %d | and replaces %d" % (good_index, gg))
-                        LOGGER.info("DualGPS: Updating GOOD trajectory sample %d | cur_cost=%f > new_cost=%f"
+                        logger.info("Dualism: Updating GOOD trajectory sample %d | cur_cost=%f > new_cost=%f"
                                     % (gg, np.sum(self.good_duality_info[cond].samples_cost[gg, :]),
                                        np.sum(cs[good_index, :])))
                         self.good_duality_info[cond].sample_list.set_sample(gg, sample_list[good_index])
                         self.good_duality_info[cond].samples_cost[gg, :] = cs[good_index, :]
                 else:
-                    raise ValueError("DualGPS: Wrong get_good_samples option: %s"
+                    raise ValueError("Dualism: Wrong get_good_samples option: %s"
                                      % option)
 
     def _eval_good_bad_samples_costs(self):
@@ -192,9 +199,11 @@ class Dualism(object):
             bad_true_cost, bad_cost_estimate, _ = \
                 self._eval_sample_list_cost(bad_sample_list, cost_fcn)
 
-            # True value of cost.
-            self.good_duality_info[cond].traj_cost = good_true_cost
-            self.bad_duality_info[cond].traj_cost = bad_true_cost
+            # True value of cost (cs average).
+            self.good_duality_info[cond].traj_cost = np.mean(good_true_cost,
+                                                             axis=0)
+            self.bad_duality_info[cond].traj_cost = np.mean(bad_true_cost,
+                                                            axis=0)
 
             # Cost estimate.
             self.good_trajs_info[cond].Cm = good_cost_estimate[0]  # Quadratic term (matrix).
@@ -273,10 +282,10 @@ class Dualism(object):
         fit_traj_dist_fcn = fit_linear_gaussian_policy
 
         for cond in range(self.M):
-            self.good_duality_info[cond].traj_dist = \
-                fit_traj_dist_fcn(self.good_duality_info[cond].sample_list,
-                                  min_good_var)
             self.bad_duality_info[cond].traj_dist = \
                 fit_traj_dist_fcn(self.bad_duality_info[cond].sample_list,
                                   min_bad_var)
+            self.good_duality_info[cond].traj_dist = \
+                fit_traj_dist_fcn(self.good_duality_info[cond].sample_list,
+                                  min_good_var)
 

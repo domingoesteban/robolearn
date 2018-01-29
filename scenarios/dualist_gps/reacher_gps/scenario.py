@@ -110,7 +110,7 @@ class Scenario(object):
 
     def create_agent(self):
         change_print_color.change('CYAN')
-        print("\nCreating Bigman Agent...")
+        print("\nCreating Agent...")
 
         policy_params = {
             'network_model': tf_network,  # tf_network, multi_modal_network, multi_modal_network_fp
@@ -418,10 +418,10 @@ class Scenario(object):
             # G/B samples selection | Fitting
             'good_samples': good_trajs,  # Good samples demos
             'bad_samples': bad_trajs,  # Bad samples demos
-            'n_bad_samples': 2,  # Number of bad samples per each trajectory
-            'n_good_samples': 2,  # Number of good samples per each trajectory
-            'bad_traj_selection_type': 'only_traj',  # 'always', 'only_traj'
-            'good_traj_selection_type': 'only_traj',  # 'always', 'only_traj'
+            'n_good_buffer': self.task_params['n_good_buffer'],  # Number of good samples per each trajectory
+            'n_bad_buffer': self.task_params['n_bad_buffer'],  # Number of bad samples per each trajectory
+            'good_traj_selection_type': self.task_params['good_traj_selection_type'],  # 'always', 'only_traj'
+            'bad_traj_selection_type': self.task_params['bad_traj_selection_type'],  # 'always', 'only_traj'
             'duality_dynamics_type': 'duality',  # Samples to use to update the dynamics 'duality', 'iteration'
             # Initial dual variables
             'init_eta': 4.62,

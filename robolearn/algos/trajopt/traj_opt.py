@@ -77,6 +77,12 @@ class TrajOpt(Algorithm):
         init_traj_distr['dU'] = self.dU
         init_traj_distr['dt'] = self.dt
         init_traj_distr['T'] = self.T
+
+        # Add same dynamics for all the condition if the algorithm requires it
+        if self._hyperparams['fit_dynamics']:
+            dynamics = self._hyperparams['dynamics']
+
+        # Trajectory Info
         for m in range(self.M):
             self.cur[m].traj_info = TrajectoryInfo()
 
@@ -108,6 +114,14 @@ class TrajOpt(Algorithm):
             self.cost_function = \
                 [self._hyperparams['cost']['type'](self._hyperparams['cost'])
                  for _ in total_conditions]
+
+        # KL base values #
+        # -------------- #
+        self.base_kl_step = self._hyperparams['algo_hyperparams']['kl_step']
+        # Set initial dual variables
+        for m in range(self.M):
+            self.cur[m].eta = self._hyperparams['algo_hyperparams']['init_eta']
+
 
     def _iteration(self, **kwargs):
         raise NotImplementedError

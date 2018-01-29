@@ -16,17 +16,6 @@ class DualTrajOpt(TrajOpt, Dualism):
         TrajOpt.__init__(self, agent, env, DEFAULT_DUALTRAJOPT_HYPERPARAMS,
                          **kwargs)
 
-        # Trajectory Info
-        # Add same dynamics for all the condition if the algorithm requires it
-        if self._hyperparams['fit_dynamics']:
-            dynamics = self._hyperparams['dynamics']
-
-        for m in range(self.M):
-            self.cur[m].traj_info = TrajectoryInfo()
-
-            if self._hyperparams['fit_dynamics']:
-                self.cur[m].traj_info.dynamics = dynamics['type'](dynamics)
-
         # Traj Opt (Local policy opt) method #
         # ---------------------------------- #
         if self._hyperparams['traj_opt']['type'].__name__ != 'DualistTrajOpt':
@@ -38,12 +27,10 @@ class DualTrajOpt(TrajOpt, Dualism):
 
         # KL base values #
         # -------------- #
-        self.base_kl_step = self._hyperparams['algo_hyperparams']['kl_step']
         self.base_kl_good = self._hyperparams['algo_hyperparams']['kl_good']
         self.base_kl_bad = self._hyperparams['algo_hyperparams']['kl_bad']
         # Set initial dual variables
         for m in range(self.M):
-            self.cur[m].eta = self._hyperparams['algo_hyperparams']['init_eta']
             self.cur[m].nu = self._hyperparams['algo_hyperparams']['init_nu']
             self.cur[m].omega = self._hyperparams['algo_hyperparams']['init_omega']
 
@@ -94,27 +81,27 @@ class DualTrajOpt(TrajOpt, Dualism):
         logger.info('')
         logger.info('DualTrajOpt: itr:%02d | '
                     'Getting good and bad trajectories...' % (itr+1))
-        self._get_good_samples(option=self._hyperparams['algo_hyperparams']
-        ['good_traj_selection_type'])
-        self._get_bad_samples(option=self._hyperparams['algo_hyperparams']
-        ['bad_traj_selection_type'])
+        self._update_good_samples(option=self._hyperparams['algo_hyperparams']
+                                  ['good_traj_selection_type'])
+        self._update_bad_samples(option=self._hyperparams['algo_hyperparams']
+                                 ['bad_traj_selection_type'])
 
         logger.info('')
         logger.info('DualTrajOpt: itr:%02d | '
                     'Updating data of good and bad samples...' % (itr+1))
         logger.info('-DualTrajOpt: itr:%02d | '
-                    'Update g/b dynamics...' % (itr+1))
-        option = self._hyperparams['algo_hyperparams']['duality_dynamics_type']
-        self._update_good_bad_dynamics(option=option)
-        logger.info('-DualTrajOpt: itr:%02d | '
                     'Update g/b costs...' % (itr+1))
         self._eval_good_bad_samples_costs()
+        # logger.info('-DualTrajOpt: itr:%02d | '
+        #             'Update g/b dynamics...' % (itr+1))
+        # option = self._hyperparams['algo_hyperparams']['duality_dynamics_type']
+        # self._update_good_bad_dynamics(option=option)
         logger.info('-DualTrajOpt: itr:%02d | '
                     'Update g/b traj dist...' % (itr+1))
         self._update_good_bad_fit()
-        logger.info('-DualTrajOpt: itr:%02d | '
-                    'Divergence btw good/bad trajs: ...' % (itr+1))
-        self._check_kl_div_good_bad()
+        # logger.info('-DualTrajOpt: itr:%02d | '
+        #             'Divergence btw good/bad trajs: ...' % (itr+1))
+        # self._check_kl_div_good_bad()
 
         # C-step
         logger.info('')

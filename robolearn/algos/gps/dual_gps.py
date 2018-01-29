@@ -244,27 +244,27 @@ class DualGPS(Algorithm, Dualism):
         logger.info('')
         logger.info('DualGPS: itr:%02d | '
                     'Getting good and bad trajectories...' % (itr+1))
-        self._get_good_samples(option=self._hyperparams['algo_hyperparams']
-                             ['good_traj_selection_type'])
-        self._get_bad_samples(option=self._hyperparams['algo_hyperparams']
-                            ['bad_traj_selection_type'])
+        self._update_good_samples(option=self._hyperparams['algo_hyperparams']
+                                  ['good_traj_selection_type'])
+        self._update_bad_samples(option=self._hyperparams['algo_hyperparams']
+                                 ['bad_traj_selection_type'])
 
         logger.info('')
         logger.info('DualGPS: itr:%02d | '
                     'Updating data of good and bad samples...' % (itr+1))
         logger.info('-DualGPS: itr:%02d | '
-                    'Update g/b dynamics...' % (itr+1))
-        option = self._hyperparams['algo_hyperparams']['duality_dynamics_type']
-        self._update_good_bad_dynamics(option=option)
-        logger.info('-DualGPS: itr:%02d | '
                     'Update g/b costs...' % (itr+1))
         self._eval_good_bad_samples_costs()
+        # logger.info('-DualGPS: itr:%02d | '
+        #             'Update g/b dynamics...' % (itr+1))
+        # option = self._hyperparams['algo_hyperparams']['duality_dynamics_type']
+        # self._update_good_bad_dynamics(option=option)
         logger.info('-DualGPS: itr:%02d | '
                     'Update g/b traj dist...' % (itr+1))
         self._update_good_bad_fit()
-        logger.info('-DualGPS: itr:%02d | '
-                    'Divergence btw good/bad trajs: ...' % (itr+1))
-        self._check_kl_div_good_bad()
+        # logger.info('-DualGPS: itr:%02d | '
+        #             'Divergence btw good/bad trajs: ...' % (itr+1))
+        # self._check_kl_div_good_bad()
 
         # C-step
         logger.info('')

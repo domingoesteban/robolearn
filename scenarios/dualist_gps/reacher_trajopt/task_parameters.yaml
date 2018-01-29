@@ -30,7 +30,7 @@ init_cond: [
 train_cond: [0, 1, 2, 3]  # Indexes
 
 # Agent
-np_threads: 4
+np_threads: 2 # 4
 
 # Learning interaction parameters
 iterations: 50
@@ -42,3 +42,9 @@ inner_iterations: 1
 # Dualist GPS parameters
 consider_good: False
 consider_bad: False
+
+n_good_buffer: 2 # Number of good samples per trajectory distribution
+n_bad_buffer: 1 # Number of bad samples per trajectory distribution
+
+good_traj_selection_type: only_traj  # 'always', 'only_traj'
+bad_traj_selection_type: always  # 'always', 'only_traj'

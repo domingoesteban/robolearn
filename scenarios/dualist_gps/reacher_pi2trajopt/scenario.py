@@ -21,7 +21,6 @@ from robolearn.costs.cost_safe_state_difference import CostSafeStateDifference
 from robolearn.costs.cost_sum import CostSum
 from robolearn.costs.cost_utils import RAMP_FINAL_ONLY, RAMP_CONSTANT
 from robolearn.costs.cost_utils import evall1l2term
-# from robolearn.envs import BigmanEnv
 from robolearn.policies.lin_gauss_init import init_pd, init_dual_demos
 from robolearn.policies.policy_opt.policy_opt_tf import PolicyOptTf
 from robolearn.policies.policy_opt.tf_models import tf_network

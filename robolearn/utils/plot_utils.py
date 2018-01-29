@@ -379,55 +379,6 @@ def plot_multi_info(data_list, block=True, cols=3, legend=True, labels=None):
     return fig, axs
 
 
-def lqr_forward(traj_distr, traj_info):
-    """
-    Perform LQR forward pass. Computes state-action marginals from dynamics and
-    policy.
-    Args:
-        traj_distr: A linear Gaussian policy object.
-        traj_info: A TrajectoryInfo object.
-    Returns:
-        mu: A T x dX mean action vector.
-        sigma: A T x dX x dX covariance matrix.
-    """
-    # Compute state-action marginals from specified conditional
-    # parameters and current traj_info.
-    T = traj_distr.T
-    dU = traj_distr.dU
-    dX = traj_distr.dX
-
-    # Constants.
-    idx_x = slice(dX)
-
-    # Allocate space.
-    sigma = np.zeros((T, dX+dU, dX+dU))
-    mu = np.zeros((T, dX+dU))
-
-    # Pull out dynamics.
-    Fm = traj_info.dynamics.Fm
-    fv = traj_info.dynamics.fv
-    dyn_covar = traj_info.dynamics.dyn_covar
-
-    # Set initial state covariance and mean
-    sigma[0, idx_x, idx_x] = traj_info.x0sigma
-    mu[0, idx_x] = traj_info.x0mu
-
-    for t in range(T):
-        sigma[t, :, :] = np.vstack([
-            np.hstack([sigma[t, idx_x, idx_x],
-                       sigma[t, idx_x, idx_x].dot(traj_distr.K[t, :, :].T)]),
-            np.hstack([traj_distr.K[t, :, :].dot(sigma[t, idx_x, idx_x]),
-                       traj_distr.K[t, :, :].dot(sigma[t, idx_x, idx_x]).dot(traj_distr.K[t, :, :].T)
-                       + traj_distr.pol_covar[t, :, :]])])
-
-        # u_t = p(u_t | x_t)
-        mu[t, :] = np.hstack([mu[t, idx_x], traj_distr.K[t, :, :].dot(mu[t, idx_x]) + traj_distr.k[t, :]])
-
-        if t < T - 1:
-            # x_t+1 = p(x_t+1 | x_t, u_t)
-            sigma[t+1, idx_x, idx_x] = Fm[t, :, :].dot(sigma[t, :, :]).dot(Fm[t, :, :].T) + dyn_covar[t, :, :]
-            mu[t+1, idx_x] = Fm[t, :, :].dot(mu[t, :]) + fv[t, :]
-    return mu, sigma
 
 
 def plot_3d_gaussian(ax, mu, sigma, edges=100, sigma_axes='XY', linestyle='-.',
