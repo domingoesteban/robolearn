@@ -308,7 +308,7 @@ class Scenario(object):
                              # (fk_l1_final_cost, 1.5e-1),
                              # (fk_l2_final_cost, 1.0e-0),
                              (cost_state_difference, 5.0e-0),
-                             (cost_final_state_difference, 1.0e+5),
+                             (cost_final_state_difference, 1.0e+3),
                              (cost_safe_state_difference, 1.0e+1),
                              # WORKING:
                              # (cost_safe_distance, 1.0e+1),
