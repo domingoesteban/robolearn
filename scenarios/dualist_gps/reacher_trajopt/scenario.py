@@ -249,7 +249,7 @@ class Scenario(object):
             'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
             'data_types': {
                 'ee': {
-                    'wp': np.array([1.0, 1.0, 1.0]),  # State weights - must be set.
+                    'wp': np.array([1.0, 1.0, 0.6]),  # State weights - must be set.
                     'target_state': 'tgt0',  # Target state - must be set.
                     'average': None,
                     'tgt_idx': self.env.get_state_info(name='tgt0')['idx'],
