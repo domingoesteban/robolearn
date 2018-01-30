@@ -3,12 +3,12 @@
 # #### #
 # VARS #
 # #### #
-scenario='reacher_trajopt1'
-log_dir='trajopt_log1'
+scenario='reacher_pi2trajopt1'
+log_dir='pi2trajopt_log1'
 
 seeds=(0 50 100)
 init_index=0
-end_index=3
+end_index=1
 
 # #### #
 # RUNS #
