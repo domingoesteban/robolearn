@@ -164,7 +164,7 @@ class Pusher3DofBulletEnv(BulletEnv):
 
         return np.array(self._observation)
 
-    def _step(self, action):
+    def step(self, action):
         self._robot.apply_action(action)
 
         self.do_simulation()
@@ -369,7 +369,7 @@ class Pusher3DofBulletEnv(BulletEnv):
             self.set_tgt_pos([tgt_pos[:self._pose_dof],
                               tgt_pos[-self._pose_dof:]])
 
-        super(Pusher3DofBulletEnv, self).reset()
+        super(Pusher3DofBulletEnv, self)._reset()
 
         # Replace init_cond with current state
         if condition is not None:

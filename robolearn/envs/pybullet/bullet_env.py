@@ -45,21 +45,21 @@ class BulletEnv(gym.Env):
         # Action Space
         low = np.array([bound[0] for bound in self.action_bounds])
         high = np.array([bound[1] for bound in self.action_bounds])
-        self.action_space = gym.spaces.Box(low, high)
+        self.action_space = gym.spaces.Box(low, high, dtype=np.float32)
 
         # Observation Space
         high = np.inf * np.ones([self._obs_dim])
         low = -high
-        self.observation_space = gym.spaces.Box(low, high)
+        self.observation_space = gym.spaces.Box(low, high, dtype=np.float32)
 
-        self._seed()
+        self.seed()
 
     def __del__(self):
         if hasattr(self, 'physicsClientId'):
             if self.physicsClientId >= 0:
                 pb.disconnect()
 
-    def _seed(self, seed=None):
+    def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         # use the same np_randomizer for robot as for env
         # self._robot.np_random = self.np_random
