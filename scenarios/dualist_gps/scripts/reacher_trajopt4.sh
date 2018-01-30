@@ -8,7 +8,7 @@ log_dir='trajopt_log4'
 
 seeds=(0 50 100)
 init_index=0
-end_index=1
+end_index=4
 
 # #### #
 # RUNS #
