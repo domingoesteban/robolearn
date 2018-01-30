@@ -54,7 +54,7 @@ class DualistTrajOpt(TrajOpt):
         else:
             self._traj_distr_kl_fcn = traj_distr_kl
 
-        self.LOGGER = logging.getLogger(__name__)
+        self.logger = logging.getLogger(__name__)
 
     # TODO - Add arg and return spec on this function.
     def update(self, m, algorithm):
@@ -112,13 +112,13 @@ class DualistTrajOpt(TrajOpt):
         omega_conv = convs[2]
 
         if eta_conv and nu_conv and omega_conv:
-            self.LOGGER.info("ALL DGD has converged.")
+            self.logger.info("ALL DGD has converged.")
         else:
-            self.LOGGER.info("ALL DGD has NOT converged.")
+            self.logger.info("ALL DGD has NOT converged.")
 
-        self.LOGGER.info('TODO: commenting a lot of stuff after this print')
+        self.logger.info('TODO: commenting a lot of stuff after this print')
         # if self.cons_per_step and not self._conv_check(con, kl_step):
-        #     self.LOGGER.info("IT DID NOT CONVERGED!!")
+        #     self.logger.info("IT DID NOT CONVERGED!!")
         #     m_b, v_b = np.zeros(T-1), np.zeros(T-1)
 
         #     for itr in range(DGD_MAX_GD_ITER):
@@ -133,7 +133,7 @@ class DualistTrajOpt(TrajOpt):
 
         #         con = kl_div - kl_step
         #         if self._conv_check(con, kl_step):
-        #             self.LOGGER.info("KL: %f / %f, converged iteration %d", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
+        #             self.logger.info("KL: %f / %f, converged iteration %d", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
         #                          itr)
         #             break
 
@@ -146,19 +146,19 @@ class DualistTrajOpt(TrajOpt):
         #                               self._hyperparams['max_eta'])
 
         #         if itr % 10 == 0:
-        #             self.LOGGER.info("avg KL: %f / %f, avg new eta: %f", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
+        #             self.logger.info("avg KL: %f / %f, avg new eta: %f", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
         #                          np.mean(eta[:-1]))
 
         if not eta_conv:
-            self.LOGGER.warning("Final KL_step divergence after "
+            self.logger.warning("Final KL_step divergence after "
                                 "DGD convergence is too high.")
 
         if not nu_conv:
-            self.LOGGER.warning("Final KL_bad divergence after "
+            self.logger.warning("Final KL_bad divergence after "
                                 "DGD convergence is too low.")
 
         if not omega_conv:
-            self.LOGGER.warning("Final KL_good divergence after "
+            self.logger.warning("Final KL_good divergence after "
                                 "DGD convergence is too high.")
 
         # # TODO: IMPROVE THIS
@@ -174,7 +174,7 @@ class DualistTrajOpt(TrajOpt):
         #     # For BADMM/trajopt, constrain to previous LG controller
         #     prev_traj_distr = algorithm.cur[m].traj_distr
         #
-        # self.LOGGER.info("TODO: Running backward AGAIN with dual_to_check "
+        # self.logger.info("TODO: Running backward AGAIN with dual_to_check "
         #                  "omega, to get traj_dist")
         # traj_distr, eta, omega, nu = self.backward(prev_traj_distr, traj_info,
         #                                            eta, omega, nu, algorithm, m,
@@ -392,7 +392,7 @@ class DualistTrajOpt(TrajOpt):
                 except LinAlgError as e:
                     # Error thrown when Qtt[idx_u, idx_u] is not
                     # symmetric positive definite (SPD).
-                    self.LOGGER.error('LinAlgError: %s', e)
+                    self.logger.error('LinAlgError: %s', e)
                     fail = t if self.cons_per_step else True
                     break
 
@@ -459,45 +459,45 @@ class DualistTrajOpt(TrajOpt):
                     if dual_to_check == 'eta':
                         old_eta = eta
                         eta = eta0 + del_
-                        self.LOGGER.info('Non-SPD Q: Increasing eta: %f -> %f',
+                        self.logger.info('Non-SPD Q: Increasing eta: %f -> %f',
                                          old_eta, eta)
                         del_ *= 2  # Increase del_ exponentially on failure.
                     elif dual_to_check == 'nu':
                         old_eta = eta
                         eta = eta0 + del_
-                        self.LOGGER.info('Non-SPD Q: Increasing eta: %f -> %f',
+                        self.logger.info('Non-SPD Q: Increasing eta: %f -> %f',
                                          old_eta, eta)
                         del_ *= 2  # Increase del_ exponentially on failure.
                         old_nu = nu
                         nu = nu0 - del_bad_
-                        self.LOGGER.info('Non-SPD Q: Decreasing nu: %f -> %f',
+                        self.logger.info('Non-SPD Q: Decreasing nu: %f -> %f',
                                          old_nu, nu)
                         del_bad_ *= 2  # Decrease del_ exponentially on failure.
                         old_omega = omega
                         omega = omega0 + del_good_
-                        self.LOGGER.info('Non-SPD Q: Increasing omega: %f -> %f',
+                        self.logger.info('Non-SPD Q: Increasing omega: %f -> %f',
                                          old_omega, omega)
                         del_good_ *= 2  # Decrease del_ exponentially on failure.
                     elif dual_to_check == 'nu2':
                         old_eta = eta
                         eta = eta0 + del_
-                        self.LOGGER.info('Non-SPD Q: Increasing eta: %f -> %f',
+                        self.logger.info('Non-SPD Q: Increasing eta: %f -> %f',
                                          old_eta, eta)
                         del_ *= 2  # Increase del_ exponentially on failure.
                         old_nu = nu
                         nu = nu0 - del_bad_
-                        self.LOGGER.info('Non-SPD Q: Decreasing nu: %f -> %f',
+                        self.logger.info('Non-SPD Q: Decreasing nu: %f -> %f',
                                          old_nu, nu)
                         del_bad_ *= 2  # Decrease del_ exponentially on failure.
                         #old_omega = omega
                         #omega = omega0 + del_good_
-                        # self.LOGGER.info('Non-SPD Q: Increasing omega: %f -> %f',
+                        # self.logger.info('Non-SPD Q: Increasing omega: %f -> %f',
                         #                  old_omega, omega)
                         #del_good_ *= 2  # Decrease del_ exponentially on failure.
                     elif dual_to_check == 'omega':
                         old_omega = omega
                         omega = omega0 + del_good_
-                        self.LOGGER.info('Non-SPD Q: Increasing omega: %f -> %f',
+                        self.logger.info('Non-SPD Q: Increasing omega: %f -> %f',
                                          old_omega, omega)
                         del_good_ *= 2  # Increase del_ exponentially on failure.
                     else:
@@ -508,29 +508,29 @@ class DualistTrajOpt(TrajOpt):
                     if dual_to_check == 'eta':
                         old_eta = eta[fail]
                         eta[fail] = eta0[fail] + del_[fail]
-                        self.LOGGER.info('Non-SPD Q: Increasing eta[%d]: %f -> %f',
+                        self.logger.info('Non-SPD Q: Increasing eta[%d]: %f -> %f',
                                          fail, old_eta, eta[fail])
                         del_[fail] *= 2  # Increase del_ exponentially on failure.
                     elif dual_to_check == 'nu':
                         old_eta = eta[fail]
                         eta[fail] = eta0[fail] + del_[fail]
-                        self.LOGGER.info('Increasing eta[%d]: %f -> %f',
+                        self.logger.info('Increasing eta[%d]: %f -> %f',
                                          fail, old_eta, eta[fail])
                         del_[fail] *= 2  # Increase del_ exponentially on failure.
                         # old_nu = nu[fail]
                         # nu[fail] = nu0[fail] - del_bad_[fail]
-                        # self.LOGGER.info('Decreasing nu[%d]: %f -> %f',
+                        # self.logger.info('Decreasing nu[%d]: %f -> %f',
                         #                  fail, old_nu, nu[fail])
                         # del_bad_[fail] *= 2  # Increase del_ exponentially on failure.
                         old_omega = omega[fail]
                         omega[fail] = omega0[fail] + del_good_[fail]
-                        self.LOGGER.info('Increasing omega[%d]: %f -> %f',
+                        self.logger.info('Increasing omega[%d]: %f -> %f',
                                          fail, old_omega, omega[fail])
                         del_good_[fail] *= 2  # Increase del_ exponentially on failure.
                     elif dual_to_check == 'omega':
                         old_omega = omega[fail]
                         omega[fail] = omega0[fail] + del_good_[fail]
-                        self.LOGGER.info('Increasing omega[%d]: %f -> %f',
+                        self.logger.info('Increasing omega[%d]: %f -> %f',
                                          fail, old_omega, omega[fail])
                         del_good_[fail] *= 2  # Increase del_ exponentially on failure.
                     else:
@@ -582,9 +582,10 @@ class DualistTrajOpt(TrajOpt):
         """
         step_tol = self._hyperparams['step_tol']
         if self.cons_per_step:
-            return all([abs(con[t]) < (step_tol*kl_step[t]) for t in range(con.size)])
+            return all([abs(con[t]) < (step_tol*kl_step[t])
+                        for t in range(con.size)])
 
-        self.LOGGER.info("Conv kl_step:%s | "
+        self.logger.info("Conv kl_step:%s | "
                          "abs(con) < %.1f*kl_step | "
                          "abs(%f) < %f | %f%%"
                          % (abs(con) < step_tol * kl_step,
@@ -598,9 +599,10 @@ class DualistTrajOpt(TrajOpt):
         """
         good_tol = self._hyperparams['good_tol']
         if self.cons_per_step:
-            return all([abs(con_good[t]) < (good_tol*kl_step_good[t]) for t in range(con_good.size)])
+            return all([abs(con_good[t]) < (good_tol*kl_step_good[t])
+                        for t in range(con_good.size)])
 
-        self.LOGGER.info("Conv kl_good:%s | "
+        self.logger.info("Conv kl_good:%s | "
                          "abs(con_good) < %.1f*kl_step_good | "
                          "abs(%f) < %f | %f%%"
                          % (abs(con_good) < good_tol * kl_step_good,
@@ -619,7 +621,7 @@ class DualistTrajOpt(TrajOpt):
             # return all([abs(con_bad[t]) < (bad_tol*kl_step_bad[t]) for t in range(con_bad.size)])
             return all([con_bad[t] <= 0 for t in range(con_bad.size)])
 
-        self.LOGGER.info("Conv kl_bad:%s | con_bad <= 0 | %f < %f | %f%%"
+        self.logger.info("Conv kl_bad:%s | con_bad <= 0 | %f < %f | %f%%"
                          % (con_bad < 0, con_bad, 0, con_bad*100/kl_step_bad))
 
         # return abs(con_bad) < bad_tol * kl_step_bad
@@ -649,8 +651,9 @@ class DualistTrajOpt(TrajOpt):
 
         # Set KL-divergence step size (epsilon) using step multiplier.
         kl_step = algorithm.base_kl_step * step_mult
-
+        # Set Good KL-divergence (chi) using bad step multiplier.
         kl_step_good = algorithm.base_kl_good * good_step_mult
+        # Set Bad KL-divergence (xi) using bad step multiplier.
         kl_step_bad = algorithm.base_kl_bad * bad_step_mult
 
         if not self.cons_per_step:
@@ -666,11 +669,11 @@ class DualistTrajOpt(TrajOpt):
             max_nu = self._hyperparams['max_nu']
             min_omega = self._hyperparams['min_omega']
             max_omega = self._hyperparams['max_omega']
-            self.LOGGER.info('_'*60)
-            self.LOGGER.info("Running DGD for traj[%d] | "
+            self.logger.info('_'*60)
+            self.logger.info("Running DGD for traj[%d] | "
                              "eta: %4f, nu: %4f, omega: %4f",
                              m, eta, nu, omega)
-            self.LOGGER.info('_'*60)
+            self.logger.info('_'*60)
         else:
             min_eta = np.ones(T) * self._hyperparams['min_eta']
             max_eta = np.ones(T) * self._hyperparams['max_eta']
@@ -678,12 +681,12 @@ class DualistTrajOpt(TrajOpt):
             max_nu = np.ones(T) * self._hyperparams['max_nu']
             min_omega = np.ones(T) * self._hyperparams['min_omega']
             max_omega = np.ones(T) * self._hyperparams['max_omega']
-            self.LOGGER.info('_'*60)
-            self.LOGGER.info("Running DGD for trajectory %d,"
+            self.logger.info('_'*60)
+            self.logger.info("Running DGD for trajectory %d,"
                              "avg eta: %f, avg nu: %f, avg omega: %f",
                              m, np.mean(eta[:-1]), np.mean(nu[:-1]),
                              np.mean(omega[:-1]))
-            self.LOGGER.info('_'*60)
+            self.logger.info('_'*60)
 
         # Less iterations if cons_per_step=True
         max_itr = (DGD_MAX_LS_ITER if self.cons_per_step else
@@ -691,25 +694,24 @@ class DualistTrajOpt(TrajOpt):
 
         # Run ALL GD
         for itr in range(max_itr):
-            self.LOGGER.info("-"*15)
-            self.LOGGER.info("ALL GD | iter %d| "
+            self.logger.info("-"*15)
+            self.logger.info("ALL DGD | iter %d| Current dual values: "
                              "eta %.2e, nu %.2e, omega %.2e"
                              % (itr, eta, nu, omega))
             if not self.cons_per_step:
-                self.LOGGER.info("ALL DGD iteration %d| "
+                self.logger.info("ALL DGD iteration %d| "
                                  "ETA bracket: (%.2e , %.2e , %.2e)",
                                  itr, min_eta, eta, max_eta)
-                self.LOGGER.info("ALL DGD iteration %d| "
+                self.logger.info("ALL DGD iteration %d| "
                                  "NU bracket: (%.2e , %.2e , %.2e)",
                                  itr, min_nu, nu, max_nu)
-                self.LOGGER.info("ALL DGD iteration %d| "
+                self.logger.info("ALL DGD iteration %d| "
                                  "OMEGA bracket: (%.2e , %.2e , %.2e)",
                                  itr, min_omega, omega, max_omega)
 
-            # Run fwd/bwd pass, note that eta may be updated.
-            # Compute KL divergence constraint violation.
+            # Run Bwd pass to optimize the traj distribution
             if self.consider_good and self.consider_bad:
-                self.LOGGER.info("Running ALL GD backward with "
+                self.logger.info("Running ALL GD backward with "
                                  "dual_to_check NU")
                 traj_distr, eta, omega, nu = \
                     self.backward(prev_traj_distr, traj_info,
@@ -717,38 +719,46 @@ class DualistTrajOpt(TrajOpt):
                                   # algorithm, m, dual_to_check='nu')
                                   algorithm, m, dual_to_check='eta')
             elif not self.consider_good and self.consider_bad:
-                self.LOGGER.info("Running ALL GD backward with "
+                self.logger.info("Running ALL GD backward with "
                                  "dual_to_check NU2")
                 traj_distr, eta, omega, nu = \
                     self.backward(prev_traj_distr, traj_info,
                                   eta, omega, nu,
-                                  algorithm, m, dual_to_check='nu2')
+                                  # algorithm, m, dual_to_check='nu2')
+                                  algorithm, m, dual_to_check='eta')
             elif self.consider_good and not self.consider_bad:
-                self.LOGGER.info("Running ALL GD backward with "
+                self.logger.info("Running ALL GD backward with "
                                  "dual_to_check OMEGA")
                 traj_distr, eta, omega, nu = \
                     self.backward(prev_traj_distr, traj_info,
                                   eta, omega, nu,
                                   algorithm, m, dual_to_check='omega')
             else:
-                self.LOGGER.info("Running ALL GD backward with "
+                self.logger.info("Running ALL GD backward with "
                                  "dual_to_check ETA")
                 traj_distr, eta, omega, nu = \
                     self.backward(prev_traj_distr, traj_info,
                                   eta, omega, nu,
                                   algorithm, m, dual_to_check='eta')
 
-            new_mu, new_sigma = self.forward(traj_distr, traj_info)
-            kl_div = self._traj_distr_kl_fcn(new_mu, new_sigma,
+            # Compute KL divergence constraint violation.
+            if not self._use_prev_distr:
+                traj_distr_to_check = traj_distr
+            else:
+                traj_distr_to_check = prev_traj_distr
+
+            mu_to_check, sigma_to_check = self.forward(traj_distr_to_check,
+                                                       traj_info)
+            kl_div = self._traj_distr_kl_fcn(mu_to_check, sigma_to_check,
                                              traj_distr, prev_traj_distr,
                                              tot=(not self.cons_per_step))
-            kl_div_bad = self._traj_distr_kl_fcn(new_mu, new_sigma,
+            kl_div_bad = self._traj_distr_kl_fcn(mu_to_check, sigma_to_check,
                                                  traj_distr, bad_traj_distr,
                                                  tot=(not self.cons_per_step))
-            kl_div_good = self._traj_distr_kl_fcn(new_mu, new_sigma,
+            kl_div_good = self._traj_distr_kl_fcn(mu_to_check, sigma_to_check,
                                                   traj_distr, good_traj_distr,
                                                   tot=(not self.cons_per_step))
-            self.LOGGER.info("Prev_KL_div(eta): %f | "
+            self.logger.info("Resulted KL divs: Prev_KL_div(eta): %f | "
                              "Bad_KL_div(nu): %f | "
                              "Good_KL_div(omega): %f"
                              % (kl_div, kl_div_bad, kl_div_good))
@@ -765,25 +775,25 @@ class DualistTrajOpt(TrajOpt):
             # ALL has converged
             if eta_conv and nu_conv and omega_conv:
                 if not self.cons_per_step:
-                    self.LOGGER.info("KL_epsilon: %f <= %f, "
+                    self.logger.info("KL_epsilon: %f <= %f, "
                                      "converged iteration %d",
                                      kl_div, kl_step, itr)
-                    self.LOGGER.info("KL_nu: %f >= %f, "
+                    self.logger.info("KL_nu: %f >= %f, "
                                      "converged iteration %d",
                                      kl_div_bad, kl_step_bad, itr)
-                    self.LOGGER.info("KL_omega: %f <= %f, "
+                    self.logger.info("KL_omega: %f <= %f, "
                                      "converged iteration %d",
                                      kl_div_good, kl_step_good, itr)
                 else:
-                    self.LOGGER.info("KL_epsilon: %f <= %f, "
+                    self.logger.info("KL_epsilon: %f <= %f, "
                                      "converged iteration %d",
                                      np.mean(kl_div[:-1]),
                                      np.mean(kl_step[:-1]), itr)
-                    self.LOGGER.info("KL_nu: %f >= %f, "
+                    self.logger.info("KL_nu: %f >= %f, "
                                      "converged iteration %d",
                                      np.mean(kl_div_bad[:-1]),
                                      np.mean(kl_step_bad[:-1]), itr)
-                    self.LOGGER.info("KL_omega: %f <= %f, "
+                    self.logger.info("KL_omega: %f <= %f, "
                                      "converged iteration %d",
                                      np.mean(kl_div_good[:-1]),
                                      np.mean(kl_step_good[:-1]), itr)
@@ -812,19 +822,19 @@ class DualistTrajOpt(TrajOpt):
                 else:
                     break_3 = False
                 if break_1 and break_2 and break_3:
-                    self.LOGGER.info("Breaking DGD because it has converged or "
+                    self.logger.info("Breaking DGD because it has converged or "
                                      "is stuck")
                     break
 
             if not self.cons_per_step:
                 # Choose new eta (bisect bracket or multiply by constant)
                 if not eta_conv:
-                    self.LOGGER.info("")
+                    self.logger.info("")
                     if con < 0:  # Eta was too big.
                         max_eta = eta
                         geom = np.sqrt(min_eta*max_eta)  # Geometric mean.
                         new_eta = max(geom, 0.1*max_eta)
-                        self.LOGGER.info("Modifying ETA | "
+                        self.logger.info("Modifying ETA | "
                                          "KL: %f <= %f, eta too big, "
                                          "new eta: %.3e",
                                          kl_div, kl_step, new_eta)
@@ -832,23 +842,23 @@ class DualistTrajOpt(TrajOpt):
                         min_eta = eta
                         geom = np.sqrt(min_eta*max_eta)  # Geometric mean.
                         new_eta = min(geom, 10.0*min_eta)
-                        self.LOGGER.info("Modifying ETA | "
+                        self.logger.info("Modifying ETA | "
                                          "KL: %f <= %f, eta too small, "
                                          "new eta: %.3e",
                                          kl_div, kl_step, new_eta)
                 else:
-                    self.LOGGER.info("NOT modifying ETA")
+                    self.logger.info("NOT modifying ETA")
                     new_eta = eta
 
                 # Choose new nu (bisect bracket or multiply by constant)
-                self.LOGGER.info("consider_bad: %s" % self.consider_bad)
+                self.logger.info("consider_bad: %s" % self.consider_bad)
                 if self.consider_bad and not nu_conv:
                     if con_bad < 0:  # Nu was too big.
                         max_nu = nu
                         geom = np.sqrt(min_nu*max_nu)  # Geometric mean.
                         #new_nu = max(geom, 0.1*max_nu)
                         new_nu = max(geom, 0.025*max_nu)
-                        self.LOGGER.info("Modifying NU |"
+                        self.logger.info("Modifying NU |"
                                          "KL: %f >= %f, nu too big, "
                                          "new nu: %.3e",
                                          kl_div_bad, kl_step_bad, new_nu)
@@ -857,22 +867,22 @@ class DualistTrajOpt(TrajOpt):
                         geom = np.sqrt(min_nu*max_nu)  # Geometric mean.
                         #new_nu = min(geom, 10.0*min_nu)
                         new_nu = min(geom, 2.5*min_nu)
-                        self.LOGGER.info("Modifying NU |"
+                        self.logger.info("Modifying NU |"
                                          "KL: %f >= %f, nu too small, "
                                          "new nu: %.3e",
                                          kl_div_bad, kl_step_bad, new_nu)
                 else:
-                    self.LOGGER.info("NOT modifying NU")
+                    self.logger.info("NOT modifying NU")
                     new_nu = nu
 
                 # Choose new omega (bisect bracket or multiply by constant)
-                self.LOGGER.info("consider_good: %s" % self.consider_good)
+                self.logger.info("consider_good: %s" % self.consider_good)
                 if self.consider_good and not omega_conv:
                     if con_good < 0:  # Nu was too big.
                         max_omega = omega
                         geom = np.sqrt(min_omega*max_omega)  # Geometric mean.
                         new_omega = max(geom, 0.1*max_omega)
-                        self.LOGGER.info("Modifying OMEGA | "
+                        self.logger.info("Modifying OMEGA | "
                                          "KL: %f <= %f, omega too big, "
                                          "new omega: %.3e",
                                          kl_div_good, kl_step_good, new_omega)
@@ -880,12 +890,12 @@ class DualistTrajOpt(TrajOpt):
                         min_omega = omega
                         geom = np.sqrt(min_omega*max_omega)  # Geometric mean.
                         new_omega = min(geom, 10.0*min_omega)
-                        self.LOGGER.info("Modifying OMEGA | "
+                        self.logger.info("Modifying OMEGA | "
                                          "KL: %f <= %f, omega too small, "
                                          "new omega: %.3e",
                                          kl_div_good, kl_step_good, new_omega)
                 else:
-                    self.LOGGER.info("NOT modifying OMEGA")
+                    self.logger.info("NOT modifying OMEGA")
                     new_omega = omega
 
                 # Logarithmic mean: log_mean(x,y) = (y - x)/(log(y) - log(x))
@@ -909,34 +919,34 @@ class DualistTrajOpt(TrajOpt):
                 #         geom = np.sqrt(min_eta[t]*max_eta[t])  # Geometric mean.
                 #         eta[t] = min(geom, 10.0*min_eta[t])
                 # if itr % 10 == 0:
-                #     self.LOGGER.info("avg KL: %f <= %f, avg new eta: %.3e", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
+                #     self.logger.info("avg KL: %f <= %f, avg new eta: %.3e", np.mean(kl_div[:-1]), np.mean(kl_step[:-1]),
                 #                  np.mean(eta[:-1]))
 
-            self.LOGGER.info('eta_conv %s: kl_div < epsilon (%f < %f) | %f%%'
+            self.logger.info('eta_conv %s: kl_div < epsilon (%f < %f) | %f%%'
                              % (eta_conv, kl_div, kl_step,
                                 abs(con*100/kl_step)))
-            self.LOGGER.info('nu_conv %s: kl_div > xi (%f > %f) | %f%%'
+            self.logger.info('nu_conv %s: kl_div > xi (%f > %f) | %f%%'
                              % (nu_conv, kl_div_bad, kl_step_bad,
                                 abs(con_bad*100/kl_step_bad)))
-            self.LOGGER.info('omega_conv %s: kl_div < chi (%f < %f) | %f%%'
+            self.logger.info('omega_conv %s: kl_div < chi (%f < %f) | %f%%'
                              % (omega_conv, kl_div_good, kl_step_good,
                                 abs(con_good*100/kl_step_good)))
 
-        self.LOGGER.info('_'*40)
-        self.LOGGER.info('FINAL VALUES at itr %d || '
+        self.logger.info('_'*40)
+        self.logger.info('FINAL VALUES at itr %d || '
                          'eta: %f | nu: %f | omega: %f'
                          % (itr, eta, nu, omega))
-        self.LOGGER.info('eta_conv %s: kl_div < epsilon (%f < %f) | %f%%'
+        self.logger.info('eta_conv %s: kl_div < epsilon (%f < %f) | %f%%'
                          % (eta_conv, kl_div, kl_step, abs(con*100/kl_step)))
-        self.LOGGER.info('nu_conv %s: kl_div > xi (%f > %f) | %f%%'
+        self.logger.info('nu_conv %s: kl_div > xi (%f > %f) | %f%%'
                          % (nu_conv, kl_div_bad, kl_step_bad,
                             abs(con_bad*100/kl_step_bad)))
-        self.LOGGER.info('omega_conv %s: kl_div < chi (%f < %f) | %f%%'
+        self.logger.info('omega_conv %s: kl_div < chi (%f < %f) | %f%%'
                          % (omega_conv, kl_div_good, kl_step_good,
                             abs(con_good*100/kl_step_good)))
 
         if itr + 1 == max_itr:
-            self.LOGGER.info("After %d iterations for ETA, NU, OMEGA,"
+            self.logger.info("After %d iterations for ETA, NU, OMEGA,"
                              "the constraints have not been satisfied.", itr)
 
         if not self.consider_bad:
@@ -949,10 +959,10 @@ class DualistTrajOpt(TrajOpt):
 
     def lagrangian_function(self, duals, algorithm, m):
         input("LAGRANGIAN FUNCT")
-        self.LOGGER.info(duals)
+        self.logger.info(duals)
         return np.sum(duals)
 
     def lagrangian_gradient(self, duals, algorithm, m):
         input("LAGRANGIAN GRADIENT")
-        self.LOGGER.info(duals)
+        self.logger.info(duals)
         return np.sum(duals)

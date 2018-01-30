@@ -99,6 +99,7 @@ def main():
         successful = scenario.test_policy(iteration=args.itr,
                                           condition=args.cond,
                                           pol_type=pol_type)
+        input("Press a key to close the script")
     else:
         raise ValueError('Wrong script option')
 
@@ -108,7 +109,7 @@ def main():
         print('#'*40)
     else:
         print('The script has NOT finished successfully!!!')
-    input("Press a key to close the script")
+
 
 
 if __name__ == '__main__':
