@@ -114,6 +114,12 @@ class DualistTrajOpt(TrajOpt):
         omega = res.x[2]
         print('MINIMIZE SOLUTIONS:', eta, nu, omega)
 
+        if self.consider_good is False:
+            omega *= 0
+
+        if self.consider_bad is False:
+            nu *= 0
+
         traj_distr, duals, convs = \
             self._gradient_descent_all(algorithm, m, eta, nu, omega,
                                        opt_eta=False,
@@ -123,6 +129,12 @@ class DualistTrajOpt(TrajOpt):
         nu = duals[1]
         omega = duals[2]
         print('NEW SOLS:', eta, nu, omega)
+
+        if self.consider_good is False:
+            omega *= 0
+
+        if self.consider_bad is False:
+            nu *= 0
 
         init_duals = np.array([eta, nu, omega])
         res = minimize(self.lagrangian_function, init_duals,
