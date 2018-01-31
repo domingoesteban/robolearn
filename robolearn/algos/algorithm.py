@@ -83,10 +83,10 @@ class Algorithm(object):
         logger.setLevel(level)
         logger.addHandler(fileHandler)
 
-        # if also_screen:
-        #     streamHandler = logging.StreamHandler()
-        #     streamHandler.setFormatter(formatter)
-        #     l.addHandler(streamHandler)
+        if also_screen:
+            streamHandler = logging.StreamHandler()
+            streamHandler.setFormatter(formatter)
+            logger.addHandler(streamHandler)
 
         return logger
 
