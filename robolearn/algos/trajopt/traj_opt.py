@@ -59,6 +59,13 @@ class TrajOpt(Algorithm):
         self.noise_data = np.zeros((self.max_iterations, self.M,
                                     self._hyperparams['num_samples'],
                                     self.T, self.dU))
+
+        print('%%%%%%%%%%%%%%%%%%%%%%%555')
+        print('%%%%%%%%%%%%%%%%%%%%%%%555')
+        print('TODO: WE ARE SETTING MANUALLY THE SEED')
+        print('%%%%%%%%%%%%%%%%%%%%%%%555')
+        np.random.seed(0)
+
         if self._hyperparams['noisy_samples']:
             for ii in range(self.max_iterations):
                 for cond in range(self.M):

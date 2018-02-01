@@ -138,17 +138,17 @@ class DualTrajOpt(TrajOpt, Dualism):
         # Prepare everything for next iteration
         self._advance_iteration_variables()
 
-    def compute_traj_cost(self, cond, eta, omega, nu, augment=True):
+    def compute_traj_cost(self, cond, eta, nu, omega, augment=True):
         """
         Compute cost estimates used in the LQR backward pass.
 
         :param cond: Number of condition
         :param eta: Dual variable corresponding to KL divergence with
                     previous policy.
-        :param omega: Dual variable(s) corresponding to KL divergence with
-                      good trajectories.
         :param nu: Dual variable(s) corresponding to KL divergence with
                    bad trajectories.
+        :param omega: Dual variable(s) corresponding to KL divergence with
+                      good trajectories.
         :param augment: True if we want a KL constraint for all time-steps.
                         False otherwise. True for MDGPS
         :return: Cm and cv
@@ -200,6 +200,23 @@ class DualTrajOpt(TrajOpt, Dualism):
             fCm[t, :, :] += PKLm[t, :, :] * eta / divisor
             fcv[t, :] += PKLv[t, :] * eta / divisor
 
+        # Subtract in the KL divergence with bad trajectories.
+        for t in range(self.T-1, -1, -1):
+            # Bad KL-divergence terms.
+            inv_pol_S = bad_distr.inv_pol_covar[t, :, :]
+            KB = bad_distr.K[t, :, :]
+            kB = bad_distr.k[t, :]
+
+            PKLm[t, :, :] = np.vstack([
+                np.hstack([KB.T.dot(inv_pol_S).dot(KB), -KB.T.dot(inv_pol_S)]),
+                np.hstack([-inv_pol_S.dot(KB), inv_pol_S])
+            ])
+            PKLv[t, :] = np.concatenate([
+                KB.T.dot(inv_pol_S).dot(kB), -inv_pol_S.dot(kB)
+            ])
+            fCm[t, :, :] -= PKLm[t, :, :] * nu / divisor
+            fcv[t, :] -= PKLv[t, :] * nu / divisor
+
         # Add in the KL divergence with good trajectories.
         for t in range(self.T-1, -1, -1):
             # Good KL-divergence terms.
@@ -216,23 +233,6 @@ class DualTrajOpt(TrajOpt, Dualism):
             ])
             fCm[t, :, :] += PKLm[t, :, :] * omega / divisor
             fcv[t, :] += PKLv[t, :] * omega / divisor
-
-        # Subtract in the KL divergence with bad trajectories.
-        for t in range(self.T-1, -1, -1):
-            # Bad KL-divergence terms.
-            inv_pol_S = bad_distr.inv_pol_covar[t, :, :]
-            KB = bad_distr.K[t, :, :]
-            kB = bad_distr.k[t, :]
-
-            PKLm[t, :, :] = np.vstack([
-                np.hstack([KB.T.dot(inv_pol_S).dot(KB), -KB.T.dot(inv_pol_S)]),
-                np.hstack([-inv_pol_S.dot(KB), inv_pol_S])
-            ])
-            PKLv[t, :] = np.concatenate([
-                KB.T.dot(inv_pol_S).dot(kB), -inv_pol_S.dot(kB)
-            ])
-            fCm[t, :, :] -= PKLm[t, :, :] * omega / divisor
-            fcv[t, :] -= PKLv[t, :] * omega / divisor
 
         return fCm, fcv
 
@@ -280,8 +280,8 @@ class DualTrajOpt(TrajOpt, Dualism):
             traj_opt_outputs = self.traj_opt.update(cond, self)
             self.new_traj_distr[cond] = traj_opt_outputs[0]
             self.cur[cond].eta = traj_opt_outputs[1]
-            self.cur[cond].omega = traj_opt_outputs[2]
-            self.cur[cond].nu = traj_opt_outputs[3]
+            self.cur[cond].nu = traj_opt_outputs[2]
+            self.cur[cond].omega = traj_opt_outputs[3]
 
     def _advance_iteration_variables(self):
         """

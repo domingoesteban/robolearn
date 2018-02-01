@@ -512,8 +512,8 @@ class DualGPS(Algorithm, Dualism):
             traj_opt_outputs = self.traj_opt.update(cond, self)
             self.new_traj_distr[cond] = traj_opt_outputs[0]
             self.cur[cond].eta = traj_opt_outputs[1]
-            self.cur[cond].omega = traj_opt_outputs[2]
-            self.cur[cond].nu = traj_opt_outputs[3]
+            self.cur[cond].nu = traj_opt_outputs[2]
+            self.cur[cond].omega = traj_opt_outputs[3]
 
     def compute_traj_cost_OLD(self, cond, eta, omega, nu, augment=True):
         """
