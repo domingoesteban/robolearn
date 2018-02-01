@@ -93,8 +93,8 @@ class DualistTrajOpt(TrajOpt):
         traj_distr, duals, convs = \
             self._gradient_descent_all(algorithm, m, eta, nu, omega,
                                        opt_eta=True,
-                                       opt_nu=True,
-                                       opt_omega=True)
+                                       opt_nu=self.consider_bad,
+                                       opt_omega=self.consider_good)
         eta = duals[0]
         nu = duals[1]
         omega = duals[2]
