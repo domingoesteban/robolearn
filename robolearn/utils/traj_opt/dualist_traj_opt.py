@@ -21,7 +21,7 @@ print_DGD_log = False
 MAX_ALL_DGD = 20
 DGD_MAX_ITER = 50
 DGD_MAX_LS_ITER = 20
-DGD_MAX_GD_ITER = 20#500 #200
+DGD_MAX_GD_ITER = 50  #500 #200
 
 ALPHA, BETA1, BETA2, EPS = 0.005, 0.9, 0.999, 1e-8  # Adam parameters
 
@@ -100,11 +100,9 @@ class DualistTrajOpt(TrajOpt):
         state_to_plot = 6
         mu_to_plot = 6
 
-
-        plt.plot(np.array(range(T)), samples[0, :, state_to_plot], color='brown')
-        plt.plot(np.array(range(T)), samples[1, :, state_to_plot], color='brown')
-        plt.plot(np.array(range(T)), samples[2, :, state_to_plot], color='brown')
-        plt.plot(np.array(range(T)), samples[3, :, state_to_plot], color='brown')
+        for ss in range(samples.shape[0]):
+            plt.plot(np.array(range(T)), samples[ss, :, state_to_plot],
+                     color='brown')
 
 
         # INITIAL
@@ -123,16 +121,16 @@ class DualistTrajOpt(TrajOpt):
         print('%'*30)
         print('\n'*5)
 
-        # Dual Gradient Descent
-        # traj_distr, duals, convs = \
-        #     self._gradient_descent_all(algorithm, m, eta, 0, 0,
-        #                                opt_eta=True,
-        #                                opt_nu=False,
-        #                                opt_omega=False)
-        traj_distr, duals, convs = \
-            self._adam_all(algorithm, m, eta, 0, 0,
-                           opt_eta=True, opt_nu=False, opt_omega=False, alpha=0.2)
-        mu1, sigma1 = self.forward(traj_distr, traj_info)
+        # Eta
+        traj_distr1, duals, convs = \
+            self._gradient_descent_all(algorithm, m, eta, 0, 0,
+                                       opt_eta=True,
+                                       opt_nu=False,
+                                       opt_omega=False)
+        # traj_distr1, duals, convs = \
+        #     self._adam_all(algorithm, m, eta, 0, 0,
+        #                    opt_eta=True, opt_nu=False, opt_omega=False, alpha=0.2)
+        mu1, sigma1 = self.forward(traj_distr1, traj_info)
         plt.plot(mu1[:, mu_to_plot], color='blue', label='only_eta')
         # plt.fill_between(np.array(range(T)),
         #                  mu1[:, mu_to_plot] - 3*sigma1[:, mu_to_plot, mu_to_plot],
@@ -146,109 +144,112 @@ class DualistTrajOpt(TrajOpt):
         # nu_conv = convs[1]
         # omega_conv = convs[2]
 
-        print('%'*30)
-        print('\n'*8)
-
-        # DUAL
-        # traj_distr, duals, convs = \
-        #     self._gradient_descent_all(algorithm, m, eta, nu, omega,
-        #                                opt_eta=True,
-        #                                opt_nu=True,
-        #                                opt_omega=True)
-        traj_distr, duals, convs = \
-            self._adam_all(algorithm, m, eta, nu, omega,
-                           opt_eta=True, opt_nu=True, opt_omega=True, alpha=0.2)
-        mu2, sigma2 = self.forward(traj_distr, traj_info)
-        plt.plot(mu2[:, mu_to_plot], color='purple', label='dual')
-        # plt.fill_between(np.array(range(T)),
-        #                  mu2[:, mu_to_plot] - 3*sigma2[:, mu_to_plot, mu_to_plot],
-        #                  mu2[:, mu_to_plot] + 3*sigma2[:, mu_to_plot, mu_to_plot],
-        #                  alpha=0.3, color='purple')
+        # print('%'*30)
+        # print('\n'*8)
+        # # DUAL
+        # # traj_distr2, duals, convs = \
+        # #     self._gradient_descent_all(algorithm, m, eta, nu, omega,
+        # #                                opt_eta=True,
+        # #                                opt_nu=True,
+        # #                                opt_omega=True)
+        # traj_distr2, duals, convs = \
+        #     self._adam_all(algorithm, m, eta, nu, omega,
+        #                    opt_eta=True, opt_nu=True, opt_omega=True, alpha=0.2)
+        # mu2, sigma2 = self.forward(traj_distr2, traj_info)
+        # plt.plot(mu2[:, mu_to_plot], color='purple', label='dual')
+        # # plt.fill_between(np.array(range(T)),
+        # #                  mu2[:, mu_to_plot] - 3*sigma2[:, mu_to_plot, mu_to_plot],
+        # #                  mu2[:, mu_to_plot] + 3*sigma2[:, mu_to_plot, mu_to_plot],
+        # #                  alpha=0.3, color='purple')
 
         print('%'*30)
         print('\n'*8)
         # Bad
-        # traj_distr, duals, convs = \
-        #     self._gradient_descent_all(algorithm, m, 0, nu, 0,
-        #                                opt_eta=False,
-        #                                opt_nu=True,
-        #                                opt_omega=False)
-        traj_distr, duals, convs = \
-            self._adam_all(algorithm, m, 0, nu, 0,
-                           opt_eta=False, opt_nu=True, opt_omega=False, alpha=0.2)
-        mu3, sigma3 = self.forward(traj_distr, traj_info)
+        traj_distr3, duals, convs = \
+            self._gradient_descent_all(algorithm, m, 0, nu, 0,
+                                       opt_eta=False,
+                                       opt_nu=True,
+                                       opt_omega=False)
+        # traj_distr3, duals, convs = \
+        #     self._adam_all(algorithm, m, 0, nu, 0,
+        #                    opt_eta=False, opt_nu=True, opt_omega=False, alpha=0.2)
+        mu3, sigma3 = self.forward(traj_distr3, traj_info)
         plt.plot(mu3[:, mu_to_plot], color='red', label='bad')
         # plt.fill_between(np.array(range(T)),
         #                  mu3[:, mu_to_plot] - 3*sigma3[:, mu_to_plot, mu_to_plot],
         #                  mu3[:, mu_to_plot] + 3*sigma3[:, mu_to_plot, mu_to_plot],
         #                  alpha=0.3, color='red')
 
-        print('%'*30)
-        print('\n'*8)
-        # Good
-        # traj_distr, duals, convs = \
-        #     self._gradient_descent_all(algorithm, m, 0, 0, omega,
-        #                                opt_eta=False,
-        #                                opt_nu=False,
-        #                                opt_omega=True)
-        traj_distr, duals, convs = \
-            self._adam_all(algorithm, m, 0, 0, omega,
-                           opt_eta=False, opt_nu=False, opt_omega=True, alpha=0.2)
-        mu4, sigma4 = self.forward(traj_distr, traj_info)
-        plt.plot(mu4[:, mu_to_plot], color='green', label='good')
-        # plt.fill_between(np.array(range(T)),
-        #                  mu4[:, mu_to_plot] - 3*sigma4[:, mu_to_plot, mu_to_plot],
-        #                  mu4[:, mu_to_plot] + 3*sigma4[:, mu_to_plot, mu_to_plot],
-        #                  alpha=0.3, color='green')
+        # print('%'*30)
+        # print('\n'*8)
+        # # Good
+        # # traj_distr4, duals, convs = \
+        # #     self._gradient_descent_all(algorithm, m, 0, 0, omega,
+        # #                                opt_eta=False,
+        # #                                opt_nu=False,
+        # #                                opt_omega=True)
+        # traj_distr4, duals, convs = \
+        #     self._adam_all(algorithm, m, 0, 0, omega,
+        #                    opt_eta=False, opt_nu=False, opt_omega=True, alpha=0.2)
+        # mu4, sigma4 = self.forward(traj_distr4, traj_info)
+        # plt.plot(mu4[:, mu_to_plot], color='green', label='good')
+        # # plt.fill_between(np.array(range(T)),
+        # #                  mu4[:, mu_to_plot] - 3*sigma4[:, mu_to_plot, mu_to_plot],
+        # #                  mu4[:, mu_to_plot] + 3*sigma4[:, mu_to_plot, mu_to_plot],
+        # #                  alpha=0.3, color='green')
 
-        print('%'*30)
-        print('\n'*8)
-        # Bad+step
-        # traj_distr, duals, convs = \
-        #     self._gradient_descent_all(algorithm, m, eta, nu, 0,
-        #                                opt_eta=True,
-        #                                opt_nu=True,
-        #                                opt_omega=False)
-        traj_distr, duals, convs = \
+        # print('%'*30)
+        # print('\n'*8)
+        # # Bad+step
+        # # traj_distr5, duals, convs = \
+        # #     self._gradient_descent_all(algorithm, m, eta, nu, 0,
+        # #                                opt_eta=True,
+        # #                                opt_nu=True,
+        # #                                opt_omega=False)
+        traj_distr5, duals, convs = \
             self._adam_all(algorithm, m, eta, nu, 0,
                            opt_eta=True, opt_nu=True, opt_omega=False, alpha=0.2)
-        mu5, sigma5 = self.forward(traj_distr, traj_info)
+        mu5, sigma5 = self.forward(traj_distr5, traj_info)
         plt.plot(mu5[:, mu_to_plot], color='magenta', label='bad-2')
         # plt.fill_between(np.array(range(T)),
         #                  mu5[:, mu_to_plot] - 3*sigma5[:, mu_to_plot, mu_to_plot],
         #                  mu5[:, mu_to_plot] + 3*sigma5[:, mu_to_plot, mu_to_plot],
         #                  alpha=0.3, color='magenta')
 
-        print('%'*30)
-        print('\n'*8)
-        # Good+step
-        # traj_distr, duals, convs = \
-        #     self._gradient_descent_all(algorithm, m, eta, 0, omega,
-        #                                opt_eta=True,
-        #                                opt_nu=False,
-        #                                opt_omega=True)
-        traj_distr, duals, convs = \
-            self._adam_all(algorithm, m, eta, 0, omega,
-                           opt_eta=True, opt_nu=False, opt_omega=True, alpha=0.2)
-        mu6, sigma6 = self.forward(traj_distr, traj_info)
-        plt.plot(mu6[:, mu_to_plot], color='grey', label='good-2')
+        # print('%'*30)
+        # print('\n'*8)
+        # # Good+step
+        # # traj_distr7, duals, convs = \
+        # #     self._gradient_descent_all(algorithm, m, eta, 0, omega,
+        # #                                opt_eta=True,
+        # #                                opt_nu=False,
+        # #                                opt_omega=True)
+        # traj_distr7, duals, convs = \
+        #     self._adam_all(algorithm, m, eta, 0, omega,
+        #                    opt_eta=True, opt_nu=False, opt_omega=True, alpha=0.2)
+        # mu6, sigma6 = self.forward(traj_distr7, traj_info)
+        # plt.plot(mu6[:, mu_to_plot], color='grey', label='good-2')
+        # # plt.fill_between(np.array(range(T)),
+        # #                  mu6[:, mu_to_plot] - 3*sigma6[:, mu_to_plot, mu_to_plot],
+        # #                  mu6[:, mu_to_plot] + 3*sigma6[:, mu_to_plot, mu_to_plot],
+        # #                  alpha=0.3, color='grey')
+
+        traj_distr8 = copy.deepcopy(traj_distr1)
+        traj_distr8.K = np.mean( np.array([traj_distr1.K, traj_distr3.K]), axis=0)
+        traj_distr8.k = np.mean( np.array([traj_distr1.k, traj_distr3.k]), axis=0)
+
+        mu8, sigma8 = self.forward(traj_distr8, traj_info)
+        plt.plot(mu8[:, mu_to_plot], color='orange', label='AVGbad-eta')
         # plt.fill_between(np.array(range(T)),
-        #                  mu6[:, mu_to_plot] - 3*sigma6[:, mu_to_plot, mu_to_plot],
-        #                  mu6[:, mu_to_plot] + 3*sigma6[:, mu_to_plot, mu_to_plot],
-        #                  alpha=0.3, color='grey')
-
-        import datetime
-        now = datetime.datetime.now()
-        title = str(now.hour)+'-'+str(now.minute)+'-'+str(now.second)
-
-        plt.title(title)
-
+        #                  mu8[:, mu_to_plot] - 3*sigma8[:, mu_to_plot, mu_to_plot],
+        #                  mu8[:, mu_to_plot] + 3*sigma8[:, mu_to_plot, mu_to_plot],
+        #                  alpha=0.3, color='orange')
 
         plt.legend(loc='center left', shadow=False)
 
         plt.show(block=True)
-        
         """
+
 
         # Minimization
         min_eta = self._hyperparams['min_eta']
@@ -273,11 +274,14 @@ class DualistTrajOpt(TrajOpt):
         eta = result.x[0]
         nu = result.x[1]
         omega = result.x[2]
+        # traj_distr, duals, convs = \
+        #     self._gradient_descent_all(algorithm, m, eta, nu, omega,
+        #                                opt_eta=False,
+        #                                opt_nu=False,
+        #                                opt_omega=False)
         traj_distr, duals, convs = \
-            self._gradient_descent_all(algorithm, m, eta, nu, omega,
-                                       opt_eta=False,
-                                       opt_nu=False,
-                                       opt_omega=False)
+            self._adam_all(algorithm, m, eta, nu, omega,
+                           opt_eta=True, opt_nu=False, opt_omega=False)
 
 
         # # Dual Gradient Descent
