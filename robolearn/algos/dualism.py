@@ -323,7 +323,7 @@ class Dualism(object):
                 max_rel_diff = self._hyperparams['algo_hyperparams']['max_rel_diff']
                 mult_rel_diff = self._hyperparams['algo_hyperparams']['mult_rel_diff']
 
-                rel_difference = max(min(rel_difference, min_rel_diff),
+                rel_difference = min(max(rel_difference, min_rel_diff),
                                         max_rel_diff)
                 rel_difference = mult_rel_diff*rel_difference
 
