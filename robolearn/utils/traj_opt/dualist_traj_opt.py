@@ -21,7 +21,7 @@ print_DGD_log = False
 MAX_ALL_DGD = 20
 DGD_MAX_ITER = 50
 DGD_MAX_LS_ITER = 20
-DGD_MAX_GD_ITER = 200
+DGD_MAX_GD_ITER = 20#500 #200
 
 ALPHA, BETA1, BETA2, EPS = 0.005, 0.9, 0.999, 1e-8  # Adam parameters
 
@@ -89,37 +89,233 @@ class DualistTrajOpt(TrajOpt):
         if self.consider_bad is False:
             nu *= 0
 
+        """
+        import matplotlib.pyplot as plt
+        T = algorithm.T
+        traj_info = algorithm.cur[m].traj_info
+
+        sample_list = algorithm.cur[m].sample_list
+        samples = sample_list.get_states()
+        # samples = sample_list.get_actions()
+        state_to_plot = 6
+        mu_to_plot = 6
+
+
+        plt.plot(np.array(range(T)), samples[0, :, state_to_plot], color='brown')
+        plt.plot(np.array(range(T)), samples[1, :, state_to_plot], color='brown')
+        plt.plot(np.array(range(T)), samples[2, :, state_to_plot], color='brown')
+        plt.plot(np.array(range(T)), samples[3, :, state_to_plot], color='brown')
+
+
+        # INITIAL
+        traj_distr = algorithm.cur[m].traj_distr
+        mu0, sigma0 = self.forward(traj_distr, traj_info)
+        plt.plot(mu0[:, mu_to_plot], color='black', label='initial')
+        plt.fill_between(np.array(range(T)),
+                         mu0[:, mu_to_plot] - 3*sigma0[:, mu_to_plot, mu_to_plot],
+                         mu0[:, mu_to_plot] + 3*sigma0[:, mu_to_plot, mu_to_plot],
+                         alpha=0.3, color='black')
+        print("AYUDAMEEEEE1:", sigma0[:, state_to_plot, state_to_plot])
+        print("AYUDAMEEEEE2:", sigma0[:, state_to_plot+1, state_to_plot+1])
+        print("AYUDAMEEEEE3:", sigma0[:, state_to_plot+2, state_to_plot+3])
+
+
+        print('%'*30)
+        print('\n'*5)
+
         # Dual Gradient Descent
+        # traj_distr, duals, convs = \
+        #     self._gradient_descent_all(algorithm, m, eta, 0, 0,
+        #                                opt_eta=True,
+        #                                opt_nu=False,
+        #                                opt_omega=False)
+        traj_distr, duals, convs = \
+            self._adam_all(algorithm, m, eta, 0, 0,
+                           opt_eta=True, opt_nu=False, opt_omega=False, alpha=0.2)
+        mu1, sigma1 = self.forward(traj_distr, traj_info)
+        plt.plot(mu1[:, mu_to_plot], color='blue', label='only_eta')
+        # plt.fill_between(np.array(range(T)),
+        #                  mu1[:, mu_to_plot] - 3*sigma1[:, mu_to_plot, mu_to_plot],
+        #                  mu1[:, mu_to_plot] + 3*sigma1[:, mu_to_plot, mu_to_plot],
+        #                  alpha=0.3, color='blue')
+
+        # eta = duals[0]
+        # nu = duals[1]
+        # omega = duals[2]
+        # eta_conv = convs[0]
+        # nu_conv = convs[1]
+        # omega_conv = convs[2]
+
+        print('%'*30)
+        print('\n'*8)
+
+        # DUAL
+        # traj_distr, duals, convs = \
+        #     self._gradient_descent_all(algorithm, m, eta, nu, omega,
+        #                                opt_eta=True,
+        #                                opt_nu=True,
+        #                                opt_omega=True)
+        traj_distr, duals, convs = \
+            self._adam_all(algorithm, m, eta, nu, omega,
+                           opt_eta=True, opt_nu=True, opt_omega=True, alpha=0.2)
+        mu2, sigma2 = self.forward(traj_distr, traj_info)
+        plt.plot(mu2[:, mu_to_plot], color='purple', label='dual')
+        # plt.fill_between(np.array(range(T)),
+        #                  mu2[:, mu_to_plot] - 3*sigma2[:, mu_to_plot, mu_to_plot],
+        #                  mu2[:, mu_to_plot] + 3*sigma2[:, mu_to_plot, mu_to_plot],
+        #                  alpha=0.3, color='purple')
+
+        print('%'*30)
+        print('\n'*8)
+        # Bad
+        # traj_distr, duals, convs = \
+        #     self._gradient_descent_all(algorithm, m, 0, nu, 0,
+        #                                opt_eta=False,
+        #                                opt_nu=True,
+        #                                opt_omega=False)
+        traj_distr, duals, convs = \
+            self._adam_all(algorithm, m, 0, nu, 0,
+                           opt_eta=False, opt_nu=True, opt_omega=False, alpha=0.2)
+        mu3, sigma3 = self.forward(traj_distr, traj_info)
+        plt.plot(mu3[:, mu_to_plot], color='red', label='bad')
+        # plt.fill_between(np.array(range(T)),
+        #                  mu3[:, mu_to_plot] - 3*sigma3[:, mu_to_plot, mu_to_plot],
+        #                  mu3[:, mu_to_plot] + 3*sigma3[:, mu_to_plot, mu_to_plot],
+        #                  alpha=0.3, color='red')
+
+        print('%'*30)
+        print('\n'*8)
+        # Good
+        # traj_distr, duals, convs = \
+        #     self._gradient_descent_all(algorithm, m, 0, 0, omega,
+        #                                opt_eta=False,
+        #                                opt_nu=False,
+        #                                opt_omega=True)
+        traj_distr, duals, convs = \
+            self._adam_all(algorithm, m, 0, 0, omega,
+                           opt_eta=False, opt_nu=False, opt_omega=True, alpha=0.2)
+        mu4, sigma4 = self.forward(traj_distr, traj_info)
+        plt.plot(mu4[:, mu_to_plot], color='green', label='good')
+        # plt.fill_between(np.array(range(T)),
+        #                  mu4[:, mu_to_plot] - 3*sigma4[:, mu_to_plot, mu_to_plot],
+        #                  mu4[:, mu_to_plot] + 3*sigma4[:, mu_to_plot, mu_to_plot],
+        #                  alpha=0.3, color='green')
+
+        print('%'*30)
+        print('\n'*8)
+        # Bad+step
+        # traj_distr, duals, convs = \
+        #     self._gradient_descent_all(algorithm, m, eta, nu, 0,
+        #                                opt_eta=True,
+        #                                opt_nu=True,
+        #                                opt_omega=False)
+        traj_distr, duals, convs = \
+            self._adam_all(algorithm, m, eta, nu, 0,
+                           opt_eta=True, opt_nu=True, opt_omega=False, alpha=0.2)
+        mu5, sigma5 = self.forward(traj_distr, traj_info)
+        plt.plot(mu5[:, mu_to_plot], color='magenta', label='bad-2')
+        # plt.fill_between(np.array(range(T)),
+        #                  mu5[:, mu_to_plot] - 3*sigma5[:, mu_to_plot, mu_to_plot],
+        #                  mu5[:, mu_to_plot] + 3*sigma5[:, mu_to_plot, mu_to_plot],
+        #                  alpha=0.3, color='magenta')
+
+        print('%'*30)
+        print('\n'*8)
+        # Good+step
+        # traj_distr, duals, convs = \
+        #     self._gradient_descent_all(algorithm, m, eta, 0, omega,
+        #                                opt_eta=True,
+        #                                opt_nu=False,
+        #                                opt_omega=True)
+        traj_distr, duals, convs = \
+            self._adam_all(algorithm, m, eta, 0, omega,
+                           opt_eta=True, opt_nu=False, opt_omega=True, alpha=0.2)
+        mu6, sigma6 = self.forward(traj_distr, traj_info)
+        plt.plot(mu6[:, mu_to_plot], color='grey', label='good-2')
+        # plt.fill_between(np.array(range(T)),
+        #                  mu6[:, mu_to_plot] - 3*sigma6[:, mu_to_plot, mu_to_plot],
+        #                  mu6[:, mu_to_plot] + 3*sigma6[:, mu_to_plot, mu_to_plot],
+        #                  alpha=0.3, color='grey')
+
+        import datetime
+        now = datetime.datetime.now()
+        title = str(now.hour)+'-'+str(now.minute)+'-'+str(now.second)
+
+        plt.title(title)
+
+
+        plt.legend(loc='center left', shadow=False)
+
+        plt.show(block=True)
+        
+        """
+
+        # Minimization
+        min_eta = self._hyperparams['min_eta']
+        max_eta = self._hyperparams['max_eta']
+        min_nu = self._hyperparams['min_nu']
+        max_nu = self._hyperparams['max_nu']
+        min_omega = self._hyperparams['min_omega']
+        max_omega = self._hyperparams['max_omega']
+
+        x0 = np.array([eta, nu, omega])
+        result = minimize(self.lagrangian_function, x0, args=(algorithm, m),
+                          method='L-BFGS-B', jac=self.lagrangian_gradient,
+                          bounds=[[min_eta, max_eta],
+                                  [min_nu, max_nu],
+                                  [min_omega, max_omega]],
+                          tol=None, callback=None,
+                          options={'disp': None, 'maxls': 20,
+                                   'iprint': -1, 'gtol': 1e-05,
+                                   'eps': 1e-08, 'maxiter': 15000,
+                                   'ftol': 2.220446049250313e-09,
+                                   'maxcor': 10, 'maxfun': 15000})
+        eta = result.x[0]
+        nu = result.x[1]
+        omega = result.x[2]
         traj_distr, duals, convs = \
             self._gradient_descent_all(algorithm, m, eta, nu, omega,
-                                       opt_eta=True,
-                                       opt_nu=self.consider_bad,
-                                       opt_omega=self.consider_good)
-        eta = duals[0]
-        nu = duals[1]
-        omega = duals[2]
-        eta_conv = convs[0]
-        nu_conv = convs[1]
-        omega_conv = convs[2]
+                                       opt_eta=False,
+                                       opt_nu=False,
+                                       opt_omega=False)
 
-        if eta_conv and nu_conv and omega_conv:
-            self.logger.info("ALL DGD has converged.")
-        else:
-            self.logger.info("ALL DGD has NOT converged.")
-            if not eta_conv:
-                self.logger.warning("Final KL_step divergence after "
-                                    "DGD convergence is too high.")
 
-            if not nu_conv:
-                self.logger.warning("Final KL_bad divergence after "
-                                    "DGD convergence is too low.")
+        # # Dual Gradient Descent
+        # traj_distr, duals, convs = \
+        #     self._gradient_descent_all(algorithm, m, eta, nu, omega,
+        #                                opt_eta=True,
+        #                                opt_nu=self.consider_bad,
+        #                                opt_omega=self.consider_good)
+        # eta = duals[0]
+        # nu = duals[1]
+        # omega = duals[2]
+        # eta_conv = convs[0]
+        # nu_conv = convs[1]
+        # omega_conv = convs[2]
+        #
+        # if eta_conv and nu_conv and omega_conv:
+        #     self.logger.info("ALL DGD has converged.")
+        # else:
+        #     self.logger.info("ALL DGD has NOT converged.")
+        #     if not eta_conv:
+        #         self.logger.warning("Final KL_step divergence after "
+        #                             "DGD convergence is too high.")
+        #
+        #     if not nu_conv:
+        #         self.logger.warning("Final KL_bad divergence after "
+        #                             "DGD convergence is too low.")
+        #
+        #     if not omega_conv:
+        #         self.logger.warning("Final KL_good divergence after "
+        #                             "DGD convergence is too high.")
 
-            if not omega_conv:
-                self.logger.warning("Final KL_good divergence after "
-                                    "DGD convergence is too high.")
 
-        traj_distr, duals, convs = \
-            self._adam_all(algorithm, m, eta, nu, omega, opt_eta=True, opt_nu=False, opt_omega=False)
+        # if not eta_conv:
+        #     traj_distr, duals, convs = \
+        #         self._adam_all(algorithm, m, eta, nu, omega,
+        #                        opt_eta=True, opt_nu=False, opt_omega=False)
+
+
         # # # If it did not converge, use ADAM for some steps
         # # if not(eta_conv and nu_conv and omega_conv):
         # #     self.logger.warning('')
@@ -605,14 +801,19 @@ class DualistTrajOpt(TrajOpt):
 
         bad_tol = self._hyperparams['bad_tol']
         if self.cons_per_step:
-            # return all([abs(con_bad[t]) < (bad_tol*kl_bad[t]) for t in range(con_bad.size)])
-            return all([con_bad[t] <= 0 for t in range(con_bad.size)])
+            return all([abs(con_bad[t]) < (-bad_tol*kl_bad[t]) for t in range(con_bad.size)])
+            # return all([con_bad[t] <= 0 for t in range(con_bad.size)])
 
-        self.logger.info("Conv kl_bad:%s | con_bad <= 0 | %f < %f | %f%%"
-                         % (con_bad < 0, con_bad, 0, con_bad*100/kl_bad))
+        self.logger.info("Conv kl_bad:%s | abs(con_bad) <= %.1f*kl_bad | abs(%f) < %f | %f%%"
+                         % (abs(con_bad) < bad_tol*kl_bad,
+                            bad_tol,
+                            con_bad,
+                            bad_tol*kl_bad,
+                            abs(con_bad)*100/kl_bad))
 
-        # return abs(con_bad) < bad_tol * kl_bad
-        return con_bad <= 0
+        # return con_bad < -bad_tol * kl_bad
+        return abs(con_bad) < bad_tol * kl_bad
+        # return con_bad <= 0
 
     def _gradient_descent_all(self, algorithm, m, eta, nu, omega,
                               dual_to_check='eta', opt_eta=True,
@@ -725,7 +926,6 @@ class DualistTrajOpt(TrajOpt):
                                      itr, min_omega, omega, max_omega)
 
             # Run Bwd pass to optimize the traj distribution
-            print('yeeeeeeeeeeee DUALS FOR BACKWARD:', eta, nu, omega)
             traj_distr, eta, nu, omega = \
                 self.backward(prev_traj_distr, good_traj_distr,
                               bad_traj_distr, traj_info,
@@ -761,7 +961,7 @@ class DualistTrajOpt(TrajOpt):
             omega_conv = self._conv_good_check(con_good, kl_good)
 
             # ALL has converged
-            if opt_eta and opt_nu and opt_omega:
+            if (opt_eta and eta_conv) and (opt_nu and nu_conv) and (opt_omega and omega_conv):
                 if not self.cons_per_step:
                     if opt_eta:
                         self.logger.info("KL_epsilon: %f <= %f, "
@@ -797,26 +997,28 @@ class DualistTrajOpt(TrajOpt):
             if itr > 0:
                 if opt_eta:
                     if (eta_conv
-                        or np.all(abs(prev_eta - eta)/eta <= 0.05)
-                        or np.all(abs(eta) <= 0.0001)):
+                        or np.all(abs(prev_eta - eta)/eta <= 0.05)):
+                        # or np.all(eta <= min_eta)):
                         break_1 = True
                     else:
                         break_1 = False
                 else:
                     break_1 = True
+
                 if opt_nu:
                     if (nu_conv
-                        or np.all(abs(prev_nu - nu)/nu <= 0.05)
-                        or np.all(abs(nu) <= 0.0001)):
+                        or np.all(abs(prev_nu - nu)/nu <= 0.05)):
+                        # or np.all(nu <= min_nu)):
                         break_2 = True
                     else:
                         break_2 = False
                 else:
                     break_2 = True
+
                 if opt_omega:
                     if (omega_conv
-                        or np.all(abs(prev_omega - omega)/omega <= 0.05)
-                        or np.all(abs(omega) <= 0.0001)):
+                        or np.all(abs(prev_omega - omega)/omega <= 0.05)):
+                        # or np.all(omega <= min_omega)):
                         break_3 = True
                     else:
                         break_3 = False
@@ -829,6 +1031,12 @@ class DualistTrajOpt(TrajOpt):
                                  % (np.mean(abs(prev_eta - eta)/(eta+1e-6)),
                                     np.mean(abs(prev_nu - nu)/(nu+1e-6)),
                                     np.mean(abs(prev_omega - omega)/(omega+1e-6))))
+                self.logger.info('Eta conv: %r | '
+                                 'Nu conv: %r | '
+                                 'Omega conv: %r'
+                                 % (eta_conv,
+                                    nu_conv,
+                                    omega_conv))
 
                 if break_1 and break_2 and break_3:
                     self.logger.info("Breaking DGD because it has converged or "
@@ -861,6 +1069,7 @@ class DualistTrajOpt(TrajOpt):
 
                 # Choose new nu (bisect bracket or multiply by constant)
                 self.logger.info("consider_bad: %s" % self.consider_bad)
+                print('YAPEEE', self.consider_bad, opt_nu, nu_conv)
                 if self.consider_bad and opt_nu and not nu_conv:
                     if con_bad < 0:  # Nu was too big.
                         max_nu = nu
@@ -1046,7 +1255,7 @@ class DualistTrajOpt(TrajOpt):
         return traj_distr, (eta, nu, omega), (eta_conv, nu_conv, omega_conv)
 
     def _adam_all(self, algorithm, m, eta, nu, omega, dual_to_check='eta',
-                  opt_eta=True, opt_nu=True, opt_omega=True):
+                  opt_eta=True, opt_nu=True, opt_omega=True, alpha=None):
         T = algorithm.T
 
         # Get current step_mult and traj_info
@@ -1161,6 +1370,10 @@ class DualistTrajOpt(TrajOpt):
                                                   traj_distr, good_traj_distr,
                                                   tot=(not self.cons_per_step))
 
+            print('step', kl_div, kl_step)
+            print('bad', kl_div_bad, kl_bad)
+            print('good', kl_div_good, kl_good)
+
             con = kl_div - kl_step  # KL - epsilon
             con_bad = kl_bad - kl_div_bad  # xi - KL
             con_good = kl_div_good - kl_good  # KL - chi
@@ -1175,7 +1388,7 @@ class DualistTrajOpt(TrajOpt):
                 max_duals = np.vstack((max_eta[:-1], max_nu[:-1], max_omega[:-1]))
                 duals = np.vstack((eta[:-1], nu[:-1], omega[:-1]))
 
-                if itr == 0:
+                if alpha is None:
                     alpha = ALPHA
 
                 grads = np.vstack((con, con_bad, con_good))
@@ -1200,7 +1413,7 @@ class DualistTrajOpt(TrajOpt):
 
                 grads *= np.array([opt_eta, opt_nu, opt_omega])
 
-                if itr == 0:
+                if alpha is None:
                     alpha = ALPHA
 
                 m_b = (BETA1 * m_b + (1-BETA1) * grads)
@@ -1214,16 +1427,17 @@ class DualistTrajOpt(TrajOpt):
                 adam_update = np.minimum(np.maximum(adam_update, min_duals),
                                          max_duals)
 
-                print('grads:%r' % grads)
-                print('m_b:%r' % m_b)
-                print('m_u:%r' % m_u)
-                print('eta_change:%r' % (alpha * m_u / (np.sqrt(v_u) + EPS)))
+                # print('grads:%r' % grads)
+                # print('m_b:%r' % m_b)
+                # print('m_u:%r' % m_u)
+                self.logger.info('duals_change:%r'
+                                 % (alpha * m_u / (np.sqrt(v_u) + EPS)))
                 print('prev_eta:%f -- new_eta:%f' % (eta, adam_update[0]))
                 print('prev_nu:%f -- new_nu:%f' % (nu, adam_update[1]))
                 print('prev_omega:%f -- new_omega:%f' % (omega, adam_update[2]))
                 eta = adam_update[0]
-                # nu = adam_update[1]
-                # omega = adam_update[2]
+                nu = adam_update[1]
+                omega = adam_update[2]
 
             if not self.cons_per_step:
                 self.logger.info('eta_conv %s: kl_div < epsilon (%f < %f) | %f%%'
@@ -1256,16 +1470,30 @@ class DualistTrajOpt(TrajOpt):
                 self.logger.info("It has converged with Adam")
                 break
 
-        self.logger.info('DGD duals: %f' % eta)
-        self.logger.info('DGD gradients: %f' % con)
+        if not self.cons_per_step:
+            self.logger.info('_'*40)
+            self.logger.info('FINAL VALUES at itr %d || '
+                             'eta: %f | nu: %f | omega: %f'
+                             % (itr, eta, nu, omega))
+
+            self.logger.info('eta_conv %s: kl_div < epsilon (%f < %f) | %f%%'
+                             % (eta_conv, kl_div, kl_step,
+                                abs(con*100/kl_step)))
+            self.logger.info('nu_conv %s: kl_div > xi (%f > %f) | %f%%'
+                             % (nu_conv, kl_div_bad, kl_bad,
+                                abs(con_bad*100/kl_bad)))
+            self.logger.info('omega_conv %s: kl_div < chi (%f < %f) | %f%%'
+                             % (omega_conv, kl_div_good, kl_good,
+                                abs(con_good*100/kl_good)))
 
         return traj_distr, (eta, nu, omega), (eta_conv, nu_conv, omega_conv)
 
-    def lagrangian_function(self, duals, algorithm, m, eta,
+    def lagrangian_function(self, duals, algorithm, m,
                             opt_eta=True, opt_nu=True, opt_omega=True):
         self.logger.info(duals)
-        nu = duals[0]
-        omega = duals[1]
+        eta = duals[0]
+        nu = duals[1]
+        omega = duals[2]
 
         # Get current step_mult and traj_info
         step_mult = algorithm.cur[m].step_mult
@@ -1328,7 +1556,7 @@ class DualistTrajOpt(TrajOpt):
         # self.logger.info('LAG gradients: %f, %f, %f' % (con, con_bad, con_good))
 
         # total_cost = traj_cost + eta*con + nu*con_bad + omega*con_good
-        total_cost = con + con_bad + con_good
+        total_cost = con - con_bad + con_good
 
         print('TOTAL_COST:', total_cost)
 
@@ -1409,7 +1637,7 @@ class DualistTrajOpt(TrajOpt):
 
         # self.logger.info('final gradients: %f, %f, %f' % (con, con_bad, con_good))
 
-        return np.array([con, con_bad, con_good])
+        return np.array([con, -con_bad, con_good])
 
     def fcn_to_optimize(self, duals, algorithm, m):
         eta = duals[0]

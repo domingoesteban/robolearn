@@ -72,12 +72,6 @@ class DualTrajOpt(TrajOpt, Dualism):
         for m in range(self.M):
             self._eval_iter_samples_cost(m)
 
-        # Update KL step
-        logger.info('')
-        logger.info('DualTrajOpt: itr:%02d | Updating KL step size...'
-                    % (itr+1))
-        self._update_step_size()
-
         logger.info('')
         logger.info('DualTrajOpt: itr:%02d | '
                     'Getting good and bad trajectories...' % (itr+1))
@@ -102,6 +96,17 @@ class DualTrajOpt(TrajOpt, Dualism):
         # logger.info('-DualTrajOpt: itr:%02d | '
         #             'Divergence btw good/bad trajs: ...' % (itr+1))
         # self._check_kl_div_good_bad()
+
+
+        # Update KL step
+        logger.info('')
+        logger.info('DualTrajOpt: itr:%02d | Updating KL step size...'
+                    % (itr+1))
+        self._update_step_size()
+
+        logger.info('DualTrajOpt: itr:%02d | Updating KL bad/good size...'
+                    % (itr+1))
+        self._update_good_bad_size()
 
         # C-step
         logger.info('')
@@ -177,7 +182,9 @@ class DualTrajOpt(TrajOpt, Dualism):
         PKLm = np.zeros((T, dX+dU, dX+dU))
         PKLv = np.zeros((T, dX+dU))
 
-        divisor = (eta + omega - nu + multiplier)
+        print('AAAAAAAAAAAAAAAAAAAAA: ADDING A BETA TO DIVISOR IN TRAJOPTj')
+
+        divisor = (eta + omega - nu + multiplier + 1e-6)
         fCm = Cm / divisor
         fcv = cv / divisor
 

@@ -28,12 +28,6 @@ itr_to_load = list(range(5))
 plot_cs = True
 plot_policy_costs = True
 plot_cost_types = True
-# if method == 'gps':
-#     plot_policy_costs = True
-#     plot_cost_types = True
-# else:
-#     plot_policy_costs = False
-#     plot_cost_types = False
 
 colormap = plt.cm.rainbow  # nipy_spectral, Set1, Paired, winter
 plot_sample_list_max_min = False

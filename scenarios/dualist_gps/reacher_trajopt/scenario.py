@@ -395,9 +395,9 @@ class Scenario(object):
             'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
             'max_eta': 1e16,  # At max_eta, kl_div < kl_step
             'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
-            'max_omega': 5.0e-1,  #1e16,  # At max_omega, kl_div < kl_step
+            'max_omega': 1.0e8,  #1e16,  # At max_omega, kl_div < kl_step
             'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
-            'max_nu': 1.0e5,  # At max_nu, kl_div < kl_step,
+            'max_nu': 1.0e8,  # At max_nu, kl_div < kl_step,
             'step_tol': 0.1,
             'bad_tol': 0.1,
             'good_tol': 0.1,
@@ -419,9 +419,9 @@ class Scenario(object):
             'bad_traj_selection_type': self.task_params['bad_traj_selection_type'],  # 'always', 'only_traj'
             'duality_dynamics_type': 'duality',  # Samples to use to update the dynamics 'duality', 'iteration'
             # Initial dual variables
-            'init_eta': 4.62,
-            'init_nu': 0.001,
-            'init_omega': 0.001,
+            'init_eta': 0.1,#4.62,
+            'init_nu': 0.1,
+            'init_omega': 0.1,
             # KL step (epsilon)
             'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
             'kl_step': 0.2,  # Kullback-Leibler step (base_step)
@@ -430,11 +430,11 @@ class Scenario(object):
             # KL bad (xi)
             'kl_bad': 2, #4.2  # Xi KL base value | kl_div_b >= kl_bad
             'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad)
-            'max_bad_mult': 1.0,  # Max possible value of step multiplier (multiplies base_kl_bad)
+            'max_bad_mult': 10.0,  # Max possible value of step multiplier (multiplies base_kl_bad)
             # KL good (chi)
-            'kl_good': 1.0,  #2.0,  # Chi KL base value  | kl_div_g <= kl_good
+            'kl_good': 0.4,  #2.0,  # Chi KL base value  | kl_div_g <= kl_good
             'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good)
-            'max_good_mult': 1.0,  # Max possible value of step multiplier (multiplies base_kl_good)
+            'max_good_mult': 10.0,  # Max possible value of step multiplier (multiplies base_kl_good)
             # LinearPolicy 'projection'
             'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
             'policy_sample_mode': 'add',  # Mode to update dynamics prior (Not used in ConstantPolicyPrior)
@@ -443,6 +443,10 @@ class Scenario(object):
                              },
             'min_bad_var': np.array([3.0, 3.0, 3.0])*1.0e-02,
             'min_good_var': np.array([3.0, 3.0, 3.0])*1.0e-02,
+            # TEMP Hyperparams
+            'min_rel_diff': 0.01,
+            'max_rel_diff': 2.0,
+            'mult_rel_diff': 1,
             }
 
         gps_hyperparams = {
@@ -455,7 +459,7 @@ class Scenario(object):
             'smooth_noise': True,  # Apply Gaussian filter to noise generated
             'smooth_noise_var': 5.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
             'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
-            'noise_var_scale': 5.e-0*np.ones(self.action_dim),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
+            'noise_var_scale': 1.e-1*np.ones(self.action_dim),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
             # Cost
             'cost': self.cost,
             # Conditions
@@ -465,7 +469,7 @@ class Scenario(object):
             'init_traj_distr': init_traj_distr,
             'fit_dynamics': True,
             'dynamics': learned_dynamics,
-            'initial_state_var': 1e-6,  # Max value for x0sigma in trajectories
+            'initial_state_var': 1e-2,  # Max value for x0sigma in trajectories
             # TrajOpt
             'traj_opt': traj_opt_method,
             'max_ent_traj': 0.0,  # Weight of maximum entropy term in trajectory optimization #TODO: CHECK THIS VALUE
@@ -503,9 +507,15 @@ class Scenario(object):
         itr_data = self.learn_algo.data_logger.unpickle(itr_data_file)
         policy = itr_data[condition].traj_distr
 
-        self.env.reset(condition=condition)
-        input('Press a key to start sampling...')
-        sample = self.agent.sample(self.env, condition, self.task_params['T'],
-                                   self.task_params['Ts'], noise, policy=policy,
-                                   save=False)
+        stop = False
+        while stop is False:
+            self.env.reset(condition=condition)
+            input('Press a key to start sampling...')
+            sample = self.agent.sample(self.env, condition, self.task_params['T'],
+                                       self.task_params['Ts'], noise, policy=policy,
+                                       save=False)
+            answer = input('Execute again. Write (n/N) to stop:')
+            if answer.lower() in ['n']:
+                stop = True
+
         return True

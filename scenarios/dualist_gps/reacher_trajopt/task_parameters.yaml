@@ -43,7 +43,7 @@ inner_iterations: 1
 consider_good: False
 consider_bad: False
 
-n_good_buffer: 2 # Number of good samples per trajectory distribution
+n_good_buffer: 1 # Number of good samples per trajectory distribution
 n_bad_buffer: 1 # Number of bad samples per trajectory distribution
 
 good_traj_selection_type: only_traj  # 'always', 'only_traj'
