@@ -315,6 +315,7 @@ class Dualism(object):
                 self.logger.info('actual_bad: %r' % bad_laplace.sum())
 
                 rel_difference = (1 + (bad_laplace.sum() - actual_laplace.sum())/actual_laplace.sum())
+                self.logger.info('Actual/Bad REL difference %r' % rel_difference)
 
 
                 print('#$'*30)

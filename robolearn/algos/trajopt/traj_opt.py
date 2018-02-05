@@ -188,9 +188,10 @@ class TrajOpt(Algorithm):
         sample_list = self.cur[cond].sample_list
         cost_fcn = self.cost_function[cond]
 
-        true_cost, cost_estimate, _ = self._eval_sample_list_cost(sample_list,
-                                                                  cost_fcn)
+        true_cost, cost_estimate, cost_compo = \
+            self._eval_sample_list_cost(sample_list, cost_fcn)
         self.cur[cond].cs = true_cost  # True value of cost.
+        self.cur[cond].cost_compo = cost_compo  # True value of cost.
 
         # Cost estimate.
         self.cur[cond].traj_info.Cm = cost_estimate[0]  # Quadratic term (matrix).

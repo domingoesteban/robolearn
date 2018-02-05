@@ -42,10 +42,11 @@ class IterationData(BundleType):
             'traj_distr': None,      # Initial trajectory distribution. \bar{p}_i(u_t|x_t)
             'new_traj_distr': None,  # Updated trajectory distribution. p_i(u_t|x_t)
             'cs': None,              # Sample costs of the current iteration.
-            'step_mult': 1.0,        # KL step multiplier for the current iteration.
+            'cost_compo': None,       # Sample cost compositions of the current iteration.
             'eta': 1.0,              # Dual variable used in LQR backward pass.
             'omega': 1.0,            # Dual variable used in LQR backward pass. mDREPS
             'nu': 1.0,               # Dual variable used in LQR backward pass. mDREPS
+            'step_mult': 1.0,        # KL step multiplier for the current iteration.
             'good_step_mult': 1.0,   # KL step multiplier for the current iteration.
             'bad_step_mult': 1.0,    # KL step multiplier for the current iteration.
         }

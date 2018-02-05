@@ -260,7 +260,8 @@ class DualistTrajOpt(TrajOpt):
         max_omega = self._hyperparams['max_omega']
 
         x0 = np.array([eta, nu, omega])
-        result = minimize(self.lagrangian_function, x0, args=(algorithm, m),
+        result = minimize(self.lagrangian_function, x0,
+                          args=(algorithm, m, True, self.consider_bad, self.consider_good),
                           method='L-BFGS-B', jac=self.lagrangian_gradient,
                           bounds=[[min_eta, max_eta],
                                   [min_nu, max_nu],
@@ -272,16 +273,22 @@ class DualistTrajOpt(TrajOpt):
                                    'ftol': 2.220446049250313e-09,
                                    'maxcor': 10, 'maxfun': 15000})
         eta = result.x[0]
-        nu = result.x[1]
-        omega = result.x[2]
-        # traj_distr, duals, convs = \
-        #     self._gradient_descent_all(algorithm, m, eta, nu, omega,
-        #                                opt_eta=False,
-        #                                opt_nu=False,
-        #                                opt_omega=False)
+        nu = result.x[1] if self.consider_bad else 0
+        omega = result.x[2] if self.consider_bad else 0
+        traj_distr, duals, convs = \
+            self._gradient_descent_all(algorithm, m, eta, nu, omega,
+                                       opt_eta=False,
+                                       opt_nu=False,
+                                       opt_omega=False)
+        eta = duals[0]
+        nu = duals[1]
+        omega = duals[2]
         traj_distr, duals, convs = \
             self._adam_all(algorithm, m, eta, nu, omega,
                            opt_eta=True, opt_nu=False, opt_omega=False)
+            # self._adam_all(algorithm, m, eta, nu, omega,
+            #                opt_eta=True, opt_nu=self.consider_bad,
+            #                opt_omega=self.consider_good)
 
 
         # # Dual Gradient Descent
@@ -1558,6 +1565,15 @@ class DualistTrajOpt(TrajOpt):
 
         # self.logger.info('LAG duals: %f, %f, %f' % (eta, nu, omega))
         # self.logger.info('LAG gradients: %f, %f, %f' % (con, con_bad, con_good))
+
+        if not opt_eta:
+            con = 0
+
+        if not opt_nu:
+            con_bad = 0
+
+        if not opt_omega:
+            con_good = 0
 
         # total_cost = traj_cost + eta*con + nu*con_bad + omega*con_good
         total_cost = con - con_bad + con_good
