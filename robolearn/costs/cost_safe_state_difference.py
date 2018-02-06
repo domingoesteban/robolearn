@@ -59,7 +59,7 @@ class CostSafeStateDifference(Cost):
 
             dist_violation = dist > 0
 
-            l += np.sum(dist*(dist_violation*inside_cost
+            l += np.sum(wp*dist*(dist_violation*inside_cost
                         + ~dist_violation*outside_cost), axis=1)
 
             # l += np.sum(dist * temp_cost, axis=1)

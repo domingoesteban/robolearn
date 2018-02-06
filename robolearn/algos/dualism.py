@@ -106,6 +106,7 @@ class Dualism(object):
                                 np.argpartition(bad_costs, 1)[:1]
                         else:
                             least_worst_index = 0
+
                         if np.sum(bad_samples_cost[least_worst_index, :]) < np.sum(cs[bad_index, :]):
                             logger.info("Dualism: Updating BAD trajectory "
                                         "sample %d | cur_cost=%f < new_cost=%f"
