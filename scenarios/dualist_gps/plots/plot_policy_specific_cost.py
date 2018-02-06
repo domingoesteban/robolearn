@@ -9,6 +9,7 @@ import os, sys
 
 method = 'trajopt'  # 'gps' or 'trajopt'
 gps_directory_names = ['gps_log1']#, 'gps_log2', 'gps_log3', 'gps_log4']
+gps_directory_names = ['reacher_log']#, 'gps_log2', 'gps_log3', 'gps_log4']
 gps_models_labels = ['gps1']#, 'gps2', 'gps3', 'gps4']
 
 #gps_models_line_styles = [':', '--', '-']
@@ -23,10 +24,10 @@ max_traj_plots = None  # None, plot all
 last_n_iters = None  # 5  # None, plot all iterations
 itr_to_load = list(range(1))
 # itr_to_load = [0, 4, 8]
-specific_cost = -3
+specific_cost = 3
 
-plot_cs = True
-plot_policy_costs = True
+plot_cs = False
+plot_policy_costs = False
 plot_cost_types = True
 
 colormap = plt.cm.rainbow  # nipy_spectral, Set1, Paired, winter
@@ -138,6 +139,8 @@ for gps, gps_directory_name in enumerate(gps_directory_names):
                     print('Loading policy sample cost from iteration %02d'
                           % itr_idx)
                     pol_cost_data = pickle.load(open(file_to_load, 'rb'))
+                    if not plot_cs:
+                        iteration_ids[gps][rr].append(itr_idx+1)
                     # pol_sample_lists_costs[gps][rr].append(pol_cost_data)
                     n_cond = len(pol_cost_data)
                     n_samples, T = pol_cost_data[-1].shape
@@ -164,6 +167,8 @@ for gps, gps_directory_name in enumerate(gps_directory_names):
                     print('Loading policy sample cost composition from '
                           'iteration %02d' % itr_idx)
                     pol_cost_comp_data = pickle.load(open(file_to_load, 'rb'))
+                    if not plot_cs and not plot_policy_costs:
+                        iteration_ids[gps][rr].append(itr_idx+1)
                     # pol_sample_lists_cost_compositions[gps][rr].\
                     #     append(pol_cost_comp_data)
                     n_cond = len(pol_cost_comp_data)
@@ -244,19 +249,28 @@ if plot_cs:
             labels.append(gps_models_labels[gps])
 
 
-if plot_policy_costs:
+if plot_policy_costs or plot_cost_types:
     plots_type = 'iteration'  # 'iteration' or 'episode'
     include_last_T = False  # Only in iteration
     iteration_to_plot = -1
     colormap = plt.cm.rainbow  # nipy_spectral, Set1, Paired, winter, rainbow
 
-    total_runs = len(pol_sample_lists_costs[-1])
-    total_cond = pol_sample_lists_costs[-1][-1].shape[0]
-    total_itr = pol_sample_lists_costs[-1][-1].shape[1]
-    total_samples = pol_sample_lists_costs[-1][-1].shape[2]
-    T = pol_sample_lists_costs[-1][-1].shape[3]
+    if plot_policy_costs:
+        total_runs = len(pol_sample_lists_costs[-1])
+        total_cond = pol_sample_lists_costs[-1][-1].shape[0]
+        total_itr = pol_sample_lists_costs[-1][-1].shape[1]
+        total_samples = pol_sample_lists_costs[-1][-1].shape[2]
+        T = pol_sample_lists_costs[-1][-1].shape[3]
+
     if plot_cost_types:
         total_cost_types = pol_sample_lists_cost_compos[-1][-1].shape[3]
+        if not plot_policy_costs:
+            total_runs = len(pol_sample_lists_cost_compos[-1])
+            total_cond = pol_sample_lists_cost_compos[-1][-1].shape[0]
+            total_itr = pol_sample_lists_cost_compos[-1][-1].shape[1]
+            total_samples = pol_sample_lists_cost_compos[-1][-1].shape[2]
+            T = pol_sample_lists_cost_compos[-1][-1].shape[4]
+            print(total_runs, total_cond, total_itr, total_samples, T)
 
     if plots_type.lower() == 'iteration':
         #marker = 'o'
@@ -278,28 +292,28 @@ if plot_policy_costs:
 
             for gps in range(total_gps):
 
-                avg_costs = np.zeros((total_runs, total_itr))
+                if plot_policy_costs:
+                    avg_costs = np.zeros((total_runs, total_itr))
+                    for rr in range(total_runs):
+                        pol_cost_sum = pol_sample_lists_costs[gps][rr][cond, :, :, :].sum(axis=-1)
+                        # Average over samples
+                        avg_costs[rr, :] = np.mean(pol_cost_sum, axis=-1)
 
-                for rr in range(total_runs):
-                    pol_cost_sum = pol_sample_lists_costs[gps][rr][cond, :, :, :].sum(axis=-1)
-                    # Average over samples
-                    avg_costs[rr, :] = np.mean(pol_cost_sum, axis=-1)
+                    mean_costs = np.mean(avg_costs, axis=0)
+                    max_costs = np.max(avg_costs, axis=0)
+                    min_costs = np.min(avg_costs, axis=0)
+                    std_costs = np.std(avg_costs, axis=0)
 
-                mean_costs = np.mean(avg_costs, axis=0)
-                max_costs = np.max(avg_costs, axis=0)
-                min_costs = np.min(avg_costs, axis=0)
-                std_costs = np.std(avg_costs, axis=0)
-
-                line = ax.plot(iteration_ids[gps][rr], mean_costs,
-                               marker=gps_models_markers[gps],
-                               label=gps_models_labels[gps],
-                               linestyle=gps_models_line_styles[gps],
-                               color=gps_models_colors[gps])[0]
-                ax.fill_between(iteration_ids[gps][rr], min_costs, max_costs,
-                                alpha=0.5, color=gps_models_colors[gps])
-                ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-                lines.append(line)
-                labels.append(gps_models_labels[gps])
+                    line = ax.plot(iteration_ids[gps][rr], mean_costs,
+                                   marker=gps_models_markers[gps],
+                                   label=gps_models_labels[gps],
+                                   linestyle=gps_models_line_styles[gps],
+                                   color=gps_models_colors[gps])[0]
+                    ax.fill_between(iteration_ids[gps][rr], min_costs, max_costs,
+                                    alpha=0.5, color=gps_models_colors[gps])
+                    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                    lines.append(line)
+                    labels.append(gps_models_labels[gps])
 
                 # Composition cost
                 if plot_cost_types:
@@ -315,6 +329,8 @@ if plot_policy_costs:
                     std_cost_types = np.std(avg_costs, axis=0)
 
                     for c in range(total_cost_types):
+                        print(c, specific_cost)
+                        print(iteration_ids)
                         if c == specific_cost:
                             label = '%s-cost%d' % (gps_models_labels[gps], c)
                             line = ax.plot(iteration_ids[gps][rr],
@@ -327,13 +343,14 @@ if plot_policy_costs:
                             lines.append(line)
                             labels.append(label)
 
-                print('%'*10)
-                print('gps: %d' % gps)
-                for rr in range(total_runs):
-                    best_index = [iteration_ids[gps][rr][ii]
-                                  for ii in np.argsort(mean_costs)]
-                    print('run %02d - best_index: %r' % (rr, best_index))
-                print('%'*10)
+                if plot_policy_costs:
+                    print('%'*10)
+                    print('gps: %d' % gps)
+                    for rr in range(total_runs):
+                        best_index = [iteration_ids[gps][rr][ii]
+                                      for ii in np.argsort(mean_costs)]
+                        print('run %02d - best_index: %r' % (rr, best_index))
+                    print('%'*10)
 
             #ax.set_xticks(range(min_iteration, max_iteration+1))
             #ax.set_xlim(min_iteration, max_iteration)
