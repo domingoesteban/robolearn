@@ -119,12 +119,14 @@ def traj_distr_kl_alt(new_mu, new_sigma, new_traj_distr, prev_traj_distr, tot=Tr
         mu, sigma = new_mu[t, :dX], new_sigma[t, :dX, :dX]
 
         kl_div[t] = max(0,
-                        0.5 * (logdet_prev - logdet_new - new_traj_distr.dU +
-                               np.sum(np.diag(inv_prev.dot(sig_new))) +
-                               k_diff.T.dot(inv_prev).dot(k_diff) +
-                               mu.T.dot(K_diff.T).dot(inv_prev).dot(K_diff).dot(mu) +
-                               np.sum(np.diag(K_diff.T.dot(inv_prev).dot(K_diff).dot(sigma))) +
-                               2 * k_diff.T.dot(inv_prev).dot(K_diff).dot(mu)) )
+                        0.5*(logdet_prev - logdet_new - new_traj_distr.dU +
+                             np.sum(np.diag(inv_prev.dot(sig_new))) +
+                             k_diff.T.dot(inv_prev).dot(k_diff) +
+                             mu.T.dot(K_diff.T).dot(inv_prev).dot(K_diff).dot(mu) +
+                             np.sum(np.diag(K_diff.T.dot(inv_prev).dot(K_diff).dot(sigma))) +
+                             2*k_diff.T.dot(inv_prev).dot(K_diff).dot(mu)
+                             )
+                        )
 
     return np.sum(kl_div) if tot else kl_div
 

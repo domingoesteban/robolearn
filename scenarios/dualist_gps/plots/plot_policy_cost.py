@@ -314,7 +314,7 @@ if plot_policy_costs:
                     std_cost_types = np.std(avg_costs, axis=0)
 
                     for c in range(total_cost_types):
-                        label = '%s-cost%d' % (gps_models_labels[gps], c)
+                        label = '%s-cost(%d)' % (gps_models_labels[gps], c)
                         line = ax.plot(iteration_ids[gps][rr],
                                        mean_cost_types[:, c],
                                        marker=marker, label=label)[0]

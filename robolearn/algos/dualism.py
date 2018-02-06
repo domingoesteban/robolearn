@@ -96,12 +96,16 @@ class Dualism(object):
                                 for bad_index in worst_indeces])
                 self.bad_duality_info[cond].samples_cost = cs[worst_indeces, :]
             else:
-                # Update only if it is better than before
                 bad_samples_cost = self.bad_duality_info[cond].samples_cost
+                # Update only if it is worse than before
                 if option == 'only_traj':
                     for bad_index in worst_indeces:
-                        least_worst_index = \
-                            np.argpartition(np.sum(bad_samples_cost, axis=1), 1)[:1]
+                        bad_costs = np.sum(bad_samples_cost, axis=1)
+                        if len(bad_costs) > 1:
+                            least_worst_index = \
+                                np.argpartition(bad_costs, 1)[:1]
+                        else:
+                            least_worst_index = 0
                         if np.sum(bad_samples_cost[least_worst_index, :]) < np.sum(cs[bad_index, :]):
                             logger.info("Dualism: Updating BAD trajectory "
                                         "sample %d | cur_cost=%f < new_cost=%f"
@@ -110,10 +114,12 @@ class Dualism(object):
                                            np.sum(cs[bad_index, :])))
                             self.bad_duality_info[cond].sample_list.set_sample(least_worst_index, sample_list[bad_index])
                             bad_samples_cost[least_worst_index, :] = cs[bad_index, :]
+
                 elif option == 'always':
                     for bb, bad_index in enumerate(worst_indeces):
                         print("Worst bad index is %d | and replaces %d" % (bad_index, bb))
-                        logger.info("Dualism: Updating BAD trajectory sample %d | cur_cost=%f < new_cost=%f"
+                        logger.info("Dualism: Updating BAD trajectory sample %d"
+                                    " | cur_cost=%f < new_cost=%f"
                                     % (bb, np.sum(bad_samples_cost[bb, :]),
                                        np.sum(cs[bad_index, :])))
                         self.bad_duality_info[cond].sample_list.set_sample(bb, sample_list[bad_index])
@@ -158,27 +164,34 @@ class Dualism(object):
                 self.good_duality_info[cond].sample_list = SampleList([sample_list[good_index] for good_index in best_indeces])
                 self.good_duality_info[cond].samples_cost = cs[best_indeces, :]
             else:
+                good_samples_cost = self.good_duality_info[cond].samples_cost
                 # Update only if it is better than previous traj_dist
                 if option == 'only_traj':
                     # If there is a better trajectory, replace only that trajectory to previous ones
                     for good_index in best_indeces:
-                        least_best_index = np.argpartition(np.sum(self.good_duality_info[cond].samples_cost, axis=1), -1)[-1:]
-                        if np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]) > np.sum(cs[good_index, :]):
+                        good_costs = np.sum(good_samples_cost, axis=1)
+                        if len(good_costs) > 1:
+                            least_best_index = \
+                                np.argpartition(good_costs, -1)[-1:]
+                        else:
+                            least_best_index = 0
+                        if np.sum(good_samples_cost[least_best_index, :]) > np.sum(cs[good_index, :]):
                             logger.info("Dualism: Updating GOOD trajectory "
                                         "sample %d | cur_cost=%f > new_cost=%f"
                                         % (least_best_index,
-                                           np.sum(self.good_duality_info[cond].samples_cost[least_best_index, :]),
+                                           np.sum(good_samples_cost[least_best_index, :]),
                                            np.sum(cs[good_index, :])))
                             self.good_duality_info[cond].sample_list.set_sample(least_best_index, sample_list[good_index])
-                            self.good_duality_info[cond].samples_cost[least_best_index, :] = cs[good_index, :]
+                            good_samples_cost[least_best_index, :] = cs[good_index, :]
                 elif option == 'always':
                     for gg, good_index in enumerate(best_indeces):
                         print("Best good index is %d | and replaces %d" % (good_index, gg))
-                        logger.info("Dualism: Updating GOOD trajectory sample %d | cur_cost=%f > new_cost=%f"
-                                    % (gg, np.sum(self.good_duality_info[cond].samples_cost[gg, :]),
+                        logger.info("Dualism: Updating GOOD trajectory sample"
+                                    " %d | cur_cost=%f > new_cost=%f"
+                                    % (gg, np.sum(good_samples_cost[gg, :]),
                                        np.sum(cs[good_index, :])))
                         self.good_duality_info[cond].sample_list.set_sample(gg, sample_list[good_index])
-                        self.good_duality_info[cond].samples_cost[gg, :] = cs[good_index, :]
+                        good_samples_cost[gg, :] = cs[good_index, :]
                 else:
                     raise ValueError("Dualism: Wrong get_good_samples option: %s"
                                      % option)

@@ -270,7 +270,6 @@ if plot_policy_costs or plot_cost_types:
             total_itr = pol_sample_lists_cost_compos[-1][-1].shape[1]
             total_samples = pol_sample_lists_cost_compos[-1][-1].shape[2]
             T = pol_sample_lists_cost_compos[-1][-1].shape[4]
-            print(total_runs, total_cond, total_itr, total_samples, T)
 
     if plots_type.lower() == 'iteration':
         #marker = 'o'
@@ -329,10 +328,8 @@ if plot_policy_costs or plot_cost_types:
                     std_cost_types = np.std(avg_costs, axis=0)
 
                     for c in range(total_cost_types):
-                        print(c, specific_cost)
-                        print(iteration_ids)
                         if c == specific_cost:
-                            label = '%s-cost%d' % (gps_models_labels[gps], c)
+                            label = '%s-cost(%d)' % (gps_models_labels[gps], c)
                             line = ax.plot(iteration_ids[gps][rr],
                                            mean_cost_types[:, c],
                                            marker=marker, label=label)[0]
