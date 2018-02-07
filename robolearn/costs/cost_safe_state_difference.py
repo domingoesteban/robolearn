@@ -57,7 +57,8 @@ class CostSafeStateDifference(Cost):
             dist = safe_distance - abs_diff
             norm_dist = np.linalg.norm(dist, axis=1, keepdims=True)
 
-            dist_violation = dist > 0
+            # dist_violation = dist > 0
+            dist_violation = (norm_dist - np.linalg.norm(safe_distance)) < 0
 
             l += np.sum(wp*dist*(dist_violation*inside_cost
                         + ~dist_violation*outside_cost), axis=1)
