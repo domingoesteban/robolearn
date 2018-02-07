@@ -37,7 +37,7 @@ class CostSafeStateDifference(Cost):
         for data_type in self._hyperparams['data_types']:
             config = self._hyperparams['data_types'][data_type]
             wp = config['wp']
-            safe_distance = config['safe_distance']
+            safe_distance = np.array(config['safe_distance'])
             outside_cost = config['outside_cost']
             inside_cost = config['inside_cost']
             x = sample.get_states(data_type)[:, config['idx_to_use']]
@@ -92,7 +92,7 @@ class CostSafeStateDifference(Cost):
             diff = x - tgt
             diff_abs = abs(diff)
             diff_norm = np.linalg.norm(diff_abs, axis=1, keepdims=True)
-            safe_distance = np.linalg.norm(safe_distance, axis=1, keepdims=True)
+            safe_distance = np.linalg.norm(safe_distance, keepdims=True)
             distance = diff_norm - safe_distance
             distance_abs = abs(distance)
 
