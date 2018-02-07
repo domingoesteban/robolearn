@@ -72,24 +72,38 @@ class CostSafeStateDifference(Cost):
             # idx = np.array(config['data_idx'])[config['idx_to_use']]
             # lx[:, idx] -= jacob
 
-            difference = x-tgt
-            diff_abs = abs(difference)
-            distance = diff_abs - safe_distance
-            distance_norm = np.tile(np.linalg.norm(distance, axis=1, keepdims=True), [1, 2])
+            # difference = x-tgt
+            # diff_abs = abs(difference)
+            # distance = diff_abs - safe_distance
+            # distance_norm = np.tile(np.linalg.norm(distance, axis=1, keepdims=True), [1, 2])
+            #
+            # measure = np.linalg.norm(difference, axis=1, keepdims=True) \
+            #           - np.linalg.norm(safe_distance)
+            # violation = np.tile(measure, [1, 2]) < 0
+            #
+            # l += np.sum(wp*(violation * inside_cost * distance_norm
+            #                 + ~violation * outside_cost * distance_norm), axis=1)
+            #
+            # # Cost derivative of c*max(0, d - |x|) --> c*I(d-|x|)*-1*x/||x||
+            # # http://math.mit.edu/classes/18.086/2006/am57.pdf
+            # jacob = wp*(violation*inside_cost + ~violation*outside_cost) \
+            #         * difference/(diff_abs * distance_norm + 1e-10)
 
-            measure = np.linalg.norm(difference, axis=1, keepdims=True) \
-                      - np.linalg.norm(safe_distance)
-            violation = np.tile(measure, [1, 2]) < 0
+            diff = x - tgt
+            diff_abs = abs(diff)
+            diff_norm = np.linalg.norm(diff_abs, axis=1, keepdims=True)
+            safe_distance = np.linalg.norm(safe_distance, axis=1, keepdims=True)
+            distance = diff_norm - safe_distance
+            distance_abs = abs(distance)
 
-            l += np.sum(wp*(violation * inside_cost * distance_norm
-                        + ~violation * outside_cost * distance_norm), axis=1)
+            violation = distance < 0
 
-            # Cost derivative of c*max(0, d - |x|) --> c*I(d-|x|)*-1*x/||x||
-            # http://math.mit.edu/classes/18.086/2006/am57.pdf
-            jacob = wp*(violation*inside_cost + ~violation*outside_cost) \
-                    * difference/(diff_abs * distance_norm + 1e-10)
+            l += np.sum(wp*(violation*inside_cost + ~violation*outside_cost)
+                        * distance_abs, axis=1)
 
-            # l += np.sum(dist * temp_cost, axis=1)
+            jacob = wp*((violation * inside_cost + ~violation * outside_cost)
+                        * distance/(distance_abs + 1e-10)
+                        * diff/(diff_norm + 1e-10))
 
             # Tgt
             idx = np.array(config['tgt_idx'])[config['idx_to_use']]
