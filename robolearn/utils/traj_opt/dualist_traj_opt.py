@@ -936,6 +936,7 @@ class DualistTrajOpt(TrajOpt):
                                      "OMEGA bracket: (%.2e , %.2e , %.2e)",
                                      itr, min_omega, omega, max_omega)
 
+
             # Run Bwd pass to optimize the traj distribution
             traj_distr, eta, nu, omega = \
                 self.backward(prev_traj_distr, good_traj_distr,
