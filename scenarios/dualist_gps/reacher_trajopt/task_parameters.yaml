@@ -46,5 +46,5 @@ consider_bad: False
 n_good_buffer: 1 # Number of good samples per trajectory distribution
 n_bad_buffer: 1 # Number of bad samples per trajectory distribution
 
-good_traj_selection_type: only_traj  # 'always', 'only_traj'
+good_traj_selection_type: always  # 'always', 'only_traj'
 bad_traj_selection_type: always  # 'always', 'only_traj'
