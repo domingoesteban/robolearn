@@ -243,9 +243,9 @@ class Scenario(object):
             'type': CostStateDifference,
             'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
             'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
-            'l1': 1.5,  # Weight for l1 norm
-            'l2': 1.0,  # Weight for l2 norm
-            'alpha': 1e-5,  # Constant added in square root in l1 norm
+            'l1': 1.e-0,  # Weight for l1 norm
+            'l2': 5.e-2,  # Weight for l2 norm
+            'alpha': 1e-10,  # Constant added in square root in l1 norm
             'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
             'data_types': {
                 'ee': {
@@ -263,9 +263,9 @@ class Scenario(object):
             'type': CostStateDifference,
             'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
             'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
-            'l1': 1.5,  # Weight for l1 norm
-            'l2': 1.0,  # Weight for l2 norm
-            'alpha': 1e-5,  # Constant added in square root in l1 norm
+            'l1': 1.e-0,  # Weight for l1 norm
+            'l2': 5.e-2,  # Weight for l2 norm
+            'alpha': 1e-10,  # Constant added in square root in l1 norm
             'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
             'data_types': {
                 'ee': {
@@ -279,6 +279,7 @@ class Scenario(object):
             },
         }
 
+        safe_radius = 0.15
         cost_safe_state_difference = {
             'type': CostSafeStateDifference,
             'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time.
@@ -286,7 +287,25 @@ class Scenario(object):
             'data_types': {
                 'ee': {
                     'wp': np.array([1.0, 1.0]),  # State weights - must be set.
-                    'safe_distance': np.array([0.15, 0.15]),
+                    'safe_distance': np.sqrt([safe_radius**2/2, safe_radius**2/2]),
+                    'outside_cost': np.array([0.0, 0.0]),
+                    'inside_cost': np.array([1.0, 1.0]),
+                    'target_state': 'tgt1',  # Target state - must be set.
+                    'tgt_idx': self.env.get_state_info(name='tgt1')['idx'][:2],
+                    'data_idx': self.env.get_state_info(name='ee')['idx'][:2],
+                    'idx_to_use': [0, 1],  # Only X and Y
+                },
+            },
+        }
+
+        cost_final_safe_state_difference = {
+            'type': CostSafeStateDifference,
+            'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time.
+            'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
+            'data_types': {
+                'ee': {
+                    'wp': np.array([1.0, 1.0]),  # State weights - must be set.
+                    'safe_distance': np.sqrt([safe_radius**2/2, safe_radius**2/2]),
                     'outside_cost': np.array([0.0, 0.0]),
                     'inside_cost': np.array([1.0, 1.0]),
                     'target_state': 'tgt1',  # Target state - must be set.
@@ -309,7 +328,8 @@ class Scenario(object):
                              # (fk_l2_final_cost, 1.0e-0),
                              (cost_state_difference, 5.0e-0),
                              (cost_final_state_difference, 1.0e+3),
-                             (cost_safe_state_difference, 1.0e+1),
+                             (cost_safe_state_difference, 5.0e+1),
+                             (cost_final_safe_state_difference, 5.0e+4),
                              # WORKING:
                              # (cost_safe_distance, 1.0e+1),
                              # (state_cost_distance, 5.0e-0),
