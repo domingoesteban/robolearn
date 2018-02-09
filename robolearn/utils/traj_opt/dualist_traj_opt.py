@@ -1580,7 +1580,7 @@ class DualistTrajOpt(TrajOpt):
         # total_cost = con - con_bad + con_good
         total_cost = abs(con) + abs(con_bad) + abs(con_good)
 
-        print('TOTAL_COST:', total_cost)
+        print('TOTAL_COST:', total_cost, '|', con, con_bad, con_good)
 
         return total_cost
 
