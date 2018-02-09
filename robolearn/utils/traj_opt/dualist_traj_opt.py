@@ -21,7 +21,7 @@ print_DGD_log = False
 MAX_ALL_DGD = 20
 DGD_MAX_ITER = 50
 DGD_MAX_LS_ITER = 20
-DGD_MAX_GD_ITER = 50  #500 #200
+DGD_MAX_GD_ITER = 5000 # 50  #500 #200
 
 ALPHA, BETA1, BETA2, EPS = 0.005, 0.9, 0.999, 1e-8  # Adam parameters
 
@@ -250,7 +250,7 @@ class DualistTrajOpt(TrajOpt):
         plt.show(block=True)
         """
 
-
+        """
         # Minimization
         min_eta = self._hyperparams['min_eta']
         max_eta = self._hyperparams['max_eta']
@@ -290,6 +290,13 @@ class DualistTrajOpt(TrajOpt):
             # self._adam_all(algorithm, m, eta, nu, omega,
             #                opt_eta=True, opt_nu=self.consider_bad,
             #                opt_omega=self.consider_good)
+        """
+
+        traj_distr, duals, convs = \
+            self._adam_all(algorithm, m, eta, nu, omega,
+                           opt_eta=True, opt_nu=self.consider_bad,
+                           opt_omega=self.consider_good)
+
 
 
         # # Dual Gradient Descent
