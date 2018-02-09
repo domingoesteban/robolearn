@@ -49,6 +49,8 @@ class IterationData(BundleType):
             'step_mult': 1.0,        # KL step multiplier for the current iteration.
             'good_step_mult': 1.0,   # KL step multiplier for the current iteration.
             'bad_step_mult': 1.0,    # KL step multiplier for the current iteration.
+            'good_traj_distr': None,  # Good traj_distr
+            'bad_traj_distr': None,  # Bad traj_distr
         }
         BundleType.__init__(self, variables)
 

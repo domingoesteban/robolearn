@@ -1577,7 +1577,8 @@ class DualistTrajOpt(TrajOpt):
             con_good = 0
 
         # total_cost = traj_cost + eta*con + nu*con_bad + omega*con_good
-        total_cost = con - con_bad + con_good
+        # total_cost = con - con_bad + con_good
+        total_cost = abs(con) + abs(con_bad) + abs(con_good)
 
         print('TOTAL_COST:', total_cost)
 
@@ -1658,7 +1659,9 @@ class DualistTrajOpt(TrajOpt):
 
         # self.logger.info('final gradients: %f, %f, %f' % (con, con_bad, con_good))
 
-        return np.array([con, -con_bad, con_good])
+        # return np.array([con, con_bad, con_good])
+        # return np.array([con, -con_bad, con_good])
+        return np.array([con/abs(con), con_bad/abs(con_bad), con_good/abs(con_good)])
 
     def fcn_to_optimize(self, duals, algorithm, m):
         eta = duals[0]
