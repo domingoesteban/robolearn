@@ -1661,7 +1661,8 @@ class DualistTrajOpt(TrajOpt):
 
         # return np.array([con, con_bad, con_good])
         # return np.array([con, -con_bad, con_good])
-        return np.array([con/abs(con), con_bad/abs(con_bad), con_good/abs(con_good)])
+        return np.array([con/abs(con+1e-10), con_bad/abs(con_bad+1e-10),
+                         con_good/abs(con_good+1e-10)])
 
     def fcn_to_optimize(self, duals, algorithm, m):
         eta = duals[0]
