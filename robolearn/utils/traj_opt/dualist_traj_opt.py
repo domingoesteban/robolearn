@@ -21,7 +21,7 @@ print_DGD_log = False
 MAX_ALL_DGD = 20
 DGD_MAX_ITER = 50
 DGD_MAX_LS_ITER = 20
-DGD_MAX_GD_ITER = 5000 # 50  #500 #200
+DGD_MAX_GD_ITER = 50  #500 #200
 
 ALPHA, BETA1, BETA2, EPS = 0.005, 0.9, 0.999, 1e-8  # Adam parameters
 
@@ -292,10 +292,57 @@ class DualistTrajOpt(TrajOpt):
             #                opt_omega=self.consider_good)
         """
 
+
+        # Minimization
+        min_eta = self._hyperparams['min_eta']
+        max_eta = self._hyperparams['max_eta']
+        min_nu = self._hyperparams['min_nu']
+        max_nu = self._hyperparams['max_nu']
+        min_omega = self._hyperparams['min_omega']
+        max_omega = self._hyperparams['max_omega']
+
+        x0 = np.array([eta, nu, omega])
+        result = minimize(self.lagrangian_function, x0,
+                          args=(algorithm, m, False, self.consider_bad, self.consider_good),
+                          method='L-BFGS-B',
+                          # jac=self.lagrangian_gradient,
+                          bounds=[[min_eta, max_eta],
+                                  [min_nu, max_nu],
+                                  [min_omega, max_omega]],
+                          tol=None, callback=None,
+                          options={'disp': None, 'maxls': 20,
+                                   'iprint': -1, 'gtol': 1e-05,
+                                   'eps': 1e-08, 'maxiter': 15000,
+                                   'ftol': 2.220446049250313e-09,
+                                   'maxcor': 10, 'maxfun': 15000})
+
+        # eta = result.x[0]
+        nu = result.x[1] if self.consider_bad else 0
+        omega = result.x[2] if self.consider_bad else 0
         traj_distr, duals, convs = \
-            self._adam_all(algorithm, m, eta, nu, omega,
-                           opt_eta=True, opt_nu=self.consider_bad,
-                           opt_omega=self.consider_good)
+            self._gradient_descent_all(algorithm, m, eta, nu, omega,
+                                       opt_eta=False,
+                                       opt_nu=False,
+                                       opt_omega=False)
+        eta = duals[0]
+        nu = duals[1]
+        omega = duals[2]
+
+        traj_distr, duals, convs = \
+            self._gradient_descent_all(algorithm, m, eta, nu, omega,
+                                       opt_eta=True,
+                                       opt_nu=False,
+                                       opt_omega=False)
+
+        eta_conv = convs[0]
+        if not eta_conv:
+            traj_distr, duals, convs = \
+                self._adam_all(algorithm, m, eta, nu, omega,
+                               opt_eta=True, opt_nu=False, opt_omega=False)
+
+        # self._adam_all(algorithm, m, eta, nu, omega,
+        #                opt_eta=True, opt_nu=self.consider_bad,
+        #                opt_omega=self.consider_good)
 
 
 
