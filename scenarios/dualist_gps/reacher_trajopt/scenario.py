@@ -415,15 +415,17 @@ class Scenario(object):
             'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
             'max_eta': 1e16,  # At max_eta, kl_div < kl_step
             'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
-            'max_omega': 1.0e8,  #1e16,  # At max_omega, kl_div < kl_step
+            'max_omega': 1.0e4,  #1e16,  # At max_omega, kl_div < kl_step
             'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
-            'max_nu': 1.0e8,  # At max_nu, kl_div < kl_step,
+            'max_nu': 1.0e2,  # At max_nu, kl_div < kl_step,
             'step_tol': 0.1,
             'bad_tol': 0.1,
             'good_tol': 0.1,
             'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step. #TODO: IF TRUE, MAYBE IT DOES WORK WITH MDGPS because it doesn't consider dual vars
             'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
             'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
+            'adam_alpha': 0.005,
+            'adam_max_iter': 200,
             }
 
         good_trajs = None
