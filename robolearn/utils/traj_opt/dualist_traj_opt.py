@@ -352,7 +352,7 @@ class DualistTrajOpt(TrajOpt):
 
         x0 = np.array([eta, nu, omega])
         result = minimize(self.fcn_to_optimize, x0,
-                          args=(algorithm, m, False, self.consider_bad, self.consider_good),
+                          args=(algorithm, m, True, self.consider_bad, self.consider_good),
                           method='L-BFGS-B',
                           jac=self.grad_to_optimize,
                           bounds=[[min_eta, max_eta],
@@ -2088,7 +2088,8 @@ class DualistTrajOpt(TrajOpt):
         # total_cost = traj_cost + eta*con + nu*con_bad + omega*con_good
         # total_cost = con - con_bad + con_good
         # total_cost = abs(con) + abs(con_bad) + abs(con_good)
-        total_cost = - (traj_cost + eta*con + nu*con_bad + omega*con_good)
+        # total_cost = - (traj_cost + eta*con + nu*con_bad + omega*con_good)
+        total_cost = -traj_cost
 
         print('desired:', kl_step, kl_bad, kl_good)
         print('current:', kl_div, kl_div_bad, kl_div_good)
