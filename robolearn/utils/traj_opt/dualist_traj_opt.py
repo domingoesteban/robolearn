@@ -2088,8 +2088,8 @@ class DualistTrajOpt(TrajOpt):
         # total_cost = traj_cost + eta*con + nu*con_bad + omega*con_good
         # total_cost = con - con_bad + con_good
         # total_cost = abs(con) + abs(con_bad) + abs(con_good)
-        # total_cost = - (traj_cost + eta*con + nu*con_bad + omega*con_good)
-        total_cost = -traj_cost
+        total_cost = - (traj_cost + eta*con + nu*con_bad + omega*con_good)
+        # total_cost = - (traj_cost)
 
         print('desired:', kl_step, kl_bad, kl_good)
         print('current:', kl_div, kl_div_bad, kl_div_good)
@@ -2173,7 +2173,7 @@ class DualistTrajOpt(TrajOpt):
         # self.logger.info('final gradients: %f, %f, %f' % (con, con_bad, con_good))
 
         # return np.array([con, con_bad, con_good])
-        return np.array([-con, -con_bad, -con_good])
+        return -np.array([con, con_bad, con_good])
         # return np.array([con, -con_bad, con_good])
         # return np.array([con/abs(con+1e-10), con_bad/abs(con_bad+1e-10),
         #                  con_good/abs(con_good+1e-10)])
