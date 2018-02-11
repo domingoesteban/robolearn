@@ -365,7 +365,7 @@ class DualistTrajOpt(TrajOpt):
                                    'ftol': 2.220446049250313e-09,
                                    'maxcor': 10, 'maxfun': 15000})
 
-        # eta = result.x[0]
+        eta = result.x[0]
         nu = result.x[1] if self.consider_bad else 0
         omega = result.x[2] if self.consider_bad else 0
         traj_distr, duals, convs = \
