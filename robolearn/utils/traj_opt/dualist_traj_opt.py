@@ -455,6 +455,8 @@ class DualistTrajOpt(TrajOpt):
                                opt_eta=True, opt_nu=False, opt_omega=False)
         """
 
+
+        """ TEST 12/02 MORNING
         traj_distr, duals, convs = \
             self._adam_all(algorithm, m, eta, nu, omega,
                            opt_eta=True, opt_nu=self.consider_bad,
@@ -464,7 +466,43 @@ class DualistTrajOpt(TrajOpt):
         eta = duals[0]
         nu = duals[1]
         omega = duals[2]
+        """
 
+        if self.consider_good is False:
+            omega *= 0
+        else:
+            if self.cons_per_step:
+                omega[:] = self._hyperparams['weight_good']
+            else:
+                omega = self._hyperparams['weight_good']
+
+        if self.consider_bad is False:
+            nu *= 0
+        else:
+            if self.cons_per_step:
+                nu[:] = self._hyperparams['weight_bad']
+            else:
+                nu = self._hyperparams['weight_bad']
+
+
+        # Dual Gradient Descent
+        traj_distr, duals, convs = \
+            self._gradient_descent_all(algorithm, m, eta, nu, omega,
+                                       opt_eta=True,
+                                       opt_nu=False,
+                                       opt_omega=False)
+
+        eta = duals[0]
+        nu = duals[1]
+        omega = duals[2]
+        eta_conv = convs[0]
+        nu_conv = convs[1]
+        omega_conv = convs[2]
+
+        if not eta_conv:
+            traj_distr, duals, convs = \
+                self._adam_all(algorithm, m, eta, nu, omega,
+                               opt_eta=True, opt_nu=False, opt_omega=False)
 
         # self._adam_all(algorithm, m, eta, nu, omega,
         #                opt_eta=True, opt_nu=self.consider_bad,

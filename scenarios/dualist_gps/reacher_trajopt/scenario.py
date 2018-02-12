@@ -424,8 +424,10 @@ class Scenario(object):
             'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step. #TODO: IF TRUE, MAYBE IT DOES WORK WITH MDGPS because it doesn't consider dual vars
             'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
             'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
-            'adam_alpha': 1.0, # 0.005,
-            'adam_max_iter': 500, # 200,
+            'adam_alpha': 0.5,
+            'adam_max_iter': 500,
+            'weight_bad': 5.e-1,
+            'weight_good': 1.e-1,
             }
 
         good_trajs = None
