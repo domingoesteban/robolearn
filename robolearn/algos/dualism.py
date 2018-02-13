@@ -302,13 +302,15 @@ class Dualism(object):
             self.good_duality_info[cond].traj_dist = \
                 fit_traj_dist_fcn(self.good_duality_info[cond].sample_list,
                                   min_good_var)
+            self.cur[cond].good_traj_distr = self.good_duality_info[cond].traj_dist
+            self.cur[cond].bad_traj_distr = self.bad_duality_info[cond].traj_dist
 
     def _update_good_bad_size(self):
         for m in range(self.M):
             if self.iteration_count >= 1 and self.prev[m].sample_list:
                 # Good
                 self.cur[m].good_step_mult = 2*self.cur[m].step_mult
-                good_mult = 2*self.cur[m].step_mult
+                good_mult = self._hyperparams['algo_hyperparams']['good_fix_rel_multi']*self.cur[m].step_mult
                 new_good = max(
                     min(good_mult,
                         self._hyperparams['algo_hyperparams']['max_good_mult']),
@@ -316,33 +318,72 @@ class Dualism(object):
                 )
                 self.cur[m].good_step_mult = new_good
 
-                # Bad
-                actual_laplace = self.traj_opt.estimate_cost(
-                    self.cur[m].traj_distr, self.cur[m].traj_info
-                )
+                #
+                traj_info = self.cur[m].traj_info
+                current_distr = self.cur[m].traj_distr
+                bad_distr = self.cur[m].bad_traj_distr
+                prev_traj_info = self.prev[m].traj_info
+                prev_distr = self.prev[m].traj_distr
+                prev_bad_distr = self.prev[m].bad_traj_distr
+
+                actual_laplace = \
+                    self.traj_opt.estimate_cost(current_distr, traj_info)
                 self.logger.info('actual_laplace: %r' % actual_laplace.sum())
 
-                bad_laplace = self.traj_opt.estimate_cost(
-                    self.bad_duality_info[m].traj_dist, self.cur[m].traj_info
-                )
+                prev_laplace = \
+                    self.traj_opt.estimate_cost(prev_distr, traj_info)
+                self.logger.info('prev_laplace: %r' % prev_laplace.sum())
+
+                bad_laplace = \
+                    self.traj_opt.estimate_cost(bad_distr, traj_info)
 
                 self.logger.info('actual_bad: %r' % bad_laplace.sum())
 
+                prev_bad_laplace = \
+                    self.traj_opt.estimate_cost(prev_bad_distr, traj_info)
+
+                self.logger.info('prev_bad: %r' % prev_bad_laplace.sum())
+
+
+                # THIS WAS BEFORE 08/02
+                rel_difference = (1 + (bad_laplace.sum() - actual_laplace.sum())/actual_laplace.sum())
+                self.logger.info('Actual/Bad REL difference %r' % rel_difference)
+
+                # FROM 08/02 WE HAVE
                 rel_difference = (1 + (bad_laplace.sum() - actual_laplace.sum())/actual_laplace.sum())
                 self.logger.info('Actual/Bad REL difference %r' % rel_difference)
 
 
+                mu_to_check, sigma_to_check = \
+                    self.traj_opt.forward(current_distr, traj_info)
+
+                kl_div_bad = traj_distr_kl_alt(mu_to_check, sigma_to_check,
+                                               current_distr, bad_distr,
+                                               tot=True)
+                print('Current_div:', kl_div_bad)
+
+                prev_mu_to_check, prev_sigma_to_check = \
+                    self.traj_opt.forward(prev_distr, traj_info)
+
+                prev_kl_div_bad = \
+                    traj_distr_kl_alt(prev_mu_to_check, prev_sigma_to_check,
+                                      prev_distr, prev_bad_distr, tot=True)
+
+                rel_kl = max(0,
+                             1 + (prev_kl_div_bad - kl_div_bad)/prev_kl_div_bad)
+
                 print('#$'*30)
                 print('MULTIPLY REL_DIFFERENCE EEEEEEE!!!!!!')
-                min_rel_diff = self._hyperparams['algo_hyperparams']['min_rel_diff']
-                max_rel_diff = self._hyperparams['algo_hyperparams']['max_rel_diff']
-                mult_rel_diff = self._hyperparams['algo_hyperparams']['mult_rel_diff']
+                min_rel_diff = self._hyperparams['algo_hyperparams']['min_bad_rel_diff']
+                max_rel_diff = self._hyperparams['algo_hyperparams']['max_bad_rel_diff']
+                mult_rel_diff = self._hyperparams['algo_hyperparams']['mult_bad_rel_diff']
 
                 rel_difference = min(max(rel_difference, min_rel_diff),
                                         max_rel_diff)
                 rel_difference = mult_rel_diff*rel_difference
 
-                self.logger.info('ACTUAL/BAD MULT %r, %r, %r' % (min_rel_diff, max_rel_diff, mult_rel_diff))
+                self.logger.info('ACTUAL/BAD MULT %r, %r, %r'
+                                 % (min_rel_diff, max_rel_diff, mult_rel_diff))
                 self.logger.info('Actual/Bad difference %r' % rel_difference)
 
                 # bad_mult = rel_difference*self.cur[m].step_mult
@@ -356,4 +397,11 @@ class Dualism(object):
                     self._hyperparams['algo_hyperparams']['min_bad_mult']
                 )
                 self.cur[m].bad_step_mult = new_bad
+
+
+                # if not hasattr(self, 'bad_discount'):
+                #     self.bad_discount = self.kl_bad/self.max_iterations
+                # self.cur[m].bad_step_mult = new_bad
+
+
 

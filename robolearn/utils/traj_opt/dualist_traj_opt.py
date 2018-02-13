@@ -351,10 +351,10 @@ class DualistTrajOpt(TrajOpt):
         max_omega = self._hyperparams['max_omega']
 
         x0 = np.array([eta, nu, omega])
-        result = minimize(self.fcn_to_optimize, x0,
+        result = minimize(self.dual_cost, x0,
                           args=(algorithm, m, True, self.consider_bad, self.consider_good),
                           method='L-BFGS-B',
-                          jac=self.grad_to_optimize,
+                          jac=self.dual_grad,
                           bounds=[[min_eta, max_eta],
                                   [min_nu, max_nu],
                                   [min_omega, max_omega]],
@@ -418,10 +418,10 @@ class DualistTrajOpt(TrajOpt):
 
         x0 = np.array([eta, nu, omega])
         # result = minimize(self.lagra_to_optimize, x0,
-        result = minimize(self.fcn_to_optimize, x0,
+        result = minimize(self.dual_cost, x0,
                           args=(algorithm, m, True, self.consider_bad, self.consider_good),
                           method='L-BFGS-B',
-                          jac=self.grad_to_optimize,
+                          jac=self.dual_grad,
                           bounds=[[min_eta, max_eta],
                                   [min_nu, max_nu],
                                   [min_omega, max_omega]],
@@ -468,6 +468,8 @@ class DualistTrajOpt(TrajOpt):
         omega = duals[2]
         """
 
+        """
+        # 12/02 --> Soft constraints
         if self.consider_good is False:
             omega *= 0
         else:
@@ -504,10 +506,61 @@ class DualistTrajOpt(TrajOpt):
                 self._adam_all(algorithm, m, eta, nu, omega,
                                opt_eta=True, opt_nu=False, opt_omega=False)
 
-        # self._adam_all(algorithm, m, eta, nu, omega,
-        #                opt_eta=True, opt_nu=self.consider_bad,
-        #                opt_omega=self.consider_good)
+        """
 
+        # Minimization
+        min_eta = self._hyperparams['min_eta']
+        max_eta = self._hyperparams['max_eta']
+        min_nu = self._hyperparams['min_nu']
+        max_nu = self._hyperparams['max_nu']
+        min_omega = self._hyperparams['min_omega']
+        max_omega = self._hyperparams['max_omega']
+
+        x0 = np.array([eta, nu, omega])
+        result = minimize(self.dual_cost, x0,
+                          args=(algorithm, m, True, self.consider_bad, self.consider_good),
+                          method='L-BFGS-B',
+                          jac=self.dual_grad,
+                          bounds=[[min_eta, max_eta],
+                                  [min_nu, max_nu],
+                                  [min_omega, max_omega]],
+                          tol=None, callback=None,
+                          options={'disp': None, 'maxls': 20,
+                                   'iprint': -1, 'gtol': 1e-05,
+                                   'eps': 1e-08, 'maxiter': 15000,
+                                   'ftol': 2.220446049250313e-09,
+                                   'maxcor': 10, 'maxfun': 15000})
+
+        eta = result.x[0]
+        nu = result.x[1] if self.consider_bad else 0
+        omega = result.x[2] if self.consider_bad else 0
+
+        # Only because we want to get the traj_distr
+        traj_distr, duals, convs = \
+            self._gradient_descent_all(algorithm, m, eta, nu, omega,
+                                       opt_eta=False,
+                                       opt_nu=False,
+                                       opt_omega=False)
+        eta = duals[0]
+        nu = duals[1]
+        omega = duals[2]
+        eta_conv = convs[0]
+        nu_conv = convs[1]
+        omega_conv = convs[2]
+
+        if not eta_conv:
+            self.logger.warning('')
+            self.logger.warning("Refinement with Polyak")
+            traj_distr, duals, convs = \
+                self._polyak_all(algorithm, m, eta, nu, omega,
+                                 opt_eta=True,
+                                 opt_nu=True,
+                                 opt_omega=True,
+                                 max_iter=200)
+
+        eta = duals[0]
+        nu = duals[1]
+        omega = duals[2]
 
 
         # # Dual Gradient Descent
@@ -1956,6 +2009,278 @@ class DualistTrajOpt(TrajOpt):
 
         return traj_distr, (eta, nu, omega), (eta_conv, nu_conv, omega_conv)
 
+    def _polyak_all(self, algorithm, m, eta, nu, omega, dual_to_check='eta',
+                    opt_eta=True, opt_nu=True, opt_omega=True,
+                    max_iter=DGD_MAX_GD_ITER):
+        T = algorithm.T
+
+        # Get current step_mult and traj_info
+        step_mult = algorithm.cur[m].step_mult
+        bad_step_mult = algorithm.cur[m].bad_step_mult
+        good_step_mult = algorithm.cur[m].good_step_mult
+        traj_info = algorithm.cur[m].traj_info
+
+        # Get the trajectory distribution that is going to be used as constraint
+        gps_algo = type(algorithm).__name__
+        if gps_algo in ['DualGPS', 'MDGPS']:
+            # For MDGPS, constrain to previous NN linearization
+            prev_traj_distr = algorithm.cur[m].pol_info.traj_distr()
+        else:
+            # For BADMM/trajopt, constrain to previous LG controller
+            prev_traj_distr = algorithm.cur[m].traj_distr
+
+        # Good and Bad traj_dist
+        bad_traj_distr = algorithm.bad_duality_info[m].traj_dist
+        good_traj_distr = algorithm.good_duality_info[m].traj_dist
+
+        # Set KL-divergence step size (epsilon) using step multiplier.
+        kl_step = algorithm.base_kl_step * step_mult
+        # Set Good KL-divergence (chi) using bad step multiplier.
+        kl_good = algorithm.base_kl_good * good_step_mult
+        # Set Bad KL-divergence (xi) using bad step multiplier.
+        kl_bad = algorithm.base_kl_bad * bad_step_mult
+
+        if not self.cons_per_step:
+            kl_step *= T
+            kl_good *= T
+            kl_bad *= T
+        else:
+            if not isinstance(kl_step, (np.ndarray, list)):
+                self.logger.warning('KL_step is not iterable. Converting it')
+                kl_step = np.ones(T)*kl_step
+            if not isinstance(kl_good, (np.ndarray, list)):
+                self.logger.warning('KL_good is not iterable. Converting it')
+                kl_good = np.ones(T)*kl_good
+            if not isinstance(kl_bad, (np.ndarray, list)):
+                self.logger.warning('KL_bad is not iterable. Converting it')
+                kl_bad = np.ones(T)*kl_bad
+
+        # We assume at min_eta, kl_div > kl_step, opposite for max_eta.
+        if not self.cons_per_step:
+            min_eta = self._hyperparams['min_eta']
+            max_eta = self._hyperparams['max_eta']
+            min_nu = self._hyperparams['min_nu']
+            max_nu = self._hyperparams['max_nu']
+            min_omega = self._hyperparams['min_omega']
+            max_omega = self._hyperparams['max_omega']
+            self.logger.info('_'*60)
+            self.logger.info("Running DPolyak for traj[%d] | "
+                             "eta: %4f, nu: %4f, omega: %4f",
+                             m, eta, nu, omega)
+            self.logger.info('_'*60)
+        else:
+            min_eta = np.ones(T) * self._hyperparams['min_eta']
+            max_eta = np.ones(T) * self._hyperparams['max_eta']
+            min_nu = np.ones(T) * self._hyperparams['min_nu']
+            max_nu = np.ones(T) * self._hyperparams['max_nu']
+            min_omega = np.ones(T) * self._hyperparams['min_omega']
+            max_omega = np.ones(T) * self._hyperparams['max_omega']
+            self.logger.info('_'*60)
+            self.logger.info("Running DPolyak for trajectory %d,"
+                             "avg eta: %f, avg nu: %f, avg omega: %f",
+                             m, np.mean(eta[:-1]), np.mean(nu[:-1]),
+                             np.mean(omega[:-1]))
+            self.logger.info('_'*60)
+
+
+        temp_values = np.zeros(max_iter)
+        temp_etas = np.zeros(max_iter)
+
+        for itr in range(max_iter):
+            self.logger.info("-"*15)
+            if not self.cons_per_step:
+                self.logger.info("ALL Polyak iter %d | Current dual values: "
+                                 "eta %.2e, nu %.2e, omega %.2e"
+                                 % (itr, eta, nu, omega))
+            else:
+                self.logger.info("ALL Poliak iter %d | Current dual values: "
+                                 "avg_eta %.2r, avg_nu %.2r, avg_omega %.2r"
+                                 % (itr, np.mean(eta[:-1]), np.mean(nu[:-1]),
+                                    np.mean(omega[:-1])))
+
+            # TODO: ALWAYS DUAL_TO_CHECK ETA?????
+            traj_distr, eta, nu, omega = \
+                self.backward(prev_traj_distr, good_traj_distr,
+                              bad_traj_distr, traj_info,
+                              eta, nu, omega,
+                              # algorithm, m, dual_to_check='nu')
+                              algorithm, m, dual_to_check=dual_to_check)
+
+            # Compute KL divergence constraint violation.
+            if not self._use_prev_distr:
+                traj_distr_to_check = traj_distr
+            else:
+                traj_distr_to_check = prev_traj_distr
+
+            mu_to_check, sigma_to_check = self.forward(traj_distr_to_check,
+                                                       traj_info)
+            kl_div = self._traj_distr_kl_fcn(mu_to_check, sigma_to_check,
+                                             traj_distr, prev_traj_distr,
+                                             tot=(not self.cons_per_step))
+            kl_div_bad = self._traj_distr_kl_fcn(mu_to_check, sigma_to_check,
+                                                 traj_distr, bad_traj_distr,
+                                                 tot=(not self.cons_per_step))
+            kl_div_good = self._traj_distr_kl_fcn(mu_to_check, sigma_to_check,
+                                                  traj_distr, good_traj_distr,
+                                                  tot=(not self.cons_per_step))
+
+            print('step', kl_div, kl_step)
+            print('bad', kl_div_bad, kl_bad)
+            print('good', kl_div_good, kl_good)
+
+            con = kl_div - kl_step  # KL - epsilon
+            con_bad = kl_bad - kl_div_bad  # xi - KL
+            con_good = kl_div_good - kl_good  # KL - chi
+
+            # Convergence check - constraint satisfaction.
+            eta_conv = self._conv_prev_check(con, kl_step)
+            nu_conv = self._conv_bad_check(con_bad, kl_bad)
+            omega_conv = self._conv_good_check(con_good, kl_good)
+
+            if self.cons_per_step:
+                raise NotImplementedError
+                # min_duals = np.vstack((min_eta[:-1], min_nu[:-1], min_omega[:-1]))
+                # max_duals = np.vstack((max_eta[:-1], max_nu[:-1], max_omega[:-1]))
+                # duals = np.vstack((eta[:-1], nu[:-1], omega[:-1]))
+                #
+                # grads = np.vstack((con, con_bad, con_good))
+                # m_b = (BETA1 * m_b + (1-BETA1) * grads[:, :-1])  # Biased first moment estimate
+                # v_b = (BETA2 * v_b + (1-BETA2) * np.square(grads[:, :-1]))  # Biased second raw moment estimate
+                #
+                # m_u = m_b / (1 - BETA1 ** (itr+1))  # Bias-corrected first moment estimate
+                # v_u = v_b / (1 - BETA2 ** (itr+1))  # Bias-corrected second raw moment estimate
+                # adam_update = duals + alpha * m_u / (np.sqrt(v_u) + EPS)
+                #
+                # adam_update = np.minimum(np.maximum(adam_update, min_duals),
+                #                          max_duals)
+                # eta[:-1] = adam_update[0, :]
+                # nu[:-1] = adam_update[1, :]
+                # omega[:-1] = adam_update[2, :]
+
+            else:
+                grads = np.array([con, con_bad, con_good])
+                min_duals = np.array([min_eta, min_nu, min_omega])
+                max_duals = np.array([max_eta, max_nu, max_omega])
+                duals = np.array([eta, nu, omega])
+
+                grads *= np.array([opt_eta, opt_nu, opt_omega])
+
+                DELTA = 5e+1
+
+                traj_cost = self.estimate_cost(traj_distr, traj_info).sum()
+                dual_cost = traj_cost + duals.dot(grads)
+
+                temp_values[itr] = dual_cost
+                temp_etas[itr] = eta
+
+                if itr == 0:
+                    best_dual_cost = dual_cost
+                else:
+                    best_dual_cost = max(best_dual_cost, dual_cost)
+
+                cost_star = DELTA + best_dual_cost
+
+                alpha = (cost_star - dual_cost)/(np.linalg.norm(grads) + EPS)
+
+                polyak_update = duals + alpha * grads
+
+                polyak_update = np.minimum(np.maximum(polyak_update, min_duals),
+                                           max_duals)
+
+                # print('grads:%r' % grads)
+                # print('m_b:%r' % m_b)
+                # print('m_u:%r' % m_u)
+                print(best_dual_cost)
+                print(dual_cost)
+                print(cost_star - dual_cost)
+                print(alpha)
+                print(grads)
+                self.logger.info('duals_change:%r' % (alpha*grads))
+                print('prev_eta:%f -- new_eta:%f' % (eta, polyak_update[0]))
+                print('prev_nu:%f -- new_nu:%f' % (nu, polyak_update[1]))
+                print('prev_omega:%f -- new_omega:%f' % (omega, polyak_update[2]))
+
+                prev_eta = eta
+                prev_nu = nu
+                prev_omega = omega
+
+                eta = polyak_update[0]
+                nu = polyak_update[1]
+                omega = polyak_update[2]
+
+            if not self.cons_per_step:
+                self.logger.info('eta_conv %s: kl_div < epsilon (%f < %f) | %f%%'
+                                 % (eta_conv, kl_div, kl_step,
+                                    abs(con*100/kl_step)))
+                self.logger.info('nu_conv %s: kl_div > xi (%f > %f) | %f%%'
+                                 % (nu_conv, kl_div_bad, kl_bad,
+                                    abs(con_bad*100/kl_bad)))
+                self.logger.info('omega_conv %s: kl_div < chi (%f < %f) | %f%%'
+                                 % (omega_conv, kl_div_good, kl_good,
+                                    abs(con_good*100/kl_good)))
+            else:
+                self.logger.info('eta_conv %s: avg_kl_div < epsilon '
+                                 '(%r < %r) | %r%%'
+                                 % (eta_conv, np.mean(kl_div[:-1]),
+                                    np.mean(kl_step[:-1]),
+                                    abs(np.mean(con[:-1])*100/np.mean(kl_step[:-1]))))
+                self.logger.info('nu_conv %s: avg_kl_div > xi '
+                                 '(%r > %r) | %r%%'
+                                 % (nu_conv, np.mean(kl_div_bad[:-1]),
+                                    np.mean(kl_bad[:-1]),
+                                    abs(np.mean(con_bad[:-1])*100/np.mean(kl_bad[:-1]))))
+                self.logger.info('omega_conv %s: avg_kl_div < chi '
+                                 '(%r < %r) | %r%%'
+                                 % (omega_conv, np.mean(kl_div_good[:-1]),
+                                    np.mean(kl_good[:-1]),
+                                    abs(np.mean(con_good[:-1])*100/np.mean(kl_good[:-1]))))
+
+            if eta == min_eta or eta == max_eta:
+                eta_conv = True
+
+            if nu == min_nu or nu == max_nu:
+                nu_conv = True
+
+            if omega == min_omega or omega == max_omega:
+                omega_conv = True
+
+            # if eta_conv or np.all(abs(prev_eta - eta)/eta <= 0.05):
+            #     break_eta = True
+            # else:
+            #     break_eta = False
+            #
+            # if nu_conv or np.all(abs(prev_nu - nu)/nu <= 0.05):
+            #     break_nu = True
+            # else:
+            #     break_nu = False
+            #
+            # if omega_conv or np.all(abs(prev_omega - omega)/omega <= 0.05):
+            #     break_omega = True
+            # else:
+            #     break_omega = False
+
+            if eta_conv and nu_conv and omega_conv:
+            # if break_eta and break_nu and break_omega:
+                self.logger.info("It has converged with Polyak")
+                break
+
+        if not self.cons_per_step:
+            self.logger.info('_'*40)
+            self.logger.info('FINAL VALUES at itr %d || '
+                             'eta: %f | nu: %f | omega: %f'
+                             % (itr, eta, nu, omega))
+
+            self.logger.info('eta_conv %s: kl_div < epsilon (%f < %f) | %f%%'
+                             % (eta_conv, kl_div, kl_step,
+                                abs(con*100/kl_step)))
+            self.logger.info('nu_conv %s: kl_div > xi (%f > %f) | %f%%'
+                             % (nu_conv, kl_div_bad, kl_bad,
+                                abs(con_bad*100/kl_bad)))
+            self.logger.info('omega_conv %s: kl_div < chi (%f < %f) | %f%%'
+                             % (omega_conv, kl_div_good, kl_good,
+                                abs(con_good*100/kl_good)))
+
+        return traj_distr, (eta, nu, omega), (eta_conv, nu_conv, omega_conv)
 
     def lagra_to_optimize(self, duals, algorithm, m,
                           opt_eta=True, opt_nu=True, opt_omega=True):
@@ -2081,23 +2406,22 @@ class DualistTrajOpt(TrajOpt):
 
         return total_cost, grads
 
+    def dual_cost(self, duals, algorithm, m,
+                 opt_eta=True, opt_nu=True, opt_omega=True):
+        return self.dual_fcn(duals, algorithm, m,
+                             opt_eta=opt_eta,
+                             opt_nu=opt_nu,
+                             opt_omega=opt_omega)[0]
 
-    def fcn_to_optimize(self, duals, algorithm, m,
-                        opt_eta=True, opt_nu=True, opt_omega=True):
-        return self.fcn_for_evaluation(duals, algorithm, m,
-                                       opt_eta=opt_eta,
-                                       opt_nu=opt_nu,
-                                       opt_omega=opt_omega)[0]
+    def dual_grad(self, duals, algorithm, m,
+                  opt_eta=True, opt_nu=True, opt_omega=True):
+        return self.dual_fcn(duals, algorithm, m,
+                             opt_eta=opt_eta,
+                             opt_nu=opt_nu,
+                             opt_omega=opt_omega)[1]
 
-    def grad_to_optimize(self, duals, algorithm, m,
-                         opt_eta=True, opt_nu=True, opt_omega=True):
-        return self.fcn_for_evaluation(duals, algorithm, m,
-                                       opt_eta=opt_eta,
-                                       opt_nu=opt_nu,
-                                       opt_omega=opt_omega)[1]
-
-    def fcn_for_evaluation(self, duals, algorithm, m,
-                           opt_eta=True, opt_nu=True, opt_omega=True):
+    def dual_fcn(self, duals, algorithm, m,
+                 opt_eta=True, opt_nu=True, opt_omega=True):
         self.logger.info(duals)
         eta = duals[0]
         nu = duals[1]

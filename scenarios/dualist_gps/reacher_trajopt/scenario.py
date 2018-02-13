@@ -415,9 +415,9 @@ class Scenario(object):
             'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
             'max_eta': 1e16,  # At max_eta, kl_div < kl_step
             'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
-            'max_omega': 1.0e4,  #1e16,  # At max_omega, kl_div < kl_step
+            'max_omega': self.task_params['max_omega'],  #1e16,  # At max_omega, kl_div < kl_step
             'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
-            'max_nu': 1.0e2,  # At max_nu, kl_div < kl_step,
+            'max_nu': self.task_params['max_nu'],  # At max_nu, kl_div < kl_step,
             'step_tol': 0.1,
             'bad_tol': 0.1,
             'good_tol': 0.1,
@@ -426,8 +426,8 @@ class Scenario(object):
             'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
             'adam_alpha': 0.5,
             'adam_max_iter': 500,
-            'weight_bad': 5.e-1,
-            'weight_good': 1.e-1,
+            'weight_bad': self.task_params['weight_bad'],
+            'weight_good': self.task_params['weight_good'],
             }
 
         good_trajs = None
@@ -468,9 +468,10 @@ class Scenario(object):
             'min_bad_var': np.array([3.0, 3.0, 3.0])*1.0e-02,
             'min_good_var': np.array([3.0, 3.0, 3.0])*1.0e-02,
             # TEMP Hyperparams
-            'min_rel_diff': 0.01,
-            'max_rel_diff': 2.0,
-            'mult_rel_diff': 1,
+            'min_bad_rel_diff': self.task_params['min_bad_rel_diff'],
+            'max_bad_rel_diff': self.task_params['max_bad_rel_diff'],
+            'mult_bad_rel_diff': self.task_params['mult_bad_rel_diff'],
+            'good_fix_rel_multi': self.task_params['good_fix_rel_multi'],
             }
 
         gps_hyperparams = {

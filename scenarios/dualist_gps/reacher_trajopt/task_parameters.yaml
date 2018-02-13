@@ -40,11 +40,30 @@ num_samples: 10 # Samples for exploration trajs --> N samples
 inner_iterations: 1
 
 # Dualist GPS parameters
-consider_good: False
-consider_bad: False
+consider_good: True
+consider_bad: True
+#consider_good: False
+#consider_bad: True
+#consider_good: False
+#consider_bad: False
+
+max_omega: 1.0e-1
+max_nu: 1.0e-2
+
+weight_bad: 5.e-1
+weight_good: 1.e-1
+
+
+min_bad_rel_diff: 0.01
+max_bad_rel_diff: 2.0
+mult_bad_rel_diff: 1
+good_fix_rel_multi: 5
+
 
 n_good_buffer: 1 # Number of good samples per trajectory distribution
 n_bad_buffer: 1 # Number of bad samples per trajectory distribution
 
+#good_traj_selection_type: only_traj  # 'always', 'only_traj'
+#bad_traj_selection_type: only_traj  # 'always', 'only_traj'
 good_traj_selection_type: always  # 'always', 'only_traj'
 bad_traj_selection_type: always  # 'always', 'only_traj'
