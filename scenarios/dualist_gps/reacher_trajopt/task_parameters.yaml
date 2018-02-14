@@ -47,8 +47,8 @@ consider_good: True
 #consider_bad: False
 #consider_good: False
 
-max_omega: 1.0e-2  # Bad dual variable
-max_nu: 1.0e-1  # Good dual variable
+max_nu: 1.0e-1  # Bad dual variable
+max_omega: 1.0e-2  # Good dual variable
 
 weight_bad: 5.e-1
 weight_good: 1.e-1
