@@ -47,8 +47,14 @@ consider_good: True
 #consider_bad: False
 #consider_good: False
 
+kl_step: 0.2 # epsilon
+kl_bad: 2.0 # xi
+kl_good: 0.4 # chi
+
+
 max_nu: 1.0e-1  # Bad dual variable
 max_omega: 1.0e-2  # Good dual variable
+
 
 weight_bad: 5.e-1
 weight_good: 1.e-1

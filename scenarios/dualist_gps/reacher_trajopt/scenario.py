@@ -448,15 +448,15 @@ class Scenario(object):
             'init_omega': 0.1,
             # KL step (epsilon)
             'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
-            'kl_step': 0.2,  # Kullback-Leibler step (base_step)
+            'kl_step': self.task_params['kl_step'],  # Kullback-Leibler step (base_step)
             'min_step_mult': 0.01,  # Min possible value of step multiplier (multiplies kl_step)
             'max_step_mult': 10.0,  # Max possible value of step multiplier (multiplies kl_step)
             # KL bad (xi)
-            'kl_bad': 2, #4.2  # Xi KL base value | kl_div_b >= kl_bad
+            'kl_bad': self.task_params['kl_bad'], #4.2  # Xi KL base value | kl_div_b >= kl_bad
             'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad)
             'max_bad_mult': 10.0,  # Max possible value of step multiplier (multiplies base_kl_bad)
             # KL good (chi)
-            'kl_good': 0.4,  #2.0,  # Chi KL base value  | kl_div_g <= kl_good
+            'kl_good': self.task_params['kl_good'],  #2.0,  # Chi KL base value  | kl_div_g <= kl_good
             'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good)
             'max_good_mult': 10.0,  # Max possible value of step multiplier (multiplies base_kl_good)
             # LinearPolicy 'projection'
