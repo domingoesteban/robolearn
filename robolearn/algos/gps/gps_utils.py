@@ -97,9 +97,12 @@ class PolicyInfo(BundleType):
         # Compute inverse policy covariances.
         inv_pol_S = np.empty_like(self.chol_pol_S)
         for t in range(T):
-            inv_pol_S[t, :, :] = np.linalg.solve(self.chol_pol_S[t, :, :],
-                                                 np.linalg.solve(self.chol_pol_S[t, :, :].T, np.eye(dU)))
-        return LinearGaussianPolicy(self.pol_K, self.pol_k, self.pol_S, self.chol_pol_S, inv_pol_S)
+            inv_pol_S[t, :, :] = \
+                np.linalg.solve(self.chol_pol_S[t, :, :],
+                                np.linalg.solve(self.chol_pol_S[t, :, :].T,
+                                                np.eye(dU)))
+        return LinearGaussianPolicy(self.pol_K, self.pol_k, self.pol_S,
+                                    self.chol_pol_S, inv_pol_S)
 
 
 class DualityInfo(BundleType):
@@ -111,6 +114,8 @@ class DualityInfo(BundleType):
             'traj_cost': None,
             'traj_dist': None,
             'pol_info': None,        # Policy-related PolicyInfo object.
+            'samples_buffer': list(),
+            'samples_cost_buffer': list(),
         }
         BundleType.__init__(self, variables)
 

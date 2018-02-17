@@ -175,15 +175,12 @@ class DualTrajOpt(TrajOpt, Dualism):
         # Weight of maximum entropy term in trajectory optimization
         multiplier = self._hyperparams['max_ent_traj']
 
-        # omega = 0
-        # nu = 0
-
         # Surrogate cost
         PKLm = np.zeros((T, dX+dU, dX+dU))
         PKLv = np.zeros((T, dX+dU))
 
-        print('AAAAAAAAAAAAAAAAAAAAA: ADDING A BETA TO DIVISOR IN TRAJOPTj')
-
+        self.logger.warning('WARN: adding a beta to divisor in '
+                            'compute_traj_cost')
         divisor = (eta + omega - nu + multiplier + 1e-6)
         fCm = Cm / divisor
         fcv = cv / divisor

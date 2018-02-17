@@ -60,11 +60,11 @@ class TrajOpt(Algorithm):
                                     self._hyperparams['num_samples'],
                                     self.T, self.dU))
 
-        print('%%%%%%%%%%%%%%%%%%%%%%%555')
-        print('%%%%%%%%%%%%%%%%%%%%%%%555')
-        print('TODO: WE ARE SETTING MANUALLY THE SEED')
-        print('%%%%%%%%%%%%%%%%%%%%%%%555')
-        np.random.seed(0)
+        if 'seed' in self._hyperparams:
+            seed = self._hyperparams['seed']
+        else:
+            seed = 0
+        np.random.seed(seed)
 
         if self._hyperparams['noisy_samples']:
             for ii in range(self.max_iterations):
@@ -191,7 +191,7 @@ class TrajOpt(Algorithm):
         true_cost, cost_estimate, cost_compo = \
             self._eval_sample_list_cost(sample_list, cost_fcn)
         self.cur[cond].cs = true_cost  # True value of cost.
-        self.cur[cond].cost_compo = cost_compo  # True value of cost.
+        self.cur[cond].cost_compo = cost_compo  # Cost composition'.
 
         # Cost estimate.
         self.cur[cond].traj_info.Cm = cost_estimate[0]  # Quadratic term (matrix).

@@ -170,5 +170,16 @@ DEFAULT_MDGPS_PILQR_HYPERPARAMS = {
     'min_mult': np.linspace(0.1, 0.5, 100),
 }
 
+# MDGPS
+DEFAULT_DMDGPS_HYPERPARAMS = {
+    # TODO: remove need for init_pol_wt in MDGPS
+    'init_pol_wt': 0.01,
+    'policy_sample_mode': 'add',
+    # Whether to use 'laplace' or 'mc' cost in step adjustment
+    'step_rule': 'laplace',
+    'policy_prior': {'type': ConstantPolicyPrior,
+                     'strenght': 1e-4},
+}
+
 DEFAULT_MULTI_MDGPS_HYPERPARAMS = {
 }

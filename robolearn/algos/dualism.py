@@ -76,7 +76,7 @@ class Dualism(object):
 
             # Get index of sample with worst Return
             #worst_index = np.argmax(np.sum(cs, axis=1))
-            n_bad = self._hyperparams['algo_hyperparams']['n_bad_buffer']
+            n_bad = self._hyperparams['algo_hyperparams']['n_bad_samples']
             if n_bad == cs.shape[0]:
                 worst_indeces = range(n_bad)
             else:
@@ -150,7 +150,7 @@ class Dualism(object):
 
             # Get index of sample with best Return
             #best_index = np.argmin(np.sum(cs, axis=1))
-            n_good = self._hyperparams['algo_hyperparams']['n_good_buffer']
+            n_good = self._hyperparams['algo_hyperparams']['n_good_samples']
             if n_good == cs.shape[0]:
                 best_indeces = range(n_good)
             else:
