@@ -3,8 +3,8 @@
 # #### #
 # VARS #
 # #### #
-scenario='reacher_trajopt2'
-log_dir='trajopt_log2'
+scenario='reacher_gps8'
+log_dir='gps_log8'
 
 seeds=(0 50 100)
 init_index=0
@@ -16,7 +16,7 @@ end_index=1
 seeds=("${seeds[@]:${init_index}:${end_index}}")
 total_seeds=${#seeds[@]}
 
-echo "Reacher TrajOpt"
+echo "Reacher GPS"
 echo "Total seeds: ${#seeds[@]}"
 echo "Experiment seeds: ${seeds[@]}"
 echo ""

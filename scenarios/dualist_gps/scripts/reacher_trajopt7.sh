@@ -3,8 +3,8 @@
 # #### #
 # VARS #
 # #### #
-scenario='reacher_trajopt2'
-log_dir='trajopt_log2'
+scenario='reacher_trajopt7'
+log_dir='trajopt_log7'
 
 seeds=(0 50 100)
 init_index=0
