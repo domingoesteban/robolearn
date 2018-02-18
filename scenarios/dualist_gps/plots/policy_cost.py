@@ -8,26 +8,26 @@ import pickle
 import os, sys
 
 method = 'trajopt'  # 'gps' or 'trajopt'
-gps_directory_names = ['gps_log1']#, 'gps_log2', 'gps_log3', 'gps_log4']
-gps_directory_names = ['trajopt_log1']#, 'gps_log2', 'gps_log3', 'gps_log4']
-gps_models_labels = ['gps1']#, 'gps2', 'gps3', 'gps4']
+method = 'gps'  # 'gps' or 'trajopt'
+gps_directory_names = ['reacher_log']#, 'reacher_log2', 'reacher_log3']
+gps_models_labels = ['gps1']#, 'gps2', 'gps3']
 
 #gps_models_line_styles = [':', '--', '-']
-gps_models_line_styles = ['-', '-', '-', '-', '-']
-gps_models_colors = ['black', 'magenta', 'orange', 'blue', 'green']
-gps_models_markers = ['^', 's', 'D', '^', 's', 'D']
+gps_models_line_styles = ['-', '-', '-', '-', '-', '-', '-', '-', '-']
+gps_models_colors = ['black', 'red', 'saddlebrown', 'green', 'magenta', 'orange', 'blue', 'cadetblue', 'mediumslateblue']
+gps_models_markers = ['^', 's', 'D', '^', 's', 'D', '^', 's', 'D', '^', 's', 'D']
 
 init_itr = 0
 final_itr = 200
 samples_idx = [-1]  # List of samples / None: all samples
 max_traj_plots = None  # None, plot all
 last_n_iters = None  # 5  # None, plot all iterations
-itr_to_load = list(range(5))
+itr_to_load = None  # list(range(8))
 # itr_to_load = [0, 4, 8]
 
 plot_cs = True
 plot_policy_costs = True
-plot_cost_types = True
+plot_cost_types = False
 
 colormap = plt.cm.rainbow  # nipy_spectral, Set1, Paired, winter
 plot_sample_list_max_min = False
@@ -91,7 +91,9 @@ for gps, gps_directory_name in enumerate(gps_directory_names):
                     itr_to_load = list(range(init_itr, max_available_itr+1))
 
             else:
-                itr_to_load = list(range(init_itr, max_available_itr+1))
+                itr_list = list(range(init_itr, max_available_itr))
+        else:
+            itr_list = itr_to_load
 
         print("Desired iterations to load in %s: %s" % (gps_directory_name,
                                                         itr_to_load))
@@ -99,8 +101,8 @@ for gps, gps_directory_name in enumerate(gps_directory_names):
         first_itr_data = True
         first_pol_cost_data = True
         first_pol_cost_comp_data = True
-        total_itr = len(itr_to_load)
-        for ii, itr_idx in enumerate(itr_to_load):
+        total_itr = len(itr_list)
+        for ii, itr_idx in enumerate(itr_list):
             itr_path = dir_path + str('/run_%02d' % rr) + \
                        str('/itr_%02d/' % itr_idx)
             # Samples costs
@@ -120,6 +122,7 @@ for gps, gps_directory_name in enumerate(gps_directory_names):
 
                     for cc in range(n_cond):
                         sample_costs[cc, ii, :, :] = iter_data[cc].cs
+
                 else:
                     raise ValueError('ItrData does not exist! | gps[%02d] run[%02d]'
                                      ' itr[%02d]' % (gps, rr, itr_idx))
@@ -185,7 +188,6 @@ for gps, gps_directory_name in enumerate(gps_directory_names):
                                      'gps[%02d] run[%02d] itr[%02d]'
                                      % (gps, rr, itr_idx))
 
-
         # Clear all the loaded data
         if plot_cs:
             cs_list[gps][rr] = sample_costs
@@ -214,9 +216,16 @@ if plot_cs:
         fig.set_facecolor((1, 1, 1))
         des_colormap = [colormap(i) for i in np.linspace(0, 1, total_gps)]
 
+        ax.set_title('Samples Costs | Condition %d' % cond,
+                     fontsize=30, weight='bold')
+
+        # Background
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        ax.xaxis.grid(color='white', linewidth=2)
+        ax.set_facecolor((0.917, 0.917, 0.949))
+
         lines = list()
         labels = list()
-
         for gps in range(total_gps):
             print('&&&'*5)
             print('&&&'*5)
@@ -238,9 +247,20 @@ if plot_cs:
 
             ax.xaxis.set_major_locator(MaxNLocator(integer=True))
             ax.fill_between(iteration_ids[gps][rr], min_costs, max_costs,
-                            alpha=0.5, color=gps_models_colors[gps])
+                            alpha=0.5, color=gps_models_colors[gps], zorder=2)
             lines.append(line)
             labels.append(gps_models_labels[gps])
+
+        # Axes
+        max_lim = 0
+        for ll in ax.lines:
+            if len(ll.get_xdata()) > max_lim:
+                max_lim = len(ll.get_xdata())
+        ax.set_xlim(0, max_lim+1)
+        ax.set_xlabel("Iterations", fontsize=30, weight='bold')
+        ax.set_ylabel("Average Cost", fontsize=30, weight='bold')
+        ax.tick_params(axis='x', labelsize=25)
+        ax.tick_params(axis='y', labelsize=25)
 
 
 if plot_policy_costs:
@@ -249,13 +269,8 @@ if plot_policy_costs:
     iteration_to_plot = -1
     colormap = plt.cm.rainbow  # nipy_spectral, Set1, Paired, winter, rainbow
 
-    total_runs = len(pol_sample_lists_costs[-1])
+    # TODO: WE ARE ASSUMING ALL HAVE THE SAME NUMBER OF CONDS
     total_cond = pol_sample_lists_costs[-1][-1].shape[0]
-    total_itr = pol_sample_lists_costs[-1][-1].shape[1]
-    total_samples = pol_sample_lists_costs[-1][-1].shape[2]
-    T = pol_sample_lists_costs[-1][-1].shape[3]
-    if plot_cost_types:
-        total_cost_types = pol_sample_lists_cost_compos[-1][-1].shape[3]
 
     if plots_type.lower() == 'iteration':
         #marker = 'o'
@@ -269,17 +284,28 @@ if plot_policy_costs:
             fig.set_facecolor((1, 1, 1))
             des_colormap = [colormap(i) for i in np.linspace(0, 1, total_gps)]
 
-            lines = list()
-            labels = list()
+            ax.set_title('Global Policy Costs | Test Condition %d' % cond,
+                         fontsize=30, weight='bold')
 
             min_iteration = np.inf
             max_iteration = -np.inf
 
+            lines = list()
+            labels = list()
             for gps in range(total_gps):
+                total_runs = len(pol_sample_lists_costs[gps])
+                total_itr = pol_sample_lists_costs[gps][-1].shape[1]
+                total_samples = pol_sample_lists_costs[gps][-1].shape[2]
+                T = pol_sample_lists_costs[gps][-1].shape[3]
+                if plot_cost_types:
+                    total_cost_types = pol_sample_lists_cost_compos[gps][-1].shape[3]
+
+
 
                 avg_costs = np.zeros((total_runs, total_itr))
 
                 for rr in range(total_runs):
+                    print(pol_sample_lists_costs[gps][rr].shape)
                     pol_cost_sum = pol_sample_lists_costs[gps][rr][cond, :, :, :].sum(axis=-1)
                     # Average over samples
                     avg_costs[rr, :] = np.mean(pol_cost_sum, axis=-1)
@@ -295,7 +321,8 @@ if plot_policy_costs:
                                linestyle=gps_models_line_styles[gps],
                                color=gps_models_colors[gps])[0]
                 ax.fill_between(iteration_ids[gps][rr], min_costs, max_costs,
-                                alpha=0.5, color=gps_models_colors[gps])
+                                alpha=0.5, color=gps_models_colors[gps],
+                                zorder=2)
                 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                 lines.append(line)
                 labels.append(gps_models_labels[gps])
@@ -320,7 +347,8 @@ if plot_policy_costs:
                                        marker=marker, label=label)[0]
                         ax.fill_between(iteration_ids[gps][rr],
                                         min_cost_types[:, c],
-                                        max_cost_types[:, c], alpha=0.5)
+                                        max_cost_types[:, c], alpha=0.5,
+                                        zorder=2)
                         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                         lines.append(line)
                         labels.append(label)
@@ -333,15 +361,28 @@ if plot_policy_costs:
                     print('run %02d - best_index: %r' % (rr, best_index))
                 print('%'*10)
 
+            # Axes
             #ax.set_xticks(range(min_iteration, max_iteration+1))
-            #ax.set_xlim(min_iteration, max_iteration)
             #ax.set_xticks(range(0, 26, 5))
+            #ax.set_xlim(min_iteration, max_iteration)
             #ax.set_xlim(0, 25)
+
+            max_lim = 0
+            for ll in ax.lines:
+                if len(ll.get_xdata()) > max_lim:
+                    max_lim = len(ll.get_xdata())
+            ax.set_xlim(0, max_lim+1)
             ax.set_xlabel("Iterations", fontsize=30, weight='bold')
             ax.set_ylabel("Average Cost", fontsize=30, weight='bold')
             ax.tick_params(axis='x', labelsize=25)
             ax.tick_params(axis='y', labelsize=25)
 
+            # Background
+            ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+            ax.xaxis.grid(color='white', linewidth=2)
+            ax.set_facecolor((0.917, 0.917, 0.949))
+
+            # Legend
             #legend = ax.legend(loc='best', ncol=1, fontsize=20)
             legend = ax.legend(ncol=1, fontsize=25)
             #legend = plt.figlegend(lines, labels, loc='center right', ncol=1, labelspacing=0., borderaxespad=1.)
@@ -389,7 +430,7 @@ if plot_policy_costs:
         #         std_costs[itr, :] = samples_cost.std(axis=0)
         #         label = 'Total Cost (itr%d)' % itr
         #         line = ax.plot(mean_costs[itr, :], label=label)[0]
-        #         ax.fill_between(range(T), min_costs[itr, :], max_costs[itr, :], alpha=0.5)
+        #         ax.fill_between(range(T), min_costs[itr, :], max_costs[itr, :], alpha=0.5, zorder=2)
         #         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         #         lines.append(line)
         #         labels.append(label)
@@ -414,7 +455,7 @@ if plot_policy_costs:
         #         for c in range(total_cost_types):
         #             label = 'Cost type %d (itr%d)' % (c, itr)
         #             line = ax.plot(mean_cost_types[itr, c, :], label=label)[0]
-        #             ax.fill_between(range(T), min_cost_types[itr, c, :], max_cost_types[itr, c, :], alpha=0.5)
+        #             ax.fill_between(range(T), min_cost_types[itr, c, :], max_cost_types[itr, c, :], alpha=0.5, zorder=2)
         #             ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         #
         #             lines.append(line)

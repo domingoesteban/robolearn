@@ -8,21 +8,21 @@ import pickle
 import os, sys
 
 method = 'trajopt'  # 'gps' or 'trajopt'
-gps_directory_names = ['trajopt_log1']
-gps_directory_names = ['reacher_log']
-gps_models_labels = ['test']#, 'gps2', 'gps3', 'gps4']
+method = 'gps'  # 'gps' or 'trajopt'
+gps_directory_names = ['reacher_log']#, 'reacher_log2', 'reacher_log3']
+gps_models_labels = ['gps1']#, 'gps2', 'gps3']
 
 #gps_models_line_styles = [':', '--', '-']
-gps_models_line_styles = ['-', '-', '-', '-', '-']
-gps_models_colors = ['black', 'magenta', 'orange', 'blue', 'green']
-gps_models_markers = ['^', 's', 'D', '^', 's', 'D']
+gps_models_line_styles = ['-', '-', '-', '-', '-', '-', '-', '-', '-']
+gps_models_colors = ['black', 'red', 'saddlebrown', 'green', 'magenta', 'orange', 'blue', 'cadetblue', 'mediumslateblue']
+gps_models_markers = ['^', 's', 'D', '^', 's', 'D', '^', 's', 'D', '^', 's', 'D']
 
 init_itr = 0
 final_itr = 200
 samples_idx = [-1]  # List of samples / None: all samples
 max_traj_plots = None  # None, plot all
 last_n_iters = None  # 5  # None, plot all iterations
-itr_to_load = list(range(5))
+itr_to_load = None  # list(range(8))
 # itr_to_load = [0, 4, 8]
 
 colormap = plt.cm.rainbow  # nipy_spectral, Set1, Paired, winter
@@ -83,14 +83,16 @@ for gps, gps_directory_name in enumerate(gps_directory_names):
                     itr_to_load = list(range(init_itr, max_available_itr+1))
 
             else:
-                itr_to_load = list(range(init_itr, max_available_itr+1))
+                itr_list = list(range(init_itr, max_available_itr))
+        else:
+            itr_list = itr_to_load
 
         print("Desired iterations to load in %s: %s" % (gps_directory_name,
                                                         itr_to_load))
 
         first_itr_data = True
-        total_itr = len(itr_to_load)
-        for ii, itr_idx in enumerate(itr_to_load):
+        total_itr = len(itr_list)
+        for ii, itr_idx in enumerate(itr_list):
             itr_path = dir_path + str('/run_%02d' % rr) + \
                        str('/itr_%02d/' % itr_idx)
             # Duals
@@ -111,13 +113,13 @@ for gps, gps_directory_name in enumerate(gps_directory_names):
                     duals[cc, ii, 0] = iter_data[cc].eta
                     duals[cc, ii, 1] = iter_data[cc].nu
                     duals[cc, ii, 2] = iter_data[cc].omega
+                del iter_data
             else:
                 raise ValueError('ItrData does not exist! | gps[%02d] run[%02d]'
                                  ' itr[%02d]' % (gps, rr, itr_idx))
 
         # Clear all the loaded data
         duals_list[gps][rr] = duals
-        del iter_data
 
 
 total_runs = len(duals_list[-1])
@@ -127,6 +129,7 @@ total_itr = duals_list[-1][-1].shape[1]
 for cond in range(total_cond):
     fig, ax = plt.subplots(3, 1)
     fig.subplots_adjust(hspace=0)
+    fig.suptitle("Duals for condition %02d" % cond, fontsize=14, weight='bold')
     fig.canvas.set_window_title('Duals Condition %02d '
                                 '(over %02d runs)'
                                 % (cond, total_runs))
@@ -146,43 +149,50 @@ for cond in range(total_cond):
         duals = duals_list[gps][rr][cond, :, :]
 
         # Eta
-        ax[0].set_title('Eta (step)')
+        ax[0].set_ylabel(r'Step ($\eta$)',
+                         fontdict={'color': 'black', 'weight': 'bold'})
         line = ax[0].plot(iteration_ids[gps][rr], duals[:, 0],
                           marker=gps_models_markers[gps],
                           label=gps_models_labels[gps],
                           linestyle=gps_models_line_styles[gps],
                           color=gps_models_colors[gps])[0]
-
-        ax[0].xaxis.set_major_locator(MaxNLocator(integer=True))
         lines.append(line)
         labels.append(gps_models_labels[gps])
-        legend = ax[0].legend(ncol=1, fontsize=12)
 
         # Nu
-        ax[1].set_title('Nu (bad)')
+        ax[1].set_ylabel(r'Bad ($\nu$)',
+                         fontdict={'color': 'darkred', 'weight': 'bold'})
         line = ax[1].plot(iteration_ids[gps][rr], duals[:, 1],
                           marker=gps_models_markers[gps],
                           label=gps_models_labels[gps],
                           linestyle=gps_models_line_styles[gps],
                           color=gps_models_colors[gps])[0]
 
-        ax[1].xaxis.set_major_locator(MaxNLocator(integer=True))
-        lines.append(line)
-        labels.append(gps_models_labels[gps])
-        legend = ax[1].legend(ncol=1, fontsize=12)
-
         # Omega
-        ax[2].set_title('Omega (good)')
+        ax[2].set_ylabel('Good ($\omega$)',
+                         fontdict={'color': 'darkgreen', 'weight': 'bold'})
         line = ax[2].plot(iteration_ids[gps][rr], duals[:, 2],
                           marker=gps_models_markers[gps],
                           label=gps_models_labels[gps],
                           linestyle=gps_models_line_styles[gps],
                           color=gps_models_colors[gps])[0]
 
-        ax[2].xaxis.set_major_locator(MaxNLocator(integer=True))
-        lines.append(line)
-        labels.append(gps_models_labels[gps])
-        legend = ax[2].legend(ncol=1, fontsize=12)
+    for aa in ax:
+        max_lim = 0
+        for ll in aa.lines:
+            if len(ll.get_xdata()) > max_lim:
+                max_lim = len(ll.get_xdata())
+
+        # Background
+        aa.xaxis.set_major_locator(MaxNLocator(integer=True))
+        aa.xaxis.grid(color='white', linewidth=2)
+        aa.set_xlim(0, max_lim+1)
+        aa.set_facecolor((0.917, 0.917, 0.949))
+
+    for aa in ax[:-1]:
+        aa.xaxis.set_ticklabels([])
+
+    fig.legend(lines, labels, loc='center right', ncol=1)
 
 
 plt.show(block=False)
