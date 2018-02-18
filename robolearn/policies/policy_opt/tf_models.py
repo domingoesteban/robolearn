@@ -249,8 +249,8 @@ def multi_modal_network(dim_input=27, dim_output=7, batch_size=25,
 
 def multi_modal_network_fp(dim_input=27, dim_output=7, batch_size=25, network_config=None, tf_graph=None):
     """
-    An example a network in tf that has both state and image inputs, with the feature
-    point architecture (spatial softmax + expectation).
+    An example a network in tf that has both state and image inputs, with the
+    feature point architecture (spatial softmax + expectation).
     Args:
         dim_input: Dimensionality of input.
         dim_output: Dimensionality of the output.

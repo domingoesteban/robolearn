@@ -4,6 +4,7 @@ import sys
 class PrintColors(object):
     def __init__(self):
         self.colors = {
+            'WHITE': "\033[1;37m",
             'RED': "\033[1;31m",
             'GREEN': "\033[1;32m",
             'YELLOW': "\033[1;33m",

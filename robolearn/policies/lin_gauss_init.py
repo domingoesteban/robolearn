@@ -130,12 +130,14 @@ def init_pd(hyperparams):
     x0, T = config['x0'], config['T']
     dDistance = config['dDistance']
 
-    if not issubclass(type(config['pos_gains']), list) and not issubclass(type(config['pos_gains']), np.ndarray):
+    if not issubclass(type(config['pos_gains']), list) \
+            and not issubclass(type(config['pos_gains']), np.ndarray):
         pos_gains = np.tile(config['pos_gains'], dU)
     elif len(config['pos_gains']) == dU:
         pos_gains = config['pos_gains']
     else:
-        raise TypeError("noise_var_scale size (%d) does not match dU (%d)" % (len(config['pos_gains']), dU))
+        raise TypeError("noise_var_scale size (%d) does not match dU (%d)"
+                        % (len(config['pos_gains']), dU))
 
     # Choose initialization mode.
     Kp = 1.0
@@ -148,6 +150,7 @@ def init_pd(hyperparams):
         K = -np.diag(pos_gains).dot(np.hstack([np.eye(dU) * Kp, np.eye(dU) * Kv,
                                                np.zeros((dU, dX - dU*2))]))
         K = np.tile(K, [T, 1, 1])
+
     if config['state_to_pd'] == 'distance':
         k = np.tile(-K[0, :, :].dot(x0), [T, 1])
     else:
