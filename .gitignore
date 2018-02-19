@@ -5,5 +5,7 @@ scenarios/robolearn_log
 scenarios/TASKSPACE_TORQUE_CTRL_DEMO_*
 scenarios/DUAL_DEMOS_*
 scenarios/dualist_gps/test_log_dir*
+scenarios/dualist_gps/gps_log*
+scenarios/dualist_gps/test_*
 LOG_2017-*
 .ipynb_checkpoints

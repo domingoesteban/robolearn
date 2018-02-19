@@ -8,6 +8,7 @@ from robolearn.utils.dynamics.dynamics import Dynamics
 from robolearn.algos.gps.gps_utils import gauss_fit_joint_prior
 from robolearn.utils.print_utils import ProgressBar
 
+
 class DynamicsLRPrior(Dynamics):
     """ Dynamics with linear regression, with arbitrary prior. """
     def __init__(self, hyperparams):
