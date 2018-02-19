@@ -90,7 +90,6 @@ def get_mlp_layers(mlp_input, number_layers, dimension_hidden, network_name="",
     if tf_graph is None:
         tf_graph = tf.get_default_graph()
 
-    print(cur_top)
     for layer_step in range(0, number_layers):
         in_shape = cur_top.get_shape().dims[1].value
         cur_weight = init_weights([in_shape, dimension_hidden[layer_step]],

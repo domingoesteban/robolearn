@@ -44,6 +44,9 @@ signal.signal(signal.SIGINT, kill_everything)
 
 
 class Scenario(object):
+    """Defines a RL scenario (environment, agent and learning algorithm)
+
+    """
     def __init__(self, hyperparams):
 
         self.hyperparams = hyperparams
@@ -60,7 +63,6 @@ class Scenario(object):
 
         if self.hyperparams['render']:
             self.task_params['render'] = self.hyperparams['render']
-
 
         # Numpy max
         os.environ['OMP_NUM_THREADS'] = str(self.task_params['np_threads'])
@@ -81,10 +83,16 @@ class Scenario(object):
         # Initial Conditions
         self.init_cond = self.create_init_conditions()
 
-        # Learning algo
+        # Learning Algorithm
         self.learn_algo = self.create_learning_algo()
 
     def create_environment(self):
+        """Instantiate an specific RL environment to interact with.
+
+        Returns:
+            RL environment
+
+        """
         change_print_color.change('BLUE')
         print("\nCreating Environment...")
 
@@ -109,6 +117,12 @@ class Scenario(object):
         return env
 
     def create_agent(self):
+        """Instantiate the RL agent who interacts with the environment.
+
+        Returns:
+            RL agent
+
+        """
         change_print_color.change('CYAN')
         print("\nCreating Agent...")
 
@@ -124,19 +138,21 @@ class Scenario(object):
             'init_var': 0.1,  # Initial policy variance.
             'ent_reg': 0.0,  # Entropy regularizer (Used to update policy variance)
             # Solver hyperparameters.
-            'iterations': self.task_params['tf_iterations'],  # Number of iterations per inner iteration (Default:5000). Recommended: 1000?
+            'iterations': self.task_params['tf_iterations'],  # Number of iterations per inner iteration (Default:5000).
             'batch_size': 15,
             'lr': 0.001,  # Base learning rate (by default it's fixed).
             'lr_policy': 'fixed',  # Learning rate policy.
             'momentum': 0.9,  # Momentum.
-            'weight_decay': 0.005,  # Weight decay.
+            'weight_decay': 0.005,  # Weight decay to prevent overfitting.
             'solver_type': 'Adam',  # Solver type (e.g. 'SGD', 'Adam', 'RMSPROP', 'MOMENTUM', 'ADAGRAD').
-            # set gpu usage.
+            # GPU usage.
             'use_gpu': self.task_params['use_gpu'],  # Whether or not to use the GPU for training.
             'gpu_id': 0,
-            'random_seed': 1,
-            'fc_only_iterations': 0,  # Iterations of only FC before normal training
             'gpu_mem_percentage': self.task_params['gpu_mem_percentage'],
+            # Training data.
+            'fc_only_iterations': 0,  # Iterations of only FC before normal training
+            # Others.
+            'random_seed': self.hyperparams['seed'],  # TF random seed
             'log_dir': self.hyperparams['log_dir'],
             # 'weights_file_prefix': EXP_DIR + 'policy',
         }
@@ -154,6 +170,12 @@ class Scenario(object):
         return agent
 
     def create_cost(self):
+        """Instantiate the cost that evaluates the RL agent performance.
+
+        Returns:
+            Cost Function
+
+        """
         change_print_color.change('GRAY')
         print("\nCreating Costs...")
 
@@ -269,36 +291,75 @@ class Scenario(object):
             'type': CostStateDifference,
             'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
             'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
-            'l1': 1.0,  # Weight for l1 norm
-            'l2': 1.0,  # Weight for l2 norm
-            'alpha': 1e-5,  # Constant added in square root in l1 norm
+            'l1': 1.e-0,  # Weight for l1 norm
+            'l2': 5.e-2,  # Weight for l2 norm
+            'alpha': 1e-10,  # Constant added in square root in l1 norm
             'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
             'data_types': {
                 'ee': {
-                    'wp': np.array([1.0, 1.0, 1.0]),  # State weights - must be set.
-                    'target_state': 'tgt0',  # Target state - must be set.
-                    'average': None,
-                    'tgt_idx': self.env.get_state_info(name='tgt0')['idx'],
                     'data_idx': self.env.get_state_info(name='ee')['idx'],
                     'idx_to_use': [0, 1, 2],  # All: X, Y, theta
+                    'wp': np.array([1.0, 1.0, 0.6]),  # State weights - must be set.
+                    'average': None,
+                    'target_state': 'tgt0',  # Target state - must be set.
+                    'tgt_idx': self.env.get_state_info(name='tgt0')['idx'],
                 },
             },
         }
 
+        cost_final_state_difference = {
+            'type': CostStateDifference,
+            'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time. RAMP_* :CONSTANT, LINEAR, QUADRATIC, FINAL_ONLY
+            'evalnorm': evall1l2term,  # TODO: ALWAYS USE evall1l2term
+            'l1': 1.e-0,  # Weight for l1 norm
+            'l2': 5.e-2,  # Weight for l2 norm
+            'alpha': 1e-10,  # Constant added in square root in l1 norm
+            'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
+            'data_types': {
+                'ee': {
+                    'data_idx': self.env.get_state_info(name='ee')['idx'],
+                    'idx_to_use': [0, 1, 2],  # All: X, Y, theta
+                    'wp': np.array([1.0, 1.0, 0.6]),  # State weights - must be set.
+                    'average': None,
+                    'target_state': 'tgt0',  # Target state - must be set.
+                    'tgt_idx': self.env.get_state_info(name='tgt0')['idx'],
+                },
+            },
+        }
+
+        safe_radius = 0.15
         cost_safe_state_difference = {
             'type': CostSafeStateDifference,
             'ramp_option': RAMP_CONSTANT,  # How target cost ramps over time.
             'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
             'data_types': {
                 'ee': {
-                    'wp': np.array([1.0, 1.0]),  # State weights - must be set.
-                    'safe_distance': np.array([0.15, 0.15]),
-                    'outside_cost': np.array([0.0, 0.0]),
-                    'inside_cost': np.array([1.0, 1.0]),
-                    'target_state': 'tgt1',  # Target state - must be set.
-                    'tgt_idx': self.env.get_state_info(name='tgt1')['idx'][:2],
                     'data_idx': self.env.get_state_info(name='ee')['idx'][:2],
                     'idx_to_use': [0, 1],  # Only X and Y
+                    'wp': np.array([1.0, 1.0]),  # State weights - must be set.
+                    'target_state': 'tgt1',  # Target state - must be set.
+                    'tgt_idx': self.env.get_state_info(name='tgt1')['idx'][:2],
+                    'safe_distance': np.sqrt([safe_radius**2/2, safe_radius**2/2]),
+                    'outside_cost': np.array([0.0, 0.0]),
+                    'inside_cost': np.array([1.0, 1.0]),
+                },
+            },
+        }
+
+        cost_final_safe_state_difference = {
+            'type': CostSafeStateDifference,
+            'ramp_option': RAMP_FINAL_ONLY,  # How target cost ramps over time.
+            'wp_final_multiplier': 1.0,  # Weight multiplier on final time step.
+            'data_types': {
+                'ee': {
+                    'data_idx': self.env.get_state_info(name='ee')['idx'][:2],
+                    'idx_to_use': [0, 1],  # Only X and Y
+                    'wp': np.array([1.0, 1.0]),  # State weights - must be set.
+                    'target_state': 'tgt1',  # Target state - must be set.
+                    'tgt_idx': self.env.get_state_info(name='tgt1')['idx'][:2],
+                    'safe_distance': np.sqrt([safe_radius**2/2, safe_radius**2/2]),
+                    'outside_cost': np.array([0.0, 0.0]),
+                    'inside_cost': np.array([1.0, 1.0]),
                 },
             },
         }
@@ -306,15 +367,19 @@ class Scenario(object):
 
         # Sum costs
         # costs_and_weights = [(act_cost, 1.0e-1),
-        costs_and_weights = [(act_cost, 1.0e-5),
+        des_weights = self.task_params['cost_weights']
+        print('Costs weights:', des_weights)
+        costs_and_weights = [(act_cost, des_weights[0]),
                              # # (fk_cost, 1.0e-0),
                              # (fk_l1_cost, 1.5e-1),
                              # (fk_l2_cost, 1.0e-0),
                              # # (fk_final_cost, 1.0e-0),
                              # (fk_l1_final_cost, 1.5e-1),
                              # (fk_l2_final_cost, 1.0e-0),
-                             (cost_state_difference, 5.0e-0),
-                             (cost_safe_state_difference, 1.0e+1),
+                             (cost_state_difference, des_weights[1]),
+                             (cost_final_state_difference, des_weights[2]),
+                             (cost_safe_state_difference, des_weights[3]),
+                             (cost_final_safe_state_difference, des_weights[4]),
                              # WORKING:
                              # (cost_safe_distance, 1.0e+1),
                              # (state_cost_distance, 5.0e-0),
@@ -330,6 +395,12 @@ class Scenario(object):
         return cost_sum
 
     def create_init_conditions(self):
+        """Defines the initial conditions for the environment.
+
+        Returns:
+            Environment' initial conditions.
+
+        """
         change_print_color.change('MAGENTA')
         print("\nCreating Initial Conditions...")
         initial_cond = self.task_params['init_cond']
@@ -339,8 +410,8 @@ class Scenario(object):
         ntgt = self.task_params['ntargets']
 
         for cc, cond in enumerate(initial_cond):
-            condition = np.zeros(self.env.get_obs_dim())
-            condition[:self.env.get_action_dim()] = np.deg2rad(cond[:3])
+            env_condition = np.zeros(self.env.get_obs_dim())
+            env_condition[:self.env.get_action_dim()] = np.deg2rad(cond[:3])
             cond_idx = 2*self.env.get_action_dim() + pdof  # EE pose will be obtained from sim
             data_idx = self.env.get_action_dim()
             for tt in range(self.task_params['ntargets']):
@@ -349,22 +420,25 @@ class Scenario(object):
                 #                             pos_y=tgt_data[1],
                 #                             pos_z=z_fix,
                 #                             rot_yaw=np.deg2rad(tgt_data[2]))
-                # condition[cond_idx:cond_idx+pdof] = tgt_pose
+                # env_condition[cond_idx:cond_idx+pdof] = tgt_pose
                 tgt_data[2] = np.deg2rad(tgt_data[2])
-                condition[cond_idx:cond_idx+pdof] = tgt_data
+                env_condition[cond_idx:cond_idx+pdof] = tgt_data
                 cond_idx += pdof
                 data_idx += ddof
 
-            self.env.add_init_cond(condition)
+            self.env.add_init_cond(env_condition)
 
         return self.env.get_conditions()
 
     def create_learning_algo(self):
+        """Instantiates the RL algorithm
+
+        Returns:
+            Learning algorithm
+
+        """
         change_print_color.change('YELLOW')
         print("\nConfiguring learning algorithm...\n")
-
-        # Learning params
-        resume_training_itr = None  # Resume from previous training iteration
 
         # Dynamics
         learned_dynamics = {'type': DynamicsLRPrior,
@@ -391,55 +465,60 @@ class Scenario(object):
         # Trajectory Optimization Method
         traj_opt_method = {
             'type': DualistTrajOpt,
-            'good_const': self.task_params['consider_good'],  # Use good constraints
             'bad_const': self.task_params['consider_bad'],  # Use bad constraints
+            'good_const': self.task_params['consider_good'],  # Use good constraints
             'del0': 1e-4,  # Eta updates for non-SPD Q-function (non-SPD correction step).
-            'del0_good': 1e-4,  # Omega updates for non-SPD Q-function (non-SPD correction step).
             'del0_bad': 1e-8,  # Nu updates for non-SPD Q-function (non-SPD correction step).
-            # 'eta_error_threshold': 1e16, # TODO: REMOVE, it is not used
+            'del0_good': 1e-4,  # Omega updates for non-SPD Q-function (non-SPD correction step).
             'min_eta': 1e-8,  # At min_eta, kl_div > kl_step
             'max_eta': 1e16,  # At max_eta, kl_div < kl_step
-            'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
-            'max_omega': 5.0e-1,  #1e16,  # At max_omega, kl_div < kl_step
             'min_nu': 1e-8,  # At min_nu, kl_div > kl_step
-            'max_nu': 1.0e5,  # At max_nu, kl_div < kl_step,
+            'max_nu': self.task_params['max_nu'],  # At max_nu, kl_div < kl_step,
+            'min_omega': 1e-8,  # At min_omega, kl_div > kl_step
+            'max_omega': self.task_params['max_omega'],  #1e16,  # At max_omega, kl_div < kl_step
             'step_tol': 0.1,
             'bad_tol': 0.1,
             'good_tol': 0.1,
             'cons_per_step': False,  # Whether or not to enforce separate KL constraints at each time step. #TODO: IF TRUE, MAYBE IT DOES WORK WITH MDGPS because it doesn't consider dual vars
             'use_prev_distr': False,  # Whether or not to measure expected KL under the previous traj distr.
             'update_in_bwd_pass': True,  # Whether or not to update the TVLG controller during the bwd pass.
+            'adam_alpha': 0.5,
+            'adam_max_iter': 500,
+            'weight_bad': self.task_params['weight_bad'],
+            'weight_good': self.task_params['weight_good'],
             }
 
         good_trajs = None
         bad_trajs = None
-        dmgps_hyperparams = {
+        dmdgps_hyperparams = {
             'inner_iterations': self.task_params['inner_iterations'],  # Times the trajectories are updated
             # G/B samples selection | Fitting
             'good_samples': good_trajs,  # Good samples demos
             'bad_samples': bad_trajs,  # Bad samples demos
-            'n_good_buffer': self.task_params['n_good_buffer'],  # Number of good samples per each trajectory
-            'n_bad_buffer': self.task_params['n_bad_buffer'],  # Number of bad samples per each trajectory
+            'n_good_samples': self.task_params['n_good_samples'],  # Number of good samples per each trajectory
+            'n_bad_samples': self.task_params['n_bad_samples'],  # Number of bad samples per each trajectory
+            'n_good_buffer': self.task_params['n_good_buffer'],  # Number of good samples in the buffer
+            'n_bad_buffer': self.task_params['n_bad_buffer'],  # Number of bad samples in the buffer
             'good_traj_selection_type': self.task_params['good_traj_selection_type'],  # 'always', 'only_traj'
             'bad_traj_selection_type': self.task_params['bad_traj_selection_type'],  # 'always', 'only_traj'
             'duality_dynamics_type': 'duality',  # Samples to use to update the dynamics 'duality', 'iteration'
             # Initial dual variables
-            'init_eta': 4.62,
-            'init_nu': 0.001,
-            'init_omega': 0.001,
+            'init_eta': 0.1,#4.62,
+            'init_nu': 0.1,
+            'init_omega': 0.1,
             # KL step (epsilon)
             'step_rule': 'laplace',  # Whether to use 'laplace' or 'mc' cost in step adjustment
-            'kl_step': 0.2,  # Kullback-Leibler step (base_step)
+            'kl_step': self.task_params['kl_step'],  # Kullback-Leibler step (base_step)
             'min_step_mult': 0.01,  # Min possible value of step multiplier (multiplies kl_step)
             'max_step_mult': 10.0,  # Max possible value of step multiplier (multiplies kl_step)
             # KL bad (xi)
-            'kl_bad': 2, #4.2  # Xi KL base value | kl_div_b >= kl_bad
+            'kl_bad': self.task_params['kl_bad'], #4.2  # Xi KL base value | kl_div_b >= kl_bad
             'min_bad_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_bad)
-            'max_bad_mult': 1.0,  # Max possible value of step multiplier (multiplies base_kl_bad)
+            'max_bad_mult': 10.0,  # Max possible value of step multiplier (multiplies base_kl_bad)
             # KL good (chi)
-            'kl_good': 1.0,  #2.0,  # Chi KL base value  | kl_div_g <= kl_good
+            'kl_good': self.task_params['kl_good'],  #2.0,  # Chi KL base value  | kl_div_g <= kl_good
             'min_good_mult': 0.01,  # Min possible value of step multiplier (multiplies base_kl_good)
-            'max_good_mult': 1.0,  # Max possible value of step multiplier (multiplies base_kl_good)
+            'max_good_mult': 10.0,  # Max possible value of step multiplier (multiplies base_kl_good)
             # LinearPolicy 'projection'
             'init_pol_wt': 0.01,  # TODO: remove need for init_pol_wt in MDGPS (It should not work with MDGPS)
             'policy_sample_mode': 'add',  # Mode to update dynamics prior (Not used in ConstantPolicyPrior)
@@ -448,6 +527,13 @@ class Scenario(object):
                              },
             'min_bad_var': np.array([3.0, 3.0, 3.0])*1.0e-02,
             'min_good_var': np.array([3.0, 3.0, 3.0])*1.0e-02,
+            # SL step
+            'forget_bad_samples': self.task_params['forget_bad_samples'],
+            # TEMP Hyperparams
+            'min_bad_rel_diff': self.task_params['min_bad_rel_diff'],
+            'max_bad_rel_diff': self.task_params['max_bad_rel_diff'],
+            'mult_bad_rel_diff': self.task_params['mult_bad_rel_diff'],
+            'good_fix_rel_multi': self.task_params['good_fix_rel_multi'],
             }
 
         gps_hyperparams = {
@@ -463,7 +549,7 @@ class Scenario(object):
             'smooth_noise': True,  # Apply Gaussian filter to noise generated
             'smooth_noise_var': 5.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
             'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
-            'noise_var_scale': 5.e-0*np.ones(self.action_dim),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
+            'noise_var_scale': 1.e-1*np.ones(self.action_dim),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
             # Cost
             'cost': self.cost,
             # Conditions
@@ -474,21 +560,43 @@ class Scenario(object):
             'init_traj_distr': init_traj_distr,
             'fit_dynamics': True,
             'dynamics': learned_dynamics,
-            'initial_state_var': 1e-6,  # Max value for x0sigma in trajectories
+            'initial_state_var': 1e-2,  # Max value for x0sigma in trajectories
             # TrajOpt
             'traj_opt': traj_opt_method,
             'max_ent_traj': 0.0,  # Weight of maximum entropy term in trajectory optimization #TODO: CHECK THIS VALUE
             # Others
-            'algo_hyperparams': dmgps_hyperparams,
+            'algo_hyperparams': dmdgps_hyperparams,
             'data_files_dir': self.hyperparams['log_dir'],
         }
 
         return DualGPS(self.agent, self.env, **gps_hyperparams)
 
     def train(self, itr_load=None):
+        """Train the RL agent with the learning algorithm.
+
+        Args:
+            itr_load: Iteration number with which to start
+
+        Returns:
+            bool: True for success, False otherwise.
+
+        """
+        change_print_color.change('WHITE')
         return self.learn_algo.run(itr_load)
 
     def test_policy(self, pol_type='global', condition=0, iteration=-1):
+        """Test the RL agent using the policy learned in the specificied
+        iteration in the specific condition.
+
+        Args:
+            pol_type: 'global' or 'local'
+            condition: Condition number to test the agent
+            iteration: Iteration to test the agent
+
+        Returns:
+            bool: True for success, False otherwise.
+
+        """
         noise = np.zeros((self.task_params['T'], self.agent.act_dim))
 
         if iteration == -1:
@@ -529,9 +637,15 @@ class Scenario(object):
             itr_data = self.learn_algo.data_logger.unpickle(itr_data_file)
             policy = itr_data[condition].traj_distr
 
-        self.env.reset(condition=condition)
-        input('Press a key to start sampling...')
-        sample = self.agent.sample(self.env, condition, self.task_params['T'],
-                                   self.task_params['Ts'], noise, policy=policy,
-                                   save=False)
+        stop = False
+        while stop is False:
+            self.env.reset(condition=condition)
+            input('Press a key to start sampling...')
+            sample = self.agent.sample(self.env, condition, self.task_params['T'],
+                                       self.task_params['Ts'], noise, policy=policy,
+                                       save=False)
+            answer = input('Execute again. Write (n/N) to stop:')
+            if answer.lower() in ['n']:
+                stop = True
+
         return True

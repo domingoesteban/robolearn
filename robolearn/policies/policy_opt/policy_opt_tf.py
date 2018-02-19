@@ -30,8 +30,6 @@ class PolicyOptTf(PolicyOpt):
 
         PolicyOpt.__init__(self, config, dO, dU)
 
-        tf.set_random_seed(self._hyperparams['random_seed'])
-
         self.tf_iter = 0
         self.batch_size = self._hyperparams['batch_size']  # Default is 25
         self.device_string = "/cpu:0"
@@ -54,6 +52,10 @@ class PolicyOptTf(PolicyOpt):
         self.grads = None  # TF gradients
         self.saver = None  # TF saver
         self.graph = tf.Graph()  # TF graph
+
+        with self.graph.as_default():
+            tf.set_random_seed(self._hyperparams['random_seed'])
+
         self.init_network()
         self.init_solver()
         self.var = self._hyperparams['init_var'] * np.ones(dU)
@@ -209,6 +211,7 @@ class PolicyOptTf(PolicyOpt):
         np.random.shuffle(idx)
 
         if self._hyperparams['fc_only_iterations'] > 0:
+            input('YOU SHOULD NOT SEE THIS')
             feed_dict = {self.obs_tensor: obs}
             num_values = obs.shape[0]
             conv_values = self.solver.get_last_conv_values(self.sess, feed_dict,
