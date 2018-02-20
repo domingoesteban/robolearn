@@ -10,7 +10,7 @@ import os, sys
 
 def plot_specific_cost(gps_directory_names, itr_to_load=None,
                        specific_costs=None, gps_models_labels=None,
-                       method='gps', block=False):
+                       method='gps', block=False, print_info=True):
 
     #gps_models_line_styles = [':', '--', '-']
     gps_models_line_styles = ['-', '-', '-', '-', '-', '-', '-', '-', '-']
@@ -90,7 +90,7 @@ def plot_specific_cost(gps_directory_names, itr_to_load=None,
                 itr_list = itr_to_load
 
             print("Desired iterations to load in %s: %s" % (gps_directory_name,
-                                                            itr_to_load))
+                                                            itr_list))
 
             first_itr_data = True
             first_pol_cost_comp_data = True
@@ -107,8 +107,9 @@ def plot_specific_cost(gps_directory_names, itr_to_load=None,
                     file_to_load = itr_path + 'sample_cost_composition_itr_' + \
                                    str('%02d' % itr_idx)+'.pkl'
                 if os.path.isfile(file_to_load):
-                    print('Loading policy sample cost composition from '
-                          'iteration %02d' % itr_idx)
+                    if print_info:
+                        print('Loading policy sample cost composition from '
+                              'iteration %02d' % itr_idx)
                     pol_cost_comp_data = pickle.load(open(file_to_load, 'rb'))
                     iteration_ids[gps][rr].append(itr_idx+1)
                     # pol_sample_lists_cost_compositions[gps][rr].\
@@ -196,22 +197,25 @@ def plot_specific_cost(gps_directory_names, itr_to_load=None,
                     label = '%s' % gps_models_labels[gps]
                     line = aa.plot(iteration_ids[gps][rr],
                                    mean_cost_types[:, cost_idx],
-                                   marker=marker, label=label)[0]
+                                   marker=marker, label=label,
+                                   color=gps_models_colors[gps])[0]
                     aa.fill_between(iteration_ids[gps][rr],
                                     min_cost_types[:, cost_idx],
                                     max_cost_types[:, cost_idx], alpha=0.5,
-                                    zorder=2)
+                                    color=gps_models_colors[gps], zorder=2)
                     aa.xaxis.set_major_locator(MaxNLocator(integer=True))
                     if cc == 0:
                         lines.append(line)
                         labels.append(label)
 
-                    print('%'*10)
+                    if print_info:
+                        print('%'*10)
                     print('gps: %d' % gps)
                     for rr in range(total_runs):
                         print('run %02d - total specific_cost(%02d): %r'
                               % (rr, cc, np.array(mean_cost_types[:, cc]).sum()))
-                    print('%'*10)
+                    if print_info:
+                        print('%'*10)
 
             for cc, cost_idx in enumerate(specific_costs):
                 aa = ax[cc] if isinstance(ax, np.ndarray) else ax
@@ -223,7 +227,7 @@ def plot_specific_cost(gps_directory_names, itr_to_load=None,
                 #ax.set_xticks(range(min_iteration, max_iteration+1))
                 #ax.set_xticks(range(0, 26, 5))
 
-                aa.set_xlabel("Iterations", fontsize=30, weight='bold')
+                aa.set_xlabel("Iteration", fontsize=30, weight='bold')
                 aa.set_ylabel("Average Cost (%02d)" % cost_idx,
                               fontsize=10, weight='bold')
                 aa.tick_params(axis='x', labelsize=15)

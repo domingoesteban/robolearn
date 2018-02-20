@@ -10,7 +10,8 @@ import os, sys
 
 def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=None,
                      method='gps', block=False, plot_cs=True,
-                     plot_policy_costs=True, plot_cost_types=False):
+                     plot_policy_costs=True, plot_cost_types=False,
+                     print_info=True):
 
     if gps_models_labels is None:
         gps_models_labels = gps_directory_names
@@ -91,7 +92,7 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
                 itr_list = itr_to_load
 
             print("Desired iterations to load in %s: %s" % (gps_directory_name,
-                                                            itr_to_load))
+                                                            itr_list))
 
             first_itr_data = True
             first_pol_cost_data = True
@@ -105,8 +106,9 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
                     file_to_load = itr_path + 'iteration_data_itr_' + \
                                    str('%02d' % itr_idx)+'.pkl'
                     if os.path.isfile(file_to_load):
-                        print('Loading GPS iteration_data from iteration %02d'
-                              % itr_idx)
+                        if print_info:
+                            print('Loading GPS iteration_data from iteration %02d'
+                                  % itr_idx)
                         iter_data = pickle.load(open(file_to_load, 'rb'))
                         iteration_ids[gps][rr].append(itr_idx+1)
                         n_cond = len(iter_data)
@@ -132,8 +134,9 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
                                        str('%02d' % itr_idx)+'.pkl'
 
                     if os.path.isfile(file_to_load):
-                        print('Loading policy sample cost from iteration %02d'
-                              % itr_idx)
+                        if print_info:
+                            print('Loading policy sample cost from iteration %02d'
+                                  % itr_idx)
                         pol_cost_data = pickle.load(open(file_to_load, 'rb'))
                         # pol_sample_lists_costs[gps][rr].append(pol_cost_data)
                         n_cond = len(pol_cost_data)
@@ -158,8 +161,9 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
                         file_to_load = itr_path + 'sample_cost_composition_itr_' + \
                                        str('%02d' % itr_idx)+'.pkl'
                     if os.path.isfile(file_to_load):
-                        print('Loading policy sample cost composition from '
-                              'iteration %02d' % itr_idx)
+                        if print_info:
+                            print('Loading policy sample cost composition from '
+                                  'iteration %02d' % itr_idx)
                         pol_cost_comp_data = pickle.load(open(file_to_load, 'rb'))
                         # pol_sample_lists_cost_compositions[gps][rr].\
                         #     append(pol_cost_comp_data)
@@ -194,7 +198,6 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
                 pol_sample_lists_cost_compos[gps][rr] = pol_cost_compos
                 del pol_cost_comp_data
 
-
     if plot_cs:
         total_runs = len(cs_list[-1])
         total_cond = cs_list[-1][-1].shape[0]
@@ -222,10 +225,11 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
             lines = list()
             labels = list()
             for gps in range(total_gps):
-                print('&&&'*5)
-                print('&&&'*5)
-                print('TODO: WE ARE USING ONLY ONE RUN')
-                print('&&&'*5)
+                if print_info:
+                    print('&&&'*5)
+                    print('&&&'*5)
+                    print('TODO: WE ARE USING ONLY ONE RUN')
+                    print('&&&'*5)
                 rr = -1
 
                 samples_cost_sum = cs_list[gps][rr][cond, :, :, :].sum(axis=-1)
@@ -252,11 +256,11 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
                 if len(ll.get_xdata()) > max_lim:
                     max_lim = len(ll.get_xdata())
             ax.set_xlim(0, max_lim+1)
-            ax.set_xlabel("Iterations", fontsize=30, weight='bold')
+            ax.set_xlabel("Iteration", fontsize=30, weight='bold')
             ax.set_ylabel("Average Cost", fontsize=30, weight='bold')
             ax.tick_params(axis='x', labelsize=25)
             ax.tick_params(axis='y', labelsize=25)
-
+            legend = ax.legend(ncol=1, fontsize=25)
 
     if plot_policy_costs:
         plots_type = 'iteration'  # 'iteration' or 'episode'
@@ -274,12 +278,12 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
                 fig, ax = plt.subplots(1, 1)
                 fig.subplots_adjust(hspace=0)
                 fig.canvas.set_window_title('Policy Costs Condition %02d '
-                                            '(over %02d runs)'
-                                            % (cond, max_available_runs))
+                                            % cond)
                 fig.set_facecolor((1, 1, 1))
                 des_colormap = [colormap(i) for i in np.linspace(0, 1, total_gps)]
 
-                ax.set_title('Global Policy Costs | Test Condition %d' % cond,
+                ax.set_title('Global Policy Costs | Test Condition %d '
+                             '(over %02d runs)' % (cond, max_available_runs),
                              fontsize=30, weight='bold')
 
                 min_iteration = np.inf
@@ -300,7 +304,6 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
                     avg_costs = np.zeros((total_runs, total_itr))
 
                     for rr in range(total_runs):
-                        print(pol_sample_lists_costs[gps][rr].shape)
                         pol_cost_sum = pol_sample_lists_costs[gps][rr][cond, :, :, :].sum(axis=-1)
                         # Average over samples
                         avg_costs[rr, :] = np.mean(pol_cost_sum, axis=-1)
@@ -348,13 +351,15 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
                             lines.append(line)
                             labels.append(label)
 
-                    print('%'*10)
+                    if print_info:
+                        print('%'*10)
                     print('gps: %d' % gps)
                     for rr in range(total_runs):
                         best_index = [iteration_ids[gps][rr][ii]
                                       for ii in np.argsort(mean_costs)]
                         print('run %02d - best_index: %r' % (rr, best_index))
-                    print('%'*10)
+                    if print_info:
+                        print('%'*10)
 
                 # Axes
                 #ax.set_xticks(range(min_iteration, max_iteration+1))
@@ -367,7 +372,7 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
                     if len(ll.get_xdata()) > max_lim:
                         max_lim = len(ll.get_xdata())
                 ax.set_xlim(0, max_lim+1)
-                ax.set_xlabel("Iterations", fontsize=30, weight='bold')
+                ax.set_xlabel("Iteration", fontsize=30, weight='bold')
                 ax.set_ylabel("Average Cost", fontsize=30, weight='bold')
                 ax.tick_params(axis='x', labelsize=25)
                 ax.tick_params(axis='y', labelsize=25)

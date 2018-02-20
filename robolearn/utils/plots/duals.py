@@ -9,7 +9,7 @@ import os, sys
 
 
 def plot_duals(gps_directory_names, itr_to_load=None, gps_models_labels=None,
-               method='gps', block=False):
+               method='gps', block=False, print_info=True):
 
     if gps_models_labels is None:
         gps_models_labels = gps_directory_names
@@ -89,7 +89,7 @@ def plot_duals(gps_directory_names, itr_to_load=None, gps_models_labels=None,
                 itr_list = itr_to_load
 
             print("Desired iterations to load in %s: %s" % (gps_directory_name,
-                                                            itr_to_load))
+                                                            itr_list))
 
             first_itr_data = True
             total_itr = len(itr_list)
@@ -100,8 +100,9 @@ def plot_duals(gps_directory_names, itr_to_load=None, gps_models_labels=None,
                 file_to_load = itr_path + 'iteration_data_itr_' + \
                                str('%02d' % itr_idx)+'.pkl'
                 if os.path.isfile(file_to_load):
-                    print('Loading GPS iteration_data from iteration %02d'
-                          % itr_idx)
+                    if print_info:
+                        print('Loading GPS iteration_data from iteration %02d'
+                              % itr_idx)
                     iter_data = pickle.load(open(file_to_load, 'rb'))
                     iteration_ids[gps][rr].append(itr_idx+1)
                     n_cond = len(iter_data)
@@ -140,10 +141,11 @@ def plot_duals(gps_directory_names, itr_to_load=None, gps_models_labels=None,
         labels = list()
 
         for gps in range(total_gps):
-            print('&&&'*5)
-            print('&&&'*5)
-            print('TODO: WE ARE USING ONLY ONE RUN')
-            print('&&&'*5)
+            if print_info:
+                print('&&&'*5)
+                print('&&&'*5)
+                print('TODO: WE ARE USING ONLY ONE RUN')
+                print('&&&'*5)
             rr = -1
 
             duals = duals_list[gps][rr][cond, :, :]
