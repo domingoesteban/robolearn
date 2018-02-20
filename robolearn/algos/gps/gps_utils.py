@@ -114,8 +114,7 @@ class DualityInfo(BundleType):
             'traj_cost': None,
             'traj_dist': None,
             'pol_info': None,        # Policy-related PolicyInfo object.
-            'samples_buffer': list(),
-            'samples_cost_buffer': list(),
+            'experience_buffer': None,
         }
         BundleType.__init__(self, variables)
 

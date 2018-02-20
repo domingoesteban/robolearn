@@ -124,6 +124,7 @@ DEFAULT_MDGPS_HYPERPARAMS = {
     'step_rule': 'laplace',
     'policy_prior': {'type': ConstantPolicyPrior,
                      'strenght': 1e-4},
+    'bad_costs': []  # TODO: REMOVE THIS LATER
 }
 
 # PIGPS

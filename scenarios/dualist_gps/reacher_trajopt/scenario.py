@@ -61,6 +61,7 @@ class Scenario(object):
         if self.hyperparams['render']:
             self.task_params['render'] = self.hyperparams['render']
 
+        self.task_params['seed'] = self.hyperparams['seed']
 
         # Numpy max
         os.environ['OMP_NUM_THREADS'] = str(self.task_params['np_threads'])
@@ -111,13 +112,6 @@ class Scenario(object):
     def create_agent(self):
         change_print_color.change('CYAN')
         print("\nCreating Agent...")
-
-        policy_params = {}
-
-        policy_opt = {
-            'type': PolicyOptTf,
-            'hyperparams': policy_params
-        }
 
         agent = NoPolAgent(act_dim=self.action_dim, obs_dim=self.obs_dim,
                            state_dim=self.state_dim,
@@ -437,8 +431,10 @@ class Scenario(object):
             # G/B samples selection | Fitting
             'good_samples': good_trajs,  # Good samples demos
             'bad_samples': bad_trajs,  # Bad samples demos
-            'n_good_buffer': self.task_params['n_good_buffer'],  # Number of good samples per each trajectory
-            'n_bad_buffer': self.task_params['n_bad_buffer'],  # Number of bad samples per each trajectory
+            'n_good_samples': self.task_params['n_good_samples'],  # Number of good samples per each trajectory
+            'n_bad_samples': self.task_params['n_bad_samples'],  # Number of bad samples per each trajectory
+            'n_good_buffer': self.task_params['n_good_buffer'],  # Number of good samples in the buffer
+            'n_bad_buffer': self.task_params['n_bad_buffer'],  # Number of bad samples in the buffer
             'good_traj_selection_type': self.task_params['good_traj_selection_type'],  # 'always', 'only_traj'
             'bad_traj_selection_type': self.task_params['bad_traj_selection_type'],  # 'always', 'only_traj'
             'duality_dynamics_type': 'duality',  # Samples to use to update the dynamics 'duality', 'iteration'
@@ -481,6 +477,7 @@ class Scenario(object):
             # Samples
             'num_samples': self.task_params['num_samples'],  # Samples for exploration trajs --> N samples
             'noisy_samples': True,
+            'seed': self.task_params['seed'],
             'smooth_noise': True,  # Apply Gaussian filter to noise generated
             'smooth_noise_var': 5.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
             'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1

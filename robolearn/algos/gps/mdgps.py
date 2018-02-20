@@ -372,7 +372,7 @@ class MDGPS(Algorithm):
         # A list of SampleList for each condition
         sample_lists = list()
 
-        for cond in range(len(conditions)):
+        for cc, cond in enumerate(conditions):
             samples = list()
 
             # On-policy or Off-policy
@@ -398,7 +398,6 @@ class MDGPS(Algorithm):
                               % (traj_or_pol, itr+1, self.max_iterations,
                                  cond+1, len(conditions),
                                  i+1, total_samples)
-
                 self.logger.info(sample_text)
                 sample = self.agent.sample(self.env, cond, self.T,
                                            self.dt, noise, policy=policy,
@@ -412,7 +411,7 @@ class MDGPS(Algorithm):
                 if train_or_test == 'train':
                     self.cur[cond].pol_info.policy_samples = sample_lists[cond]
                 else:
-                    self._policy_samples[cond] = sample_lists[cond]
+                    self._policy_samples[cc] = sample_lists[cc]
 
         return sample_lists
 

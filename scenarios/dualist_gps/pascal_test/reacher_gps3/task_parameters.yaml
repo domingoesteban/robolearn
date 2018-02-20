@@ -49,10 +49,10 @@ tf_seed: 0  # -1 if we want to use same seed defined in the main script
 
 # Cost
 cost_weights: [1.0e-5,  # Action
-               5.0e-0,  # State Difference
-               1.0e+3,  # Final State Difference
-               5.0e+1,  # Safe Distance
-               5.0e+4]  # Final Safe Distance
+               2.0e+2,  # State Difference
+               2.0e+6,  # Final State Difference
+               5.0e+2,  # Safe Distance
+               5.0e+5]  # Final Safe Distance
 
 # TrajOpt parameters
 inner_iterations: 1
@@ -85,11 +85,11 @@ max_bad_rel_diff: 2.0
 mult_bad_rel_diff: 1
 good_fix_rel_multi: 5
 
-n_bad_buffer: 10 # Number of bad samples per trajectory distribution
-n_good_buffer: 10 # Number of good samples per trajectory distribution
+n_bad_buffer: 50 # Number of bad samples per trajectory distribution
+n_good_buffer: 50 # Number of good samples per trajectory distribution
 
-n_bad_samples: 1 # Number of bad samples per trajectory distribution
-n_good_samples: 1 # Number of good samples per trajectory distribution
+n_bad_samples: 3 # Number of bad samples per trajectory distribution
+n_good_samples: 3 # Number of good samples per trajectory distribution
 
 #bad_traj_selection_type: cost  # 'temp', 'cost'
 #good_traj_selection_type: cost  # 'temp', 'cost'

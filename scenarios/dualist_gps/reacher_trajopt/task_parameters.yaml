@@ -65,11 +65,13 @@ max_bad_rel_diff: 2.0
 mult_bad_rel_diff: 1
 good_fix_rel_multi: 5
 
+n_bad_buffer: 10 # Number of bad samples per trajectory distribution
+n_good_buffer: 10 # Number of good samples per trajectory distribution
 
-n_bad_buffer: 1 # Number of bad samples per trajectory distribution
-n_good_buffer: 1 # Number of good samples per trajectory distribution
+n_bad_samples: 1 # Number of bad samples per trajectory distribution
+n_good_samples: 1 # Number of good samples per trajectory distribution
 
-#bad_traj_selection_type: only_traj  # 'always', 'only_traj'
-#good_traj_selection_type: only_traj  # 'always', 'only_traj'
-bad_traj_selection_type: always  # 'always', 'only_traj'
-good_traj_selection_type: always  # 'always', 'only_traj'
+#bad_traj_selection_type: cost  # 'temp', 'cost'
+#good_traj_selection_type: cost  # 'temp', 'cost'
+bad_traj_selection_type: temp  # 'temp', 'cost'
+good_traj_selection_type: temp  # 'temp', 'cost'

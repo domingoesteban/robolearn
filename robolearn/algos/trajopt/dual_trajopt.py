@@ -75,10 +75,8 @@ class DualTrajOpt(TrajOpt, Dualism):
         logger.info('')
         logger.info('DualTrajOpt: itr:%02d | '
                     'Getting good and bad trajectories...' % (itr+1))
-        self._update_good_samples(option=self._hyperparams['algo_hyperparams']
-                                  ['good_traj_selection_type'])
-        self._update_bad_samples(option=self._hyperparams['algo_hyperparams']
-                                 ['bad_traj_selection_type'])
+        self._update_good_samples()
+        self._update_bad_samples()
 
         logger.info('')
         logger.info('DualTrajOpt: itr:%02d | '

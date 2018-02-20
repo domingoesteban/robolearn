@@ -8,6 +8,8 @@ import copy
 
 from robolearn.algos.gps.mdgps import MDGPS
 from robolearn.algos.dualism import Dualism
+from robolearn.utils.experience_buffer import get_bigger_idx
+from robolearn.utils.sample.sample_list import SampleList
 
 from robolearn.utils.plot_utils import *
 
@@ -18,6 +20,7 @@ class DualGPS(MDGPS, Dualism):
     (approximate) mirror descent guided policy search algorithm.
     """
     def __init__(self, agent, env, **kwargs):
+
         MDGPS.__init__(self, agent, env, **kwargs)
 
         # Duality Data #
@@ -97,10 +100,8 @@ class DualGPS(MDGPS, Dualism):
         logger.info('')
         logger.info('DualGPS: itr:%02d | '
                     'Getting good and bad trajectories...' % (itr+1))
-        self._update_good_samples(option=self._hyperparams['algo_hyperparams']
-                                  ['good_traj_selection_type'])
-        self._update_bad_samples(option=self._hyperparams['algo_hyperparams']
-                                 ['bad_traj_selection_type'])
+        self._update_good_samples()
+        self._update_bad_samples()
 
         logger.info('')
         logger.info('DualGPS: itr:%02d | '
@@ -135,7 +136,8 @@ class DualGPS(MDGPS, Dualism):
         logger.info('')
         logger.info('%s:itr:%02d | ->| S-step |<-'
                     % (type(self).__name__, itr+1))
-        self._update_policy()
+        self._update_policy(
+            self._hyperparams['algo_hyperparams']['forget_bad_samples'])
 
         # Test policy after iteration
         if self._hyperparams['test_after_iter']:
@@ -299,6 +301,56 @@ class DualGPS(MDGPS, Dualism):
             self.cur[cond].eta = traj_opt_outputs[1]
             self.cur[cond].nu = traj_opt_outputs[2]
             self.cur[cond].omega = traj_opt_outputs[3]
+
+    def _update_policy(self, remove_bad=False):
+        """
+        Computes(updates) a new global policy.
+        :return:
+        """
+        LOGGER = self.logger
+
+        LOGGER.info('-->Updating Global policy...')
+        dU, dO, T = self.dU, self.dO, self.T
+        # Compute target mean, cov(precision), and weight for each sample; and concatenate them.
+        obs_data, tgt_mu = np.zeros((0, T, dO)), np.zeros((0, T, dU))
+        tgt_prc, tgt_wt = np.zeros((0, T, dU, dU)), np.zeros((0, T))
+        for m in range(self.M):
+            samples = self.cur[m].sample_list
+
+            if remove_bad:
+                n_bad = self._hyperparams['algo_hyperparams']['n_bad_samples']
+                cs = self.cur[m].cs
+                if n_bad == cs.shape[0]:
+                    raise ValueError("We cannot remove all trajs in SL tep")
+                else:
+                    worst_indeces = get_bigger_idx(np.sum(cs, axis=1), n_bad)
+                idxs = np.setdiff1d(np.arange(len(samples)), worst_indeces)
+                samples = SampleList(samples.get_samples(idxs))
+
+            X = samples.get_states()
+            N = len(samples)
+            traj = self.new_traj_distr[m]
+            pol_info = self.cur[m].pol_info
+            mu = np.zeros((N, T, dU))
+            prc = np.zeros((N, T, dU, dU))
+            wt = np.zeros((N, T))
+            # Get time-indexed actions.
+            for t in range(T):
+                # Compute actions along this trajectory.
+                prc[:, t, :, :] = np.tile(traj.inv_pol_covar[t, :, :], [N, 1, 1])
+                for i in range(N):
+                    mu[i, t, :] = (traj.K[t, :, :].dot(X[i, t, :]) + traj.k[t, :])
+
+                wt[:, t].fill(pol_info.pol_wt[t])
+
+            tgt_mu = np.concatenate((tgt_mu, mu))
+            tgt_prc = np.concatenate((tgt_prc, prc))
+            tgt_wt = np.concatenate((tgt_wt, wt))
+            obs_data = np.concatenate((obs_data, samples.get_obs()))
+
+        logger = self.logger
+
+        self.policy_opt.update(obs_data, tgt_mu, tgt_prc, tgt_wt, LOGGER=logger)
 
     def _advance_iteration_variables(self):
         """
