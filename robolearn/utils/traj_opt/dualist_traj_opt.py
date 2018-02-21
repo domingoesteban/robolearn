@@ -149,14 +149,23 @@ class DualistTrajOpt(TrajOpt):
             omega_conv = convs[2]
 
         if not eta_conv:
+            # self.logger.warning('')
+            # self.logger.warning("Refinement with Polyak")
+            # traj_distr, duals, convs = \
+            #     self._polyak_all(algorithm, m, eta, nu, omega,
+            #                      opt_eta=True,
+            #                      opt_nu=self.consider_bad,
+            #                      opt_omega=self.consider_good,
+            #                      max_iter=200)
+
             self.logger.warning('')
-            self.logger.warning("Refinement with Polyak")
+            self.logger.warning("Refinement with ADAM")
             traj_distr, duals, convs = \
-                self._polyak_all(algorithm, m, eta, nu, omega,
-                                 opt_eta=True,
-                                 opt_nu=self.consider_bad,
-                                 opt_omega=self.consider_good,
-                                 max_iter=200)
+                self._adam_all(algorithm, m, eta, nu, omega,
+                               opt_eta=True,
+                               opt_nu=self.consider_bad,
+                               opt_omega=self.consider_good,
+                               max_iter=200)
 
         eta = duals[0]
         nu = duals[1]
