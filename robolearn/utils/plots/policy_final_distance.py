@@ -131,7 +131,7 @@ def plot_policy_final_distance(gps_directory_names, states_tuples,
     for cond in range(total_cond):
         fig, ax = plt.subplots(n_state, 1)
         fig.subplots_adjust(hspace=0)
-        fig.suptitle("Policy Samples Distance | Condition %d (over %02d runs)"
+        fig.suptitle("Policy Samples Final Distance | Condition %d (over %02d runs)"
                      % (cond, max_available_runs),
                      fontsize=30, weight='bold')
         fig.canvas.set_window_title('Policy Samples Distance Condition %02d'

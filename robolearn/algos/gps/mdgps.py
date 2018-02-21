@@ -175,6 +175,9 @@ class MDGPS(Algorithm):
         # Clear agent sample
         self.agent.clear_samples()
 
+        for m, m_train in enumerate(self._train_cond_idx):
+            self.cur[m_train].sample_list = traj_sample_lists[m]
+
         # Update dynamics model using all samples.
         logger.info('')
         logger.info('MDGPS: itr:%02d | '

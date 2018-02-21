@@ -9,3 +9,6 @@ scenarios/dualist_gps/gps_log*
 scenarios/dualist_gps/test_*
 LOG_2017-*
 .ipynb_checkpoints
+gps_log*
+trajopt_log*
+*log*

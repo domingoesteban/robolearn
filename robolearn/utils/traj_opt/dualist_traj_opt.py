@@ -165,7 +165,8 @@ class DualistTrajOpt(TrajOpt):
                                opt_eta=True,
                                opt_nu=self.consider_bad,
                                opt_omega=self.consider_good,
-                               max_iter=200)
+                               alpha=self._hyperparams['adam_alpha'],
+                               max_iter=self._hyperparams['adam_max_iter'])
 
         eta = duals[0]
         nu = duals[1]

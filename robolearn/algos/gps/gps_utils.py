@@ -44,13 +44,13 @@ class IterationData(BundleType):
             'cs': None,              # Sample costs of the current iteration.
             'cost_compo': None,       # Sample cost compositions of the current iteration.
             'eta': 1.0,              # Dual variable used in LQR backward pass.
-            'omega': 1.0,            # Dual variable used in LQR backward pass. mDREPS
-            'nu': 1.0,               # Dual variable used in LQR backward pass. mDREPS
+            'omega': 0.0,            # Dual variable used in LQR backward pass (Dualism).
+            'nu': 0.0,               # Dual variable used in LQR backward pass (Dualism).
             'step_mult': 1.0,        # KL step multiplier for the current iteration.
-            'good_step_mult': 1.0,   # KL step multiplier for the current iteration.
-            'bad_step_mult': 1.0,    # KL step multiplier for the current iteration.
-            'good_traj_distr': None,  # Good traj_distr
-            'bad_traj_distr': None,  # Bad traj_distr
+            'good_step_mult': 1.0,   # KL good multiplier for the current iteration (Dualism).
+            'bad_step_mult': 1.0,    # KL bad multiplier for the current iteration (Dualism).
+            'good_traj_distr': None,  # Good traj_distr (Dualism).
+            'bad_traj_distr': None,  # Bad traj_distr (Dualism).
         }
         BundleType.__init__(self, variables)
 
