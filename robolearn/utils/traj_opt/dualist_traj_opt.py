@@ -89,49 +89,64 @@ class DualistTrajOpt(TrajOpt):
         if self.consider_bad is False:
             nu *= 0
 
-        # Minimization
-        min_eta = self._hyperparams['min_eta']
-        max_eta = self._hyperparams['max_eta']
-        min_nu = self._hyperparams['min_nu']
-        max_nu = self._hyperparams['max_nu']
-        min_omega = self._hyperparams['min_omega']
-        max_omega = self._hyperparams['max_omega']
+        if self.consider_bad or self.consider_good:
+            # Minimization
+            min_eta = self._hyperparams['min_eta']
+            max_eta = self._hyperparams['max_eta']
+            min_nu = self._hyperparams['min_nu']
+            max_nu = self._hyperparams['max_nu']
+            min_omega = self._hyperparams['min_omega']
+            max_omega = self._hyperparams['max_omega']
 
-        x0 = np.array([eta, nu, omega])
-        result = minimize(self.dual_cost, x0,
-                          args=(algorithm, m, True, self.consider_bad, self.consider_good),
-                          method='L-BFGS-B',
-                          jac=self.dual_grad,
-                          bounds=[[min_eta, max_eta],
-                                  [min_nu, max_nu],
-                                  [min_omega, max_omega]],
-                          tol=None, callback=None,
-                          options={'disp': None, 'maxls': 20,
-                                   'iprint': -1, 'gtol': 1e-05,
-                                   'eps': 1e-08, 'maxiter': 15000,
-                                   'ftol': 2.220446049250313e-09,
-                                   'maxcor': 10, 'maxfun': 15000})
+            x0 = np.array([eta, nu, omega])
+            result = minimize(self.dual_cost, x0,
+                              args=(algorithm, m, True, self.consider_bad, self.consider_good),
+                              method='L-BFGS-B',
+                              jac=self.dual_grad,
+                              bounds=[[min_eta, max_eta],
+                                      [min_nu, max_nu],
+                                      [min_omega, max_omega]],
+                              tol=None, callback=None,
+                              options={'disp': None, 'maxls': 20,
+                                       'iprint': -1, 'gtol': 1e-05,
+                                       'eps': 1e-08, 'maxiter': 15000,
+                                       'ftol': 2.220446049250313e-09,
+                                       'maxcor': 10, 'maxfun': 15000})
 
-        eta = result.x[0]
-        nu = result.x[1] if self.consider_bad else 0
-        omega = result.x[2] if self.consider_bad else 0
+            eta = result.x[0]
+            nu = result.x[1] if self.consider_bad else 0
+            omega = result.x[2] if self.consider_bad else 0
 
-        # Only because we want to get the traj_distr
-        # traj_distr, (eta, nu, omega) = \
-        #     self._optimize_primal(algorithm, m, eta, nu, omega,
-        #                           dual_to_check='eta')
+            # Only because we want to get the traj_distr
+            # traj_distr, (eta, nu, omega) = \
+            #     self._optimize_primal(algorithm, m, eta, nu, omega,
+            #                           dual_to_check='eta')
 
-        traj_distr, duals, convs = \
-            self._gradient_descent_all(algorithm, m, eta, nu, omega,
-                                       opt_eta=False, opt_nu=False, opt_omega=False)
+            traj_distr, duals, convs = \
+                self._gradient_descent_all(algorithm, m, eta, nu, omega,
+                                           opt_eta=False, opt_nu=False,
+                                           opt_omega=False)
 
-        eta = duals[0]
-        nu = duals[1]
-        omega = duals[2]
+            eta = duals[0]
+            nu = duals[1]
+            omega = duals[2]
 
-        eta_conv = convs[0]
-        nu_conv = convs[1]
-        omega_conv = convs[2]
+            eta_conv = convs[0]
+            nu_conv = convs[1]
+            omega_conv = convs[2]
+        else:
+            traj_distr, duals, convs = \
+                self._gradient_descent_all(algorithm, m, eta, nu, omega,
+                                           opt_eta=True, opt_nu=False,
+                                           opt_omega=False)
+
+            eta = duals[0]
+            nu = duals[1]
+            omega = duals[2]
+
+            eta_conv = convs[0]
+            nu_conv = convs[1]
+            omega_conv = convs[2]
 
         if not eta_conv:
             self.logger.warning('')
@@ -1782,7 +1797,6 @@ class DualistTrajOpt(TrajOpt):
         print('current:', kl_div, kl_div_bad, kl_div_good)
         print('TOTAL_COST:', total_cost, '|', con, con_bad, con_good)
         print('grads', grads)
-        # input("NO_PEEEEEE")
 
         return total_cost, grads
 
@@ -1890,7 +1904,6 @@ class DualistTrajOpt(TrajOpt):
         print('current:', kl_div, kl_div_bad, kl_div_good)
         print('TOTAL_COST:', total_cost, '|', con, con_bad, con_good)
         print('grads', grads)
-        # input("NO_PEEEEEE")
 
         return total_cost, grads
 
