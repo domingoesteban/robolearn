@@ -49,10 +49,11 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
         if max_available_runs == 0:
             print("There is not any runs data. Is the path '%s' correct?"
                   % dir_path)
-            exit(-1)
+            sys.exit(-1)
 
-        print("Max available runs: %d in file %s"
-              % (max_available_runs, gps_directory_name))
+        if print_info:
+            print("Max available runs: %d in file %s"
+                  % (max_available_runs, gps_directory_name))
 
         cs_list[gps] = [list() for _ in range(max_available_runs)]
         iteration_ids[gps] = [list() for _ in range(max_available_runs)]
@@ -70,10 +71,11 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
             if max_available_itr == 0:
                 print("There is not any iteration data. Is the path '%s' correct?"
                       % dir_path)
-                exit(-1)
+                sys.exit(-1)
 
-            print("Max available iterations: %d in file %s/run_%02d"
-                  % (max_available_itr, gps_directory_name, rr))
+            if print_info:
+                print("Max available iterations: %d in file %s/run_%02d"
+                      % (max_available_itr, gps_directory_name, rr))
 
             if itr_to_load is None:
                 if last_n_iters is not None:
@@ -91,8 +93,9 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
             else:
                 itr_list = itr_to_load
 
-            print("Desired iterations to load in %s: %s" % (gps_directory_name,
-                                                            itr_list))
+            if print_info:
+                print("Desired iterations to load in %s: %s"
+                      % (gps_directory_name, itr_list))
 
             first_itr_data = True
             first_pol_cost_data = True
@@ -103,7 +106,9 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
                            str('/itr_%02d/' % itr_idx)
                 # Samples costs
                 if plot_cs:
-                    file_to_load = itr_path + 'iteration_data_itr_' + \
+                    # file_to_load = itr_path + 'iteration_data_itr_' + \
+                    #                str('%02d' % itr_idx)+'.pkl'
+                    file_to_load = itr_path + 'traj_samples_costs_itr_' + \
                                    str('%02d' % itr_idx)+'.pkl'
                     if os.path.isfile(file_to_load):
                         if print_info:
@@ -111,15 +116,16 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
                                   % itr_idx)
                         iter_data = pickle.load(open(file_to_load, 'rb'))
                         iteration_ids[gps][rr].append(itr_idx+1)
-                        n_cond = len(iter_data)
-                        n_samples, T = iter_data[-1].cs.shape
+                        # n_cond = len(iter_data)
+                        # n_samples, T = iter_data[-1].cs.shape
+                        n_cond, n_samples, T = iter_data.shape
                         if first_itr_data:
                             sample_costs = np.zeros((n_cond, total_itr, n_samples, T))
                             first_itr_data = False
 
-                        for cc in range(n_cond):
-                            sample_costs[cc, ii, :, :] = iter_data[cc].cs
-
+                        # for cc in range(n_cond):
+                        #     sample_costs[cc, ii, :, :] = iter_data[cc].cs
+                        sample_costs[:, ii, :, :] = iter_data
                     else:
                         raise ValueError('ItrData does not exist! | gps[%02d] run[%02d]'
                                          ' itr[%02d]' % (gps, rr, itr_idx))
@@ -353,11 +359,12 @@ def plot_policy_cost(gps_directory_names, itr_to_load=None, gps_models_labels=No
 
                     if print_info:
                         print('%'*10)
-                    print('gps: %d' % gps)
+                        print('gps: %d' % gps)
                     for rr in range(total_runs):
                         best_index = [iteration_ids[gps][rr][ii]
                                       for ii in np.argsort(mean_costs)]
-                        print('run %02d - best_index: %r' % (rr, best_index))
+                        if print_info:
+                            print('run %02d - best_index: %r' % (rr, best_index))
                     if print_info:
                         print('%'*10)
 

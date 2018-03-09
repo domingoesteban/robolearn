@@ -39,7 +39,7 @@ class IterationData(BundleType):
             'sample_list': None,     # List of samples for the current iteration.
             'traj_info': None,       # Current TrajectoryInfo object.
             'pol_info': None,        # Current PolicyInfo object.
-            'traj_distr': None,      # Initial trajectory distribution. \bar{p}_i(u_t|x_t)
+            'traj_distr': None,      # Current trajectory distribution. \bar{p}_i(u_t|x_t)
             'new_traj_distr': None,  # Updated trajectory distribution. p_i(u_t|x_t)
             'cs': None,              # Sample costs of the current iteration.
             'cost_compo': None,       # Sample cost compositions of the current iteration.
@@ -92,7 +92,10 @@ class PolicyInfo(BundleType):
         BundleType.__init__(self, variables)
 
     def traj_distr(self):
-        """ Create a trajectory distribution object from policy info (Policy linearization) """
+        """
+        Create a trajectory distribution object from policy info
+        (Policy linearization)
+        """
         T, dU, dX = self.pol_K.shape
         # Compute inverse policy covariances.
         inv_pol_S = np.empty_like(self.chol_pol_S)

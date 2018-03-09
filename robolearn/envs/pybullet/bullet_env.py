@@ -98,6 +98,9 @@ class BulletEnv(gym.Env):
         if height is not None:
             self._render_data['height'] = height
 
+    def get_render_data(self):
+        return pb.getDebugVisualizerCamera()
+
     def _reset(self, **kwargs):
         if self.physicsClientId < 0:
             self.physicsClientId = pb.connect(pb.SHARED_MEMORY)

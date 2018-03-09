@@ -9,7 +9,7 @@ import copy
 import numpy as np
 from numpy.linalg import LinAlgError
 import scipy as sp
-from scipy.optimize import minimize, minimize_scalar
+from scipy.optimize import minimize
 
 from robolearn.utils.traj_opt.traj_opt import TrajOpt
 from robolearn.utils.traj_opt.config import default_traj_opt_mdreps_hyperparams
@@ -21,7 +21,7 @@ print_DGD_log = False
 MAX_ALL_DGD = 20
 DGD_MAX_ITER = 50
 DGD_MAX_LS_ITER = 20
-DGD_MAX_GD_ITER = 50  #500 #200
+DGD_MAX_GD_ITER = 200
 
 ALPHA, BETA1, BETA2, EPS = 0.005, 0.9, 0.999, 1e-8  # Adam parameters
 
@@ -90,6 +90,7 @@ class DualistTrajOpt(TrajOpt):
             nu *= 0
 
         if self.consider_bad or self.consider_good:
+            """
             # Minimization
             min_eta = self._hyperparams['min_eta']
             max_eta = self._hyperparams['max_eta']
@@ -121,11 +122,27 @@ class DualistTrajOpt(TrajOpt):
             # traj_distr, (eta, nu, omega) = \
             #     self._optimize_primal(algorithm, m, eta, nu, omega,
             #                           dual_to_check='eta')
-
             traj_distr, duals, convs = \
                 self._gradient_descent_all(algorithm, m, eta, nu, omega,
                                            opt_eta=False, opt_nu=False,
                                            opt_omega=False)
+            """
+            traj_distr, duals, convs = \
+                self._gradient_descent_all(algorithm, m, eta, nu, omega,
+                                           opt_eta=True,
+                                           opt_nu=False,
+                                           opt_omega=False)
+            eta = duals[0]
+            nu = duals[1]
+            omega = duals[2]
+
+            traj_distr, duals, convs = \
+                self._adam_all(algorithm, m, eta, nu, omega,
+                               opt_eta=True,
+                               opt_nu=self.consider_bad,
+                               opt_omega=self.consider_good,
+                               alpha=self._hyperparams['adam_alpha'],
+                               max_iter=self._hyperparams['adam_max_iter'])
 
             eta = duals[0]
             nu = duals[1]
@@ -460,7 +477,7 @@ class DualistTrajOpt(TrajOpt):
                 except LinAlgError as e:
                     # Error thrown when Qtt[idx_u, idx_u] is not
                     # symmetric positive definite (SPD).
-                    self.logger.error('LinAlgError: %s', e)
+                    self.logger.error('LinAlgError: %s at t: %d', e, t)
                     fail = t if self.cons_per_step else True
                     break
 
@@ -931,8 +948,7 @@ class DualistTrajOpt(TrajOpt):
             # Check convergence between some limits
             if itr > 0:
                 if opt_eta:
-                    if (eta_conv
-                        or np.all(abs(prev_eta - eta)/eta <= 0.05)):
+                    if eta_conv or np.all(abs(prev_eta - eta)/eta <= 0.05):
                         # or np.all(eta <= min_eta)):
                         break_1 = True
                     else:
@@ -941,8 +957,7 @@ class DualistTrajOpt(TrajOpt):
                     break_1 = True
 
                 if opt_nu:
-                    if (nu_conv
-                        or np.all(abs(prev_nu - nu)/nu <= 0.05)):
+                    if nu_conv or np.all(abs(prev_nu - nu)/nu <= 0.05):
                         # or np.all(nu <= min_nu)):
                         break_2 = True
                     else:
@@ -952,7 +967,7 @@ class DualistTrajOpt(TrajOpt):
 
                 if opt_omega:
                     if (omega_conv
-                        or np.all(abs(prev_omega - omega)/omega <= 0.05)):
+                            or np.all(abs(prev_omega - omega)/omega <= 0.05)):
                         # or np.all(omega <= min_omega)):
                         break_3 = True
                     else:
@@ -1396,6 +1411,21 @@ class DualistTrajOpt(TrajOpt):
                                     np.mean(kl_good[:-1]),
                                     abs(np.mean(con_good[:-1])*100/np.mean(kl_good[:-1]))))
 
+            if not eta_conv and eta <= min_eta or eta >= max_eta:
+                self.logger.info('Changing eta_conv because eta value is at '
+                                 'limit.')
+                eta_conv = True
+
+            if not nu_conv and nu <= min_nu or nu >= max_nu:
+                self.logger.info('Changing nu_conv because nu value is at '
+                                 'limit.')
+                nu_conv = True
+
+            if not omega_conv and omega <= min_omega or omega >= max_omega:
+                self.logger.info('Changing omega_conv because omega value is at'
+                                 ' limit.')
+                omega_conv = True
+
             if eta_conv and nu_conv and omega_conv:
                 self.logger.info("It has converged with Adam")
                 break
@@ -1803,10 +1833,10 @@ class DualistTrajOpt(TrajOpt):
         #                  con_good/abs(con_good+1e-10)])
         grads = np.array([2*con, 2*con_bad, 2*con_good])  # TODO: THIS GRADIENTS ARE NOT OK. SHOULD BE WRT DUALS
 
-        print('desired:', kl_step, kl_bad, kl_good)
-        print('current:', kl_div, kl_div_bad, kl_div_good)
-        print('TOTAL_COST:', total_cost, '|', con, con_bad, con_good)
-        print('grads', grads)
+        print('SadPointFcn: desired:', kl_step, kl_bad, kl_good)
+        print('SadPointFcn: current:', kl_div, kl_div_bad, kl_div_good)
+        print('SadPointFcn: TOTAL_COST:', total_cost, '|', con, con_bad, con_good)
+        print('SadPointFcn: grads', grads)
 
         return total_cost, grads
 
@@ -1910,10 +1940,10 @@ class DualistTrajOpt(TrajOpt):
         total_cost = - (traj_cost + eta*con + nu*con_bad + omega*con_good)
         grads = -np.array([con, con_bad, con_good])
 
-        print('desired:', kl_step, kl_bad, kl_good)
-        print('current:', kl_div, kl_div_bad, kl_div_good)
-        print('TOTAL_COST:', total_cost, '|', con, con_bad, con_good)
-        print('grads', grads)
+        print('DualFcn: desired:', kl_step, kl_bad, kl_good)
+        print('DualFcn: current:', kl_div, kl_div_bad, kl_div_good)
+        print('DualFcn: TOTAL_COST:', total_cost, '|', con, con_bad, con_good)
+        print('DualFcn: grads', grads)
 
         return total_cost, grads
 

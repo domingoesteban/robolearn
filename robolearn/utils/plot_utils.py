@@ -379,8 +379,6 @@ def plot_multi_info(data_list, block=True, cols=3, legend=True, labels=None):
     return fig, axs
 
 
-
-
 def plot_3d_gaussian(ax, mu, sigma, edges=100, sigma_axes='XY', linestyle='-.',
                      linewidth=1.0, color='black', alpha=0.1, label='',
                      markeredgewidth=1.0, marker=None, markersize=5.0):

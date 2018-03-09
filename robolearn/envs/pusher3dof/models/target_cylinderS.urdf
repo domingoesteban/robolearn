@@ -11,12 +11,12 @@
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <mass value="0.5"/>
-      <inertia ixx="0.000466666666667" ixy="0" ixz="0" iyy="0.000466666666667" iyz="0" izz="0.0001"/>
+      <inertia ixx="5.41666666667e-05" ixy="0" ixz="0" iyy="5.41666666667e-05" iyz="0" izz="0.0001"/>
     </inertial>
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <cylinder length="0.1" radius="0.02"/>
+        <cylinder length="0.01" radius="0.02"/>
       </geometry>
       <material name="white">
         <color rgba="1 1 1 1"/>
@@ -25,7 +25,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <cylinder length="0.1" radius="0.02"/>
+        <cylinder length="0.01" radius="0.02"/>
       </geometry>
     </collision>
   </link>

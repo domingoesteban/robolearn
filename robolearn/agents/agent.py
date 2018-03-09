@@ -47,7 +47,8 @@ class Agent(object):
         """
         raise NotImplementedError
 
-    def sample(self, env, cond, T, dt, noise, policy=None, save=True):
+    def sample(self, env, cond, T, dt, noise, policy=None, save=True,
+               real_time=False):
 
         if policy is None:
             policy = self.policy
@@ -76,6 +77,8 @@ class Agent(object):
             # TODO: Avoid TF policy writes in obs
             action = policy.eval(state.copy(), obs.copy(), t,
                                  noise[t].copy())
+            # print(action)
+            # raw_input(action)
 
             # action = np.zeros_like(action)
             # Checking NAN
@@ -89,11 +92,12 @@ class Agent(object):
             obs_hist[t] = (obs, action)
             history[t] = (state, action)
 
-            ## if issubclass(type(self.env), GymEnv):
-            #if issubclass(type(env), BulletEnv):
-            #    time.sleep(dt)
-            #else:
-            #    ros_rate.sleep()
+            if real_time:
+                # if issubclass(type(self.env), GymEnv):
+                if issubclass(type(env), BulletEnv):
+                   time.sleep(dt)
+                else:
+                   ros_rate.sleep()
 
         sampling_bar.end()
 

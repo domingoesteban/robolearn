@@ -10,6 +10,7 @@ from robolearn.algos.gps.mdgps import MDGPS
 from robolearn.algos.dualism import Dualism
 from robolearn.utils.experience_buffer import get_bigger_idx
 from robolearn.utils.sample.sample_list import SampleList
+from builtins import input
 
 from robolearn.utils.plot_utils import *
 
@@ -89,14 +90,6 @@ class DualGPS(MDGPS, Dualism):
         for m in range(self.M):
             self._update_policy_fit(m)
 
-        # Update KL step
-        logger.info('')
-        if self.iteration_count > 0:
-            logger.info('%s: itr:%02d | '
-                        'Updating KL step size with GLOBAL policy...'
-                        % (type(self).__name__, itr+1))
-            self._update_step_size()
-
         logger.info('')
         logger.info('DualGPS: itr:%02d | '
                     'Getting good and bad trajectories...' % (itr+1))
@@ -119,6 +112,17 @@ class DualGPS(MDGPS, Dualism):
         # logger.info('-DualGPS: itr:%02d | '
         #             'Divergence btw good/bad trajs: ...' % (itr+1))
         # self._check_kl_div_good_bad()
+
+        # Update KL step
+        logger.info('')
+        if self.iteration_count > 0:
+            logger.info('%s: itr:%02d | '
+                        'Updating KL step size with GLOBAL policy...'
+                        % (type(self).__name__, itr+1))
+            self._update_step_size()
+            logger.info('%s: itr:%02d | Updating KL bad/good size...'
+                        % (type(self).__name__, itr+1))
+            self._update_good_bad_size()
 
         # C-step
         logger.info('')
@@ -217,18 +221,20 @@ class DualGPS(MDGPS, Dualism):
         # Weight of maximum entropy term in trajectory optimization
         multiplier = self._hyperparams['max_ent_traj']
 
-        # Surrogate cost
-        PKLm = np.zeros((T, dX+dU, dX+dU))
-        PKLv = np.zeros((T, dX+dU))
 
-        self.logger.warning('WARN: adding a beta to divisor in '
-                            'compute_traj_cost')
-        divisor = (eta + omega - nu + multiplier + 1e-6)
+        divisor = (eta + omega - nu + multiplier)
+
         fCm = Cm / divisor
         fcv = cv / divisor
 
+        # self.logger.info('Divisor is: %f | fCm: %r', divisor,
+        #                  fCm[-1, -dU:, -dU:])
+
         # We are dividing the surrogate cost calculation for debugging purposes
 
+        # Surrogate cost
+        PKLm = np.zeros((T, dX+dU, dX+dU))
+        PKLv = np.zeros((T, dX+dU))
         # Add in the KL divergence with previous policy.
         for t in range(self.T):
             # Policy KL-divergence terms.
@@ -248,11 +254,22 @@ class DualGPS(MDGPS, Dualism):
             ])
             fCm[t, :, :] += PKLm[t, :, :] * eta / divisor
             fcv[t, :] += PKLv[t, :] * eta / divisor
+        # self.logger.info('eta/Divisor is: %f | PKLm: %r | fCm: %r',
+        #                  eta/divisor,
+        #                  PKLm[-1, -dU:, -dU:],
+        #                  fCm[-1, -dU:, -dU:])
 
+        # Surrogate cost
+        PKLm = np.zeros((T, dX+dU, dX+dU))
+        PKLv = np.zeros((T, dX+dU))
+        # print('in_compute_cost_bad_k', bad_distr.k[-1, :])
+        # raw_input('BORRAMEAHORAA')
         # Subtract in the KL divergence with bad trajectories.
-        for t in range(self.T-1, -1, -1):
+        # for t in range(self.T-1, -1, -1):
+        for t in range(self.T):
             # Bad KL-divergence terms.
             inv_pol_S = bad_distr.inv_pol_covar[t, :, :]
+
             KB = bad_distr.K[t, :, :]
             kB = bad_distr.k[t, :]
 
@@ -265,7 +282,14 @@ class DualGPS(MDGPS, Dualism):
             ])
             fCm[t, :, :] -= PKLm[t, :, :] * nu / divisor
             fcv[t, :] -= PKLv[t, :] * nu / divisor
+        # self.logger.info('nu/Divisor is: %f | PKLm: %r | fCm: %r',
+        #                  nu/divisor,
+        #                  PKLm[-1, -dU:, -dU:],
+        #                  fCm[-1, -dU:, -dU:])
 
+        # Surrogate cost
+        PKLm = np.zeros((T, dX+dU, dX+dU))
+        PKLv = np.zeros((T, dX+dU))
         # Add in the KL divergence with good trajectories.
         for t in range(self.T):
             # Good KL-divergence terms.
@@ -282,6 +306,10 @@ class DualGPS(MDGPS, Dualism):
             ])
             fCm[t, :, :] += PKLm[t, :, :] * omega / divisor
             fcv[t, :] += PKLv[t, :] * omega / divisor
+        # self.logger.info('omega/Divisor is: %f | PKLm: %r| fCm: %r',
+        #                  omega/divisor,
+        #                  PKLm[-1, -dU:, -dU:],
+        #                  fCm[-1, -dU:, -dU:])
 
         return fCm, fcv
 
@@ -535,6 +563,48 @@ class DualGPS(MDGPS, Dualism):
             copy.copy(self.bad_duality_info),
             dir_path=dir_path
         )
+
+        # MUS AND SIGMAS
+        lqr_forward = self.traj_opt.forward
+        T = self.cur[-1].traj_distr.T
+        dX = self.cur[-1].traj_distr.dX
+        dU = self.cur[-1].traj_distr.dU
+        mus = np.zeros((self.M, T, dX+dU))
+        mus_bad = np.zeros((self.M, T, dX+dU))
+        mus_good = np.zeros((self.M, T, dX+dU))
+        sigmas = np.zeros((self.M, T, dX+dU, dX+dU))
+        sigmas_bad = np.zeros((self.M, T, dX+dU, dX+dU))
+        sigmas_good = np.zeros((self.M, T, dX+dU, dX+dU))
+        for cc in range(self.M):
+            traj_distr = self.cur[cc].traj_distr
+            traj_info = self.cur[cc].traj_info
+            bad_traj_distr = self.bad_duality_info[cc].traj_dist
+            good_traj_distr = self.good_duality_info[cc].traj_dist
+            # bad_traj_info = self.bad_trajs_info[cc]
+            # good_traj_info = self.good_trajs_info[cc]
+            # TODO: WE ARE USING SAME DYNAMICS
+            bad_traj_info = good_traj_info = traj_info
+            mus[cc, :, :], sigmas[cc, :, :, :] = \
+                lqr_forward(traj_distr, traj_info)
+            mus_bad[cc, :, :], sigmas_bad[cc, :, :, :] = \
+                lqr_forward(bad_traj_distr, bad_traj_info)
+            mus_good[cc, :, :], sigmas_good[cc, :, :, :] = \
+                lqr_forward(good_traj_distr, good_traj_info)
+        dualist_trajs = dict()
+        dualist_trajs['mus'] = mus
+        dualist_trajs['mus_bad'] = mus_bad
+        dualist_trajs['mus_good'] = mus_good
+        dualist_trajs['sigmas'] = sigmas
+        dualist_trajs['sigmas_bad'] = sigmas_bad
+        dualist_trajs['sigmas_good'] = sigmas_good
+        self.data_logger.pickle(
+            ('dualist_trajs_itr_%02d.pkl' % itr),
+            copy.copy(dualist_trajs),
+            dir_path=dir_path
+        )
+
+
+
 
     # # For pickling.
     # def __getstate__(self):

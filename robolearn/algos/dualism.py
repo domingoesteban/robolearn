@@ -86,6 +86,9 @@ class Dualism(object):
                 for bc in self._hyperparams['algo_hyperparams']['bad_costs']:
                     for ss in range(cs.shape[0]):  # Over samples
                         cs[ss, :] += self.cur[cond].cost_compo[ss][bc]
+                # If this specific cost is zero, then use the total cost
+                if np.sum(cs) == 0:
+                    cs = self.cur[cond].cs
             else:
                 cs = self.cur[cond].cs
 
@@ -139,6 +142,9 @@ class Dualism(object):
                 for bc in self._hyperparams['algo_hyperparams']['bad_costs']:
                     for ss in range(cs.shape[0]):  # Over samples
                         cs[ss, :] += self.cur[cond].cost_compo[ss][bc]
+                # If this specific cost is zero, then use the total cost
+                if np.sum(cs) == 0:
+                    cs = self.cur[cond].cs
             else:
                 cs = self.cur[cond].cs
 
@@ -281,8 +287,9 @@ class Dualism(object):
         for m in range(self.M):
             if self.iteration_count >= 1 and self.prev[m].sample_list:
                 # Good
-                self.cur[m].good_step_mult = 2*self.cur[m].step_mult
-                good_mult = self._hyperparams['algo_hyperparams']['good_fix_rel_multi']*self.cur[m].step_mult
+                # self.cur[m].good_step_mult = 2*self.cur[m].step_mult
+                good_mult = \
+                    self._hyperparams['algo_hyperparams']['good_fix_rel_multi']*self.cur[m].step_mult
                 new_good = max(
                     min(good_mult,
                         self._hyperparams['algo_hyperparams']['max_good_mult']),
@@ -321,18 +328,13 @@ class Dualism(object):
                 rel_difference = (1 + (bad_laplace.sum() - actual_laplace.sum())/actual_laplace.sum())
                 self.logger.info('Actual/Bad REL difference %r' % rel_difference)
 
-                # FROM 08/02 WE HAVE
-                rel_difference = (1 + (bad_laplace.sum() - actual_laplace.sum())/actual_laplace.sum())
-                self.logger.info('Actual/Bad REL difference %r' % rel_difference)
-
-
                 mu_to_check, sigma_to_check = \
                     self.traj_opt.forward(current_distr, traj_info)
 
                 kl_div_bad = traj_distr_kl_alt(mu_to_check, sigma_to_check,
                                                current_distr, bad_distr,
                                                tot=True)
-                print('Current_div:', kl_div_bad)
+                print('Current bad_div:', kl_div_bad)
 
                 prev_mu_to_check, prev_sigma_to_check = \
                     self.traj_opt.forward(prev_distr, traj_info)
@@ -375,5 +377,71 @@ class Dualism(object):
                 #     self.bad_discount = self.kl_bad/self.max_iterations
                 # self.cur[m].bad_step_mult = new_bad
 
+    def _take_dualist_sample(self, bad_or_good, itr, train_or_test='train'):
+        """
+        Collect a sample from the environment.
+        :param traj_or_pol: Use trajectory distributions or current policy.
+                            'traj' or 'pol'
+        :param itr: Current TrajOpt iteration
+        :return:
+        """
+        # If 'pol' sampling, do it with zero noise
+        zero_noise = np.zeros((self.T, self.dU))
 
+        self.logger.info("Sampling with dualism:'%s'" % bad_or_good)
 
+        if train_or_test == 'train':
+            conditions = self._train_cond_idx
+        elif train_or_test == 'test':
+            conditions = self._test_cond_idx
+        else:
+            raise ValueError("Wrong train_or_test option %s" % train_or_test)
+
+        on_policy = False
+        total_samples = 1
+        save = False  # Add sample to agent sample list TODO: CHECK THIS
+
+        # A list of SampleList for each condition
+        sample_lists = list()
+
+        for cc, cond in enumerate(conditions):
+            samples = list()
+
+            # On-policy or Off-policy
+            if on_policy and (self.iteration_count > 0 or
+                              ('sample_pol_first_itr' in self._hyperparams
+                               and self._hyperparams['sample_pol_first_itr'])):
+                policy = None
+                self.logger.info("On-policy sampling: %s!"
+                                 % type(self.agent.policy).__name__)
+            else:
+                policy = self.cur[cond].traj_distr
+                self.logger.info("Off-policy sampling: %s!"
+                                 % type(policy).__name__)
+            if bad_or_good == 'bad':
+                policy = self.cur[cond].bad_traj_distr
+            elif bad_or_good == 'good':
+                policy = self.cur[cond].good_traj_distr
+            else:
+                raise ValueError("Wrong bad_or_good option %s" % bad_or_good)
+            self.logger.info("Off-policy sampling with dualism: %s (%s)!"
+                             % (bad_or_good, type(policy).__name__))
+
+            for i in range(total_samples):
+                noise = zero_noise
+
+                self.env.reset(condition=cond)
+                sample_text = "'%s' sampling | itr:%d/%d, cond:%d/%d, s:%d/%d" \
+                              % (bad_or_good, itr+1, self.max_iterations,
+                                 cond+1, len(conditions),
+                                 i+1, total_samples)
+                self.logger.info(sample_text)
+                sample = self.agent.sample(self.env, cond, self.T,
+                                           self.dt, noise, policy=policy,
+                                           save=save,
+                                           real_time=self._hyperparams['sample_real_time'])
+                samples.append(sample)
+
+            sample_lists.append(SampleList(samples))
+
+        return sample_lists

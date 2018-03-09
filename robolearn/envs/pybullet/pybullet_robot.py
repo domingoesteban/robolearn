@@ -72,7 +72,7 @@ class PyBulletRobot(object):
                          % pb.getNumBodies())
         # print('From those, %d bodies are from the robot Mujoco file.' % len(bodies))
 
-        if issubclass(type(bodies), int):
+        if not isinstance(bodies, tuple):
             bodies = [bodies]
 
         self._bodies_uids = bodies

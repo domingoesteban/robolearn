@@ -404,7 +404,8 @@ class MDGPS(Algorithm):
                 self.logger.info(sample_text)
                 sample = self.agent.sample(self.env, cond, self.T,
                                            self.dt, noise, policy=policy,
-                                           save=save)
+                                           save=save,
+                                           real_time=self._hyperparams['sample_real_time'])
                 samples.append(sample)
 
             sample_lists.append(SampleList(samples))
@@ -858,13 +859,78 @@ class MDGPS(Algorithm):
         # #     copy.copy(self)
         # # )
 
-        LOGGER.info("Logging %s iteration data... ", type(self).__name__)
+        # LOGGER.info("Logging %s iteration data... ", type(self).__name__)
+        # self.data_logger.pickle(
+        #     ('iteration_data_itr_%02d.pkl' % itr),
+        #     copy.copy(self.cur),
+        #     dir_path=dir_path
+        # )
+
+        # LOG ONLY USEFUL DATA FROM ITERATION
+        duals = np.zeros((self.M, 3))
+        for cc in range(self.M):
+            duals[cc, 0] = self.cur[cc].eta
+            duals[cc, 1] = self.cur[cc].nu
+            duals[cc, 2] = self.cur[cc].omega
         self.data_logger.pickle(
-            ('iteration_data_itr_%02d.pkl' % itr),
-            copy.copy(self.cur),
+            ('duals_itr_%02d.pkl' % itr),
+            copy.copy(duals),
+            dir_path=dir_path
+        )
+        N, T = self.cur[-1].cs.shape
+        samples_costs = np.zeros((self.M, N, T))
+        for cc in range(self.M):
+            samples_costs[cc] = self.cur[cc].cs
+        self.data_logger.pickle(
+            ('traj_samples_costs_itr_%02d.pkl' % itr),
+            copy.copy(samples_costs),
+            dir_path=dir_path
+        )
+        multipliers = np.zeros((self.M, 3))
+        for cc in range(self.M):
+            multipliers[cc, 0] = self.cur[cc].step_mult
+            multipliers[cc, 1] = self.cur[cc].bad_step_mult
+            multipliers[cc, 2] = self.cur[cc].good_step_mult
+        self.data_logger.pickle(
+            ('kl_multipliers_itr_%02d.pkl' % itr),
+            copy.copy(multipliers),
+            dir_path=dir_path
+        )
+        trajs = list()
+        for cc in range(self.M):
+            trajs.append(self.cur[cc].traj_distr.get_params())
+        self.data_logger.pickle(
+            ('traj_distr_params_itr_%02d.pkl' % itr),
+            copy.copy(trajs),
+            dir_path=dir_path
+        )
+        pol_linearizations = list()
+        for cc in range(self.M):
+            trajs.append(self.cur[cc].pol_info.traj_distr().get_params())
+        self.data_logger.pickle(
+            ('policy_linearization_params_itr_%02d.pkl' % itr),
+            copy.copy(pol_linearizations),
+            dir_path=dir_path
+        )
+        traj_infos = list()
+        for cc in range(self.M):
+            traj_infos.append(self.cur[cc].traj_info)
+        self.data_logger.pickle(
+            ('traj_infos_itr_%02d.pkl' % itr),
+            copy.copy(traj_infos),
+            dir_path=dir_path
+        )
+        cost_compos = list()
+        for cc in range(self.M):
+            cost_compos.append(self.cur[cc].cost_compo)
+        self.data_logger.pickle(
+            ('sample_cost_composition_itr_%02d.pkl' % itr),
+            copy.copy(cost_compos),
             dir_path=dir_path
         )
 
+
+        # Other info
         LOGGER.info("Logging Trajectory samples... ")
         self.data_logger.pickle(
             ('traj_sample_itr_%02d.pkl' % itr),

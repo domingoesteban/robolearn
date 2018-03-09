@@ -1,4 +1,3 @@
-# Based on: https://github.com/openai/baselines/blob/master/baselines/deepq/replay_buffer.py
 import numpy as np
 from collections import deque
 import bisect

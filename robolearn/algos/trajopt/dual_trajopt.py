@@ -313,10 +313,9 @@ class DualTrajOpt(TrajOpt, Dualism):
                                sample_lists_costs=sample_lists_costs,
                                sample_lists_cost_compositions=sample_lists_cost_compositions)
 
-        LOGGER = self.logger
         dir_path = self.data_logger.dir_path + ('/itr_%02d' % itr)
 
-        LOGGER.info("Logging God/Bad duality data")
+        self.logger.info("Logging God/Bad duality data")
         self.data_logger.pickle(
             ('good_trajectories_info_itr_%02d.pkl' % itr),
             copy.copy(self.good_trajs_info),
@@ -335,6 +334,45 @@ class DualTrajOpt(TrajOpt, Dualism):
         self.data_logger.pickle(
             ('bad_duality_info_itr_%02d.pkl' % itr),
             copy.copy(self.bad_duality_info),
+            dir_path=dir_path
+        )
+
+        # MUS AND SIGMAS
+        lqr_forward = self.traj_opt.forward
+        T = self.cur[-1].traj_distr.T
+        dX = self.cur[-1].traj_distr.dX
+        dU = self.cur[-1].traj_distr.dU
+        mus = np.zeros((self.M, T, dX+dU))
+        mus_bad = np.zeros((self.M, T, dX+dU))
+        mus_good = np.zeros((self.M, T, dX+dU))
+        sigmas = np.zeros((self.M, T, dX+dU, dX+dU))
+        sigmas_bad = np.zeros((self.M, T, dX+dU, dX+dU))
+        sigmas_good = np.zeros((self.M, T, dX+dU, dX+dU))
+        for cc in range(self.M):
+            traj_distr = self.cur[cc].traj_distr
+            traj_info = self.cur[cc].traj_info
+            bad_traj_distr = self.bad_duality_info[cc].traj_dist
+            good_traj_distr = self.good_duality_info[cc].traj_dist
+            # bad_traj_info = self.bad_trajs_info[cc]
+            # good_traj_info = self.good_trajs_info[cc]
+            # TODO: WE ARE USING SAME DYNAMICS
+            bad_traj_info = good_traj_info = traj_info
+            mus[cc, :, :], sigmas[cc, :, :, :] = \
+                lqr_forward(traj_distr, traj_info)
+            mus_bad[cc, :, :], sigmas_bad[cc, :, :, :] = \
+                lqr_forward(bad_traj_distr, bad_traj_info)
+            mus_good[cc, :, :], sigmas_good[cc, :, :, :] = \
+                lqr_forward(good_traj_distr, good_traj_info)
+        dualist_trajs = dict()
+        dualist_trajs['mus'] = mus
+        dualist_trajs['mus_bad'] = mus_bad
+        dualist_trajs['mus_good'] = mus_good
+        dualist_trajs['sigmas'] = sigmas
+        dualist_trajs['sigmas_bad'] = sigmas_bad
+        dualist_trajs['sigmas_good'] = sigmas_good
+        self.data_logger.pickle(
+            ('dualist_trajs_itr_%02d.pkl' % itr),
+            copy.copy(dualist_trajs),
             dir_path=dir_path
         )
 

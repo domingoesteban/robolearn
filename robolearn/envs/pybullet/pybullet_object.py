@@ -47,7 +47,7 @@ class PyBulletObject(object):
         self.logger.info('pbOBJECT | At this moment, the world has %d bodies.'
                          % pb.getNumBodies())
 
-        if issubclass(type(bodies), int):
+        if not isinstance(bodies, tuple):
             bodies = [bodies]
 
         self._bodies_uids = bodies

@@ -3,7 +3,7 @@ from __future__ import print_function
 import numpy as np
 
 from robolearn.envs.environment import Environment
-from robolearn.envs.robot_ros_env_interface import RobotROSEnvInterface
+from robolearn.envs.gz_ros.robot_ros_env_interface import RobotROSEnvInterface
 
 
 class BigmanEnv(Environment):

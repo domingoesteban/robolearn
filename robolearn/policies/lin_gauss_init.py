@@ -32,7 +32,8 @@ INIT_LG_LQR = {
 # Original code
 def init_lqr(hyperparams):
     """
-    Return initial gains for a time-varying linear Gaussian controller that tries to hold the initial position.
+    Return initial gains for a time-varying linear Gaussian controller that
+    tries to hold the initial position.
     """
     config = copy.deepcopy(INIT_LG_LQR)
     config.update(hyperparams)
@@ -154,7 +155,50 @@ def init_pd(hyperparams):
     if config['state_to_pd'] == 'distance':
         k = np.tile(-K[0, :, :].dot(x0), [T, 1])
     else:
-        k = np.tile(-K[0, :, :].dot(x0), [T, 1])
+        k = np.tile(2*K[0, :, :].dot(x0), [T, 1])
+
+    #k = np.tile(K[0, :, :].dot(x0), [T, 1])
+    PSig = config['init_var'] * np.tile(np.eye(dU), [T, 1, 1])
+    cholPSig = np.sqrt(config['init_var']) * np.tile(np.eye(dU), [T, 1, 1])
+    invPSig = (1.0 / config['init_var']) * np.tile(np.eye(dU), [T, 1, 1])
+
+    return LinearGaussianPolicy(K, k, PSig, cholPSig, invPSig)
+
+
+def init_pd_tgt(hyperparams):
+    """
+    This function initializes the linear-Gaussian controller as a
+    proportional-derivative (PD) controller with Gaussian noise. The
+    position gains are controlled by the variable pos_gains, velocity
+    gains are controlled by pos_gains*vel_gans_mult.
+    """
+    config = copy.deepcopy(INIT_LG_PD)
+    config.update(hyperparams)
+
+    dU, dJoints, dX = config['dU'], config['dJoints'], config['dX']
+    x0, T = config['x0'], config['T']
+
+    if not issubclass(type(config['pos_gains']), list) \
+            and not issubclass(type(config['pos_gains']), np.ndarray):
+        pos_gains = np.tile(config['pos_gains'], dU)
+    elif len(config['pos_gains']) == dU:
+        pos_gains = config['pos_gains']
+    else:
+        raise TypeError("noise_var_scale size (%d) does not match dU (%d)"
+                        % (len(config['pos_gains']), dU))
+
+    # Choose initialization mode.
+    Kp = 1.0
+    Kv = config['vel_gains_mult']
+
+    idx_tgt = config['idx_ee']
+    state = np.zeros(dX)
+    state[idx_tgt] = 1
+
+    K = np.diag(pos_gains).dot(np.tile(state, [dU, 1]))
+    K = np.tile(-K, [T, 1, 1])
+
+    k = np.tile(-K[0, :, :].dot(x0), [T, 1])
 
     #k = np.tile(K[0, :, :].dot(x0), [T, 1])
     PSig = config['init_var'] * np.tile(np.eye(dU), [T, 1, 1])

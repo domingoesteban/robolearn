@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib
-matplotlib.rcParams['pdf.fonttype'] = 42
-matplotlib.rcParams['ps.fonttype'] = 42
+from matplotlib import rc
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import pickle
@@ -10,7 +9,15 @@ import os, sys
 
 def plot_policy_final_distance(gps_directory_names, states_tuples,
                                itr_to_load=None, gps_models_labels=None,
-                               method='gps', block=False, print_info=True):
+                               method='gps', per_element=True, block=False,
+                               latex_plot=False,
+                               print_info=True):
+    if latex_plot:
+        matplotlib.rcParams['pdf.fonttype'] = 42
+        matplotlib.rcParams['ps.fonttype'] = 42
+        # rc('font', **{'family': 'serif','serif':['Times']})
+        matplotlib.rcParams['font.family'] = ['serif']
+        matplotlib.rcParams['font.serif'] = ['Times New Roman']
 
     if gps_models_labels is None:
         gps_models_labels = gps_directory_names
@@ -42,10 +49,11 @@ def plot_policy_final_distance(gps_directory_names, states_tuples,
         if max_available_runs == 0:
             print("There is not any runs data. Is the path '%s' correct?"
                   % dir_path)
-            exit(-1)
+            sys.exit(-1)
 
-        print("Max available runs: %d in file %s"
-              % (max_available_runs, gps_directory_name))
+        if print_info:
+            print("Max available runs: %d in file %s"
+                  % (max_available_runs, gps_directory_name))
 
         for rr in range(max_available_runs):
 
@@ -58,10 +66,11 @@ def plot_policy_final_distance(gps_directory_names, states_tuples,
             if max_available_itr == 0:
                 print("There is not any iteration data. Is the path '%s' correct?"
                       % dir_path)
-                exit(-1)
+                sys.exit(-1)
 
-            print("Max available iterations: %d in file %s/run_%02d"
-                  % (max_available_itr, gps_directory_name, rr))
+            if print_info:
+                print("Max available iterations: %d in file %s/run_%02d"
+                      % (max_available_itr, gps_directory_name, rr))
 
             if itr_to_load is None:
                 if last_n_iters is not None:
@@ -79,8 +88,9 @@ def plot_policy_final_distance(gps_directory_names, states_tuples,
             else:
                 itr_list = itr_to_load
 
-            print("Desired iterations to load in %s: %s" % (gps_directory_name,
-                                                            itr_list))
+            if print_info:
+                print("Desired iterations to load in %s: %s"
+                      % (gps_directory_name, itr_list))
 
             first_itr_data = True
             total_itr = len(itr_list)
@@ -129,11 +139,18 @@ def plot_policy_final_distance(gps_directory_names, states_tuples,
     n_state = len(states_tuples)
 
     for cond in range(total_cond):
-        fig, ax = plt.subplots(n_state, 1)
-        fig.subplots_adjust(hspace=0)
-        fig.suptitle("Policy Samples Final Distance | Condition %d (over %02d runs)"
-                     % (cond, max_available_runs),
-                     fontsize=30, weight='bold')
+
+        if per_element:
+            fig, ax = plt.subplots(n_state, 1)
+            fig.subplots_adjust(hspace=0)
+        else:
+            fig, ax = plt.subplots(1, 1)
+            fig.subplots_adjust(hspace=0)
+
+        if not latex_plot:
+            fig.suptitle("Policy Samples Final Distance | Condition %d (over %02d runs)"
+                         % (cond, max_available_runs),
+                         fontsize=30, weight='bold')
         fig.canvas.set_window_title('Policy Samples Distance Condition %02d'
                                     % cond)
         fig.set_facecolor((1, 1, 1))
@@ -142,24 +159,62 @@ def plot_policy_final_distance(gps_directory_names, states_tuples,
         lines = list()
         labels = list()
         for gps in range(total_gps):
-            for nn, (ee, tt) in enumerate(states_tuples):
-                ee_data = samples_list[gps][:, cond, :, :, -1, ee]
-                avg_ee = np.mean(ee_data, axis=2)  # Mean over policy samples
-                # Data over runs
-                mean_ee = np.max(avg_ee, axis=0)
-                max_ee = np.max(avg_ee, axis=0)
-                min_ee = np.min(avg_ee, axis=0)
-                std_ee = np.std(avg_ee, axis=0)
+            if per_element:
+                for nn, (ee, tt) in enumerate(states_tuples):
+                    ee_data = samples_list[gps][:, cond, :, :, -1, ee]
+                    avg_ee = np.mean(ee_data, axis=2)  # Mean over policy samples
+                    # Data over runs
+                    mean_ee = np.max(avg_ee, axis=0)
+                    max_ee = np.max(avg_ee, axis=0)
+                    min_ee = np.min(avg_ee, axis=0)
+                    std_ee = np.std(avg_ee, axis=0)
 
-                tgt_data = samples_list[gps][:, cond, :, :, -1, tt]
-                avg_tgt = np.mean(tgt_data, axis=2)  # Mean over policy samples
-                # Data over runs
-                mean_tgt = np.mean(avg_tgt, axis=0)
-                max_tgt = np.max(avg_tgt, axis=0)
-                min_tgt = np.min(avg_tgt, axis=0)
-                std_tgt = np.std(avg_tgt, axis=0)
+                    tgt_data = samples_list[gps][:, cond, :, :, -1, tt]
+                    avg_tgt = np.mean(tgt_data, axis=2)  # Mean over policy samples
+                    # Data over runs
+                    mean_tgt = np.mean(avg_tgt, axis=0)
+                    max_tgt = np.max(avg_tgt, axis=0)
+                    min_tgt = np.min(avg_tgt, axis=0)
+                    std_tgt = np.std(avg_tgt, axis=0)
 
-                dist_data = ee_data - tgt_data
+                    dist_data = ee_data - tgt_data
+                    avg_dist = np.mean(dist_data, axis=2)  # Mean over policy samples
+                    # Data over runs
+                    mean_dist = np.mean(avg_dist, axis=0)
+                    max_dist = np.max(avg_dist, axis=0)
+                    min_dist = np.min(avg_dist, axis=0)
+                    std_dist = np.std(avg_dist, axis=0)
+
+                    aa = ax[nn] if isinstance(ax, np.ndarray) else ax
+                    label = '%s' % gps_models_labels[gps]
+                    line = aa.plot(iteration_ids[gps], mean_ee,
+                                   marker=gps_models_markers[gps],
+                                   label=gps_models_labels[gps],
+                                   linestyle=gps_models_line_styles[gps],
+                                   color=gps_models_colors[gps])[0]
+
+                    aa.fill_between(iteration_ids[gps], min_ee,
+                                    max_ee, alpha=0.5,
+                                    color=gps_models_colors[gps], zorder=2)
+                    if nn == 0:
+                        lines.append(line)
+                        labels.append(gps_models_labels[gps])
+
+                    fix_line = aa.plot(iteration_ids[gps], mean_tgt,
+                                       marker=None,
+                                       label='Tgt',
+                                       linestyle=':',
+                                       color='black')[0]
+
+            # NORM DISTANCE
+            else:
+                # TODO: ASSUMING X AND Y IS PROVIDED
+                idxs_ee = slice(states_tuples[0][0], states_tuples[1][0]+1)
+                idxs_tgt = slice(states_tuples[0][1], states_tuples[1][1]+1)
+
+                ee_data = samples_list[gps][:, cond, :, :, -1, idxs_ee]
+                tgt_data = samples_list[gps][:, cond, :, :, -1, idxs_tgt]
+                dist_data = np.linalg.norm(ee_data - tgt_data, axis=3)
                 avg_dist = np.mean(dist_data, axis=2)  # Mean over policy samples
                 # Data over runs
                 mean_dist = np.mean(avg_dist, axis=0)
@@ -167,54 +222,71 @@ def plot_policy_final_distance(gps_directory_names, states_tuples,
                 min_dist = np.min(avg_dist, axis=0)
                 std_dist = np.std(avg_dist, axis=0)
 
-                aa = ax[nn] if isinstance(ax, np.ndarray) else ax
                 label = '%s' % gps_models_labels[gps]
-                line = aa.plot(iteration_ids[gps], mean_ee,
+                line = ax.plot(iteration_ids[gps], mean_dist,
                                marker=gps_models_markers[gps],
                                label=gps_models_labels[gps],
                                linestyle=gps_models_line_styles[gps],
                                color=gps_models_colors[gps])[0]
 
-                aa.fill_between(iteration_ids[gps], min_ee,
-                                max_ee, alpha=0.5,
+                ax.fill_between(iteration_ids[gps], min_dist,
+                                max_dist, alpha=0.5,
                                 color=gps_models_colors[gps], zorder=2)
-                if nn == 0:
-                    lines.append(line)
-                    labels.append(gps_models_labels[gps])
 
-                fix_line = aa.plot(iteration_ids[gps], mean_tgt,
-                                   marker=None,
-                                   label='Tgt',
-                                   linestyle=':',
-                                   color='black')[0]
+                lines.append(line)
+                labels.append(gps_models_labels[gps])
 
-        for nn in range(n_state):
-            aa = ax[nn] if isinstance(ax, np.ndarray) else ax
+        if not latex_plot:
+            for nn in range(n_state):
+                aa = ax[nn] if isinstance(ax, np.ndarray) else ax
+                max_lim = 0
+                for ll in aa.lines:
+                    if len(ll.get_xdata()) > max_lim:
+                        max_lim = len(ll.get_xdata())
+                aa.set_xlim(0, max_lim+1)
+                aa.set_xticks(range(0, max_lim+1, 5))
+                #ax.set_xticks(range(0, 26, 5))
+
+                aa.set_xlabel("Iteration", fontsize=40, weight='bold')
+                aa.set_ylabel("EE Distance (%02d)" % nn,
+                              fontsize=40, weight='bold')
+                aa.tick_params(axis='x', labelsize=25)
+                aa.tick_params(axis='y', labelsize=25)
+
+                # Background
+                aa.xaxis.set_major_locator(MaxNLocator(integer=True))
+                aa.xaxis.grid(color='white', linewidth=2)
+                aa.set_facecolor((0.917, 0.917, 0.949))
+
+            if isinstance(ax, np.ndarray):
+                for aa in ax[:-1]:
+                    aa.xaxis.set_ticklabels([])
+        else:
             max_lim = 0
-            for ll in aa.lines:
+            for ll in ax.lines:
                 if len(ll.get_xdata()) > max_lim:
                     max_lim = len(ll.get_xdata())
-            aa.set_xlim(0, max_lim+1)
-            #ax.set_xticks(range(min_iteration, max_iteration+1))
+            ax.set_xlim(0, max_lim+1)
+            # ax.set_xticks(range(0, max_lim+1, 5))
             #ax.set_xticks(range(0, 26, 5))
 
-            aa.set_xlabel("Iteration", fontsize=30, weight='bold')
-            aa.set_ylabel("EE Distance (%02d)" % nn,
-                          fontsize=10, weight='bold')
-            aa.tick_params(axis='x', labelsize=15)
-            aa.tick_params(axis='y', labelsize=15)
+            ax.set_xlabel("Iteration", fontsize=40, weight='bold')
+            ax.set_ylabel("Distance to target", fontsize=40, weight='bold')
+            ax.tick_params(axis='x', labelsize=25)
+            ax.tick_params(axis='y', labelsize=25)
 
             # Background
-            aa.xaxis.set_major_locator(MaxNLocator(integer=True))
-            aa.xaxis.grid(color='white', linewidth=2)
-            aa.set_facecolor((0.917, 0.917, 0.949))
+            # ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+            ax.set_xticks(range(0, 51, 5))
+            ax.xaxis.grid(color='white', linewidth=2)
+            ax.set_facecolor((0.917, 0.917, 0.949))
 
-        if isinstance(ax, np.ndarray):
-            for aa in ax[:-1]:
-                aa.xaxis.set_ticklabels([])
+        if not latex_plot:
+            # Legend
+            fig.legend(lines, labels, loc='center right', ncol=1)
+        else:
+            legend = plt.legend(handles=lines, loc=1, fontsize=30)
 
-        # Legend
-        fig.legend(lines, labels, loc='center right', ncol=1)
 
     plt.show(block=block)
 

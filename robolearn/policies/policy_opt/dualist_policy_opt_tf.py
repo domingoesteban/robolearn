@@ -19,7 +19,7 @@ from robolearn.policies.policy_opt.tf_utils import TfSolver
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
-class PolicyOptTf(PolicyOpt):
+class DualistPolicyOptTf(PolicyOpt):
     """
     Policy optimization using tensor flow for DAG computations/nonlinear
     function approximation.
@@ -179,7 +179,9 @@ class PolicyOptTf(PolicyOpt):
         # Robust median should be around one.
         tgt_wt /= mn
 
-        # Reshape inputs.
+        # # Reshape inputs.
+        # temp_obs = obs
+
         obs = np.reshape(obs, (N*T, dO))
         tgt_mu = np.reshape(tgt_mu, (N*T, dU))
         tgt_prc = np.reshape(tgt_prc, (N*T, dU, dU))
@@ -235,12 +237,12 @@ class PolicyOptTf(PolicyOpt):
                     average_loss = 0
             average_loss = 0
 
-        # Print first
-        feed_dict = {self.obs_tensor: obs,
-                     self.action_tensor: tgt_mu,
-                     self.precision_tensor: tgt_prc}
-        train_loss = self.sess.run([self.solver.loss_scalar], feed_dict)[0]
-        LOGGER.info('tensorflow iteration 0, loss %f', train_loss)
+        # print('BEFORE TRAIN',
+        #       np.sum(temp_obs))
+        # print('BEFORE TRAIN',
+        #       np.sum(self.prob(np.ones_like(temp_obs))[0]))
+        # input('VEAMOS')
+
 
         # Actual training.
         for i in range(self._hyperparams['iterations']):

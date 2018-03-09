@@ -69,14 +69,17 @@ class Pusher3DofRobot(PyBulletRobot):
                            'idx': list(range(0, self.total_joints))})
         state_info.append({'name': 'velocity',
                            'idx': list(range(self.total_joints,
-                                        2*self.total_joints))})
+                                       2*self.total_joints))})
         return state_info
 
     def apply_action(self, action):
         assert (np.isfinite(action).all())
         for n, joint in enumerate(self.ordered_joints):
             joint.set_motor_torque(self.power * joint.power_coef *
-                                   float(np.clip(action[n], -1, +1)))
+                                   # float(np.clip(action[n], -1, +1)))
+                                   #  float(np.clip(action[n], -1.5, +1.5)))
+                                   #  float(np.clip(action[n], -2.5, +2.5)))
+                                   float(np.clip(action[n], -3, +3)))
 
     def set_initial_state(self, state):
         if len(state) != len(self.initial_state):

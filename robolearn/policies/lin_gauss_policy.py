@@ -80,4 +80,5 @@ class LinearGaussianPolicy(Policy):
         :return: A dictionary with parameters
         """
         return {'K': self.K, 'k': self.k, 'pol_covar': self.pol_covar,
-                'chol_pol_covar': self.chol_pol_covar, 'inv_pol_covar': self.inv_pol_covar}
+                'chol_pol_covar': self.chol_pol_covar,
+                'inv_pol_covar': self.inv_pol_covar}

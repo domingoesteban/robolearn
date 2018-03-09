@@ -3,23 +3,23 @@ from __future__ import print_function
 import numpy as np
 
 from robolearn.envs.environment import Environment
-from robolearn.envs.robot_ros_env_interface import RobotROSEnvInterface
+from robolearn.envs.gz_ros.robot_ros_env_interface import RobotROSEnvInterface
 
 
 class CentauroEnv(Environment):
-    # TODO CentauroEnv is generic. Check if it is better to crete one Environment for each task
-    # TODO Check if the evaluation of the commands should be done here!
-
     def __init__(self, interface='ros', mode='simulation', body_part_active='LA', command_type='torque',
-                 observation_active=None, state_active=None, cmd_freq=100, reset_simulation_fcn=None):
+                 observation_active=None, state_active=None, cmd_freq=100, robot_dyn_model=None,
+                 optional_env_params=None, reset_simulation_fcn=None):
 
         if interface == 'ros':
-            self.interface = RobotROSEnvInterface(robot_name='centauro',
+            self.interface = RobotROSEnvInterface(robot_name='centauro_ub',
                                                   mode=mode,
                                                   body_part_active=body_part_active, cmd_type=command_type,
                                                   observation_active=observation_active,
                                                   state_active=state_active,
                                                   cmd_freq=cmd_freq,
+                                                  robot_dyn_model=robot_dyn_model,
+                                                  optional_env_params=optional_env_params,
                                                   reset_simulation_fcn=reset_simulation_fcn)
         else:
             raise NotImplementedError("Only ROS interface has been implemented")
@@ -81,3 +81,8 @@ class CentauroEnv(Environment):
     def stop(self):
         return self.interface.stop()
 
+    def get_target_pose(self):
+        return self.interface.get_target_pose()
+
+    def get_robot_pose(self):
+        return self.interface.get_robot_pose()

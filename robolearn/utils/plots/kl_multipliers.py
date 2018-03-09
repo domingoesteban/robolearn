@@ -8,8 +8,9 @@ import pickle
 import os, sys
 
 
-def plot_duals(gps_directory_names, itr_to_load=None, gps_models_labels=None,
-               method='gps', block=False, print_info=True):
+def plot_kl_multipliers(gps_directory_names, itr_to_load=None,
+                        gps_models_labels=None, method='gps', block=False,
+                        print_info=True):
 
     if gps_models_labels is None:
         gps_models_labels = gps_directory_names
@@ -32,7 +33,7 @@ def plot_duals(gps_directory_names, itr_to_load=None, gps_models_labels=None,
     gps_num = 0
     total_gps = len(gps_directory_names)
 
-    duals_list = [list() for _ in range(total_gps)]
+    kl_multipliers_list = [list() for _ in range(total_gps)]
     iteration_ids = [list() for _ in range(total_gps)]
 
     # Get the data
@@ -54,7 +55,7 @@ def plot_duals(gps_directory_names, itr_to_load=None, gps_models_labels=None,
             print("Max available runs: %d in file %s"
                   % (max_available_runs, gps_directory_name))
 
-        duals_list[gps] = [list() for _ in range(max_available_runs)]
+        kl_multipliers_list[gps] = [list() for _ in range(max_available_runs)]
         iteration_ids[gps] = [list() for _ in range(max_available_runs)]
 
         for rr in range(max_available_runs):
@@ -99,10 +100,10 @@ def plot_duals(gps_directory_names, itr_to_load=None, gps_models_labels=None,
             for ii, itr_idx in enumerate(itr_list):
                 itr_path = dir_path + str('/run_%02d' % rr) + \
                            str('/itr_%02d/' % itr_idx)
-                # Duals
+                # KL multipliers
                 # file_to_load = itr_path + 'iteration_data_itr_' + \
                 #                str('%02d' % itr_idx)+'.pkl'
-                file_to_load = itr_path + 'duals_itr_' + \
+                file_to_load = itr_path + 'kl_multipliers_itr_' + \
                                str('%02d' % itr_idx)+'.pkl'
                 if os.path.isfile(file_to_load):
                     if print_info:
@@ -112,14 +113,14 @@ def plot_duals(gps_directory_names, itr_to_load=None, gps_models_labels=None,
                     iteration_ids[gps][rr].append(itr_idx+1)
                     n_cond = len(iter_data)
                     if first_itr_data:
-                        duals = np.zeros((n_cond, total_itr, 3))
+                        kl_multipliers = np.zeros((n_cond, total_itr, 3))
                         first_itr_data = False
 
                     # for cc in range(n_cond):
-                    #     duals[cc, ii, 0] = iter_data[cc].eta
-                    #     duals[cc, ii, 1] = iter_data[cc].nu
-                    #     duals[cc, ii, 2] = iter_data[cc].omega
-                    duals[:, ii, :] = iter_data
+                    #     kl_multipliers[cc, ii, 0] = iter_data[cc].eta
+                    #     kl_multipliers[cc, ii, 1] = iter_data[cc].nu
+                    #     kl_multipliers[cc, ii, 2] = iter_data[cc].omega
+                    kl_multipliers[:, ii, :] = iter_data
                     del iter_data
                 else:
                     raise ValueError('ItrData does not exist! | '
@@ -127,18 +128,18 @@ def plot_duals(gps_directory_names, itr_to_load=None, gps_models_labels=None,
                                      ' itr[%02d]' % (gps, rr, itr_idx))
 
             # Clear all the loaded data
-            duals_list[gps][rr] = duals
+            kl_multipliers_list[gps][rr] = kl_multipliers
 
-    total_runs = len(duals_list[-1])
-    total_cond = duals_list[-1][-1].shape[0]
-    total_itr = duals_list[-1][-1].shape[1]
+    total_runs = len(kl_multipliers_list[-1])
+    total_cond = kl_multipliers_list[-1][-1].shape[0]
+    total_itr = kl_multipliers_list[-1][-1].shape[1]
 
     for cond in range(total_cond):
         fig, ax = plt.subplots(3, 1)
         fig.subplots_adjust(hspace=0)
-        fig.suptitle("Duals for condition %02d (over %02d runs)"
+        fig.suptitle("KL multipliers for condition %02d (over %02d runs)"
                      % (cond, total_runs), fontsize=14, weight='bold')
-        fig.canvas.set_window_title('Duals Condition %02d' % cond)
+        fig.canvas.set_window_title('KL multipliers Condition %02d' % cond)
         fig.set_facecolor((1, 1, 1))
         des_colormap = [colormap(i) for i in np.linspace(0, 1, total_gps)]
 
@@ -153,12 +154,12 @@ def plot_duals(gps_directory_names, itr_to_load=None, gps_models_labels=None,
                 print('&&&'*5)
             rr = -1
 
-            duals = duals_list[gps][rr][cond, :, :]
+            kl_multipliers = kl_multipliers_list[gps][rr][cond, :, :]
 
-            # Eta
-            ax[0].set_ylabel(r'Step ($\eta$)',
+            # KL step
+            ax[0].set_ylabel(r'KL Mult Step',
                              fontdict={'color': 'black', 'weight': 'bold'})
-            line = ax[0].plot(iteration_ids[gps][rr], duals[:, 0],
+            line = ax[0].plot(iteration_ids[gps][rr], kl_multipliers[:, 0],
                               marker=gps_models_markers[gps],
                               label=gps_models_labels[gps],
                               linestyle=gps_models_line_styles[gps],
@@ -166,19 +167,19 @@ def plot_duals(gps_directory_names, itr_to_load=None, gps_models_labels=None,
             lines.append(line)
             labels.append(gps_models_labels[gps])
 
-            # Nu
-            ax[1].set_ylabel(r'Bad ($\nu$)',
+            # KL bad
+            ax[1].set_ylabel(r'KL Mult Bad',
                              fontdict={'color': 'darkred', 'weight': 'bold'})
-            line = ax[1].plot(iteration_ids[gps][rr], duals[:, 1],
+            line = ax[1].plot(iteration_ids[gps][rr], kl_multipliers[:, 1],
                               marker=gps_models_markers[gps],
                               label=gps_models_labels[gps],
                               linestyle=gps_models_line_styles[gps],
                               color=gps_models_colors[gps])[0]
 
-            # Omega
-            ax[2].set_ylabel('Good ($\omega$)',
+            # KL good
+            ax[2].set_ylabel('KL Mult Good',
                              fontdict={'color': 'darkgreen', 'weight': 'bold'})
-            line = ax[2].plot(iteration_ids[gps][rr], duals[:, 2],
+            line = ax[2].plot(iteration_ids[gps][rr], kl_multipliers[:, 2],
                               marker=gps_models_markers[gps],
                               label=gps_models_labels[gps],
                               linestyle=gps_models_line_styles[gps],

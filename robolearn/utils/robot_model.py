@@ -3,9 +3,10 @@ import rbdl
 import tf
 import scipy.optimize
 import time
+from time import sleep
 from urdf_parser_py.urdf import URDF
 from robolearn.utils.iit.iit_robots_params import *
-from robolearn.utils.transformations_utils import *
+from robolearn.utils.transformations import *
 
 
 class RobotModel(object):
@@ -14,7 +15,8 @@ class RobotModel(object):
     """
     def __init__(self, robot_urdf_file, floating_base=False):
         self.floating_base = floating_base
-        self.model = rbdl.loadModel(robot_urdf_file, verbose=False, floating_base=floating_base)
+        self.model = rbdl.loadModel(robot_urdf_file, verbose=False,
+                                    floating_base=floating_base)
         self.q = np.zeros(self.model.q_size)
         self.qdot = np.zeros(self.model.qdot_size)
         self.qddot = np.zeros(self.model.qdot_size)
@@ -102,7 +104,8 @@ class RobotModel(object):
         else:
             return body_id
 
-    def fk(self, body_name, q=None, body_offset=np.zeros(3), update_kinematics=True, rotation_rep='quat'):
+    def fk(self, body_name, q=None, body_offset=np.zeros(3),
+           update_kinematics=True, rotation_rep='quat'):
         """
         Forward kinematics for a joint configuration.
         :param body_name: Name of the body
@@ -139,7 +142,8 @@ class RobotModel(object):
 
         return np.concatenate((orient, pos))
 
-    def ik(self, body_name, desired_pose, body_offset=np.zeros(3), mask_joints=None, q_init=None, joints_limits=None,
+    def ik(self, body_name, desired_pose, body_offset=np.zeros(3),
+           mask_joints=None, q_init=None, joints_limits=None,
            method='optimization', regularization_parameter=None):
         """
         
@@ -165,8 +169,12 @@ class RobotModel(object):
             def target_cost(joints):
                 #squared_distance = np.linalg.norm(chain.forward_kinematics(x) - target)
                 joints[mask_joints] = 0
-                actual_pose = self.fk(body_name, q=joints, body_offset=body_offset, update_kinematics=True)
-                squared_distance = compute_cartesian_error(desired_pose, actual_pose, rotation_rep='quat')
+                actual_pose = self.fk(body_name, q=joints,
+                                      body_offset=body_offset,
+                                      update_kinematics=True)
+                squared_distance = compute_cartesian_error(desired_pose,
+                                                           actual_pose,
+                                                           rotation_rep='quat')
                 squared_distance = np.linalg.norm(squared_distance)
                 return squared_distance
             # If a regularization is selected
@@ -185,7 +193,10 @@ class RobotModel(object):
             max_iter = None
             if max_iter is not None:
                 options['maxiter'] = max_iter
-            return scipy.optimize.minimize(total_cost, q_init, method='L-BFGS-B', bounds=real_bounds, options=options).x
+            return scipy.optimize.minimize(total_cost, q_init,
+                                           method='L-BFGS-B',
+                                           bounds=real_bounds,
+                                           options=options).x
 
         elif method == 'iterative':
             gamma = 0.1#0.1
@@ -194,13 +205,17 @@ class RobotModel(object):
             nm = np.inf
             q = q_init
             qdot = np.zeros(self.model.qdot_size)
-            actual_pose = self.fk(body_name, q=self.q, body_offset=body_offset, update_kinematics=True)
+            actual_pose = self.fk(body_name, q=self.q, body_offset=body_offset,
+                                  update_kinematics=True)
             while nm > stol:
-                xdot = compute_cartesian_error(desired_pose, actual_pose, rotation_rep='quat')
+                xdot = compute_cartesian_error(desired_pose, actual_pose,
+                                               rotation_rep='quat')
                 nm = np.linalg.norm(xdot)
 
                 # Compute the jacobian matrix
-                rbdl.CalcPointJacobian6D(self.model, q, self.model.GetBodyId(body_name), np.zeros(0), J,
+                rbdl.CalcPointJacobian6D(self.model, q,
+                                         self.model.GetBodyId(body_name),
+                                         np.zeros(0), J,
                                          update_kinematics=True)
                 J[:, mask_joints] = 0
 
@@ -210,13 +225,15 @@ class RobotModel(object):
 
                 # Integrate the computed velocities
                 q[:] += qdot * gamma
-                actual_pose = self.fk(body_name, q=q, body_offset=body_offset, update_kinematics=True)
+                actual_pose = self.fk(body_name, q=q, body_offset=body_offset,
+                                      update_kinematics=True)
 
             return q
         else:
             raise TypeError("Wrong IK method: %s" % method)
 
-    def update_jacobian(self, J, body_name, q=None, body_offset=np.zeros(3), update_kinematics=True):
+    def update_jacobian(self, J, body_name, q=None, body_offset=np.zeros(3),
+                        update_kinematics=True):
         if body_name == 'Waist':
             body_name = 'ROOT'
 
@@ -225,9 +242,11 @@ class RobotModel(object):
 
         body_id = self.model.GetBodyId(body_name)
 
-        rbdl.CalcPointJacobian6D(self.model, q, body_id, body_offset, J, update_kinematics)
+        rbdl.CalcPointJacobian6D(self.model, q, body_id, body_offset, J,
+                                 update_kinematics)
 
-    def jdqd(self, body_name, q=None, qdot=None, body_offset=np.zeros(3), update_kinematics=True):
+    def jdqd(self, body_name, q=None, qdot=None, body_offset=np.zeros(3),
+             update_kinematics=True):
         if body_name == 'Waist' and not self.floating_base:
             body_name = 'ROOT'
 
@@ -239,8 +258,10 @@ class RobotModel(object):
 
         body_id = self.model.GetBodyId(body_name)
 
-        return rbdl.CalcPointAcceleration6D(self.model, q, qdot, np.zeros(self.qdot_size), body_id,
-                                            body_offset, update_kinematics=update_kinematics)
+        return rbdl.CalcPointAcceleration6D(self.model, q, qdot,
+                                            np.zeros(self.qdot_size), body_id,
+                                            body_offset,
+                                            update_kinematics=update_kinematics)
 
     def update_torque(self, tau, q=None, qdot=None, qddot=None):
         if q is None:

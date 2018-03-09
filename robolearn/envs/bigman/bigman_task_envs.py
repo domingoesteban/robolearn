@@ -20,7 +20,6 @@ class BigmanBoxEnv(BigmanEnv):
         self.task_hyperparams['body_part_sensed'] = body_part_sensed
         self.task_hyperparams['command_type'] = 'effort'
 
-
         self.task_hyperparams['box_size'] = [0.4, 0.5, 0.3]
         #robot_urdf_file = os.environ["ROBOTOLOGY_ROOT"]+'/configs/ADVR_shared/bigman/urdf/bigman.urdf'
         robot_urdf_file = os.environ["ROBOTOLOGY_ROOT"]+'/robots/iit-bigman-ros-pkg/bigman_urdf/urdf/bigman.urdf'
@@ -30,14 +29,15 @@ class BigmanBoxEnv(BigmanEnv):
         self.task_hyperparams['l_soft_hand_offset'] = np.array([0.000, -0.030, -0.210])
         self.task_hyperparams['r_soft_hand_offset'] = np.array([0.000, 0.030, -0.210])
 
-        self.task_hyperparams['touching_box_config'] = np.array([0.,  0.,  0.,  0.,  0.,  0.,
-                                                        0.,  0.,  0.,  0.,  0.,  0.,
-                                                        0.,  0.,  0.,
-                                                        0.0568,  0.2386, -0.2337, -1.6803,  0.2226,  0.0107,  0.5633,
-                                                        #0.,  0.,  0.,  -1.5708,  0.,  0., 0.,
-                                                        0.,  0.,
-                                                        0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633])
-                                                        #0.,  0.,  0.,  -1.5708,  0.,  0., 0.])
+        self.task_hyperparams['touching_box_config'] = \
+            np.array([0.,  0.,  0.,  0.,  0.,  0.,
+                      0.,  0.,  0.,  0.,  0.,  0.,
+                      0.,  0.,  0.,
+                      0.0568,  0.2386, -0.2337, -1.6803,  0.2226,  0.0107,  0.5633,
+                      #0.,  0.,  0.,  -1.5708,  0.,  0., 0.,
+                      0.,  0.,
+                      0.0568,  -0.2386, 0.2337, -1.6803,  -0.2226,  0.0107,  -0.5633])
+                      #0.,  0.,  0.,  -1.5708,  0.,  0., 0.])
 
         observation_active = [{'name': 'joint_state',
                                'type': 'joint_state',

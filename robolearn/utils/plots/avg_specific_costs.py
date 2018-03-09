@@ -8,9 +8,18 @@ import pickle
 import os, sys
 
 
-def plot_specific_cost(gps_directory_names, itr_to_load=None,
-                       specific_costs=None, gps_models_labels=None,
-                       method='gps', block=False, print_info=True):
+def plot_avg_specific_costs(gps_directory_names, itr_to_load=None,
+                            specific_costs=None, gps_models_labels=None,
+                            method='gps', block=False, print_info=True,
+                            conds_to_combine=None,
+                            latex_plot=False, train_conds=None,
+                            ):
+    if latex_plot:
+        matplotlib.rcParams['pdf.fonttype'] = 42
+        matplotlib.rcParams['ps.fonttype'] = 42
+        # rc('font', **{'family': 'serif','serif':['Times']})
+        matplotlib.rcParams['font.family'] = ['serif']
+        matplotlib.rcParams['font.serif'] = ['Times New Roman']
 
     #gps_models_line_styles = [':', '--', '-']
     gps_models_line_styles = ['-', '-', '-', '-', '-', '-', '-', '-', '-']
@@ -158,99 +167,95 @@ def plot_specific_cost(gps_directory_names, itr_to_load=None,
         #marker = 'o'
         marker = None
 
-        for cond in range(total_cond):
-            fig, ax = plt.subplots(len(specific_costs), 1)
-            fig.subplots_adjust(hspace=0)
-            fig.suptitle("Policy Specific Costs for condition %02d (over %02d runs)"
-                         % (cond, max_available_runs),
+        fig, ax = plt.subplots(1, 1)
+        fig.subplots_adjust(hspace=0)
+        if not latex_plot:
+            fig.suptitle("Policy Avg Specific Costs for training conditions"
+                         " (over %02d runs)" % max_available_runs,
                          fontsize=30, weight='bold')
-            fig.canvas.set_window_title('Policy Specific Cost Condition %02d '
-                                        % cond)
-            fig.set_facecolor((1, 1, 1))
-            des_colormap = [colormap(i) for i in np.linspace(0, 1, total_gps)]
+        fig.canvas.set_window_title('Policy Avg Specific Cost')
+        fig.set_facecolor((1, 1, 1))
+        des_colormap = [colormap(i) for i in np.linspace(0, 1, total_gps)]
 
-            lines = list()
-            labels = list()
+        lines = list()
+        labels = list()
 
-            min_iteration = np.inf
-            max_iteration = -np.inf
+        for gps in range(total_gps):
+            total_runs = len(pol_sample_lists_cost_compos[gps])
+            total_cond = pol_sample_lists_cost_compos[gps][-1].shape[0]
+            total_itr = pol_sample_lists_cost_compos[gps][-1].shape[1]
+            total_samples = pol_sample_lists_cost_compos[gps][-1].shape[2]
+            T = pol_sample_lists_cost_compos[gps][-1].shape[4]
 
-            for gps in range(total_gps):
-                # total_cost_types = pol_sample_lists_cost_compos[gps][-1].shape[3]
-                total_runs = len(pol_sample_lists_cost_compos[gps])
-                total_itr = pol_sample_lists_cost_compos[gps][-1].shape[1]
-                total_samples = pol_sample_lists_cost_compos[gps][-1].shape[2]
-                T = pol_sample_lists_cost_compos[gps][-1].shape[4]
+            avg_costs = np.zeros((total_runs, total_cond, total_itr, total_cost_types))
+            sum_costs = np.zeros((total_runs, total_cond, total_itr))
+            for rr in range(total_runs):
+                # Sum over T
+                pol_cost_sum = \
+                    pol_sample_lists_cost_compos[gps][rr][:, :, :, :, :].sum(axis=4)
 
-                # Composition cost
-                avg_costs = np.zeros((total_runs, total_itr, total_cost_types))
-                for rr in range(total_runs):
-                    pol_cost_sum = pol_sample_lists_cost_compos[gps][rr][cond, :, :, :, :].sum(axis=3)
-                    # Average over samples
-                    avg_costs[rr, :, :] = np.mean(pol_cost_sum, axis=1)
+                # Average over samples
+                avg_costs[rr, :, :, :] = np.mean(pol_cost_sum, axis=2)
 
-                mean_cost_types = np.mean(avg_costs, axis=0)
-                max_cost_types = np.max(avg_costs, axis=0)
-                min_cost_types = np.min(avg_costs, axis=0)
-                std_cost_types = np.std(avg_costs, axis=0)
+                # Sum the specific costs
+                for cc in specific_costs:
+                    sum_costs[rr, :, :] += avg_costs[rr, :, :, cc]
 
-                for cc, cost_idx in enumerate(specific_costs):
-                    aa = ax[cc] if isinstance(ax, np.ndarray) else ax
-                    label = '%s' % gps_models_labels[gps]
-                    line = aa.plot(iteration_ids[gps][rr],
-                                   mean_cost_types[:, cost_idx],
-                                   marker=marker, label=label,
-                                   color=gps_models_colors[gps])[0]
-                    aa.fill_between(iteration_ids[gps][rr],
-                                    min_cost_types[:, cost_idx],
-                                    max_cost_types[:, cost_idx], alpha=0.5,
-                                    color=gps_models_colors[gps], zorder=2)
-                    aa.xaxis.set_major_locator(MaxNLocator(integer=True))
-                    if cc == 0:
-                        lines.append(line)
-                        labels.append(label)
+            # Average over runs
+            runs_avg = np.mean(sum_costs, axis=0)
+            # print(runs_avg.shape)
+            # print(runs_avg)
+            # print("BORRAMEEE")
 
-                    if print_info:
-                        print('%'*10)
-                        print('gps: %d' % gps)
-                    for rr in range(total_runs):
-                        if print_info:
-                            print('run %02d - total specific_cost(%02d): %r'
-                                  % (rr, cc, np.array(mean_cost_types[:, cc]).sum()))
-                    if print_info:
-                        print('%'*10)
+            # Only over selected conditions
+            if conds_to_combine is None:
+                total_cost_avg = np.mean(runs_avg, axis=0)
+            else:
+                total_cost_avg = np.mean(runs_avg[conds_to_combine, :], axis=0)
 
-            for cc, cost_idx in enumerate(specific_costs):
-                aa = ax[cc] if isinstance(ax, np.ndarray) else ax
-                max_lim = 0
-                for ll in aa.lines:
-                    if len(ll.get_xdata()) > max_lim:
-                        max_lim = len(ll.get_xdata())
-                aa.set_xlim(0, max_lim+1)
-                #ax.set_xticks(range(min_iteration, max_iteration+1))
-                #ax.set_xticks(range(0, 26, 5))
+            label = '%s' % gps_models_labels[gps]
+            line = ax.plot(iteration_ids[gps][-1],
+                           total_cost_avg,
+                           marker=marker, label=label,
+                           color=gps_models_colors[gps])[0]
+            # ax.fill_between(iteration_ids[gps][-1],
+            #                 min_sum_costs,
+            #                 max_sum_costs, alpha=0.5,
+            #                 color=gps_models_colors[gps], zorder=2)
+            # ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
-                aa.set_xlabel("Iteration", fontsize=30, weight='bold')
-                aa.set_ylabel("Average Cost (%02d)" % cost_idx,
-                              fontsize=10, weight='bold')
-                aa.tick_params(axis='x', labelsize=15)
-                aa.tick_params(axis='y', labelsize=15)
+            lines.append(line)
+            labels.append(gps_models_labels[gps])
 
-                # Background
-                aa.xaxis.set_major_locator(MaxNLocator(integer=True))
-                aa.xaxis.grid(color='white', linewidth=2)
-                aa.set_facecolor((0.917, 0.917, 0.949))
+        max_lim = 0
+        for ll in ax.lines:
+            if len(ll.get_xdata()) > max_lim:
+                max_lim = len(ll.get_xdata())
+        ax.set_xlim(0, max_lim+1)
+        ax.set_xticks(range(0, 51, 5))
+        #ax.set_xticks(range(min_iteration, max_iteration+1))
+        #ax.set_xticks(range(0, 26, 5))
 
-            if isinstance(ax, np.ndarray):
-                for aa in ax[:-1]:
-                    aa.xaxis.set_ticklabels([])
+        ax.set_xlabel("Iteration", fontsize=40, weight='bold')
+        ax.set_ylabel("Safe-Distance Cost",
+                      fontsize=40, weight='bold')
+        ax.tick_params(axis='x', labelsize=25)
+        ax.tick_params(axis='y', labelsize=25)
 
+        # Background
+        # aa.xaxis.set_major_locator(MaxNLocator(integer=True))
+        ax.xaxis.grid(color='white', linewidth=2)
+        ax.set_facecolor((0.917, 0.917, 0.949))
+
+        if not latex_plot:
             # Legend
             fig.legend(lines, labels, loc='center right', ncol=1)
             # #legend = ax.legend(loc='best', ncol=1, fontsize=20)
             # legend = ax.legend(ncol=1, fontsize=25)
             # #legend = plt.figlegend(lines, labels, loc='center right', ncol=1, labelspacing=0., borderaxespad=1.)
             # #legend.get_frame().set_alpha(0.4)
+        else:
+            legend = plt.legend(handles=lines, loc=1, fontsize=30)
 
     else:
         raise NotImplementedError

@@ -261,6 +261,14 @@ bigman_params['q0'].append([0, 0, 0, 0, 0, 0,
                             0, 0,
                             0, -1.5708, 0, -1.5708, 0, 0, 0])
 
+# Conf3: 'Homing'
+bigman_params['q0'].append([-0.06, 0.0, -0.45, 0.9, -0.45, 0.06,
+                            0.06, 0.0, -0.45, 0.9, -0.45, -0.06,
+                            0, 0, 0,
+                            1.1, 0.2, -0.3, -2.0, 0.0, -0.0, -0.0,
+                            0, 0.6,
+                            1.1, -0.2, 0.3, -2.0, 0.0, -0.0, -0.0])
+
 bigman_params['stiffness_gains'] = np.array([8000.,  5000.,  8000.,  5000.,  5000.,  2000.,
                                              8000.,  5000.,  5000.,  5000.,  5000.,  2000.,
                                              5000.,  8000.,  5000.,
@@ -316,74 +324,140 @@ bigman_params['state_active'] = [{'name': 'joint_state',
 
 centauro_params = dict()
 
-centauro_params['joints_names'] = ['hip_yaw_1',     # Joint 0
-                                   'hip_pitch_1',   # Joint 1
-                                   'knee_pitch_1',  # Joint 2
-                                   'hip_yaw_2',     # Joint 3
-                                   'hip_pitch_2',   # Joint 4
-                                   'knee_pitch_2',  # Joint 5
-                                   'hip_yaw_3',     # Joint 6
-                                   'hip_pitch_3',   # Joint 7
-                                   'knee_pitch_3',  # Joint 8
-                                   'hip_yaw_4',     # Joint 9
-                                   'hip_pitch_4',   # Joint 10
-                                   'knee_pitch_4',  # Joint 11
-                                   'torso_yaw',     # Joint 12
-                                   'j_arm1_1',      # Joint 13
-                                   'j_arm1_2',      # Joint 14
-                                   'j_arm1_3',      # Joint 15
-                                   'j_arm1_4',      # Joint 16
-                                   'j_arm1_5',      # Joint 17
-                                   'j_arm1_6',      # Joint 18
-                                   'j_arm1_7',      # Joint 19
-                                   'j_arm2_1',      # Joint 20
-                                   'j_arm2_2',      # Joint 21
-                                   'j_arm2_3',      # Joint 22
-                                   'j_arm2_4',      # Joint 23
-                                   'j_arm2_5',      # Joint 24
-                                   'j_arm2_6',      # Joint 25
-                                   'j_arm2_7']      # Joint 26
+centauro_params['joints_names'] = ['hip_yaw_1',      # Joint 0
+                                   'hip_pitch_1',    # Joint 1
+                                   'knee_pitch_1',   # Joint 2
+                                   'ankle_pitch_1',  # Joint 3
+                                   'ankle_yaw_1',    # Joint 4
+                                   'j_wheel_1',      # Joint 5
+                                   'hip_yaw_2',      # Joint 6
+                                   'hip_pitch_2',    # Joint 7
+                                   'knee_pitch_2',   # Joint 8
+                                   'ankle_pitch_2',  # Joint 9
+                                   'ankle_yaw_2',    # Joint 10
+                                   'j_wheel_2',      # Joint 11
+                                   'hip_yaw_3',      # Joint 12
+                                   'hip_pitch_3',    # Joint 13
+                                   'knee_pitch_3',   # Joint 14
+                                   'ankle_pitch_3',  # Joint 15
+                                   'ankle_yaw_3',    # Joint 16
+                                   'j_wheel_3',      # Joint 17
+                                   'hip_yaw_4',      # Joint 18
+                                   'hip_pitch_4',    # Joint 19
+                                   'knee_pitch_4',   # Joint 20
+                                   'ankle_pitch_4',  # Joint 21
+                                   'ankle_yaw_4',    # Joint 22
+                                   'j_wheel_4',      # Joint 23
+                                   'torso_yaw',      # Joint 24
+                                   'j_arm1_1',       # Joint 25
+                                   'j_arm1_2',       # Joint 26
+                                   'j_arm1_3',       # Joint 27
+                                   'j_arm1_4',       # Joint 28
+                                   'j_arm1_5',       # Joint 29
+                                   'j_arm1_6',       # Joint 30
+                                   'j_arm1_7',       # Joint 31
+                                   'j_ft_1',         # Joint 31
+                                   'j_arm1_8',         # Joint 31
+                                   'j_arm2_1',       # Joint 32
+                                   'j_arm2_2',       # Joint 33
+                                   'j_arm2_3',       # Joint 34
+                                   'j_arm2_4',       # Joint 35
+                                   'j_arm2_5',       # Joint 36
+                                   'j_arm2_6',       # Joint 37
+                                   'j_arm2_7'      # Joint 38
+                                   'j_ft_2',         # Joint 31
+                                   'j_arm2_8',         # Joint 31
+                                   'neck_velodyne',
+                                   'neck_yaw',
+                                   'neck_pitch',
+                                   ]
 
-centauro_params['joint_ids'] = {'LA': range(13, 20),
-                                'RA': range(20, 27),
-                                'BA': range(13, 27),
-                                'TO': [12],
-                                'UB': range(12, 27),
-                                'L1': range(0, 3),
-                                'L2': range(3, 6),
-                                'L3': range(6, 9),
-                                'L4': range(9, 12),
-                                'LEGS': range(0, 12),
-                                'WB': range(0, 27)}
+centauro_params['joint_ids'] = {'LA': list(range(25, 32)),
+                                'RA': list(range(32, 39)),
+                                'BA': list(range(25, 39)),
+                                'TO': [24],
+                                'UB': list(range(24, 39)),
+                                'L1': list(range(0, 6)),
+                                'L2': list(range(6, 12)),
+                                'L3': list(range(12, 18)),
+                                'L4': list(range(18, 24)),
+                                'LEGS': list(range(0, 12)),
+                                'WB': list(range(0, 27))}
 
 centauro_params['q0'] = []   # A list of initial configurations
-centauro_params['q0'].append([0,  # 'hip_yaw_1',     # Joint 0
-                              0,  # 'hip_pitch_1',   # Joint 1
-                              0,  # 'knee_pitch_1',  # Joint 2
-                              0,  # 'hip_yaw_2',     # Joint 3
-                              0,  # 'hip_pitch_2',   # Joint 4
-                              0,  # 'knee_pitch_2',  # Joint 5
-                              0,  # 'hip_yaw_3',     # Joint 6
-                              0,  # 'hip_pitch_3',   # Joint 7
-                              0,  # 'knee_pitch_3',  # Joint 8
-                              0,  # 'hip_yaw_4',     # Joint 9
-                              0,  # 'hip_pitch_4',   # Joint 10
-                              0,  # 'knee_pitch_4',  # Joint 11
-                              0,  # 'torso_yaw',     # Joint 12
-                              0,  # 'j_arm1_1',      # Joint 13
-                              0,  # 'j_arm1_2',      # Joint 14
-                              0,  # 'j_arm1_3',      # Joint 15
-                              0,  # 'j_arm1_4',      # Joint 16
-                              0,  # 'j_arm1_5',      # Joint 17
-                              0,  # 'j_arm1_6',      # Joint 18
-                              0,  # 'j_arm1_7',      # Joint 19
-                              0,  # 'j_arm2_1',      # Joint 20
-                              0,  # 'j_arm2_2',      # Joint 21
-                              0,  # 'j_arm2_3',      # Joint 22
-                              0,  # 'j_arm2_4',      # Joint 23
-                              0,  # 'j_arm2_5',      # Joint 24
-                              0,  # 'j_arm2_6',      # Joint 25
-                              0])  # 'j_arm2_7']      # Joint 26
+centauro_params['q0'].append([0,  # 'hip_yaw_1',      # Joint 0
+                              0,  # 'hip_pitch_1',    # Joint 1
+                              0,  # 'knee_pitch_1',   # Joint 2
+                              0,  # 'ankle_pitch_1',  # Joint 3
+                              0,  # 'ankle_yaw_1',    # Joint 4
+                              0,  # 'j_wheel_1',      # Joint 5
+                              0,  # 'hip_yaw_2',      # Joint 6
+                              0,  # 'hip_pitch_2',    # Joint 7
+                              0,  # 'knee_pitch_2',   # Joint 8
+                              0,  # 'ankle_pitch_2',  # Joint 9
+                              0,  # 'ankle_yaw_2',    # Joint 10
+                              0,  # 'j_wheel_2',      # Joint 11
+                              0,  # 'hip_yaw_3',      # Joint 12
+                              0,  # 'hip_pitch_3',    # Joint 13
+                              0,  # 'knee_pitch_3',   # Joint 14
+                              0,  # 'ankle_pitch_3',  # Joint 15
+                              0,  # 'ankle_yaw_3',    # Joint 16
+                              0,  # 'j_wheel_3',      # Joint 17
+                              0,  # 'hip_yaw_4',      # Joint 18
+                              0,  # 'hip_pitch_4',    # Joint 19
+                              0,  # 'knee_pitch_4',   # Joint 20
+                              0,  # 'ankle_pitch_4',  # Joint 21
+                              0,  # 'ankle_yaw_4',    # Joint 22
+                              0,  # 'j_wheel_4',      # Joint 23
+                              0,  # 'torso_yaw',      # Joint 24
+                              0,  # 'j_arm1_1',       # Joint 25
+                              0,  # 'j_arm1_2',       # Joint 26
+                              0,  # 'j_arm1_3',       # Joint 27
+                              0,  # 'j_arm1_4',       # Joint 28
+                              0,  # 'j_arm1_5',       # Joint 29
+                              0,  # 'j_arm1_6',       # Joint 30
+                              0,  # 'j_arm1_7',       # Joint 31
+                              0,  # 'j_arm2_1',       # Joint 32
+                              0,  # 'j_arm2_2',       # Joint 33
+                              0,  # 'j_arm2_3',       # Joint 34
+                              0,  # 'j_arm2_4',       # Joint 35
+                              0,  # 'j_arm2_5',       # Joint 36
+                              0,  # 'j_arm2_6',       # Joint 37
+                              0])  # 'j_arm2_7']      # Joint 38
+
+
+centauro_upper_body_params = dict()
+
+centauro_upper_body_params['joints_names'] = [
+    'torso_yaw',      # Joint 0
+    'j_arm1_1',       # Joint 1
+    'j_arm1_2',       # Joint 2
+    'j_arm1_3',       # Joint 3
+    'j_arm1_4',       # Joint 4
+    'j_arm1_5',       # Joint 5
+    'j_arm1_6',       # Joint 6
+    'j_arm1_7',       # Joint 7
+    'j_arm2_1',       # Joint 8
+    'j_arm2_2',       # Joint 9
+    'j_arm2_3',       # Joint 10
+    'j_arm2_4',       # Joint 11
+    'j_arm2_5',       # Joint 12
+    'j_arm2_6',       # Joint 13
+    'j_arm2_7'      # Joint 14
+]
+centauro_upper_body_params['q0'] = []
+centauro_upper_body_params['q0'].append([
+    0,
+    0, -0.3, -0.8, -1.2, 0, -0.8, 0,
+    0, 0.3, 0.8, 1.2, 0, 0.8, 0,
+])
+
+centauro_upper_body_params['joint_ids'] = {'LA': list(range(1, 8)),
+                                            'RA': list(range(8, 15)),
+                                            'BA': list(range(1, 15)),
+                                            'TO': [0],
+                                            'UB': list(range(15)),
+                                           }
 
 
 centauro_params['observation_active'] = [{'name': 'joint_state',

@@ -4,7 +4,7 @@ from geometry_msgs.msg import WrenchStamped
 from sensor_msgs.msg import Imu
 from sensor_msgs.msg import JointState
 from robolearn_gazebo_env.msg import RelativePose
-from XCM.msg import JointStateAdvr
+from XBotCore.msg import JointStateAdvr
 
 
 # Joint state fields

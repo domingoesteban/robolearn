@@ -10,7 +10,7 @@ import os, sys
 
 def plot_policy_final_safe_distance(gps_directory_names, states_tuples,
                                     itr_to_load=None, gps_models_labels=None,
-                                    safe_distance=None,
+                                    safe_distance=None, vis_option='average',
                                     method='gps', block=False, print_info=True):
 
     if gps_models_labels is None:
@@ -43,10 +43,11 @@ def plot_policy_final_safe_distance(gps_directory_names, states_tuples,
         if max_available_runs == 0:
             print("There is not any runs data. Is the path '%s' correct?"
                   % dir_path)
-            exit(-1)
+            sys.exit(-1)
 
-        print("Max available runs: %d in file %s"
-              % (max_available_runs, gps_directory_name))
+        if print_info:
+            print("Max available runs: %d in file %s"
+                  % (max_available_runs, gps_directory_name))
 
         for rr in range(max_available_runs):
 
@@ -59,10 +60,11 @@ def plot_policy_final_safe_distance(gps_directory_names, states_tuples,
             if max_available_itr == 0:
                 print("There is not any iteration data. Is the path '%s' correct?"
                       % dir_path)
-                exit(-1)
+                sys.exit(-1)
 
-            print("Max available iterations: %d in file %s/run_%02d"
-                  % (max_available_itr, gps_directory_name, rr))
+            if print_info:
+                print("Max available iterations: %d in file %s/run_%02d"
+                      % (max_available_itr, gps_directory_name, rr))
 
             if itr_to_load is None:
                 if last_n_iters is not None:
@@ -80,8 +82,9 @@ def plot_policy_final_safe_distance(gps_directory_names, states_tuples,
             else:
                 itr_list = itr_to_load
 
-            print("Desired iterations to load in %s: %s" % (gps_directory_name,
-                                                            itr_list))
+            if print_info:
+                print("Desired iterations to load in %s: %s"
+                      % (gps_directory_name, itr_list))
 
             first_itr_data = True
             total_itr = len(itr_list)

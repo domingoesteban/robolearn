@@ -2,8 +2,8 @@ import numpy as np
 
 # ROS packages
 import rospy
-from XCM.msg import JointStateAdvr
-from XCM.msg import CommandAdvr
+from XBotCore.msg import JointStateAdvr
+from XBotCore.msg import CommandAdvr
 
 # Robolearn package
 from robolearn.utils.gazebo_ros.ros_utils import obs_vector_ft_sensor, ft_sensor_dof

@@ -40,7 +40,7 @@ class CostSafeDistance(Cost):
             safe_distance = config['safe_distance']
             outside_cost = config['outside_cost']
             inside_cost = config['inside_cost']
-            x = sample.get_states(data_type)
+            x = sample.get_states(data_type)[:, config['idx_to_use']]
             _, dim_sensor = x.shape
 
             wpm = get_ramp_multiplier(
