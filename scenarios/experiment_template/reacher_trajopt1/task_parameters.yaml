@@ -1,0 +1,108 @@
+learning_algorithm: 'TrajOpt'
+
+# Task parameters
+Ts: 0.03 # 0.01
+Tend: 15  # 0.7
+
+# Env parameters
+render: False
+obs_like_mjc: False
+ntargets: 2
+tgt_weights: [1.0, -1.0]
+rdn_tgt_pos: True
+tgt_positions: [[0.1, 0.2], [-0.1, -0.2]]  # Values between [-0.2, 0.2]
+tgt_types: ['CS', 'C']
+
+# Initial conditions  [pos1, pos2, tgt1x, tgt1y, tgt1ori, tgt2x, tgt2y, tgt2ori]
+init_cond: [
+           [-90, 25, 2,  0.67, -0.08,  25, 0.73, -0.25,  0],  # -45, 60, 10
+           [80, -20, -12, 0.65, 0.08,  -35, 0.73, 0.28,  0],  # 45, -60, -20
+           [70, -15, -20, 0.70, -0.15,  -35, 0.74, 0.10,  0],  # 20, -55, -00
+           [-75, 10, 10,  0.63, -0.09,   50,  0.73,  -0.36,  0],  # -45, 45, 50
+           [-89, 5, 25,  0.51, 0.05,   60,  0.65,  -0.10,  0],  # -55, 90, 25
+           [90, -20, 2,  0.51, -0.05,   -60,  0.61,  0.10,  0],  # 55, -90, -25
+           [-90, 20, -2,  0.51, 0.05,   60,  0.62,  -0.08,  0],  # -55, 90, 25
+
+#           [-90, 20,   2, 0.74,  0.26,  35,  0.54, -0.43,  0],  # 5, 20, 10
+#           [-90, 20,   3, 0.72,  0.14, -15,  0.66, -0.17,  0],  # 40, -45, -10
+#           [90, -20, -12, 0.64,  0.10, -45,  0.45,  0.45,  0],  # 45, -45, -45
+#           [-90, 20,   2, 0.65, -0.1,   55,  0.60,  -0.40,  0],  # -45, 45, 45
+
+#           [-90, 20, 2, 0.2, 0.5, 45, -0.6, 0.0, 0],
+#           [-90, 20, 3, 0.5, 0.0, 45, -0.5, -0.5, 0],
+#           [-90, 20, 2, 0.7, 0.3, 45, -0.65, -0.2, 0],
+#           [-60, -20, 0, 0.7, 0.3, 0.7, 0.0],
+#           [60, 20, 0, 0.7, 0.0, -0.6, 0.2],
+#           [-60, -20, 0, 0.5, -0.1, -0.6, -0.2],
+#           [45, 0, 0.2, 0.0, -0.1, 0.2],
+           ]
+train_cond: [0, 1, 2, 3, 4, 5, 6]  # Indexes
+
+# Agent
+np_threads: 3
+
+# Learning interaction parameters
+iterations: 30
+num_samples: 5 # Samples for exploration trajs --> N samples
+
+# Cost
+cost_weights: [1.0e-4,  # Action
+               2.0e+2,  # State Difference
+               2.0e+6,  # Final State Difference
+               1.1e+4,  # Safe Distance
+               1.1e+8]  # Final Safe Distance
+
+state_diff_weights: [
+                     1.0, # X
+                     1.0, # Y
+                     0.1  # Theta
+                    ]
+
+l1_l2: [
+        1.0e+1, # l1
+        5.0e-2 # l2
+       ]
+
+inside_cost: 2.0
+
+# TrajOpt parameters
+inner_iterations: 1
+
+# Dualist GPS parameters
+consider_bad: True
+consider_good: True
+#consider_bad: True
+#consider_good: False
+#consider_bad: False
+#consider_good: False
+
+bad_costs: []  # [3, 4]  # Indexes to consider bad criteria (Sum of selected ones)
+
+kl_step: 0.2 # epsilon
+kl_bad: 20.0 # xi
+kl_good: 0.4 # chi
+
+
+max_nu: 5.0e-1  # Bad dual variable
+max_omega: 1.0e-2  # Good dual variable
+
+
+weight_bad: 5.e-1
+weight_good: 1.e-1
+
+
+min_bad_rel_diff: 0.01
+max_bad_rel_diff: 2.0
+mult_bad_rel_diff: 1
+good_fix_rel_multi: 5
+
+n_bad_buffer: 10 # Number of bad samples per trajectory distribution
+n_good_buffer: 10 # Number of good samples per trajectory distribution
+
+n_bad_samples: 1 # Number of bad samples per trajectory distribution
+n_good_samples: 1 # Number of good samples per trajectory distribution
+
+#bad_traj_selection_type: cost  # 'temp', 'cost'
+#good_traj_selection_type: cost  # 'temp', 'cost'
+bad_traj_selection_type: temp  # 'temp', 'cost'
+good_traj_selection_type: temp  # 'temp', 'cost'
