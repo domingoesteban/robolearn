@@ -1,8 +1,8 @@
 import os
-from robolearn.utils.plots.policy_cost import plot_policy_cost
-from robolearn.utils.plots.specific_cost import plot_specific_cost
-from robolearn.utils.plots.duals import plot_duals
-from robolearn.utils.plots.policy_final_distance import plot_policy_final_distance
+from robolearn.old_utils.plots.policy_cost import plot_policy_cost
+from robolearn.old_utils.plots.specific_cost import plot_specific_cost
+from robolearn.old_utils.plots.duals import plot_duals
+from robolearn.old_utils.plots.policy_final_distance import plot_policy_final_distance
 
 method = 'gps'  # 'gps' or 'trajopt'
 gps_directory_names = ['gps_log1', 'gps_log2']

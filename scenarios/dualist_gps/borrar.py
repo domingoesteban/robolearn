@@ -1,5 +1,5 @@
 import numpy as np
-from robolearn.utils.experience_buffer import ExperienceBuffer
+from robolearn.old_utils.experience_buffer import ExperienceBuffer
 
 N_trajs = 8
 T = 2

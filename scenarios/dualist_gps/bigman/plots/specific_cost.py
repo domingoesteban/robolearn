@@ -1,5 +1,5 @@
 import os
-from robolearn.utils.plots.specific_cost import plot_specific_cost
+from robolearn.old_utils.plots.specific_cost import plot_specific_cost
 
 method = 'gps'  # 'gps' or 'trajopt'
 gps_directory_names = ['gps_log1']

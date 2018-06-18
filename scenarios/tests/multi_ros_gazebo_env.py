@@ -9,7 +9,7 @@ import os
 import signal
 import traceback
 
-from robolearn.envs.gazebo_ros_env_interface import GazeboROSEnvInterface
+from robolearn.old_envs.gazebo_ros_env_interface import GazeboROSEnvInterface
 
 init_roscore_port = 11312
 init_gzserver_port = 11347

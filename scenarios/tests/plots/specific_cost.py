@@ -1,8 +1,8 @@
 import os
 from builtins import input
-from robolearn.utils.plots.policy_cost import plot_policy_cost
-from robolearn.utils.plots.specific_cost import plot_specific_cost
-from robolearn.utils.plots.duals import plot_duals
+from robolearn.old_utils.plots.policy_cost import plot_policy_cost
+from robolearn.old_utils.plots.specific_cost import plot_specific_cost
+from robolearn.old_utils.plots.duals import plot_duals
 
 method = 'gps'  # 'gps' or 'trajopt'
 gps_directory_names = ['reacher_log']#, 'reacher_log2', 'reacher_log3']

@@ -5,17 +5,17 @@ import rbdl
 import rospy
 from XCM.msg import CommandAdvr
 from XCM.msg import JointStateAdvr
-from robolearn.utils.tasks.lift_box_utils import create_box_relative_pose
-from robolearn.utils.tasks.lift_box_utils import reset_bigman_box_gazebo
-from robolearn.utils.trajectory_interpolators import polynomial5_interpolation, quaternion_slerp_interpolation
+from robolearn.old_utils.tasks.lift_box_utils import create_box_relative_pose
+from robolearn.old_utils.tasks.lift_box_utils import reset_bigman_box_gazebo
+from robolearn.old_utils.trajectory_interpolators import polynomial5_interpolation, quaternion_slerp_interpolation
 
-from robolearn.utils.iit.iit_robots_params import bigman_params
-from robolearn.utils.plot_utils import plot_desired_sensed_data
-from robolearn.utils.plot_utils import plot_joint_multi_info
-from robolearn.utils.robot_model import RobotModel
-from robolearn.utils.tasks.bigman.reach_drill_utils import create_drill_relative_pose, create_hand_relative_pose
-from robolearn.utils.tasks.bigman.reach_drill_utils import reset_bigman_drill_gazebo
-from robolearn.utils.transformations_utils import *
+from robolearn.old_utils.iit.iit_robots_params import bigman_params
+from robolearn.old_utils.plot_utils import plot_desired_sensed_data
+from robolearn.old_utils.plot_utils import plot_joint_multi_info
+from robolearn.old_utils.robot_model import RobotModel
+from robolearn.old_utils.tasks.bigman.reach_drill_utils import create_drill_relative_pose, create_hand_relative_pose
+from robolearn.old_utils.tasks.bigman.reach_drill_utils import reset_bigman_drill_gazebo
+from robolearn.old_utils.transformations_utils import *
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 

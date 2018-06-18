@@ -6,31 +6,31 @@ import signal
 import yaml
 
 import numpy as np
-from robolearn.envs.pusher3dof import Pusher3DofBulletEnv
-from robolearn.utils.sample.sampler import Sampler
+from robolearn.old_envs.pusher3dof import Pusher3DofBulletEnv
+from robolearn.old_utils.sample.sampler import Sampler
 
-from robolearn.agents import GPSAgent
-from robolearn.algos.gps.dual_gps import DualGPS
+from robolearn.old_agents import GPSAgent
+from robolearn.old_algos.gps.dual_gps import DualGPS
 # Costs
-from robolearn.costs.cost_action import CostAction
+from robolearn.old_costs.cost_action import CostAction
 # from robolearn.costs.cost_fk import CostFK
-from robolearn.costs.cost_state import CostState
-from robolearn.costs.cost_safe_distance import CostSafeDistance
-from robolearn.costs.cost_state_difference import CostStateDifference
-from robolearn.costs.cost_safe_state_difference import CostSafeStateDifference
-from robolearn.costs.cost_sum import CostSum
-from robolearn.costs.cost_utils import RAMP_FINAL_ONLY, RAMP_CONSTANT
-from robolearn.costs.cost_utils import evall1l2term
+from robolearn.old_costs.cost_state import CostState
+from robolearn.old_costs.cost_safe_distance import CostSafeDistance
+from robolearn.old_costs.cost_state_difference import CostStateDifference
+from robolearn.old_costs.cost_safe_state_difference import CostSafeStateDifference
+from robolearn.old_costs.cost_sum import CostSum
+from robolearn.old_costs.cost_utils import RAMP_FINAL_ONLY, RAMP_CONSTANT
+from robolearn.old_costs.cost_utils import evall1l2term
 # from robolearn.envs import BigmanEnv
-from robolearn.policies.lin_gauss_init import init_pd, init_dual_demos
-from robolearn.policies.policy_opt.policy_opt_tf import PolicyOptTf
-from robolearn.policies.policy_opt.tf_models import tf_network
-from robolearn.policies.policy_prior import ConstantPolicyPrior  # For MDGPS
-from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
-from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
-from robolearn.utils.print_utils import change_print_color
-from robolearn.utils.transformations_utils import create_quat_pose
-from robolearn.utils.traj_opt.dualist_traj_opt import DualistTrajOpt
+from robolearn.old_policies.lin_gauss_init import init_pd, init_dual_demos
+from robolearn.old_policies.policy_opt.policy_opt_tf import PolicyOptTf
+from robolearn.old_policies.policy_opt.tf_models import tf_network
+from robolearn.old_policies.policy_prior import ConstantPolicyPrior  # For MDGPS
+from robolearn.old_utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
+from robolearn.old_utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
+from robolearn.old_utils.print_utils import change_print_color
+from robolearn.old_utils.transformations_utils import create_quat_pose
+from robolearn.old_utils.traj_opt.dualist_traj_opt import DualistTrajOpt
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 

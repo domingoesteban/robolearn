@@ -2,14 +2,14 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from timeit import default_timer as timer
-from robolearn.utils.iit.iit_robots_params import *
-from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
-from robolearn.utils.trajectory_interpolators import spline_interpolation
-from robolearn.utils.trajectory_interpolators import quaternion_interpolation
-from robolearn.utils.robot_model import *
-from robolearn.utils.iit.robot_poses.bigman.poses import *
-from robolearn.utils.transformations_utils import *
-from robolearn.utils.plot_utils import *
+from robolearn.old_utils.iit.iit_robots_params import *
+from robolearn.old_utils.trajectory_interpolators import polynomial5_interpolation
+from robolearn.old_utils.trajectory_interpolators import spline_interpolation
+from robolearn.old_utils.trajectory_interpolators import quaternion_interpolation
+from robolearn.old_utils.robot_model import *
+from robolearn.old_utils.iit.robot_poses.bigman.poses import *
+from robolearn.old_utils.transformations_utils import *
+from robolearn.old_utils.plot_utils import *
 import tf
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)

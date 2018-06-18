@@ -1,12 +1,20 @@
 # RoboLearn Python package
 
-"A Python package for Robot Reinforcement Learning"
+**THIS PACKAGE IS STILL IN DEVELOPMENT**
+
+"A Python package for Robot Learning"
 
 - [x] Robot Reinforcement Learning
     - [ ] Model-Based RL
-    - [x] Model-Free RL
+        - [x] Guided Policy Search
+            - MDGPS
+            - DMDGPS
+    - [ ] Model-Free RL
         - [ ] Value-based
-        - [x] Policy-based
+        - [ ] Policy-based
         - [ ] Actor-Critic
+- [x] Trajectory Optimization
+    - [ ] Indirect Methods
+        - iLQR
 - [ ] Robot Inverse Reinforcement Learning
 - [ ] Robot Imitation Learning

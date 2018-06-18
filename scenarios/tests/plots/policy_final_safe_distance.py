@@ -1,7 +1,7 @@
 import os
 from builtins import input
 import numpy as np
-from robolearn.utils.plots.policy_final_safe_distance import plot_policy_final_safe_distance
+from robolearn.old_utils.plots.policy_final_safe_distance import plot_policy_final_safe_distance
 
 method = 'gps'  # 'gps' or 'trajopt'
 gps_directory_names = ['reacher_log']#, 'reacher_log2', 'reacher_log3']

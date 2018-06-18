@@ -3,9 +3,9 @@ import os
 import time
 import threading
 import numpy as np
-from robolearn.utils.algo_interface import AlgoInterface
-from robolearn.envs.manipulator2d.manipulator2d_env import Manipulator2dEnv
-from robolearn.utils.ros_utils import get_available_port
+from robolearn.old_utils.algo_interface import AlgoInterface
+from robolearn.old_envs.manipulator2d.manipulator2d_env import Manipulator2dEnv
+from robolearn.old_utils.ros_utils import get_available_port
 
 init_roscore_port = 11312
 init_gzserver_port = 11347

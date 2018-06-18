@@ -1,0 +1,150 @@
+import numpy as np
+from robolearn.torch.core import PyTorchModule
+from robolearn.core.serializable import Serializable
+from robolearn.torch.core import np_ify
+import robolearn.torch.pytorch_util as ptu
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+from robolearn.torch.nn import identity
+from robolearn.torch.nn import LayerNorm
+from robolearn.models import QFunction
+
+
+class NNMultiQFunction(PyTorchModule, QFunction):
+    def __init__(self,
+                 obs_dim,
+                 action_dim,
+                 n_qs,
+                 shared_hidden_sizes,
+                 unshared_hidden_sizes=None,
+                 stds=None,
+                 hidden_activation=F.relu,
+                 output_activation=identity,
+                 hidden_w_init=ptu.xavier_init,
+                 hidden_b_init_val=0,
+                 output_w_init=ptu.xavier_init,
+                 output_b_init_val=0,
+                 shared_layer_norm=False,
+                 unshared_layer_norm=False,
+                 layer_norm_kwargs=None,
+                 **kwargs
+                 ):
+
+        QFunction.__init__(self, obs_dim=obs_dim, action_dim=action_dim)
+
+        self._n_qs = n_qs
+
+        self._serializable_initialized = False
+        Serializable.quick_init(self, locals())
+        super(NNMultiQFunction, self).__init__()
+
+        if layer_norm_kwargs is None:
+            layer_norm_kwargs = dict()
+
+        self.hidden_activation = hidden_activation
+        self.output_activation = output_activation
+        self.shared_layer_norm = shared_layer_norm
+        self.unshared_layer_norm = unshared_layer_norm
+        self.fcs = []
+        self.shared_layer_norms = []
+        self.ufcs = [list() for _ in range(self._n_qs)]
+        self.unshared_layer_norms = [list() for _ in range(self._n_qs)]
+        self.last_fcs = []
+
+        in_size = obs_dim + action_dim
+        # Shared Layers
+        for i, next_size in enumerate(shared_hidden_sizes):
+            fc = nn.Linear(in_size, next_size)
+            in_size = next_size
+            hidden_w_init(fc.weight)
+            ptu.fill(fc.bias, hidden_b_init_val)
+            self.__setattr__("fc{}".format(i), fc)
+            self.fcs.append(fc)
+
+            if self.shared_layer_norm:
+                ln = LayerNorm(next_size)
+                self.__setattr__("shared_layer_norm{}".format(i), ln)
+                self.shared_layer_norms.append(ln)
+
+        # Unshared Layers
+        if unshared_hidden_sizes is not None:
+            for i, next_size in enumerate(unshared_hidden_sizes):
+                for q_idx in range(self._n_qs):
+                    ufc = nn.Linear(in_size, next_size)
+                    hidden_w_init(ufc.weight)
+                    ptu.fill(ufc.bias, hidden_b_init_val)
+                    self.__setattr__("ufc{}_{}".format(q_idx, i), ufc)
+                    self.ufcs[q_idx].append(ufc)
+
+                    if self.unshared_layer_norm:
+                        ln = LayerNorm(next_size)
+                        tmp_txt = "unshared_layer_norm{}_{}".format(q_idx, i)
+                        self.__setattr__(tmp_txt, ln)
+                        self.unshared_layer_norms[q_idx].append(ln)
+                in_size = next_size
+
+        for q_idx in range(self._n_qs):
+            last_fc = nn.Linear(in_size, 1)
+            output_w_init(last_fc.weight)
+            ptu.fill(last_fc.bias, output_b_init_val)
+            self.__setattr__("last_fc{}".format(q_idx), last_fc)
+            self.last_fcs.append(last_fc)
+
+    def forward(self, obs, act, val_idxs=None):
+        if val_idxs is None:
+            val_idxs = list(range(self._n_qs))
+
+        h = torch.cat((obs, act), dim=-1)
+
+        for i, fc in enumerate(self.fcs):
+            h = self.hidden_activation(fc(h))
+
+        hs = [h for _ in val_idxs]
+        # Unshared Layers
+        if len(self.ufcs) > 0:
+            for ii, idx in enumerate(val_idxs):
+                for i, fc in enumerate(self.ufcs[idx]):
+                    hs[ii] = self.hidden_activation(fc(hs[ii]))
+
+        values = [self.last_fcs[idx](hs[ii])
+                  for ii, idx in enumerate(val_idxs)]
+
+        return values, dict()
+
+    def get_value(self, obs_np, action_np, val_idxs=None):
+        if val_idxs is None:
+            val_idxs = list(range(self._n_qs))
+
+        values, val_info = self.get_values(obs_np[None], action_np[None],
+                                           val_idxs=val_idxs)
+        # # TODO: CHECK IF INDEX 0
+        # return values[0, :], val_info
+
+        values = [value[0, :] for value in values]
+
+        for key, vals in val_info.items():
+            val_info[key] = [val[0, :] if isinstance(val, np.ndarray)
+                              else None for val in vals]
+
+        return values, val_info
+
+    def get_values(self, obs_np, action_np, val_idxs=None):
+        if val_idxs is None:
+            val_idxs = list(range(self._n_qs))
+
+        values, val_info = self.eval_np(obs_np, action_np, val_idxs=val_idxs)
+
+        values = [np_ify(tensor) for tensor in values]
+
+        for key, vals in val_info.items():
+            val_info[key] = [np_ify(val) for val in vals]
+
+        return values, val_info
+
+    @property
+    def n_heads(self):
+        return self._n_vs
+

@@ -1,5 +1,5 @@
 import os
-from robolearn.utils.plots.sum_specific_costs import plot_sum_specific_costs
+from robolearn.old_utils.plots.sum_specific_costs import plot_sum_specific_costs
 
 method = 'gps'  # 'gps' or 'trajopt'
 

@@ -3,7 +3,7 @@ from __future__ import print_function
 # Threading modules
 import threading
 
-from robolearn.envs.base import EnvInterface
+from robolearn.old_envs.base import EnvInterface
 
 from std_msgs.msg import Float64
 from gazebo_msgs.msg import ModelStates
@@ -71,7 +71,8 @@ class ROSEnvInterface(EnvInterface):
 
 
     def run(self):
-        self.
+        # self.
+        pass
 
 
     def callback_joint_state(self, msg):

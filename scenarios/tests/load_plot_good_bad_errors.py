@@ -5,10 +5,10 @@ from matplotlib.ticker import MaxNLocator
 import pickle
 import math
 import os, sys
-from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distribution, lqr_forward, plot_3d_gaussian
-from robolearn.algos.gps.gps_utils import IterationData
-from robolearn.utils.iit.iit_robots_params import bigman_params
-from robolearn.utils.traj_opt.traj_opt_utils import traj_distr_kl, traj_distr_kl_alt
+from robolearn.old_utils.plot_utils import plot_sample_list, plot_sample_list_distribution, lqr_forward, plot_3d_gaussian
+from robolearn.old_algos.gps.gps_utils import IterationData
+from robolearn.old_utils.iit.iit_robots_params import bigman_params
+from robolearn.old_utils.traj_opt.traj_opt_utils import traj_distr_kl, traj_distr_kl_alt
 import scipy.stats
 
 gps_directory_name = 'GPS_2017-09-10_15:30:24'  # Normal Sunday 10/09 | new init_pos

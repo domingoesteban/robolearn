@@ -5,9 +5,9 @@ from matplotlib.ticker import MaxNLocator
 import pickle
 import math
 import os
-from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distribution
-from robolearn.algos.gps.gps_utils import IterationData
-from robolearn.utils.iit.iit_robots_params import bigman_params
+from robolearn.old_utils.plot_utils import plot_sample_list, plot_sample_list_distribution
+from robolearn.old_algos.gps.gps_utils import IterationData
+from robolearn.old_utils.iit.iit_robots_params import bigman_params
 import scipy.stats
 
 #gps_directory_name = 'GPS_2017-08-04_20:32:12'  # l1: 1.0, l2: 1.0e-3

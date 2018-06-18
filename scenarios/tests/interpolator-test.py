@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
-from robolearn.utils.trajectory_interpolators import spline_interpolation
+from robolearn.old_utils.trajectory_interpolators import polynomial5_interpolation
+from robolearn.old_utils.trajectory_interpolators import spline_interpolation
 
 N = 100
 xf = np.array([2, 3, 4, 1])

@@ -3,18 +3,18 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-from robolearn.costs.cost_action import CostAction
-from robolearn.costs.cost_fk import CostFK
-from robolearn.costs.cost_fk_relative import CostFKRelative
-from robolearn.costs.cost_state import CostState
-from robolearn.costs.cost_sum import CostSum
-from robolearn.costs.cost_utils import RAMP_CONSTANT, RAMP_FINAL_ONLY
-from robolearn.costs.cost_utils import evall1l2term
-from robolearn.utils.iit.iit_robots_params import bigman_params
-from robolearn.utils.robot_model import RobotModel
-from robolearn.utils.sample import Sample
-from robolearn.utils.tasks.bigman.lift_box_utils import create_box_relative_pose
-from robolearn.utils.tasks.bigman.lift_box_utils import create_hand_relative_pose
+from robolearn.old_costs.cost_action import CostAction
+from robolearn.old_costs.cost_fk import CostFK
+from robolearn.old_costs.cost_fk_relative import CostFKRelative
+from robolearn.old_costs.cost_state import CostState
+from robolearn.old_costs.cost_sum import CostSum
+from robolearn.old_costs.cost_utils import RAMP_CONSTANT, RAMP_FINAL_ONLY
+from robolearn.old_costs.cost_utils import evall1l2term
+from robolearn.old_utils.iit.iit_robots_params import bigman_params
+from robolearn.old_utils.robot_model import RobotModel
+from robolearn.old_utils.sample import Sample
+from robolearn.old_utils.tasks.bigman.lift_box_utils import create_box_relative_pose
+from robolearn.old_utils.tasks.bigman.lift_box_utils import create_hand_relative_pose
 
 np.set_printoptions(precision=8, suppress=True, linewidth=1000)
 

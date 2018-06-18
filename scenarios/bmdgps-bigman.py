@@ -6,33 +6,33 @@ import signal
 
 import numpy as np
 
-from robolearn.agents import GPSAgent
-from robolearn.algos.gps.multi_gps import MULTIGPS
-from robolearn.costs.cost_action import CostAction
-from robolearn.costs.cost_fk import CostFK
-from robolearn.costs.cost_state import CostState
-from robolearn.costs.cost_sum import CostSum
-from robolearn.costs.cost_utils import RAMP_FINAL_ONLY, RAMP_CONSTANT
-from robolearn.costs.cost_utils import evall1l2term
-from robolearn.envs import BigmanEnv
-from robolearn.policies.lin_gauss_init import init_pd, init_dual_demos
-from robolearn.policies.policy_opt.policy_opt_tf import PolicyOptTf
-from robolearn.policies.policy_opt.tf_models import tf_network
-from robolearn.policies.policy_prior import ConstantPolicyPrior  # For MDGPS
-from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
-from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
-from robolearn.utils.iit.iit_robots_params import bigman_params
-from robolearn.utils.print_utils import change_print_color
-from robolearn.utils.robot_model import RobotModel
-from robolearn.utils.sample.sampler import Sampler
-from robolearn.utils.tasks.bigman.reach_drill_utils import Reset_condition_bigman_drill_gazebo
-from robolearn.utils.tasks.bigman.reach_drill_utils import create_bigman_drill_condition
-from robolearn.utils.tasks.bigman.reach_drill_utils import create_drill_relative_pose
-from robolearn.utils.tasks.bigman.reach_drill_utils import create_hand_relative_pose
-from robolearn.utils.tasks.bigman.reach_drill_utils import spawn_drill_gazebo
-from robolearn.utils.tasks.bigman.reach_drill_utils import task_space_torque_control_dual_demos, \
+from robolearn.old_agents import GPSAgent
+from robolearn.old_algos.gps.multi_gps import MULTIGPS
+from robolearn.old_costs.cost_action import CostAction
+from robolearn.old_costs.cost_fk import CostFK
+from robolearn.old_costs.cost_state import CostState
+from robolearn.old_costs.cost_sum import CostSum
+from robolearn.old_costs.cost_utils import RAMP_FINAL_ONLY, RAMP_CONSTANT
+from robolearn.old_costs.cost_utils import evall1l2term
+from robolearn.old_envs import BigmanEnv
+from robolearn.old_policies.lin_gauss_init import init_pd, init_dual_demos
+from robolearn.old_policies.policy_opt.policy_opt_tf import PolicyOptTf
+from robolearn.old_policies.policy_opt.tf_models import tf_network
+from robolearn.old_policies.policy_prior import ConstantPolicyPrior  # For MDGPS
+from robolearn.old_utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
+from robolearn.old_utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
+from robolearn.old_utils.iit.iit_robots_params import bigman_params
+from robolearn.old_utils.print_utils import change_print_color
+from robolearn.old_utils.robot_model import RobotModel
+from robolearn.old_utils.sample.sampler import Sampler
+from robolearn.old_utils.tasks.bigman.reach_drill_utils import Reset_condition_bigman_drill_gazebo
+from robolearn.old_utils.tasks.bigman.reach_drill_utils import create_bigman_drill_condition
+from robolearn.old_utils.tasks.bigman.reach_drill_utils import create_drill_relative_pose
+from robolearn.old_utils.tasks.bigman.reach_drill_utils import create_hand_relative_pose
+from robolearn.old_utils.tasks.bigman.reach_drill_utils import spawn_drill_gazebo
+from robolearn.old_utils.tasks.bigman.reach_drill_utils import task_space_torque_control_dual_demos, \
     load_task_space_torque_control_dual_demos
-from robolearn.utils.traj_opt.traj_opt_mdreps import TrajOptMDREPS
+from robolearn.old_utils.traj_opt.traj_opt_mdreps import TrajOptMDREPS
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 

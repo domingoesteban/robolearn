@@ -1,5 +1,5 @@
 import numpy as np
-from robolearn.envs.pusher3dof import Pusher3DofBulletEnv
+from robolearn.old_envs.pusher3dof import Pusher3DofBulletEnv
 from builtins import input
 
 

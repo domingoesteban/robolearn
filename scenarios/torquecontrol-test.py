@@ -7,19 +7,19 @@ import matplotlib.pyplot as plt
 import tf
 from XCM.msg import CommandAdvr
 from XCM.msg import JointStateAdvr
-from robolearn.utils.trajectory_reproducer import TrajectoryReproducer
-from robolearn.utils.iit.iit_robots_params import bigman_params
-from robolearn.utils.transformations_utils import *
-from robolearn.utils.trajectory_interpolators import polynomial5_interpolation
-from robolearn.utils.plot_utils import plot_desired_sensed_torque_position
-from robolearn.utils.plot_utils import plot_joint_info
-from robolearn.utils.plot_utils import plot_desired_sensed_data
+from robolearn.old_utils.trajectory_reproducer import TrajectoryReproducer
+from robolearn.old_utils.iit.iit_robots_params import bigman_params
+from robolearn.old_utils.transformations_utils import *
+from robolearn.old_utils.trajectory_interpolators import polynomial5_interpolation
+from robolearn.old_utils.plot_utils import plot_desired_sensed_torque_position
+from robolearn.old_utils.plot_utils import plot_joint_info
+from robolearn.old_utils.plot_utils import plot_desired_sensed_data
 from gazebo_msgs.srv import SpawnModel
 from gazebo_msgs.srv import DeleteModel
 from geometry_msgs.msg import Pose
 import rbdl
 
-from robolearn.utils.robot_model import RobotModel
+from robolearn.old_utils.robot_model import RobotModel
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 

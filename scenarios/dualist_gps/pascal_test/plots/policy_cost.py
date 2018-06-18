@@ -1,5 +1,5 @@
 import os
-from robolearn.utils.plots.policy_cost import plot_policy_cost
+from robolearn.old_utils.plots.policy_cost import plot_policy_cost
 
 method = 'gps'  # 'gps' or 'trajopt'
 gps_directory_names = ['gps_log1', 'gps_log3', 'gps_log5']

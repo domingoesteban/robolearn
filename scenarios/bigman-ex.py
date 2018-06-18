@@ -4,29 +4,29 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
-from robolearn.utils.iit.iit_robots_params import *
-from robolearn.envs import BigmanEnv
-from robolearn.agents import GPSAgent
+from robolearn.old_utils.iit.iit_robots_params import *
+from robolearn.old_envs import BigmanEnv
+from robolearn.old_agents import GPSAgent
 
-from robolearn.policies.policy_opt.policy_opt_tf import PolicyOptTf
-from robolearn.policies.policy_opt.tf_model_example import tf_network
+from robolearn.old_policies.policy_opt.policy_opt_tf import PolicyOptTf
+from robolearn.old_policies.policy_opt.tf_model_example import tf_network
 
-from robolearn.utils.sample import Sample
-from robolearn.utils.sample_list import SampleList
+from robolearn.old_utils.sample import Sample
+from robolearn.old_utils.sample_list import SampleList
 
-from robolearn.costs.cost_action import CostAction
-from robolearn.costs.cost_state import CostState
-from robolearn.costs.cost_sum import CostSum
-from robolearn.costs.cost_utils import RAMP_QUADRATIC
+from robolearn.old_costs.cost_action import CostAction
+from robolearn.old_costs.cost_state import CostState
+from robolearn.old_costs.cost_sum import CostSum
+from robolearn.old_costs.cost_utils import RAMP_QUADRATIC
 
-from robolearn.utils.algos_utils import IterationData
-from robolearn.utils.algos_utils import TrajectoryInfo
-from robolearn.algos.gps.gps import GPS
-from robolearn.policies.lin_gauss_init import init_lqr, init_pd
-from robolearn.policies.policy_prior import PolicyPrior  # For MDGPS
+from robolearn.old_utils.algos_utils import IterationData
+from robolearn.old_utils.algos_utils import TrajectoryInfo
+from robolearn.old_algos.gps.gps import GPS
+from robolearn.old_policies.lin_gauss_init import init_lqr, init_pd
+from robolearn.old_policies.policy_prior import PolicyPrior  # For MDGPS
 
 import rospy
-from robolearn.utils.print_utils import *
+from robolearn.old_utils.print_utils import *
 
 import time
 

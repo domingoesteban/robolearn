@@ -1,5 +1,5 @@
 import os
-from robolearn.utils.plots.policy_final_distance_new import plot_policy_final_distance_new
+from robolearn.old_utils.plots.policy_final_distance_new import plot_policy_final_distance_new
 
 method = 'gps'  # 'gps' or 'trajopt'
 

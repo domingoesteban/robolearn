@@ -1,6 +1,6 @@
 import os
 from builtins import input
-from robolearn.utils.plots.dual_2dtraj_updates import plot_dual_2dtraj_updates
+from robolearn.old_utils.plots.dual_2dtraj_updates import plot_dual_2dtraj_updates
 
 method = 'gps'  # 'gps' or 'trajopt'
 gps_directory_names = ['gps_log1', 'gps_log2', 'gps_log3']#, 'reacher_log2', 'reacher_log3']

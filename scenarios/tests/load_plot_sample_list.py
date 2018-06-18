@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
-from robolearn.utils.plot_utils import plot_sample_list, plot_sample_list_distribution, plot_sample
+from robolearn.old_utils.plot_utils import plot_sample_list, plot_sample_list_distribution, plot_sample
 
 # gps_directory_name = 'GPS_2017-07-13_11:30:33'
 gps_directory_name = 'GPS_2017-07-14_10:05:47'

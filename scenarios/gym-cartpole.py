@@ -5,31 +5,31 @@ import random
 import signal
 
 import numpy as np
-from robolearn.utils.sampler import Sampler
+from robolearn.old_utils.sampler import Sampler
 
-from robolearn.agents import GPSAgent
-from robolearn.algos.gps.mdgps import MDGPS
-from robolearn.algos.gps.pigps import PIGPS
-from robolearn.algos.trajopt.dreps import DREPS
-from robolearn.algos.trajopt.ilqr import ILQR
-from robolearn.algos.trajopt.mdreps import MDREPS
-from robolearn.algos.trajopt.pi2 import PI2
-from robolearn.costs.cost_action import CostAction
-from robolearn.costs.cost_state import CostState
-from robolearn.costs.cost_sum import CostSum
-from robolearn.costs.cost_utils import RAMP_CONSTANT
-from robolearn.envs import GymEnv
-from robolearn.policies.lin_gauss_init import init_pd, init_demos
-from robolearn.policies.policy_opt.policy_opt_tf import PolicyOptTf
-from robolearn.policies.policy_opt.tf_models import tf_network
-from robolearn.policies.policy_prior import ConstantPolicyPrior  # For MDGPS
-from robolearn.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
-from robolearn.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
-from robolearn.utils.print_utils import change_print_color
-from robolearn.utils.traj_opt.traj_opt_dreps import TrajOptDREPS
-from robolearn.utils.traj_opt.traj_opt_lqr import TrajOptLQR
-from robolearn.utils.traj_opt.traj_opt_mdreps import TrajOptMDREPS
-from robolearn.utils.traj_opt.traj_opt_pi2 import TrajOptPI2
+from robolearn.old_agents import GPSAgent
+from robolearn.old_algos.gps.mdgps import MDGPS
+from robolearn.old_algos.gps.pigps import PIGPS
+from robolearn.old_algos.trajopt.dreps import DREPS
+from robolearn.old_algos.trajopt.ilqr import ILQR
+from robolearn.old_algos.trajopt.mdreps import MDREPS
+from robolearn.old_algos.trajopt.pi2 import PI2
+from robolearn.old_costs.cost_action import CostAction
+from robolearn.old_costs.cost_state import CostState
+from robolearn.old_costs.cost_sum import CostSum
+from robolearn.old_costs.cost_utils import RAMP_CONSTANT
+from robolearn.old_envs import GymEnv
+from robolearn.old_policies.lin_gauss_init import init_pd, init_demos
+from robolearn.old_policies.policy_opt.policy_opt_tf import PolicyOptTf
+from robolearn.old_policies.policy_opt.tf_models import tf_network
+from robolearn.old_policies.policy_prior import ConstantPolicyPrior  # For MDGPS
+from robolearn.old_utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
+from robolearn.old_utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
+from robolearn.old_utils.print_utils import change_print_color
+from robolearn.old_utils.traj_opt.traj_opt_dreps import TrajOptDREPS
+from robolearn.old_utils.traj_opt.traj_opt_lqr import TrajOptLQR
+from robolearn.old_utils.traj_opt.traj_opt_mdreps import TrajOptMDREPS
+from robolearn.old_utils.traj_opt.traj_opt_pi2 import TrajOptPI2
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 

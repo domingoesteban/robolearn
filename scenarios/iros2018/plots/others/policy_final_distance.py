@@ -1,5 +1,5 @@
 import os
-from robolearn.utils.plots.policy_final_distance import plot_policy_final_distance
+from robolearn.old_utils.plots.policy_final_distance import plot_policy_final_distance
 
 method = 'gps'  # 'gps' or 'trajopt'
 gps_directory_names = ['gps_log1', 'gps_log2', 'gps_log4']#, 'reacher_log2', 'reacher_log3']

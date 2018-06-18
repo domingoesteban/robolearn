@@ -1,5 +1,5 @@
 import os
-from robolearn.utils.plots.kl_multipliers import plot_kl_multipliers
+from robolearn.old_utils.plots.kl_multipliers import plot_kl_multipliers
 
 method = 'gps'  # 'gps' or 'trajopt'
 gps_directory_names = ['reacher_log']#, 'reacher_log2', 'reacher_log3']
