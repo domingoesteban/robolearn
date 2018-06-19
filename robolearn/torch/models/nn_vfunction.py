@@ -1,3 +1,4 @@
+import numpy as np
 from robolearn.torch.nn import Mlp
 from robolearn.core.serializable import Serializable
 from robolearn.models import VFunction
@@ -6,7 +7,8 @@ from robolearn.models import VFunction
 class NNVFunction(Mlp, Serializable, VFunction):
     def __init__(self,
                  obs_dim,
-                 hidden_sizes=(100, 100)):
+                 hidden_sizes=(100, 100),
+                 **kwargs):
 
         VFunction.__init__(self,
                            obs_dim=obs_dim)
@@ -18,13 +20,35 @@ class NNVFunction(Mlp, Serializable, VFunction):
                      hidden_sizes=hidden_sizes,
                      input_size=obs_dim,
                      output_size=1,
+                     **kwargs
                      )
 
-    def get_value(self, obs_np, deterministic=False):
-        # TODO: CHECK IF INDEX 0
-        values = self.get_values(obs_np[None], deterministic=deterministic)
-        return values[0, :], {}
+    def get_value(self, obs_np, **kwargs):
+        values, info_dict = \
+            self.get_values(obs_np[None], **kwargs)
 
-    def get_values(self, obs_np, deterministic=False):
-        return self.eval_np(obs_np, deterministic=deterministic)
+        for key, val in info_dict.items():
+            if isinstance(val, np.ndarray):
+                info_dict[key] = val[0, :]
+
+        return values[0, :], info_dict
+
+    def get_values(self, obs_np, **kwargs):
+        return self.eval_np(obs_np, **kwargs)
+
+    def forward(self, nn_input, return_preactivations=False):
+        nn_ouput = Mlp.forward(self, nn_input,
+                               return_preactivations=return_preactivations)
+        if return_preactivations:
+            value = nn_ouput[0]
+            pre_activations = nn_ouput[1]
+            info_dict = dict(
+                pre_activations=pre_activations,
+            )
+        else:
+            value = nn_ouput
+            info_dict = dict()
+
+        return value, info_dict
+
 

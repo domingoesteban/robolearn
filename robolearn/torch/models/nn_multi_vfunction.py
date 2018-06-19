@@ -1,5 +1,7 @@
+import numpy as np
 from robolearn.torch.core import PyTorchModule
 from robolearn.core.serializable import Serializable
+from robolearn.torch.core import np_ify
 import robolearn.torch.pytorch_util as ptu
 import torch.nn as nn
 import torch.nn.functional as F
@@ -115,15 +117,32 @@ class NNMultiVFunction(PyTorchModule, VFunction):
         values = [self.last_fcs[idx](hs[ii])
                   for ii, idx in enumerate(val_idxs)]
 
-        return values, {}
+        return values, dict()
 
-    def get_value(self, obs_np):
-        # TODO: CHECK IF INDEX 0
-        values = self.get_values(obs_np[None])
-        return values[0, :], {}
+    def get_value(self, obs_np, val_idxs=None):
+        if val_idxs is None:
+            val_idxs = list(range(self._n_qs))
 
-    def get_values(self, obs_np):
-        return self.eval_np(obs_np)
+        values, info_dict = self.get_values(obs_np[None], val_idxs=val_idxs)
+
+        values = [value[0, :] for value in values]
+
+        for key, vals in info_dict.items():
+            info_dict[key] = [val[0, :] if isinstance(val, np.ndarray)
+                              else None for val in vals]
+
+    def get_values(self, obs_np, val_idxs=None):
+        if val_idxs is None:
+            val_idxs = list(range(self._n_qs))
+
+        values, info_dict = self.eval_np(obs_np, val_idxs=val_idxs)
+
+        values = [np_ify(tensor) for tensor in values]
+
+        for key, vals in info_dict.items():
+            info_dict[key] = [np_ify(val) for val in vals]
+
+        return values, info_dict
 
     @property
     def n_heads(self):

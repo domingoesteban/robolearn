@@ -1,5 +1,5 @@
 from __future__ import print_function
-from robolearn.envs.ros_env_interface import *
+from robolearn.old_envs.ros_env_interface import *
 import numpy as np
 
 from sensor_msgs.msg import JointState as JointStateMsg

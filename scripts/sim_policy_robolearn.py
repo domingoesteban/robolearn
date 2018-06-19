@@ -7,7 +7,11 @@ from robolearn.torch.pytorch_util import set_gpu_mode
 import argparse
 import joblib
 import uuid
+import json
 from robolearn.core import logger
+import robolearn_gym_envs
+from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
+from robolearn_gym_envs.pybullet import CogimonLocomotionBulletEnv
 
 filename = str(uuid.uuid4())
 
@@ -15,21 +19,29 @@ filename = str(uuid.uuid4())
 def simulate_policy(args):
     data = joblib.load(args.file)
     if args.deterministic:
-        print('Using the deterministic version of the _i_policy.')
-        policy = data['_i_policy']
+        print('Using the deterministic version of the policy.')
+        policy = data['policy']
     else:
-        print('Using the stochastic _i_policy.')
+        print('Using the stochastic policy.')
         policy = data['exploration_policy']
 
     # env = data['env']
-    env = NormalizedBoxEnv(gym.make(args.env))
+    # env = NormalizedBoxEnv(gym.make(args.env))
+
+    # Load environment
+    with open('variant.json') as json_data:
+        env_params = json.load(json_data)['env_params']
+    env_params.pop('goal')
+    env_params['is_render'] = True
+    env = NormalizedBoxEnv(args.env(**env_params))
+    print("Environment loaded!!")
 
     if args.gpu:
         set_gpu_mode(True)
         policy.cuda()
     # else:
     #     set_gpu_mode(False)
-    #     _i_policy.cpu()
+    #     policy.cpu()
 
     if isinstance(policy, PyTorchModule):
         policy.train(False)
@@ -64,11 +76,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.env == 'cogimon':
-        args.env = 'CogimonLocomotionBulletEnvRender-v0'
+        # args.env = 'CogimonLocomotionBulletEnvRender-v0'
+        args.env = CogimonLocomotionBulletEnv
     elif args.env == 'manipulator':
-        args.env = 'Pusher2D3DofObstacleBulletEnvRender-v0'
+        # args.env = 'Pusher2D3DofObstacleBulletEnvRender-v0'
+        args.env = Pusher2D3DofGoalCompoEnv
     elif args.env == 'pusher':
-        args.env = 'Pusher2D3DofObstacleBulletEnvRender-v0'
+        # args.env = 'Pusher2D3DofObstacleBulletEnvRender-v0'
+        args.env = Pusher2D3DofGoalCompoEnv
     else:
         raise NotImplementedError
 

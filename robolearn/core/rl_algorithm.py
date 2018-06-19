@@ -12,7 +12,9 @@ from robolearn.policies.base import ExplorationPolicy
 from robolearn.utils.samplers.in_place_path_sampler import InPlacePathSampler
 
 
-class RLAlgorithm(metaclass=abc.ABCMeta):
+class RLAlgorithm(object):
+    __metaclass__ = abc.ABCMeta
+
     def __init__(
             self,
             env,
@@ -21,12 +23,12 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
             num_epochs=100,
             num_steps_per_epoch=10000,
             num_steps_per_eval=1000,
-            num_updates_per_env_step=1,
+            num_updates_per_train_call=1,
             batch_size=1024,
-            min_buffer_size=1024,
+            min_buffer_size=None,
             max_path_length=1000,
             discount=0.99,
-            replay_buffer_size=1000000,
+            replay_buffer_size=1e6,
             reward_scale=1,
             render=False,
             save_replay_buffer=False,
@@ -45,7 +47,7 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
         :param num_epochs: Number of episodes.
         :param num_steps_per_epoch: Number of timesteps per epoch.
         :param num_steps_per_eval: Number of timesteps per evaluation
-        :param num_updates_per_env_step: Used by online training mode.
+        :param num_updates_per_train_call: Used by online training mode.
         :param num_updates_per_epoch: Used by batch training mode.
         :param max_path_length: Max length of sampled path (rollout) from env.
         :param batch_size: Replay buffer batch size.
@@ -66,17 +68,26 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
         self.num_epochs = num_epochs
         self.num_env_steps_per_epoch = num_steps_per_epoch
         self.num_steps_per_eval = num_steps_per_eval
-        self.num_updates_per_train_call = num_updates_per_env_step
+        self.num_updates_per_train_call = num_updates_per_train_call
         self.batch_size = batch_size
-        self.min_buffer_size = min_buffer_size
+        if min_buffer_size is None:
+            self.min_buffer_size = batch_size
+        else:
+            self.min_buffer_size = min_buffer_size
         self.max_path_length = max_path_length
         self.discount = discount
         self.replay_buffer_size = replay_buffer_size
         self.reward_scale = reward_scale
-        self.render = render
+
+        # Flag to render while sampling
+        self._render = render
+
+        # Save flags
         self.save_replay_buffer = save_replay_buffer
         self.save_algorithm = save_algorithm
         self.save_environment = save_environment
+
+        # Evaluation policy and sampler
         if eval_sampler is None:
             if eval_policy is None:
                 eval_policy = exploration_policy
@@ -93,6 +104,8 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
         self.action_space = env.action_space
         self.obs_space = env.observation_space
         self.env = env
+
+        # Replay Buffer
         if replay_buffer is None:
             replay_buffer = EnvReplayBuffer(
                 self.replay_buffer_size,
@@ -108,127 +121,19 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
         self._epoch_start_time = None  # Wall time
         self._algo_start_time = None  # Wall time
         self._old_table_keys = None  # Table keys of the logger
-        self._current_path_builder = PathBuilder()
+        self._current_path_builder = None  # PathBuilder()
         self._exploration_paths = []
 
-    def train(self, start_epoch=0, online=True):
-        """
-
-        :param start_epoch:
-        :param online: True for online(incremantal).
-                       False for batch (episodic, iterative)
-        :return:
-        """
-        self.pretrain()
-        if start_epoch == 0:
-            params = self.get_epoch_snapshot(-1)
-            logger.save_itr_params(-1, params)
-        self.training_mode(False)
-        self._n_env_steps_total = start_epoch * self.num_env_steps_per_epoch
-        gt.reset()
-        gt.set_def_unique(False)
-        if online:
-            self.train_online(start_epoch=start_epoch)
-        else:
-            self.train_batch(start_epoch=start_epoch)
+    # @abc.abstractmethod
+    @abc.abstractmethod
+    def train(self, start_epoch=0):
+        pass
 
     def pretrain(self):
         """
         Do anything before the main training phase.
         """
         pass
-
-    def train_online(self, start_epoch=0):
-        self._current_path_builder = PathBuilder()
-        observation = self._start_new_rollout()
-        for epoch in gt.timed_for(
-                range(start_epoch, self.num_epochs),
-                save_itrs=True,
-        ):
-            self._start_epoch(epoch)
-            for _ in range(self.num_env_steps_per_epoch):
-                action, agent_info = self._get_action_and_info(
-                    observation,
-                )
-                if self.render:
-                    self.training_env.render()
-                next_ob, raw_reward, terminal, env_info = (
-                    self.training_env.step(action)
-                )
-                self._n_env_steps_total += 1
-                reward = raw_reward * self.reward_scale
-                terminal = np.array([terminal])
-                reward = np.array([reward])
-                self._handle_step(
-                    observation,
-                    action,
-                    reward,
-                    next_ob,
-                    terminal,
-                    agent_info=agent_info,
-                    env_info=env_info,
-                )
-                if terminal or (len(self._current_path_builder) >=
-                                self.max_path_length):
-                    self._handle_rollout_ending()
-                    observation = self._start_new_rollout()
-                else:
-                    observation = next_ob
-
-                gt.stamp('sample')
-                self._try_to_train()
-                gt.stamp('train')
-
-            self._try_to_eval(epoch)
-            gt.stamp('eval')
-            self._end_epoch()
-
-    def train_batch(self, start_epoch=0):
-        self._current_path_builder = PathBuilder()
-        observation = self._start_new_rollout()
-        for epoch in gt.timed_for(
-                range(start_epoch, self.num_epochs),
-                save_itrs=True,
-        ):
-            self._start_epoch(epoch)
-            for _ in range(self.num_env_steps_per_epoch):
-                action, agent_info = self._get_action_and_info(
-                    observation,
-                )
-                if self.render:
-                    self.training_env.render()
-                next_ob, raw_reward, terminal, env_info = (
-                    self.training_env.step(action)
-                )
-                self._n_env_steps_total += 1
-                reward = raw_reward * self.reward_scale
-                terminal = np.array([terminal])
-                reward = np.array([reward])
-                self._handle_step(
-                    observation,
-                    action,
-                    reward,
-                    next_ob,
-                    terminal,
-                    agent_info=agent_info,
-                    env_info=env_info,
-                )
-                if terminal or (len(self._current_path_builder) >=
-                                self.max_path_length):
-                    self._handle_rollout_ending()
-                    observation = self._start_new_rollout()
-                else:
-                    observation = next_ob
-
-                gt.stamp('sample')
-
-            self._try_to_train()
-            gt.stamp('train')
-
-            self._try_to_eval(epoch)
-            gt.stamp('eval')
-
-            self._end_epoch()
 
     def _try_to_train(self):
         if self._can_train():
@@ -309,7 +214,6 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
         """
         return (
             len(self._exploration_paths) > 0
-            # and self.replay_buffer.num_steps_can_sample() >= self.batch_size
             and self.replay_buffer.num_steps_can_sample() >= self.min_buffer_size
         )
 
@@ -319,7 +223,6 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
         Replay Buffer.
         :return:
         """
-        # return self.replay_buffer.num_steps_can_sample() >= self.batch_size
         return self.replay_buffer.num_steps_can_sample() >= self.min_buffer_size
 
     def _get_action_and_info(self, observation):
@@ -335,12 +238,25 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
         # return self.action_space.sample(), dict()
 
     def _start_epoch(self, epoch):
+        """
+
+        Args:
+            epoch:
+
+        Returns:
+
+        """
         self._epoch_start_time = time.time()
         self._exploration_paths = []
         self._do_train_time = 0
         logger.push_prefix('Iteration #%d | ' % epoch)
 
     def _end_epoch(self):
+        """
+
+        Returns:
+
+        """
         logger.log("Epoch Duration: {0}".format(
             time.time() - self._epoch_start_time
         ))
@@ -348,6 +264,11 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
         logger.pop_prefix()
 
     def _start_new_rollout(self):
+        """
+
+        Returns:
+
+        """
         self.exploration_policy.reset()
         return self.training_env.reset()
 
@@ -399,6 +320,7 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
         Implement anything that needs to happen after every step
         :return:
         """
+        # Add data to current path builder
         self._current_path_builder.add_all(
             observations=observation,
             actions=action,
@@ -408,6 +330,7 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
             agent_infos=agent_info,
             env_infos=env_info,
         )
+        # Add data to replay buffer
         self.replay_buffer.add_sample(
             observation=observation,
             action=action,
@@ -436,7 +359,7 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
         :param epoch:
         :return:
         """
-        if self.render:
+        if self._render:
             self.training_env.render()
         data_to_save = dict(
             epoch=epoch,
@@ -453,7 +376,7 @@ class RLAlgorithm(metaclass=abc.ABCMeta):
         :param epoch:
         :return:
         """
-        if self.render:
+        if self._render:
             self.training_env.render()
         data_to_save = dict(
             epoch=epoch,

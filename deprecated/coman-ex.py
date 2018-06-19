@@ -1,4 +1,4 @@
-from robolearn.agents import LinearTFAgent
+from robolearn.old_agents import LinearTFAgent
 
 import numpy as np
 

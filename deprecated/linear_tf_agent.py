@@ -1,4 +1,4 @@
-from robolearn.agents.tf_agent import TFAgent
+from robolearn.old_agents.tf_agent import TFAgent
 import tensorflow as tf
 import numpy as np
 

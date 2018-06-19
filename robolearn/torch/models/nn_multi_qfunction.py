@@ -118,31 +118,29 @@ class NNMultiQFunction(PyTorchModule, QFunction):
         if val_idxs is None:
             val_idxs = list(range(self._n_qs))
 
-        values, val_info = self.get_values(obs_np[None], action_np[None],
-                                           val_idxs=val_idxs)
-        # # TODO: CHECK IF INDEX 0
-        # return values[0, :], val_info
+        values, info_dict = self.get_values(obs_np[None], action_np[None],
+                                            val_idxs=val_idxs)
 
         values = [value[0, :] for value in values]
 
-        for key, vals in val_info.items():
-            val_info[key] = [val[0, :] if isinstance(val, np.ndarray)
+        for key, vals in info_dict.items():
+            info_dict[key] = [val[0, :] if isinstance(val, np.ndarray)
                               else None for val in vals]
 
-        return values, val_info
+        return values, info_dict
 
     def get_values(self, obs_np, action_np, val_idxs=None):
         if val_idxs is None:
             val_idxs = list(range(self._n_qs))
 
-        values, val_info = self.eval_np(obs_np, action_np, val_idxs=val_idxs)
+        values, info_dict = self.eval_np(obs_np, action_np, val_idxs=val_idxs)
 
         values = [np_ify(tensor) for tensor in values]
 
-        for key, vals in val_info.items():
-            val_info[key] = [np_ify(val) for val in vals]
+        for key, vals in info_dict.items():
+            info_dict[key] = [np_ify(val) for val in vals]
 
-        return values, val_info
+        return values, info_dict
 
     @property
     def n_heads(self):

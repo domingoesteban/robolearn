@@ -1,10 +1,12 @@
 import abc
 
 
-class Policy(object, metaclass=abc.ABCMeta):
+class Policy(object):
     """
-    General policy interface.
+    General policy superclass.
     """
+    __metaclass__ = abc.ABCMeta
+
     def __init__(self, action_dim):
         self._action_dim = action_dim
 
@@ -25,15 +27,15 @@ class Policy(object, metaclass=abc.ABCMeta):
         return self._action_dim
 
 
-class ExplorationPolicy(Policy, metaclass=abc.ABCMeta):
+class ExplorationPolicy(Policy):
     """
-    Policy
+    Exploration Policy
     """
     def set_num_steps_total(self, t):
         pass
 
 
-class SerializablePolicy(Policy, metaclass=abc.ABCMeta):
+class SerializablePolicy(Policy):
     """
     Policy that can be serialized.
     """

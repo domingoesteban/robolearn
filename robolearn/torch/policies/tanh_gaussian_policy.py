@@ -22,7 +22,7 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
     policy = TanhGaussianPolicy(...)
     action, mean, log_std, _ = policy(obs)
     action, mean, log_std, _ = policy(obs, deterministic=True)
-    action, mean, log_std, log_prob = policy(obs, return_log_prob=True)
+    action, meanTwoGoalEnv, log_std, log_prob = policy(obs, return_log_prob=True)
     ```
 
     Here, mean and log_std are the mean and log_std of the Gaussian that is
@@ -34,9 +34,9 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
     """
     def __init__(
             self,
-            hidden_sizes,
             obs_dim,
             action_dim,
+            hidden_sizes,
             std=None,
             hidden_w_init=ptu.xavier_init,
             hidden_b_init_val=0,
@@ -55,6 +55,7 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             output_b_init_val=0,
             **kwargs
         )
+        ExplorationPolicy.__init__(self, action_dim)
 
         self.log_std = None
         self.std = std
@@ -73,11 +74,14 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
     def get_action(self, obs_np, deterministic=False):
         """
         """
-        actions = self.get_actions(obs_np[None], deterministic=deterministic)
+        actions, info_dict = self.get_actions(obs_np[None],
+                                              deterministic=deterministic)
+        for key, val in info_dict.items():
+            if isinstance(val, np.ndarray):
+                info_dict[key] = val[0, :]
+
         # Get [0, :] vals (Because it has dimension 1xdA)
-        return actions[0][0, :], {'mean': actions[1],
-                                  'log_std': actions[2],
-                                  'log_prob': actions[3]}
+        return actions[0, :], info_dict
 
     def get_actions(self, obs_np, deterministic=False):
         """
@@ -130,10 +134,16 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
                 action, pre_tanh_value = \
                     tanh_normal.rsample(return_pretanh_value=True)
 
-        return (
-            action, mean, log_std, log_prob, expected_log_prob, std,
-            mean_action_log_prob, pre_tanh_value,
+        info_dict = dict(
+            mean=mean,
+            log_std=log_std,
+            log_prob=log_prob,
+            expected_log_prob=expected_log_prob,
+            std=std,
+            mean_action_log_prob=mean_action_log_prob,
+            pre_tanh_value=pre_tanh_value,
         )
+        return action, info_dict
 
     def log_action(self, action, obs):
         """
@@ -157,7 +167,6 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             std = torch.exp(log_std)
         else:
             std = self.std
-            log_std = self.log_std
 
         tanh_normal = TanhNormal(mean, std)
         log_prob = torch.sum(tanh_normal.log_prob(action), dim=-1, keepdim=True)
@@ -165,14 +174,4 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
 
         # z = (action - mean)/stds
         # return -0.5 * torch.sum(torch.mul(z, z), dim=-1, keepdim=True)
-
-    @staticmethod
-    def get_output_labels():
-        """
-
-        Returns:
-
-        """
-        return ['action', 'mean', 'log_std', 'log_prob', 'expected_log_prob',
-                'stds', 'mean_action_log_prob', 'pre_tanh_value']
 

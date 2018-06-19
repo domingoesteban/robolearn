@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import numpy as np
 
-from robolearn.envs import AcrobotROSEnvInterface
+from robolearn.old_envs import AcrobotROSEnvInterface
 
 import time
 

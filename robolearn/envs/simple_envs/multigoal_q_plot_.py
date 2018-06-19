@@ -138,14 +138,8 @@ class QFPolicyPlotter:
                 qf = self._qf
 
             obs = obs.astype(np.float32)
-            obs_torch = ptu.Variable(torch.from_numpy(obs).unsqueeze(0).expand(N, 2))
-            actions_torch = ptu.Variable(torch.from_numpy(actions))
 
-            # if ptu.gpu_enabled():
-            #     qs = ptu.get_numpy(_i_qf(obs_torch, actions_torch).squeeze())#.data.cpu().numpy()
-            # else:
-            qs = ptu.get_numpy(qf(obs_torch, actions_torch).squeeze())#.data.numpy()
-
+            qs = qf.get_values(np.tile(obs, (N, 1)), actions)[0]
             qs = qs.reshape(xgrid.shape)
 
             cs = ax.contour(xgrid, ygrid, qs, 20)
@@ -163,6 +157,6 @@ class QFPolicyPlotter:
             else:
                 policy = self._policy
             actions = policy.get_actions(
-                np.ones((self._n_samples, 1)) * obs[None, :])
+                np.ones((self._n_samples, 1)) * obs[None, :])[0]
             x, y = actions[:, 0], actions[:, 1]
-            self._line_objects += ax.plot(x, y, 'b0*')
+            self._line_objects += ax.plot(x, y, 'b*')

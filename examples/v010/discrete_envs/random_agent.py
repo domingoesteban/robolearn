@@ -6,7 +6,7 @@ import gym
 from gym import spaces
 from gym.utils import seeding
 
-from pybullet_envs.robot_bases import BodyPart, Joint, Pose_Helper
+# from pybullet_envs.robot_bases import BodyPart, Joint, Pose_Helper
 
 # from gym.envs.registration import register
 # register(
@@ -14,11 +14,11 @@ from pybullet_envs.robot_bases import BodyPart, Joint, Pose_Helper
 #     entry_point='robolearn.envs.reacher.reacher_env:ReacherBulletEnv')
 
 
-from robolearn.old_envs.reacher import ReacherBulletEnv
-from robolearn.old_envs.r2d2 import R2D2BulletEnv
-from robolearn.old_envs.bigman_pb import BigmanBulletEnv
-from robolearn.old_envs.frozen_lake import FrozenLakeEnv
-from robolearn.old_envs.bigman_pb.bigman_robot import BIGMAN_INIT_CONFIG
+# from robolearn.old_envs.reacher import ReacherBulletEnv
+# from robolearn.old_envs.r2d2 import R2D2BulletEnv
+# from robolearn.old_envs.bigman_pb import BigmanBulletEnv
+from robolearn.v010.envs.bigman_pb.bigman_robot import BIGMAN_INIT_CONFIG
+from robolearn.envs.simple_envs import FrozenLakeEnv
 
 
 class RandomAgent(object):
