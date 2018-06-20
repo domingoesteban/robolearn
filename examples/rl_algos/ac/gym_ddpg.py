@@ -26,7 +26,6 @@ def experiment(variant):
     ptu.set_gpu_mode(variant['gpu'])
 
     env = NormalizedBoxEnv(
-        # Pusher2D3DofObstacleBulletEnv(**variant['env_params'])
         gym.make(variant['env_name'])
     )
 
@@ -57,9 +56,6 @@ def experiment(variant):
         exploration_strategy=es,
         policy=policy,
     )
-    # if ptu.gpu_enabled():
-    #     policy.cuda()
-    #     # exploration_policy.cuda()
 
     replay_buffer = SimpleReplayBuffer(
         variant['algo_params']['replay_buffer_size'],
@@ -76,7 +72,7 @@ def experiment(variant):
         # training_env=env,
         save_environment=False,
         policy=policy,
-        exploration_policy=exploration_policy,  # None: Create determistic version
+        exploration_policy=exploration_policy,
         qf=qf,
         **variant['algo_params']
     )
@@ -108,10 +104,11 @@ expt_params = dict(
         # TODO: epoch_plotter
         policy_learning_rate=1e-4,
         qf_learning_rate=1e-3,
-        discount=0.99,
-        reward_scale=1,
         use_soft_update=True,
         tau=1e-2,
+
+        discount=0.99,
+        reward_scale=1.0,
     ),
     net_size=64
 )
@@ -125,7 +122,7 @@ def parse_args():
     # parser.add_argument('--expt_name', type=str, default=timestamp())
     # Logging arguments
     parser.add_argument('--snap_mode', type=str, default='gap_and_last')
-    parser.add_argument('--snap_gap', type=int, default=50)
+    parser.add_argument('--snap_gap', type=int, default=10)
     # parser.add_argument('--mode', type=str, default='local')
     parser.add_argument('--log_dir', type=str, default=None)
     parser.add_argument('--render', action="store_true")

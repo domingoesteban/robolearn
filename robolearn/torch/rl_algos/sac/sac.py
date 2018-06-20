@@ -106,6 +106,11 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         q_new_actions = self.qf(obs, new_actions)[0]
         v_target = q_new_actions - log_pi
         vf_loss = self.vf_criterion(v_pred, v_target.detach())
+        #
+        # print('log_pi', -log_pi.mean())
+        # print('q_pred', q_new_actions.mean())
+        # print('reward_avg', rewards.mean())
+        # print('---')
 
         """
         Policy Loss

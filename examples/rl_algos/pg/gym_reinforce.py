@@ -23,7 +23,6 @@ def experiment(variant):
     ptu.set_gpu_mode(variant['gpu'])
 
     env = NormalizedBoxEnv(
-        # Pusher2D3DofObstacleBulletEnv(**variant['env_params'])
         gym.make(variant['env_name'])
     )
 
@@ -32,14 +31,11 @@ def experiment(variant):
 
     net_size = variant['net_size']
 
-    # policy = GaussianPolicy(
     policy = TanhGaussianPolicy(
         obs_dim=obs_dim,
         action_dim=action_dim,
         hidden_sizes=[net_size, net_size],
     )
-    if ptu.gpu_enabled():
-        policy.cuda()
 
     replay_buffer = SimpleReplayBuffer(
         variant['algo_params']['replay_buffer_size'],

@@ -23,6 +23,11 @@ class NNVFunction(Mlp, Serializable, VFunction):
                      **kwargs
                      )
 
+        print('TODOOO: SETTING V-FCN INIT VALS')
+        init_w = 1e-3
+        for param in self.parameters():
+            param.data.uniform_(-init_w, init_w)
+
     def get_value(self, obs_np, **kwargs):
         values, info_dict = \
             self.get_values(obs_np[None], **kwargs)

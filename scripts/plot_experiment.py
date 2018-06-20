@@ -24,6 +24,7 @@ def main(args):
         'episode-length-min',
         'episode-length-max',
 
+        'Log Pis'
         # '[I] Test AverageReturn',
         # '[I] Test Returns Mean',
         # '[I] Test Rewards Mean',

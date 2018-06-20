@@ -59,7 +59,7 @@ class Reinforce(TorchIterativeRLAlgorithm):
             eval_policy = MakeDeterministic(policy)
         else:
             eval_policy = policy
-        super().__init__(
+        super(Reinforce, self).__init__(
             env=env,
             exploration_policy=policy,
             eval_policy=eval_policy,
@@ -84,7 +84,7 @@ class Reinforce(TorchIterativeRLAlgorithm):
         self.discounted = discounted
 
     def pretrain(self):
-        # Math target Qfcn with current one
+        # Match target Qfcn with current one
         self._update_target_q_fcn()
 
     def _do_training(self):
@@ -226,7 +226,7 @@ class Reinforce(TorchIterativeRLAlgorithm):
         if self.plotter is not None:
             self.plotter.draw()
 
-        snapshot = super().get_epoch_snapshot(epoch)
+        snapshot = super(Reinforce, self).get_epoch_snapshot(epoch)
         snapshot.update(
             policy=self.eval_policy,
             trained_policy=self.policy,
