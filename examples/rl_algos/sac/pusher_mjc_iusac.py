@@ -88,7 +88,6 @@ def experiment(variant):
         i_policy=i_policy,
         i_qf=i_qf,
         i_vf=i_vf,
-        algo_interface='torch',
         min_buffer_size=variant['algo_params']['batch_size'],
         **variant['algo_params']
     )

@@ -105,7 +105,7 @@ ENV_PARAMS = {
         net_size=500,
     ),
     'manipulator': dict(
-        env_name='Pusher2D3DofObstacleBulletEnv-v0',
+        env_name='Reacher2D3DofObstacleEnv-v0',
         algo_params=dict(
             num_epochs=1000,
             max_path_length=500,

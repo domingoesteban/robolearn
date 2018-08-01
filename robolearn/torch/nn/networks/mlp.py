@@ -39,7 +39,9 @@ class Mlp(PyTorchModule):
         for i, next_size in enumerate(hidden_sizes):
             fc = nn.Linear(in_size, next_size)
             in_size = next_size
-            hidden_w_init(fc.weight)
+            # hidden_w_init(fc.weight)
+            nn.init.xavier_normal_(fc.weight.data,
+                                    gain=nn.init.calculate_gain('relu'))
             ptu.fill(fc.bias, hidden_b_init_val)
             self.__setattr__("fc{}".format(i), fc)
             self.fcs.append(fc)
@@ -50,7 +52,9 @@ class Mlp(PyTorchModule):
                 self.layer_norms.append(ln)
 
         self.last_fc = nn.Linear(in_size, output_size)
-        output_w_init(self.last_fc.weight)
+        # output_w_init(self.last_fc.weight)
+        nn.init.xavier_normal_(self.last_fc.weight.data,
+                                gain=nn.init.calculate_gain('linear'))
         ptu.fill(self.last_fc.bias, output_b_init_val)
 
     def forward(self, nn_input, return_preactivations=False):

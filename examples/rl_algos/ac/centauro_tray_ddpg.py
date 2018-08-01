@@ -1,35 +1,56 @@
 """
-Run PyTorch Reinforce on Pusher2D3DofGoalCompoEnv.
+Run PyTorch DDPG on CentauroTrayEnv.
 
 NOTE: You need PyTorch 0.4
 """
 
+import os
 import numpy as np
 
 import robolearn.torch.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management import SimpleReplayBuffer
-from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
+from robolearn_gym_envs.pybullet import CentauroTrayEnv
 
-from robolearn.torch.rl_algos.reinforce import Reinforce
+from robolearn.torch.rl_algos.ddpg import DDPG
 
-from robolearn.torch.policies import TanhGaussianPolicy
+from robolearn.torch.models import NNQFunction
+
+from robolearn.torch.policies import TanhMlpPolicy
+
+from robolearn.utils.exploration_strategies import OUStrategy
+from robolearn.utils.exploration_strategies import PolicyWrappedWithExplorationStrategy
 
 import argparse
 
+Tend = 5  # Seconds
+
+SIM_TIMESTEP = 0.01
+FRAME_SKIP = 1
+DT = SIM_TIMESTEP * FRAME_SKIP
+
+PATH_LENGTH = int(np.ceil(Tend / DT))
+PATHS_PER_EPOCH = 5
+# PATHS_PER_LOCAL_POL = 2
+PATHS_PER_EVAL = 1
+PATHS_PER_HARD_UPDATE = 12
+
+SEED = 10
+NP_THREADS = 4
+
 
 def experiment(variant):
-    ptu.set_gpu_mode(variant['gpu'])
 
-    goal = variant['env_params'].get('goal')
-    variant['env_params']['goal_poses'] = \
-        [goal, (goal[0], 'any'), ('any', goal[1])]
-    variant['env_params'].pop('goal')
+    os.environ['OMP_NUM_THREADS'] = str(NP_THREADS)
+
+    np.random.seed(SEED)
+
+    ptu.set_gpu_mode(variant['gpu'])
+    ptu.seed(SEED)
 
     env = NormalizedBoxEnv(
-        # Pusher2D3DofObstacleBulletEnv(**variant['env_params'])
-        Pusher2D3DofGoalCompoEnv(**variant['env_params'])
+        CentauroTrayEnv(**variant['env_params'])
     )
 
     obs_dim = int(np.prod(env.observation_space.shape))
@@ -37,30 +58,46 @@ def experiment(variant):
 
     net_size = variant['net_size']
 
-    # _i_policy = GaussianPolicy(
-    policy = TanhGaussianPolicy(
-        hidden_sizes=[net_size, net_size],
+    qf = NNQFunction(
         obs_dim=obs_dim,
         action_dim=action_dim,
+        hidden_sizes=[net_size, net_size]
     )
-    if ptu.gpu_enabled():
-        policy.cuda()
+    policy = TanhMlpPolicy(
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        hidden_sizes=[net_size, net_size],
+    )
+    es = OUStrategy(
+        action_space=env.action_space,
+        mu=0,
+        theta=0.15,
+        max_sigma=0.3,
+        min_sigma=0.3,
+        decay_period=100000,
+    )
+    exploration_policy = PolicyWrappedWithExplorationStrategy(
+        exploration_strategy=es,
+        policy=policy,
+    )
 
     replay_buffer = SimpleReplayBuffer(
-        variant['algo_params']['replay_buffer_size'],
-        np.prod(env.observation_space.shape),
-        np.prod(env.action_space.shape),
+        max_replay_buffer_size=variant['algo_params']['replay_buffer_size'],
+        obs_dim=obs_dim,
+        action_dim=action_dim,
     )
     variant['algo_params']['replay_buffer'] = replay_buffer
 
     # QF Plot
-    # variant['algo_params']['_epoch_plotter'] = None
+    # variant['algo_params']['epoch_plotter'] = None
 
-    algorithm = Reinforce(
+    algorithm = DDPG(
         env=env,
         training_env=env,
         save_environment=False,
         policy=policy,
+        exploration_policy=exploration_policy,
+        qf=qf,
         **variant['algo_params']
     )
     if ptu.gpu_enabled():
@@ -70,15 +107,12 @@ def experiment(variant):
     return algorithm
 
 
-PATH_LENGTH = 500
-PATHS_PER_EPOCH = 5
-PATHS_PER_EVAL = 1
-
 expt_params = dict(
+    algo_name=DDPG.__name__,
     algo_params=dict(
         # Common RLAlgo params
-        num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
         num_epochs=1000,  # n_epochs
+        num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         # EnvSampler params
@@ -86,41 +120,48 @@ expt_params = dict(
         render=False,
         # ReplayBuffer params
         batch_size=64,  # batch_size
-        replay_buffer_size=1e4,
-        # Reinforce params
-        # TODO: _epoch_plotter
-        policy_lr=3e-4,
+        replay_buffer_size=1e6,
+        # DDPG params
+        # TODO: epoch_plotter
+        policy_learning_rate=1e-4,
+        qf_learning_rate=1e-3,
+        use_soft_update=True,
+        tau=1e-2,
+
         discount=0.99,
-        reward_scale=1,
-        causality=True,
-        discounted=True,
+        reward_scale=1.0,
     ),
-    net_size=64
+    net_size=64,
 )
 
-SIM_TIMESTEP = 0.001
-FRAME_SKIP = 10
-DT = SIM_TIMESTEP * FRAME_SKIP
 
 env_params = dict(
     is_render=False,
     obs_with_img=False,
-    goal_poses=None,
-    rdn_goal_pose=True,
-    tgt_pose=None,
-    rdn_tgt_object_pose=True,
+    active_joints='RA',
+    control_type='tasktorque',
+    # control_type='torque',
     sim_timestep=SIM_TIMESTEP,
     frame_skip=FRAME_SKIP,
-    obs_distances=False,  # If True obs contain 'distance' vectors instead poses
-    tgt_cost_weight=1.0, #1.5,
-    # goal_cost_weight=1.5, #3.0,
-    goal_cost_weight=1.5,
-    # goal_cost_weight=0.0,
+    obs_distances=True,
+    tgt_cost_weight=10.0,
+    balance_cost_weight=6.0,
+    fall_cost_weight=5.0,
+    balance_done_cost=0.0,
+    tgt_done_reward=0.0,
+    # tgt_cost_weight=5.0,
+    # balance_cost_weight=0.0,
+    # fall_cost_weight=0.0,
+    # tgt_cost_weight=0.0,
+    # balance_cost_weight=5.0,
+    # fall_cost_weight=7.0,
     ctrl_cost_weight=1.0e-4,
-    use_log_distances=True,
-    # use_log_distances=False,
-    log_alpha=1e-1,  # In case use_log_distances=True
-    # max_time=PATH_LENGTH*DT,
+    use_log_distances=False,
+    log_alpha=1e-6,
+    goal_tolerance=0.05,
+    min_obj_height=0.75,
+    max_obj_height=1.10,
+    max_obj_distance=0.20,
     max_time=None,
 )
 
@@ -132,7 +173,7 @@ def parse_args():
     # parser.add_argument('--expt_name', type=str, default=timestamp())
     # Logging arguments
     parser.add_argument('--snap_mode', type=str, default='gap_and_last')
-    parser.add_argument('--snap_gap', type=int, default=50)
+    parser.add_argument('--snap_gap', type=int, default=25)
     # parser.add_argument('--mode', type=str, default='local')
     parser.add_argument('--log_dir', type=str, default=None)
     parser.add_argument('--render', action="store_true")
@@ -155,7 +196,7 @@ if __name__ == "__main__":
 
     # Experiment name
     if args.expt_name is None:
-        expt_name = 'pusher_compo'
+        expt_name = 'centauro_tray_ddpg'
     else:
         expt_name = args.expt_name
 
@@ -164,15 +205,11 @@ if __name__ == "__main__":
     expt_variant['env_params'] = env_params
     expt_variant['env_params']['is_render'] = args.render
 
-    # TODO: MAKE THIS A SCRIPT ARGUMENT
-    expt_variant['env_params']['goal'] = (0.75, 0.75)
-    expt_variant['env_params']['tgt_pose'] = (0.6, 0.25, 1.4660)
-
     setup_logger(expt_name,
                  variant=expt_variant,
                  snapshot_mode=args.snap_mode,
                  snapshot_gap=args.snap_gap,
                  log_dir=args.log_dir)
-    algorithm = experiment(expt_variant)
+    algo = experiment(expt_variant)
 
     input('Press a key to close the script...')

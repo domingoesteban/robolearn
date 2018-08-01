@@ -32,7 +32,7 @@ class PathBuilder(dict):
     """
 
     def __init__(self):
-        super().__init__()
+        super(PathBuilder, self).__init__()
         self._path_length = 0
 
     def add_all(self, **key_to_value):

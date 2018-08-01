@@ -1,0 +1,119 @@
+SOLO BALANCE
+============
+centauro_tray_2018_07_02_08_29_36_0000--s-0
+    - tasktorque
+    - No se acaba si la bandeja esta lejos
+    - Costos: fall 5., balance 3.
+    - aprendio maso buena poli.
+
+centauro_tray_2018_07_02_16_13_31_0000--s-0
+    - tasktorque
+    - Se acaba si la bandeja se aleja 0.2
+    - Costos: fall 7, balance 5
+    - aprendio maso buena poli
+
+centauro_tray_2018_07_02_16_14_01_0000--s-0
+    - torque
+    - Se acaba si la bandeja se aleja 0.2
+    - Costos: fall 7, balance 5
+    - se demora mas que el otro.
+    - le falta para tener buena poli
+
+SOLO REACHING
+=============
+centauro_tray_2018_07_03_07_04_40_0000--s-0
+    - es DISTANCIA DEL OBJETO al tgt
+    - tasktorque
+    - Se acaba si la bandeja se aleja 0.2
+    - Costos: tgt 5.
+    - Funciona algo bien. Se acerca. pero como el environment se acaba si se cae...
+
+
+AMBOS
+=====
+centauro_tray_2018_07_03_13_39_47_0000--s-0
+    - MULTIWEIGHT
+    - ERROR: un0 contenia el reach target
+    - probando con NP_MAX = 4
+    - Costs: tgt 10, fall 5, balance 6
+    - tgt_task se acaba en tol, y balance si cae. main task si uno de los 2
+    - estuvo maso funcionando
+
+centauro_tray_2018_07_04_11_45_21_0000--s-0
+    - MULTIWEIGHT
+
+centauro_tray_multisac_2018_07_04_12_00_58_0000--s-0
+    - MULTIU
+
+
+**
+**NOW we have with tgt_done when it reaches tgt. Before the same than intentional
+
+    - MULTISAC
+
+
+**
+**NOW STD IS INCLUDED IN POLICIES PARAMETERS.
+** INIT BIAS IS SLOWER IN WEIGHTEDMULTI POLICY 1e-6, before 1e-2
+**
+centauro_tray_2018_07_04_17_47_58_0000--s-0
+    - MULTIWEIGHT
+    - ERROR***: LOS DETERMINISTIC SAMPLES ERAN DEL TANH DEL WEIGHTED MEAN
+
+centauro_tray_2018_07_04_18_44_09_0000--s-0
+    - ERROR EN DETERMINISTIC CORREGIDO
+
+
+# TODO:
+- Considerar orientacion en el reaching subtask
+- Considerar orientacion con el mundo, para el balancing task
+- Poner un costo para evitar que el weight se vaya siempre con una subtask?,
+  como desviacion del 0.5???
+- Cambiar el maximon-minimo logweight?
+- CONSIDERAR FINAL COSTS. SO IF IT IS DONE GIVE A VERY BIG ERROR
+
+
+AHORA: 05/07
+- Todas las Value function inizializadas con uniform +-1e-4
+- El output del log_mixing limitado entre -1 y 1.
+- el output del log_mixing es tanh
+
+centauro_tray_2018_07_05_10_05_56_0000--s-0
+    - tgt=10.0, balance=6.0, fall=5.0,
+
+centauro_tray_2018_07_05_10_05_45_0000--s-0
+    - tgt=20.0, balance=6.0, fall=5.0,
+
+
+
+
+
+06/07/12
+----------
+- Hoy solo he probado el reaching task
+- He probado con normalization layers en la multipolicy. Al hacerlo, los
+Value functions tienen mucho error y no bajan. Ej: centauro_tray_2018_07_06_14_02_59_0000--s-0
+Pero si ayuda a que no oscile mucho el learning.
+- En cambio sin los normalization, si convergen a cero. Ej: centauro_tray_2018_07_06_14_02_34_0000--s-0
+
+OJO: DISCOUNT = 0.  |   Tend = 2
+----
+- Probando con discount 0, scale 1.5: centauro_tray_2018_07_06_19_40_21_0000--s-0
+- Probando con Tend 2, discount 0, scale 10: centauro_tray_2018_07_06_19_52_58_0000--s-0
+    - Converge lso value functions, pero no llegan a error zero.
+    - EL PROBLEMA ES QUE LOS REWARDS ESTAN BAJANDO
+- Probando con Tend 2, discount 0, scale -10: centauro_tray_2018_07_06_20_22_57_0000--s-0
+
+
+OJO: AHORA YA NO HAY BOUNDED ABAJO
+
+
+
+OJO: AHORA EL DONE_TGT ES IGUAL AL DONE_FALL
+
+
+A partir de centauro_tray_2018_07_09_16_56_16_0000--s-0  . Los Qfcn son optimizados antes de los Policies y Vfcns
+
+A PARTIR DE 09/07/18 a las 18:07. MULTIPLICO por 10 la distancia con tgt, en los positions
+
+A PARTIR DE 10/07/18 AUMENTANDO LOS MAX_REWARDS A: [10., 25., 35.], antes todos 10

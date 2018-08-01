@@ -72,3 +72,4 @@ class PolicyWrappedWithExplorationStrategy(ExplorationPolicy, SerializablePolicy
 
     def set_param_values_np(self, param_values):
         self.policy.set_param_values_np(param_values)
+

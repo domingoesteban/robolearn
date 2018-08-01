@@ -1,5 +1,5 @@
 """
-Run PyTorch Soft Q-learning on PusherEnv.
+Run PyTorch IU Multi Soft Actor Critic on GoalCompositionEnv.
 
 NOTE: You need PyTorch 0.4
 """
@@ -14,10 +14,11 @@ from robolearn.utils.data_management import MultiGoalReplayBuffer
 from robolearn.envs.simple_envs.goal_composition import GoalCompositionEnv
 from robolearn.envs.simple_envs.goal_composition import MultiQFPolicyPlotter
 
-from robolearn.torch.rl_algos.sac.iu_multisac import IUMultiSAC
+from robolearn.torch.rl_algos.sac.iu_weightedmultisac import IUWeightedMultiSAC
 
 from robolearn.torch.models import NNQFunction, NNVFunction
 from robolearn.torch.models import NNMultiQFunction, NNMultiVFunction
+
 from robolearn.torch.policies import TanhGaussianMultiPolicy
 from robolearn.torch.policies import MixtureTanhGaussianMultiPolicy
 # from robolearn.torch.sac.policies import WeightedTanhGaussianMultiPolicy
@@ -31,7 +32,7 @@ import time
 def experiment(variant):
     render_q = variant['render_q']
     date_now = time.strftime("%Y_%m_%d_%H_%M_%S")
-    save_q_path = '/home/desteban/logs/goalcompo_q_plots/goalcompo'+date_now
+    save_q_path = '/home/desteban/logs/goalcompo_q_plots/goalcompo_'+date_now
 
     ptu.set_gpu_mode(variant['gpu'])
 
@@ -107,7 +108,7 @@ def experiment(variant):
     variant['algo_params']['epoch_plotter'] = plotter
     # variant['algo_params']['epoch_plotter'] = None
 
-    algorithm = IUMultiSAC(
+    algorithm = IUWeightedMultiSAC(
         env=env,
         training_env=env,
         save_environment=False,
@@ -134,6 +135,7 @@ PATHS_PER_EVAL = 3
 PATHS_PER_HARD_UPDATE = 35
 
 expt_params = dict(
+    algo_name=IUMultiSAC.__name__,
     algo_params=dict(
         # Common RLAlgo params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
@@ -163,7 +165,8 @@ expt_params = dict(
         discount=0.99,
         # discount=0.1,
         # reward_scale=0.08,
-        reward_scale=0.10,
+        # reward_scale=0.10,  # No funciona 10/06
+        reward_scale=1.00,
         # reward_scale=0.2,  # Mixture no funciona. 11/06
         # reward_scale=0.1,  # Mixture funciona con este 10/06
         # reward_scale=0.15,  # Mixture ... con este 11/06

@@ -12,10 +12,10 @@ filename = str(uuid.uuid4())
 def simulate_policy(args):
     data = joblib.load(args.file)
     if args.deterministic:
-        print('Using the deterministic version of the _i_policy.')
-        policy = data['_i_policy']
+        print('Using the deterministic version of the policy.')
+        policy = data['policy']
     else:
-        print('Using the stochastic _i_policy.')
+        print('Using the stochastic policy.')
         policy = data['exploration_policy']
 
     print("Policy loaded")

@@ -25,3 +25,6 @@ class PrintColor(object):
 
     def reset(self):
         sys.stdout.write(self.colors['RESET'])
+
+
+change_print_color = PrintColor()

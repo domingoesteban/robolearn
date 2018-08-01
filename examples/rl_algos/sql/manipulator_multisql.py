@@ -10,7 +10,7 @@ import robolearn.torch.pytorch_util as ptu
 from robolearn.envs.wrappers import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management.multi_env_replay_buffer import MultiEnvReplayBuffer
-from robolearn_gym_envs.pybullet import Pusher2D3DofObstacleBulletEnv
+from robolearn_gym_envs.pybullet import Reacher2D3DofObstacleEnv
 
 from robolearn.torch.sql.policies import StochasticPolicy
 from robolearn.torch.sql.iu_sql import IUSQL
@@ -28,7 +28,7 @@ def experiment(variant):
 
     ptu._use_gpu = variant['gpu']
 
-    env = NormalizedBoxEnv(Pusher2D3DofObstacleBulletEnv(
+    env = NormalizedBoxEnv(Reacher2D3DofObstacleEnv(
         is_render=False, obs_with_img=False,
         rdn_tgt_pose=True, sim_timestep=0.001,
         frame_skip=10, obs_distances=True,

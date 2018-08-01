@@ -35,7 +35,8 @@ class IUMultiSAC(TorchIncrementalRLAlgorithm):
             exploration_pol_id=0,
             iu_mode='composition',
 
-            policy_lr=1e-3,
+            i_policy_lr=1e-3,
+            u_policy_lr=1e-3,
             qf_lr=1e-3,
             vf_lr=1e-3,
             policy_mean_reg_weight=1e-3,
@@ -86,7 +87,6 @@ class IUMultiSAC(TorchIncrementalRLAlgorithm):
             env=env,
             exploration_policy=self._i_policy,
             eval_policy=eval_policy,
-            off_policy=True,
             **kwargs
         )
 
@@ -111,17 +111,17 @@ class IUMultiSAC(TorchIncrementalRLAlgorithm):
 
         # Policy optimizers
         self._u_policy_optimizer = optimizer_class(self._u_policy.parameters(),
-                                                   lr=policy_lr)
+                                                   lr=u_policy_lr)
         if iu_mode == 'composition':
             # self._i_policy_optimizer = None
             self._i_policy_optimizer = \
                 optimizer_class(self._i_policy.parameters(),
-                                lr=policy_lr,)
+                                lr=i_policy_lr,)
         elif iu_mode == 'intentional':
             self._i_policy_optimizer = None
             # self._i_policy_optimizer = \
             #     optimizer_class(self._i_policy.parameters(),
-            #                     lr=policy_lr,)
+            #                     lr=i_policy_lr,)
         elif iu_mode == 'random':
             self._i_policy_optimizer = None
         else:
@@ -220,14 +220,14 @@ class IUMultiSAC(TorchIncrementalRLAlgorithm):
         qf_optimizer = self._i_qf_optimizer
         vf_optimizer = self._i_vf_optimizer
 
-        q_pred = qf(obs, actions)
-        v_pred = vf(obs)
+        q_pred = qf(obs, actions)[0]
+        v_pred = vf(obs)[0]
 
         new_actions, pol_dict = policy(obs, return_log_prob=True)
 
         log_pi = pol_dict['log_action']
 
-        target_v_values = target_vf(next_obs)
+        target_v_values = target_vf(next_obs)[0]
 
         """
         QF Loss
@@ -238,14 +238,13 @@ class IUMultiSAC(TorchIncrementalRLAlgorithm):
         """
         VF Loss
         """
-        q_new_actions = qf(obs, new_actions)
+        q_new_actions = qf(obs, new_actions)[0]
         v_target = q_new_actions - log_pi
         vf_loss = self._vf_criterion(v_pred, v_target.detach())
 
         """
         Policy Loss
         """
-        # q_new_actions = qf(obs, new_actions)
         log_policy_target = q_new_actions - v_pred
         policy_loss = (
                 log_pi * (log_pi - log_policy_target).detach()

@@ -4,18 +4,18 @@ from rlkit.data_management.replay_buffer import ReplayBuffer
 
 
 class MultiGoalReplayBuffer(ReplayBuffer):
-    def __init__(self, max_replay_buffer_size, observation_dim, action_dim,
+    def __init__(self, max_replay_buffer_size, obs_dim, action_dim,
                  reward_vector_size):
         max_replay_buffer_size = int(max_replay_buffer_size)
         reward_vector_size = int(reward_vector_size)
-        self._observation_dim = observation_dim
+        self._obs_dim = obs_dim
         self._action_dim = action_dim
         self._max_replay_buffer_size = max_replay_buffer_size
-        self._observations = np.zeros((max_replay_buffer_size, observation_dim))
+        self._observations = np.zeros((max_replay_buffer_size, obs_dim))
         # It's a bit memory inefficient to save the observations twice,
         # but it makes the code *much* easier since you no longer have to
         # worry about termination conditions.
-        self._next_obs = np.zeros((max_replay_buffer_size, observation_dim))
+        self._next_obs = np.zeros((max_replay_buffer_size, obs_dim))
         self._actions = np.zeros((max_replay_buffer_size, action_dim))
         # Make everything a 2D np array to make it easier for other code to
         # reason about the shape of the data
@@ -50,6 +50,10 @@ class MultiGoalReplayBuffer(ReplayBuffer):
             self._size += 1
 
     def random_batch(self, batch_size):
+        if batch_size > self._size:
+            raise AttributeError('Not enough samples to get. %d bigger than '
+                                 'current %d!' % (batch_size, self._size))
+
         indices = np.random.randint(0, self._size, batch_size)
         return dict(
             observations=self._observations[indices],

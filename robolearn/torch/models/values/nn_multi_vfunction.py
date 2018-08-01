@@ -5,6 +5,7 @@ from robolearn.torch.core import np_ify
 import robolearn.torch.pytorch_util as ptu
 import torch.nn as nn
 import torch.nn.functional as F
+
 from robolearn.torch.nn import identity
 from robolearn.torch.nn import LayerNorm
 from robolearn.models import VFunction
@@ -14,7 +15,7 @@ class NNMultiVFunction(PyTorchModule, VFunction):
     def __init__(self,
                  obs_dim,
                  n_vs,
-                 shared_hidden_sizes,
+                 shared_hidden_sizes=None,
                  unshared_hidden_sizes=None,
                  hidden_activation=F.relu,
                  output_activation=identity,
@@ -50,25 +51,30 @@ class NNMultiVFunction(PyTorchModule, VFunction):
 
         in_size = obs_dim
         # Shared Layers
-        for i, next_size in enumerate(shared_hidden_sizes):
-            fc = nn.Linear(in_size, next_size)
-            in_size = next_size
-            hidden_w_init(fc.weight)
-            ptu.fill(fc.bias, hidden_b_init_val)
-            self.__setattr__("fc{}".format(i), fc)
-            self.fcs.append(fc)
+        if shared_hidden_sizes is not None:
+            for i, next_size in enumerate(shared_hidden_sizes):
+                fc = nn.Linear(in_size, next_size)
+                # hidden_w_init(fc.weight)
+                nn.init.xavier_normal_(fc.weight.data,
+                                        gain=nn.init.calculate_gain('relu'))
+                ptu.fill(fc.bias, hidden_b_init_val)
+                self.__setattr__("fc{}".format(i), fc)
+                self.fcs.append(fc)
 
-            if self.shared_layer_norm:
-                ln = LayerNorm(next_size)
-                self.__setattr__("shared_layer_norm{}".format(i), ln)
-                self.shared_layer_norms.append(ln)
+                if self.shared_layer_norm:
+                    ln = LayerNorm(next_size)
+                    self.__setattr__("shared_layer_norm{}".format(i), ln)
+                    self.shared_layer_norms.append(ln)
+                in_size = next_size
 
         # Unshared Layers
         if unshared_hidden_sizes is not None:
             for i, next_size in enumerate(unshared_hidden_sizes):
                 for q_idx in range(self._n_vs):
                     ufc = nn.Linear(in_size, next_size)
-                    hidden_w_init(ufc.weight)
+                    # hidden_w_init(ufc.weight)
+                    nn.init.xavier_normal_(ufc.weight.data,
+                                            gain=nn.init.calculate_gain('relu'))
                     ptu.fill(ufc.bias, hidden_b_init_val)
                     self.__setattr__("ufc{}_{}".format(q_idx, i), ufc)
                     self.ufcs[q_idx].append(ufc)
@@ -82,16 +88,23 @@ class NNMultiVFunction(PyTorchModule, VFunction):
 
         for q_idx in range(self._n_vs):
             last_fc = nn.Linear(in_size, 1)
-            output_w_init(last_fc.weight)
+            # output_w_init(last_fc.weight)
+            nn.init.xavier_normal_(last_fc.weight.data,
+                                    gain=nn.init.calculate_gain('linear'))
             ptu.fill(last_fc.bias, output_b_init_val)
             self.__setattr__("last_fc{}".format(q_idx), last_fc)
             self.last_fcs.append(last_fc)
+
+        # print('TODOOO: SETTING MULTIV-FCN INIT VALS')
+        # init_w = 1e-4
+        # for param in self.parameters():
+        #     param.data.uniform_(-init_w, init_w)
 
     def forward(self, obs, val_idxs=None):
         """
 
         Args:
-            obs (Tensor):
+            obs (Tensor): Observation(s)
             val_idxs (iterable):
 
         Returns:
@@ -107,14 +120,14 @@ class NNMultiVFunction(PyTorchModule, VFunction):
         for i, fc in enumerate(self.fcs):
             h = self.hidden_activation(fc(h))
 
-        hs = [h for _ in val_idxs]
+        hs = [h.clone() for _ in val_idxs]
         # Unshared Layers
         if len(self.ufcs) > 0:
             for ii, idx in enumerate(val_idxs):
                 for i, fc in enumerate(self.ufcs[idx]):
                     hs[ii] = self.hidden_activation(fc(hs[ii]))
 
-        values = [self.last_fcs[idx](hs[ii])
+        values = [self.output_activation(self.last_fcs[idx](hs[ii]))
                   for ii, idx in enumerate(val_idxs)]
 
         return values, dict()
@@ -130,6 +143,8 @@ class NNMultiVFunction(PyTorchModule, VFunction):
         for key, vals in info_dict.items():
             info_dict[key] = [val[0, :] if isinstance(val, np.ndarray)
                               else None for val in vals]
+
+        return values, info_dict
 
     def get_values(self, obs_np, val_idxs=None):
         if val_idxs is None:

@@ -10,7 +10,7 @@ import robolearn.torch.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management import SimpleReplayBuffer
-from robolearn_gym_envs.pybullet import Pusher2D3DofObstacleBulletEnv
+from robolearn_gym_envs.pybullet import Reacher2D3DofObstacleEnv
 
 from robolearn.torch.rl_algos.sql import SQL
 
@@ -25,7 +25,7 @@ def experiment(variant):
     ptu.set_gpu_mode(variant['gpu'])
 
     env = NormalizedBoxEnv(
-        Pusher2D3DofObstacleBulletEnv(**variant['env_params'])
+        Reacher2D3DofObstacleEnv(**variant['env_params'])
     )
 
     obs_dim = int(np.prod(env.observation_space.shape))

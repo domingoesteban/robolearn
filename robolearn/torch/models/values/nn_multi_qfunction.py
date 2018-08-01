@@ -7,7 +7,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 from robolearn.torch.nn import identity
 from robolearn.torch.nn import LayerNorm
 from robolearn.models import QFunction
@@ -18,9 +17,8 @@ class NNMultiQFunction(PyTorchModule, QFunction):
                  obs_dim,
                  action_dim,
                  n_qs,
-                 shared_hidden_sizes,
+                 shared_hidden_sizes=None,
                  unshared_hidden_sizes=None,
-                 stds=None,
                  hidden_activation=F.relu,
                  output_activation=identity,
                  hidden_w_init=ptu.xavier_init,
@@ -30,7 +28,6 @@ class NNMultiQFunction(PyTorchModule, QFunction):
                  shared_layer_norm=False,
                  unshared_layer_norm=False,
                  layer_norm_kwargs=None,
-                 **kwargs
                  ):
 
         QFunction.__init__(self, obs_dim=obs_dim, action_dim=action_dim)
@@ -56,25 +53,30 @@ class NNMultiQFunction(PyTorchModule, QFunction):
 
         in_size = obs_dim + action_dim
         # Shared Layers
-        for i, next_size in enumerate(shared_hidden_sizes):
-            fc = nn.Linear(in_size, next_size)
-            in_size = next_size
-            hidden_w_init(fc.weight)
-            ptu.fill(fc.bias, hidden_b_init_val)
-            self.__setattr__("fc{}".format(i), fc)
-            self.fcs.append(fc)
+        if shared_hidden_sizes is not None:
+            for i, next_size in enumerate(shared_hidden_sizes):
+                fc = nn.Linear(in_size, next_size)
+                # hidden_w_init(fc.weight)
+                nn.init.xavier_normal_(fc.weight.data,
+                                       gain=nn.init.calculate_gain('relu'))
+                ptu.fill(fc.bias, hidden_b_init_val)
+                self.__setattr__("fc{}".format(i), fc)
+                self.fcs.append(fc)
 
-            if self.shared_layer_norm:
-                ln = LayerNorm(next_size)
-                self.__setattr__("shared_layer_norm{}".format(i), ln)
-                self.shared_layer_norms.append(ln)
+                if self.shared_layer_norm:
+                    ln = LayerNorm(next_size)
+                    self.__setattr__("shared_layer_norm{}".format(i), ln)
+                    self.shared_layer_norms.append(ln)
+                in_size = next_size
 
         # Unshared Layers
         if unshared_hidden_sizes is not None:
             for i, next_size in enumerate(unshared_hidden_sizes):
                 for q_idx in range(self._n_qs):
                     ufc = nn.Linear(in_size, next_size)
-                    hidden_w_init(ufc.weight)
+                    # hidden_w_init(ufc.weight)
+                    nn.init.xavier_normal_(ufc.weight.data,
+                                           gain=nn.init.calculate_gain('relu'))
                     ptu.fill(ufc.bias, hidden_b_init_val)
                     self.__setattr__("ufc{}_{}".format(q_idx, i), ufc)
                     self.ufcs[q_idx].append(ufc)
@@ -88,12 +90,31 @@ class NNMultiQFunction(PyTorchModule, QFunction):
 
         for q_idx in range(self._n_qs):
             last_fc = nn.Linear(in_size, 1)
-            output_w_init(last_fc.weight)
+            # output_w_init(last_fc.weight)
+            nn.init.xavier_normal_(last_fc.weight.data,
+                                   gain=nn.init.calculate_gain('linear'))
             ptu.fill(last_fc.bias, output_b_init_val)
             self.__setattr__("last_fc{}".format(q_idx), last_fc)
             self.last_fcs.append(last_fc)
 
+        # print('TODOOO: SETTING MULTIQ-FCN INIT VALS')
+        # init_w = 1e-4
+        # for param in self.parameters():
+        #     param.data.uniform_(-init_w, init_w)
+
     def forward(self, obs, act, val_idxs=None):
+        """
+
+        Args:
+            obs (Tensor): Observation(s)
+            act (Tensor): Action(s)
+            val_idxs (iterable):
+
+        Returns:
+            values (list)
+            info (dict): empty dictionary
+
+        """
         if val_idxs is None:
             val_idxs = list(range(self._n_qs))
 
@@ -102,14 +123,14 @@ class NNMultiQFunction(PyTorchModule, QFunction):
         for i, fc in enumerate(self.fcs):
             h = self.hidden_activation(fc(h))
 
-        hs = [h for _ in val_idxs]
+        hs = [h.clone() for _ in val_idxs]
         # Unshared Layers
         if len(self.ufcs) > 0:
             for ii, idx in enumerate(val_idxs):
                 for i, fc in enumerate(self.ufcs[idx]):
                     hs[ii] = self.hidden_activation(fc(hs[ii]))
 
-        values = [self.last_fcs[idx](hs[ii])
+        values = [self.output_activation(self.last_fcs[idx](hs[ii]))
                   for ii, idx in enumerate(val_idxs)]
 
         return values, dict()
@@ -145,4 +166,3 @@ class NNMultiQFunction(PyTorchModule, QFunction):
     @property
     def n_heads(self):
         return self._n_vs
-

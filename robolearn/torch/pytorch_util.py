@@ -3,6 +3,15 @@ import numpy as np
 
 from torch.autograd import Variable as TorchVariable
 from torch.nn import functional as F
+import torch.nn as nn
+
+
+def seed(seed):
+    torch.cuda.manual_seed(seed)
+    r_generator = torch.manual_seed(seed)
+    # if torch.cuda.is_available():
+    #     torch.cuda.manual_seed_all(seed)
+    return r_generator
 
 
 def soft_update_from_to(source, target, tau):
@@ -203,6 +212,7 @@ def almost_identity_weights_like(tensor):
 def clip1(x):
     return torch.clamp(x, -1, 1)
 
+
 def xavier_init(tensor, gain=1, uniform=True):
     if uniform:
         return xavier_uniform_init(tensor, gain)
@@ -240,6 +250,24 @@ def FloatTensor(*args, **kwargs):
     else:
         # noinspection PyArgumentList
         return torch.FloatTensor(*args, **kwargs)
+
+
+# noinspection PyPep8Naming
+def BinaryTensor(*args, **kwargs):
+    if _use_gpu:
+        return torch.cuda.ByteTensor(*args, **kwargs)
+    else:
+        # noinspection PyArgumentList
+        return torch.ByteTensor(*args, **kwargs)
+
+
+# noinspection PyPep8Naming
+def LongTensor(*args, **kwargs):
+    if _use_gpu:
+        return torch.cuda.LongTensor(*args, **kwargs)
+    else:
+        # noinspection PyArgumentList
+        return torch.LongTensor(*args, **kwargs)
 
 
 def Variable(tensor, **kwargs):
@@ -296,3 +324,120 @@ def ones_like(*args, **kwargs):
     if _use_gpu:
         tensor = tensor.cuda()
     return tensor
+
+def rand(*args, **kwargs):
+    tensor = torch.rand(*args, **kwargs)
+    if _use_gpu:
+        tensor = tensor.cuda()
+    return tensor
+
+def randn(*args, **kwargs):
+    tensor = torch.randn(*args, **kwargs)
+    if _use_gpu:
+        tensor = tensor.cuda()
+    return tensor
+
+
+"""
+Module functions
+"""
+
+
+def register_parameter(module, parameters_dict, name, param):
+    r"""Adds a parameter to the module.
+
+    The parameter can be accessed as an attribute using given name.
+
+    Args:
+        name (string): name of the parameter. The parameter can be accessed
+            from this module using the given name
+        parameter (Parameter): parameter to be added to the module.
+    """
+    if hasattr(module, name) and name not in parameters_dict:
+        raise KeyError("attribute '{}' already exists".format(name))
+    elif '.' in name:
+        raise KeyError("parameter name can't contain \".\"")
+    elif name == '':
+        raise KeyError("parameter name can't be empty string \"\"")
+
+    if param is None:
+        parameters_dict[name] = None
+    elif not isinstance(param, nn.Parameter):
+        raise TypeError("cannot assign '{}' object to parameter '{}' "
+                        "(torch.nn.Parameter or None required)"
+                        .format(torch.typename(param), name))
+    elif param.grad_fn:
+        raise ValueError(
+            "Cannot assign non-leaf Tensor to parameter '{0}'. Model "
+            "parameters must be created explicitly. To express '{0}' "
+            "as a function of another Tensor, compute the value in "
+            "the forward() method.".format(name))
+    else:
+        parameters_dict[name] = param
+
+
+def named_children(modules_dict):
+    r"""Returns an iterator over immediate children modules, yielding both
+    the name of the module as well as the module itself.
+
+    Yields:
+        (string, Module): Tuple containing a name and child module
+
+    Example::
+
+        >>> for name, module in model.named_children():
+        >>>     if name in ['conv4', 'conv5']:
+        >>>         print(module)
+
+    """
+    memo = set()
+    for name, module in modules_dict.items():
+        if module is not None and module not in memo:
+            memo.add(module)
+            yield name, module
+
+
+def named_parameters(modules_dict, parameters_dict, memo=None, prefix=''):
+    r"""Returns an iterator over module parameters, yielding both the
+    name of the parameter as well as the parameter itself
+
+    Yields:
+        (string, Parameter): Tuple containing the name and parameter
+
+    Example::
+
+        >>> for name, param in self.named_parameters(my_modules_dict, my_parameters_dict):
+        >>>    if name in ['bias']:
+        >>>        print(param.size())
+
+    """
+    if memo is None:
+        memo = set()
+    for name, p in parameters_dict.items():
+        if p is not None and p not in memo:
+            memo.add(p)
+            yield prefix + ('.' if prefix else '') + name, p
+    for mname, module in named_children(modules_dict):
+        submodule_prefix = prefix + ('.' if prefix else '') + mname
+        for name, p in module.named_parameters(memo, submodule_prefix):
+            yield name, p
+
+
+def add_module(modules_dict, name, module):
+    r"""Adds a child module to the current module.
+
+    The module can be accessed as an attribute using the given name.
+
+    Args:
+        name (string): name of the child module. The child module can be
+            accessed from this module using the given name
+        parameter (Module): child module to be added to the module.
+    """
+    if not isinstance(module, nn.Module) and module is not None:
+        raise TypeError("{} is not a Module subclass".format(
+            torch.typename(module)))
+    elif '.' in name:
+        raise KeyError("module name can't contain \".\"")
+    elif name == '':
+        raise KeyError("module name can't be empty string \"\"")
+    modules_dict[name] = module

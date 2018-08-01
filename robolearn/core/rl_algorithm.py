@@ -6,8 +6,8 @@ import gtimer as gt
 import numpy as np
 
 from robolearn.core import logger
-from robolearn.utils.data_management.env_replay_buffer import EnvReplayBuffer
 from robolearn.utils.data_management.path_builder import PathBuilder
+from robolearn.utils.data_management.env_replay_buffer import EnvReplayBuffer
 from robolearn.policies.base import ExplorationPolicy
 from robolearn.utils.samplers.in_place_path_sampler import InPlacePathSampler
 
@@ -18,31 +18,35 @@ class RLAlgorithm(object):
     def __init__(
             self,
             env,
-            exploration_policy: ExplorationPolicy,
-            training_env=None,
+            exploration_policy,
+            eval_env=None,
+            eval_policy=None,
+            eval_sampler=None,
+
             num_epochs=100,
             num_steps_per_epoch=10000,
             num_steps_per_eval=1000,
-            num_updates_per_train_call=1,
-            batch_size=1024,
-            min_buffer_size=None,
             max_path_length=1000,
+
+            min_steps_start_train=10,
+            min_start_eval=10,
+
+            num_updates_per_train_call=1,
+
             discount=0.99,
-            replay_buffer_size=1e6,
             reward_scale=1,
+
             render=False,
-            save_replay_buffer=False,
+
             save_algorithm=False,
             save_environment=True,
-            eval_sampler=None,
-            eval_policy=None,
-            replay_buffer=None,
     ):
+        # type: # (gym.Env, ExplorationPolicy) -> None
         """
         Base class for RL Algorithms
-        :param env: Environment used to evaluate.
-        :param exploration_policy: Policy used to explore.
-        :param training_env: Environment used by the algorithm. By default, a
+        :param env: Environment used for training.
+        :param exploration_policy: Policy used to explore during training.
+        :param eval_env: Environment used for evaluation. By default, a
         copy of `env` will be made.
         :param num_epochs: Number of episodes.
         :param num_steps_per_epoch: Number of timesteps per epoch.
@@ -50,122 +54,184 @@ class RLAlgorithm(object):
         :param num_updates_per_train_call: Used by online training mode.
         :param num_updates_per_epoch: Used by batch training mode.
         :param max_path_length: Max length of sampled path (rollout) from env.
-        :param batch_size: Replay buffer batch size.
-        :param replay_buffer: External replay_buffer
-        :param min_buffer_size: Min buffer size to start training.
-        :param replay_buffer_size: Replay buffer size (Maximum number).
+        :param min_steps_start_train: Min steps to start training.
+        :param min_start_eval: Min steps to start evaluating.
         :param discount: discount factor (gamma).
         :param reward_scale: Value to scale environment reward.
         :param render: Visualize or not the environment.
-        :param save_replay_buffer: Save or not the ReplBuffer after iterations
         :param save_algorithm: Save or not the algorithm  after iterations.
-        :param save_environment: Save or not the environment after interations
+        :param save_environment: Save or not the environment after iterations
         :param eval_sampler: External sampler for evaluation.
         :param eval_policy: Policy to evaluate with.
         """
-        self.training_env = training_env or pickle.loads(pickle.dumps(env))
+        # Training environment, policy and state-action spaces
+        self.env = env
+        self.action_space = env.action_space
+        self.obs_space = env.observation_space
         self.exploration_policy = exploration_policy
+
+        # Evaluation environment, policy and sampler
+        self.eval_env = eval_env or pickle.loads(pickle.dumps(env))
+        if eval_policy is None:
+            eval_policy = exploration_policy
+        self.eval_policy = eval_policy
+        if eval_sampler is None:
+            eval_sampler = InPlacePathSampler(
+                env=eval_env,
+                policy=eval_policy,
+                max_samples=num_steps_per_eval,
+                max_path_length=max_path_length,
+            )
+        self.eval_sampler = eval_sampler
+
+        # RL algorithm hyperparameters
         self.num_epochs = num_epochs
         self.num_env_steps_per_epoch = num_steps_per_epoch
-        self.num_steps_per_eval = num_steps_per_eval
-        self.num_updates_per_train_call = num_updates_per_train_call
-        self.batch_size = batch_size
-        if min_buffer_size is None:
-            self.min_buffer_size = batch_size
-        else:
-            self.min_buffer_size = min_buffer_size
         self.max_path_length = max_path_length
+        self.num_updates_per_train_call = num_updates_per_train_call
+        self.num_steps_per_eval = num_steps_per_eval
+
+        self.min_steps_start_train = min_steps_start_train
+        self.min_start_eval = min_start_eval
+
+        # Reward related
         self.discount = discount
-        self.replay_buffer_size = replay_buffer_size
         self.reward_scale = reward_scale
 
         # Flag to render while sampling
         self._render = render
 
         # Save flags
-        self.save_replay_buffer = save_replay_buffer
         self.save_algorithm = save_algorithm
         self.save_environment = save_environment
 
-        # Evaluation policy and sampler
-        if eval_sampler is None:
-            if eval_policy is None:
-                eval_policy = exploration_policy
-            eval_sampler = InPlacePathSampler(
-                env=env,
-                policy=eval_policy,
-                # max_samples=self.num_steps_per_eval + self.max_path_length,
-                max_samples=self.num_steps_per_eval,
-                max_path_length=self.max_path_length,
-            )
-        self.eval_policy = eval_policy
-        self.eval_sampler = eval_sampler
-
-        self.action_space = env.action_space
-        self.obs_space = env.observation_space
-        self.env = env
-
-        # Replay Buffer
-        if replay_buffer is None:
-            replay_buffer = EnvReplayBuffer(
-                self.replay_buffer_size,
-                self.env,
-            )
-        self.replay_buffer = replay_buffer
-
         # Internal variables
-        self._n_env_steps_total = 0
-        self._n_train_steps_total = 0
-        self._n_rollouts_total = 0
-        self._do_train_time = 0
+        self._n_env_steps_total = 0  # Accumulated interactions with the env
+        self._n_train_steps_total = 0  # Accumulated training steps
+        self._n_epoch_train_steps = 0  # Accumulated epoch's training steps
+        self._n_rollouts_total = 0  # Accumulated rollouts
         self._epoch_start_time = None  # Wall time
-        self._algo_start_time = None  # Wall time
-        self._old_table_keys = None  # Table keys of the logger
-        self._current_path_builder = None  # PathBuilder()
-        self._exploration_paths = []
+        self._old_table_keys = None  # Previous table keys of the logger
+        self._current_path_builder = PathBuilder()  # Current path
+        self._exploration_paths = []  # All paths in current epoch
+        self._print_log_header = None  # Print the header in log
 
-    # @abc.abstractmethod
-    @abc.abstractmethod
-    def train(self, start_epoch=0):
-        pass
-
+    """
+    Methods related to Training.
+    """
     def pretrain(self):
         """
         Do anything before the main training phase.
         """
         pass
 
+    @abc.abstractmethod
+    def train(self, start_epoch=0):
+        """
+        Main function of the algorithm. It should run the algorithm for some
+        epochs.
+        Args:
+            start_epoch (int): Epoch the algorithm starts with
+        """
+        pass
+
     def _try_to_train(self):
+        """
+        Check if the requirements are fulfilled to start or not training.
+        Returns:
+
+        """
         if self._can_train():
             self.training_mode(True)
             for i in range(self.num_updates_per_train_call):
                 self._do_training()
+                self._n_epoch_train_steps += 1
                 self._n_train_steps_total += 1
             self.training_mode(False)
+        else:
+            self._do_not_training()
 
+    def _can_train(self):
+        """
+        Training requirements are fulfilled or not.
+
+        Train only if you have more data than the batch size in the
+        Replay Buffer.
+
+        :return (bool):
+        """
+        # Bigger than, because n_env_steps_total updated after sampling
+        return self._n_env_steps_total > self.min_steps_start_train
+
+    @abc.abstractmethod
+    def training_mode(self, mode):
+        """
+        Set training mode to `mode`.
+        :param mode: If True, training will happen (e.g. set the dropout
+        probabilities to not all ones).
+        """
+        pass
+
+    @abc.abstractmethod
+    def _do_training(self):
+        """
+        Perform some update, e.g. perform one gradient step.
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    def _do_not_training(self):
+        """
+        Perform some stuff when it is not possible to do training.
+        :return:
+        """
+        pass
+
+    """
+    Methods related to Evaluation.
+    """
     def _try_to_eval(self, epoch):
+        """
+
+        Args:
+            epoch (int): Epoch
+
+        Returns:
+
+        """
         logger.save_extra_data(self.get_extra_data_to_save(epoch))
         if self._can_evaluate():
+            # Call algorithm-specific evaluate method
             self.evaluate(epoch)
 
+            # Update logger parameters with algorithm-specific variables
             params = self.get_epoch_snapshot(epoch)
             logger.save_itr_params(epoch, params)
+
+            # Check that logger parameters (table keys) did not change.
             table_keys = logger.get_table_key_set()
             if self._old_table_keys is not None:
                 if not table_keys == self._old_table_keys:
-                    print("Table keys cannot change from iteration to iteration.")
-                    print('table_keys:', table_keys)
-                    print('old_table_keys:', self._old_table_keys)
-                    print('not in new:', np.setdiff1d(list(table_keys),
-                                                      list(self._old_table_keys)))
-                    print('not in old:', np.setdiff1d(list(self._old_table_keys),
-                                                      list(table_keys)))
-                    input('Press a key to try to continue...')
-                # assert table_keys == self._old_table_keys, (
-                #     "Table keys cannot change from iteration to iteration."
-                # )
+                    error_text = "Table keys cannot change from iteration " \
+                                 "to iteration.\n"
+                    error_text += 'table_keys: '
+                    error_text += str(table_keys)
+                    error_text += '\n'
+                    error_text += 'old_table_keys: '
+                    error_text += str(self._old_table_keys)
+                    error_text += 'not in new: '
+                    error_text += str(np.setdiff1d(list(table_keys),
+                                                   list(self._old_table_keys))
+                                      )
+                    error_text += 'not in old:'
+                    error_text += str(np.setdiff1d(list(self._old_table_keys),
+                                                   list(table_keys))
+                                      )
+                    raise AttributeError(error_text)
             self._old_table_keys = table_keys
 
+            # Add the number of steps to the logger
             logger.record_tabular(
                 "Number of train steps total",
                 self._n_train_steps_total,
@@ -179,28 +245,38 @@ class RLAlgorithm(object):
                 self._n_rollouts_total,
             )
 
+            # Get useful times
             times_itrs = gt.get_times().stamps.itrs
             train_time = times_itrs['train'][-1]
             sample_time = times_itrs['sample'][-1]
-            eval_time = times_itrs['eval'][-1] if epoch > 0 else 0
+            # eval_time = times_itrs['eval'][-1] if epoch > 0 else 0
+            eval_time = times_itrs['eval'][-1] if 'eval' in times_itrs else 0
             epoch_time = train_time + sample_time + eval_time
             total_time = gt.get_times().total
 
+            # Add the previous times to the logger
             logger.record_tabular('Train Time (s)', train_time)
             logger.record_tabular('(Previous) Eval Time (s)', eval_time)
             logger.record_tabular('Sample Time (s)', sample_time)
             logger.record_tabular('Epoch Time (s)', epoch_time)
             logger.record_tabular('Total Train Time (s)', total_time)
 
+            # Add the number of epoch to the logger
             logger.record_tabular("Epoch", epoch)
-            logger.dump_tabular(with_prefix=False, with_timestamp=False)
+
+            # Dump the logger data
+            logger.dump_tabular(with_prefix=False, with_timestamp=False,
+                                write_header=self._print_log_header)
         else:
             logger.log("Skipping eval for now.")
 
     def _can_evaluate(self):
         """
+        Evaluation requirements are fulfilled or not.
+
         Evaluate only if you have non-zero exploration paths AND you have
-        more data than the minimum buffer size in the Replay Buffer.
+        more steps than min_start_eval. This value can be the minimum
+        buffer size in the Replay Buffer.
 
         One annoying thing about the logger table is that the keys at each
         iteration need to be the exact same. So unless you can compute
@@ -213,29 +289,34 @@ class RLAlgorithm(object):
         :return:
         """
         return (
-            len(self._exploration_paths) > 0
-            and self.replay_buffer.num_steps_can_sample() >= self.min_buffer_size
+                len(self._exploration_paths) > 0
+                and self._n_epoch_train_steps >= self.min_start_eval
         )
 
-    def _can_train(self):
+    @abc.abstractmethod
+    def evaluate(self, epoch):
         """
-        Train only if you have more data than the batch size in the
-        Replay Buffer.
+        Evaluate the policy, e.g. save/print progress.
+        :param epoch:
         :return:
         """
-        return self.replay_buffer.num_steps_can_sample() >= self.min_buffer_size
+        pass
 
-    def _get_action_and_info(self, observation):
+    def get_epoch_snapshot(self, epoch):
         """
-        Get an action to take in the environment.
-        :param observation:
+        Stuff to save in file.
+        :param epoch:
         :return:
         """
-        return self.exploration_policy.get_action(
-            observation,
+        data_to_save = dict(
+            epoch=epoch,
+            exploration_policy=self.exploration_policy,
         )
-        # self.exploration_policy.set_num_steps_total(self._n_env_steps_total)
-        # return self.action_space.sample(), dict()
+
+        if self.save_environment:
+            data_to_save['env'] = self.env
+
+        return data_to_save
 
     def _start_epoch(self, epoch):
         """
@@ -248,7 +329,7 @@ class RLAlgorithm(object):
         """
         self._epoch_start_time = time.time()
         self._exploration_paths = []
-        self._do_train_time = 0
+        self._n_epoch_train_steps = 0
         logger.push_prefix('Iteration #%d | ' % epoch)
 
     def _end_epoch(self):
@@ -270,7 +351,7 @@ class RLAlgorithm(object):
 
         """
         self.exploration_policy.reset()
-        return self.training_env.reset()
+        return self.env.reset()
 
     def _handle_path(self, path):
         """
@@ -330,44 +411,17 @@ class RLAlgorithm(object):
             agent_infos=agent_info,
             env_infos=env_info,
         )
-        # Add data to replay buffer
-        self.replay_buffer.add_sample(
-            observation=observation,
-            action=action,
-            reward=reward,
-            terminal=terminal,
-            next_observation=next_observation,
-            agent_info=agent_info,
-            env_info=env_info,
-        )
 
     def _handle_rollout_ending(self):
         """
         Implement anything that needs to happen after every rollout.
         """
-        self.replay_buffer.terminate_episode()
         self._n_rollouts_total += 1
         if len(self._current_path_builder) > 0:
             self._exploration_paths.append(
                 self._current_path_builder.get_all_stacked()
             )
             self._current_path_builder = PathBuilder()
-
-    def get_epoch_snapshot(self, epoch):
-        """
-
-        :param epoch:
-        :return:
-        """
-        if self._render:
-            self.training_env.render()
-        data_to_save = dict(
-            epoch=epoch,
-            exploration_policy=self.exploration_policy,
-        )
-        if self.save_environment:
-            data_to_save['env'] = self.training_env
-        return data_to_save
 
     def get_extra_data_to_save(self, epoch):
         """
@@ -377,26 +431,15 @@ class RLAlgorithm(object):
         :return:
         """
         if self._render:
-            self.training_env.render()
+            self.env.render()
         data_to_save = dict(
             epoch=epoch,
         )
         if self.save_environment:
-            data_to_save['env'] = self.training_env
-        if self.save_replay_buffer:
-            data_to_save['replay_buffer'] = self.replay_buffer
+            data_to_save['env'] = self.env
         if self.save_algorithm:
             data_to_save['algorithm'] = self
         return data_to_save
-
-    @abc.abstractmethod
-    def training_mode(self, mode):
-        """
-        Set training mode to `mode`.
-        :param mode: If True, training will happen (e.g. set the dropout
-        probabilities to not all ones).
-        """
-        pass
 
     @abc.abstractmethod
     def cuda(self):
@@ -406,19 +449,13 @@ class RLAlgorithm(object):
         """
         pass
 
-    @abc.abstractmethod
-    def evaluate(self, epoch):
+    def _get_action_and_info(self, observation):
         """
-        Evaluate the policy, e.g. save/print progress.
-        :param epoch:
+        Get an action from an exploration policy to take in the environment.
+        :param observation:
         :return:
         """
-        pass
-
-    @abc.abstractmethod
-    def _do_training(self):
-        """
-        Perform some update, e.g. perform one gradient step.
-        :return:
-        """
-        pass
+        # self.exploration_policy.set_num_steps_total(self._n_env_steps_total)
+        return self.exploration_policy.get_action(
+            observation,
+        )

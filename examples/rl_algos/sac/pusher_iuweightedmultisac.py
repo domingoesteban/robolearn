@@ -1,5 +1,5 @@
 """
-Run PyTorch Soft Q-learning on TwoGoalEnv.
+Run PyTorch IU Multi Soft Actor Critic on Pusher2D3DofGoalCompoEnv.
 
 NOTE: You need PyTorch 0.4
 """
@@ -13,15 +13,16 @@ from robolearn.utils.data_management import MultiGoalReplayBuffer
 
 from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
 
-from robolearn.torch.rl_algos.sac.iu_multisac import IUMultiSAC
+from robolearn.torch.rl_algos.sac.iu_weightedmultisac import IUWeightedMultiSAC
 
-from robolearn.torch.models import NNMultiQFunction, NNMultiVFunction
 from robolearn.torch.models import NNQFunction, NNVFunction
+from robolearn.torch.models import NNMultiQFunction, NNMultiVFunction
 # from robolearn.torch.models import AvgNNQFunction, AvgNNVFunction
 
-from robolearn.torch.policies import TanhGaussianMultiPolicy
-from robolearn.torch.policies import MixtureTanhGaussianMultiPolicy
-from robolearn.torch.policies import MultiPolicySelector
+from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
+# from robolearn.torch.sac.policies import WeightedTanhGaussianMultiPolicy
+# from robolearn.torch.sac.policies import MultiPolicySelector
+# from robolearn.torch.sac.policies import BernoulliTanhGaussianMultiPolicy
 
 import argparse
 
@@ -47,7 +48,8 @@ def experiment(variant):
     u_qf = NNMultiQFunction(obs_dim=obs_dim,
                             action_dim=action_dim,
                             n_qs=n_unintentional,
-                            shared_hidden_sizes=[net_size, net_size],
+                            # shared_hidden_sizes=[net_size, net_size],
+                            shared_hidden_sizes=[],
                             unshared_hidden_sizes=[net_size, net_size, net_size])
     i_qf = NNQFunction(obs_dim=obs_dim,
                        action_dim=action_dim,
@@ -56,23 +58,23 @@ def experiment(variant):
 
     u_vf = NNMultiVFunction(obs_dim=obs_dim,
                             n_vs=n_unintentional,
-                            shared_hidden_sizes=[net_size, net_size],
+                            # shared_hidden_sizes=[net_size, net_size],
+                            shared_hidden_sizes=[],
                             unshared_hidden_sizes=[net_size, net_size, net_size])
     i_vf = NNVFunction(obs_dim=obs_dim,
                        hidden_sizes=[net_size, net_size])
     # i_vf = WeightedNNMultiVFunction(u_vf)
 
-    u_policy = TanhGaussianMultiPolicy(shared_hidden_sizes=[net_size, net_size],
-                                       obs_dim=obs_dim,
-                                       action_dims=[action_dim for _ in
-                                                    range(n_unintentional)],
-                                       unshared_hidden_sizes=[net_size, net_size])
-    i_policy = MixtureTanhGaussianMultiPolicy(u_policy,
-                                              mix_hidden_sizes=[net_size, net_size],
-                                              pol_idxs=None,
-                                              optimize_multipolicy=False)
-    # i_policy = MultiPolicySelector(u_policy, 0)
-    # i_policy = BernoulliTanhGaussianMultiPolicy(u_policy, prob=0.5)
+    policy = TanhGaussianWeightedMultiPolicy(
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        n_policies=n_unintentional,
+        # shared_hidden_sizes=[net_size, net_size],
+        shared_hidden_sizes=[],
+        unshared_hidden_sizes=[net_size, net_size, net_size],
+        unshared_mix_hidden_sizes=[net_size, net_size, net_size],
+        stds=None,
+    )
 
     replay_buffer = MultiGoalReplayBuffer(
         variant['algo_params']['replay_buffer_size'],
@@ -85,17 +87,15 @@ def experiment(variant):
     # QF Plot
     variant['algo_params']['epoch_plotter'] = None
 
-    algorithm = IUMultiSAC(
+    algorithm = IUWeightedMultiSAC(
         env=env,
         training_env=env,
         save_environment=False,
-        u_policy=u_policy,
+        policy=policy,
         u_qf=u_qf,
         u_vf=u_vf,
-        i_policy=i_policy,
         i_qf=i_qf,
         i_vf=i_vf,
-        algo_interface='torch',
         min_buffer_size=variant['algo_params']['batch_size'],
         **variant['algo_params']
     )
@@ -108,11 +108,12 @@ def experiment(variant):
 
 PATH_LENGTH = 500
 PATHS_PER_EPOCH = 5
-# PATHS_PER_EPOCH = 2
+# PATHS_PER_LOCAL_POL = 2
 PATHS_PER_EVAL = 1
 PATHS_PER_HARD_UPDATE = 12
 
 expt_params = dict(
+    algo_name=IUWeightedMultiSAC.__name__,
     algo_params=dict(
         # Common RLAlgo params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
@@ -124,10 +125,9 @@ expt_params = dict(
         render=False,
         # ReplayBuffer params
         batch_size=64,  # batch_size
-        replay_buffer_size=1e6,
+        replay_buffer_size=1e8,
         # SoftActorCritic params
         # TODO: epoch_plotter
-        iu_mode='composition',
         policy_lr=1e-3,
         qf_lr=1e-4,
         vf_lr=1e-4,
@@ -138,11 +138,18 @@ expt_params = dict(
         policy_mean_reg_weight=1e-3,
         policy_std_reg_weight=1e-3,
         policy_pre_activation_weight=0.,
+        # policy_mixing_coeff_weight=1e-3,
+        policy_mixing_coeff_weight=0,
 
         discount=0.99,
+        # reward_scale=1.0,  # 26/06 en iter 50 llegan todos  a log_std=-5
+        # reward_scale=0.1,  # 26/06 hasta itr 730 no mejora. Muy estocastica, en deterministic apenas se mueve
+        # reward_scale=0.6,  # CHECKEAR pusher_compo_2018_06_27_07_45_08_0000--s-0. parece muy estocastico
+        # reward_scale=0.8,  # SIN SHARED. explora muy poco pusher_compo_2018_06_27_17_11_16_0000--s-0
+        # reward_scale=0.6,  # SIN SHARED. 28-19-18-53
+        reward_scale=0.7,  # SIN SHARED.
         # reward_scale=1.5,
-        # reward_scale=0.5,
-        reward_scale=1.0,
+        # reward_scale=10.0,
     ),
     net_size=64,
 )
@@ -160,7 +167,8 @@ env_params = dict(
     rdn_tgt_object_pose=True,
     sim_timestep=SIM_TIMESTEP,
     frame_skip=FRAME_SKIP,
-    obs_distances=False,  # If True obs contain 'distance' vectors instead poses
+    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
+    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
     tgt_cost_weight=1.0, #1.5,
     # goal_cost_weight=1.5, #3.0,
     goal_cost_weight=1.5,
@@ -171,6 +179,7 @@ env_params = dict(
     log_alpha=1e-1,  # In case use_log_distances=True
     # max_time=PATH_LENGTH*DT,
     max_time=None,
+    seed=10,
 )
 
 

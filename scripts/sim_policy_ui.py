@@ -5,6 +5,7 @@ from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 
 from robolearn.envs.simple_envs.goal_composition.goal_composition_env import GoalCompositionEnv
 from robolearn.torch.policies import MultiPolicySelector
+from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.policies import MakeDeterministic
 import argparse
 import joblib
@@ -23,9 +24,11 @@ def simulate_policy(args):
                   '%02d.' % args.un)
             if 'u_policy' in data:
                 policy = MakeDeterministic(
-                    MultiPolicySelector(data['u_policy'], args.un))
+                    # MultiPolicySelector(data['u_policy'], args.un))
+                    WeightedMultiPolicySelector(data['policy'], args.un))
             else:
-                policy = MakeDeterministic(data['u_policies'][args.un])
+                policy = MakeDeterministic(
+                    WeightedMultiPolicySelector(data['policy'], args.un))
         else:
             print('Using the deterministic version of the Intentional policy.')
             policy = MakeDeterministic(data['policy'])
@@ -33,9 +36,11 @@ def simulate_policy(args):
         if args.un > -1:
             print('Using the UNintentional stochastic policy %02d' % args.un)
             if 'u_policy' in data:
-                policy = MultiPolicySelector(data['u_policy'], args.un)
+                # policy = MultiPolicySelector(data['u_policy'], args.un)
+                policy = WeightedMultiPolicySelector(data['policy'], args.un)
             else:
-                policy = data['u_policies'][args.un]
+                # policy = data['u_policies'][args.un]
+                policy = WeightedMultiPolicySelector(data['policy'], args.un)
         else:
             print('Using the Intentional stochastic policy.')
             # policy = data['exploration_policy']

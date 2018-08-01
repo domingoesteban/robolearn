@@ -78,6 +78,7 @@ PATHS_PER_EPOCH = 5
 PATHS_PER_EVAL = 1
 
 expt_params = dict(
+    algo_name=SoftActorCritic.__name__,
     algo_params=dict(
         # Common RLAlgo params
         num_epochs=1000,  # n_epochs
@@ -100,7 +101,8 @@ expt_params = dict(
         policy_pre_activation_weight=0.,
 
         discount=0.99,
-        reward_scale=1.0,
+        # reward_scale=1.0,  # NO FUNCA 20/06
+        reward_scale=10.0,
     ),
     net_size=64
 )
@@ -118,15 +120,16 @@ env_params = dict(
     robot_config=None,
     sim_timestep=SIM_TIMESTEP,
     frame_skip=FRAME_SKIP,
-    obs_distances=False,  # If True obs contain 'distance' vectors instead poses
+    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
+    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
     tgt_cost_weight=1.0,
     ctrl_cost_weight=1.0e-2,
+    # use_log_distances=True,
     use_log_distances=False,
-    # use_log_distances=False,
     log_alpha=1e-6,
     tgt_tolerance=0.05,
-    max_time=10,
     # max_time=PATH_LENGTH*DT,
+    max_time=None,
     half_env=False,
 )
 

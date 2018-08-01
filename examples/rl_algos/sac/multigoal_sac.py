@@ -61,10 +61,11 @@ PATHS_PER_EPOCH = 30
 PATHS_PER_EVAL = 3
 
 expt_params = dict(
+    algo_name=SoftActorCritic.__name__,
     algo_params=dict(
         # Common RLAlgo params
-        num_epochs=1000,  # n_epochs
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
+        num_epochs=1500,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         # EnvSampler params
@@ -144,4 +145,3 @@ if __name__ == "__main__":
     algo = experiment(expt_variant)
 
     input('Press a key to close the script...')
-

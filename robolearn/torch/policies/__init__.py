@@ -3,6 +3,11 @@ from .tanh_mlp_policy import TanhMlpPolicy
 from .tanh_gaussian_policy import TanhGaussianPolicy
 from .tanh_gaussian_multi_policy import TanhGaussianMultiPolicy
 from .mixture_tanh_gaussian_multi_policy import MixtureTanhGaussianMultiPolicy
+from .tanh_gaussian_weighted_multi_policy import TanhGaussianWeightedMultiPolicy
+
 from .multi_policy_selector import MultiPolicySelector
+from .weighted_multi_policy_selector import WeightedMultiPolicySelector
 from .sampling_policy import SamplingPolicy
+
+from .lin_gauss_policy import LinearGaussianPolicy
 

@@ -3,6 +3,8 @@ from robolearn.torch.core import PyTorchModule
 from robolearn.torch.pytorch_util import set_gpu_mode
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn_gym_envs.pybullet import Reacher2D3DofBulletEnv
+from robolearn.policies import MakeDeterministic
+from robolearn.policies import ExplorationPolicy
 import argparse
 import joblib
 import uuid
@@ -16,7 +18,10 @@ def simulate_policy(args):
     data = joblib.load(args.file)
     if args.deterministic:
         print('Using the deterministic version of the policy.')
-        policy = data['policy']
+        if isinstance(data['policy'], ExplorationPolicy):
+            policy = MakeDeterministic(data['policy'])
+        else:
+            policy = data['policy']
     else:
         print('Using the stochastic policy.')
         policy = data['exploration_policy']
@@ -37,7 +42,7 @@ def simulate_policy(args):
         policy.train(False)
     while True:
         if args.record:
-            env.start_recording_video('prueba.mp4')
+            env.start_recording_video('interaction_video.mp4')
         path = rollout(
             env,
             policy,

@@ -149,22 +149,35 @@ class GoalCompositionEnv(Serializable):
             self.compute_reward(self._observation, action)
 
         # Compute Done
-        dist_goal = np.linalg.norm(self.goal_position - self._observation)
-        done = dist_goal < self._goal_threshold
-
-        self._t_counter += 1
-        if self._horizon is not None:
-            if self._t_counter >= self._horizon:
-                done = True
-
-        done = False
-        done_multigoal = [False for _ in self.goal_masks[1:]]
+        done, done_multigoal = self._check_termination()
 
         return next_obs, reward, done, \
             {'pos': next_obs,
              'reward_vector': reward_composition,
              'reward_multigoal': reward_multigoal,
              'terminal_multigoal': done_multigoal}
+
+    def _check_termination(self):
+        if self._horizon is None:
+            goal_pos = self.goal_position
+            tgt_pos = self._observation
+
+            goal_poses_masked = [goal_pos[mask] for mask in self.goal_masks]
+            tgt_poses_masked = [tgt_pos[mask] for mask in self.goal_masks]
+
+            goal_tgt_dists = [np.linalg.norm(goal_mask - tgt_mask)
+                              for goal_mask, tgt_mask in zip(goal_poses_masked,
+                                                             tgt_poses_masked)]
+
+            done_vect = [goal_tgt_dist <= self._goal_threshold
+                         for goal_tgt_dist in goal_tgt_dists]
+
+            return done_vect[0], done_vect[1:]
+        else:
+            if self._t_counter >= self._horizon:
+                return True, [True for _ in self.goal_masks[1:]]
+            else:
+                return False, [False for _ in self.goal_masks[1:]]
 
     def compute_reward(self, observation, action):
         # Penalize the L2 norm of acceleration

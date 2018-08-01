@@ -200,7 +200,7 @@ class TanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
             for ii, idx in enumerate(pol_idxs):
                 log_stds[ii] = self.last_fc_log_stds[idx](hs[ii])
                 log_stds[ii] = torch.clamp(log_stds[ii],
-                                           LOG_SIG_MIN, LOG_SIG_MAX)
+                                           min=LOG_SIG_MIN, max=LOG_SIG_MAX)
                 stds[ii] = torch.exp(log_stds[ii])
         else:
             stds = self.stds
@@ -271,7 +271,7 @@ class TanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
             for ii, idx in enumerate(pol_idxs):
                 log_stds[ii] = self.last_fc_log_stds[idx](hs[ii])
                 log_stds[ii] = torch.clamp(log_stds[ii],
-                                           LOG_SIG_MIN, LOG_SIG_MAX)
+                                           min=LOG_SIG_MIN, max=LOG_SIG_MAX)
                 stds[ii] = torch.exp(log_stds[ii])
         else:
             stds = self.stds

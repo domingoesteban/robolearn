@@ -8,87 +8,21 @@ from robolearn.core import logger
 
 
 class IncrementalRLAlgorithm(RLAlgorithm):
-    def __init__(
-            self,
-            env,
-            exploration_policy: ExplorationPolicy,
-            training_env=None,
-            num_epochs=100,
-            num_steps_per_epoch=10000,
-            num_steps_per_eval=1000,
-            num_updates_per_train_call=1,
-            batch_size=1024,
-            min_buffer_size=None,
-            max_path_length=1000,
-            discount=0.99,
-            replay_buffer_size=1e6,
-            reward_scale=1,
-            render=False,
-            save_replay_buffer=False,
-            save_algorithm=False,
-            save_environment=True,
-            eval_sampler=None,
-            eval_policy=None,
-            replay_buffer=None,
-    ):
+    def __init__(self, *args, **kwargs):
         """
         Base class for Incremental RL Algorithms
-        :param env: Environment used to evaluate.
-        :param exploration_policy: Policy used to explore.
-        :param training_env: Environment used by the algorithm. By default, a
-        copy of `env` will be made.
-        :param num_epochs: Number of episodes.
-        :param num_steps_per_epoch: Number of timesteps per epoch.
-        :param num_steps_per_eval: Number of timesteps per evaluation
-        :param num_updates_per_train_call: Used by online training mode.
-        :param num_updates_per_epoch: Used by batch training mode.
-        :param max_path_length: Max length of sampled path (rollout) from env.
-        :param batch_size: Replay buffer batch size.
-        :param replay_buffer: External replay_buffer
-        :param min_buffer_size: Min buffer size to start training.
-        :param replay_buffer_size: Replay buffer size (Maximum number).
-        :param discount: discount factor (gamma).
-        :param reward_scale: Value to scale environment reward.
-        :param render: Visualize or not the environment.
-        :param save_replay_buffer: Save or not the ReplBuffer after iterations
-        :param save_algorithm: Save or not the algorithm  after iterations.
-        :param save_environment: Save or not the environment after interations
-        :param eval_sampler: External sampler for evaluation.
-        :param eval_policy: Policy to evaluate with.
         """
-        RLAlgorithm.__init__(
-            self,
-            env,
-            exploration_policy=exploration_policy,
-            training_env=training_env,
-            num_epochs=num_epochs,
-            num_steps_per_epoch=num_steps_per_epoch,
-            num_steps_per_eval=num_steps_per_eval,
-            num_updates_per_train_call=num_updates_per_train_call,
-            batch_size=batch_size,
-            min_buffer_size=min_buffer_size,
-            max_path_length=max_path_length,
-            discount=discount,
-            replay_buffer_size=replay_buffer_size,
-            reward_scale=reward_scale,
-            render=render,
-            save_replay_buffer=save_replay_buffer,
-            save_algorithm=save_algorithm,
-            save_environment=save_environment,
-            eval_sampler=eval_sampler,
-            eval_policy=eval_policy,
-            replay_buffer=replay_buffer,
-        )
+        RLAlgorithm.__init__(self, *args, **kwargs)
 
     def train(self, start_epoch=0):
-        self.pretrain()
+        self.training_mode(False)
 
         # Get snapshot of initial stuff
         if start_epoch == 0:
-            params = self.get_epoch_snapshot(-1)
-            logger.save_itr_params(-1, params)
+            self._generate_initial_policy_data()
+        else:
+            self._print_log_header = False
 
-        self.training_mode(False)
         self._n_env_steps_total = start_epoch * self.num_env_steps_per_epoch
 
         gt.reset()
@@ -101,18 +35,23 @@ class IncrementalRLAlgorithm(RLAlgorithm):
                 save_itrs=True,
         ):
             self._start_epoch(epoch)
-            for _ in range(self.num_env_steps_per_epoch):
+            epoch_steps = self.num_env_steps_per_epoch
+            if epoch == 0:
+                epoch_steps += self.min_steps_start_train
+
+            for ss in range(epoch_steps):
                 # Get policy action
                 action, agent_info = self._get_action_and_info(
                     observation,
                 )
                 # Render if it is requested
                 if self._render:
-                    self.training_env.render()
+                    self.env.render()
                 # Interact with environment
                 next_ob, raw_reward, terminal, env_info = (
-                    self.training_env.step(action)
+                    self.env.step(action)
                 )
+
                 # Increase counter
                 self._n_env_steps_total += 1
                 # Create np.array of obtained terminal and reward
@@ -146,3 +85,21 @@ class IncrementalRLAlgorithm(RLAlgorithm):
             gt.stamp('eval')
             self._end_epoch()
 
+    def _generate_initial_policy_data(self):
+        self.training_mode(False)
+        params = self.get_epoch_snapshot(-1)
+        logger.save_itr_params(-1, params)
+
+        self.evaluate(-1)
+        logger.record_tabular("Number of train steps total", 0)
+        logger.record_tabular("Number of env steps total", 0)
+        logger.record_tabular("Number of rollouts total", 0)
+        logger.record_tabular('Train Time (s)', 0)
+        logger.record_tabular('(Previous) Eval Time (s)', 0)
+        logger.record_tabular('Sample Time (s)', 0)
+        logger.record_tabular('Epoch Time (s)', 0)
+        logger.record_tabular('Total Train Time (s)', 0)
+        logger.record_tabular("Epoch", 0)
+
+        logger.dump_tabular(with_prefix=False, with_timestamp=False,
+                            write_header=self._print_log_header)

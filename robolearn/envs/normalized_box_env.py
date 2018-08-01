@@ -17,6 +17,7 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
             reward_scale=1.,
             obs_mean=None,
             obs_std=None,
+            online_normalization=False,
     ):
         # self._wrapped_env needs to be called first because
         # Serializable.quick_init calls getattr, on this class. And the
@@ -29,6 +30,8 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
         self._serializable_initialized = False
         Serializable.quick_init(self, locals())
         ProxyEnv.__init__(self, env)
+
+        # Observation Space
         self._should_normalize = not (obs_mean is None and obs_std is None)
         if self._should_normalize:
             if obs_mean is None:
@@ -39,11 +42,23 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
                 obs_std = np.ones_like(env.observation_space.low)
             else:
                 obs_std = np.array(obs_std)
-        self._reward_scale = reward_scale
+
         self._obs_mean = obs_mean
         self._obs_std = obs_std
+
+        self._online_normalization = online_normalization
+        self._obs_mean_diff = np.zeros_like(env.observation_space.low)
+        self._obs_n = np.zeros_like(env.observation_space.low)
+
+        if self._online_normalization and not self._should_normalize:
+            self._obs_mean = np.zeros_like(env.observation_space.low)
+
+        # Action Space
         ub = np.ones(self._wrapped_env.action_space.shape)
         self.action_space = Box(-1 * ub, ub, dtype=np.float32)
+
+        # Reward Scale
+        self._reward_scale = reward_scale
 
     def estimate_obs_stats(self, obs_batch, override_values=False):
         if self._obs_mean is not None and not override_values:
@@ -69,17 +84,53 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
         self._obs_std = d["_obs_std"]
         self._reward_scale = d["_reward_scale"]
 
+    @property
+    def obs_mean(self):
+        return self._obs_mean
+
+    @property
+    def obs_std(self):
+        return self._obs_std
+
+    @property
+    def reward_scale(self):
+        return self._reward_scale
+
     def step(self, action):
+        # Scale Action
         lb = self._wrapped_env.action_space.low
         ub = self._wrapped_env.action_space.high
         scaled_action = lb + (action + 1.) * 0.5 * (ub - lb)
         scaled_action = np.clip(scaled_action, lb, ub)
 
+        # Interact with Environment
         wrapped_step = self._wrapped_env.step(scaled_action)
         next_obs, reward, done, info = wrapped_step
+
+        # Normalize Observation
         if self._should_normalize:
             next_obs = self._apply_normalize_obs(next_obs)
-        return next_obs, reward * self._reward_scale, done, info
+
+        if self._online_normalization:
+            next_obs = self._apply_online_normalize_obs(next_obs)
+
+        # Scale Reward
+        reward = reward * self._reward_scale
+
+        return next_obs, reward, done, info
+
+    def _apply_online_normalize_obs(self, obs):
+        self._obs_n += 1.
+        last_mean = self._obs_mean
+        self._obs_mean += (obs-self._obs_mean)/self._obs_n
+        self._obs_mean_diff += (obs-last_mean)*(obs-self._obs_mean)
+        self._obs_std = np.sqrt(np.clip(self._obs_mean_diff/self._obs_n,
+                                        1.e-2, None))
+        return self._apply_normalize_obs(obs)
+
+    @property
+    def online_normalization(self):
+        return self._online_normalization
 
     def __str__(self):
         return "Normalized: %s" % self._wrapped_env

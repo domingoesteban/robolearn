@@ -8,3 +8,6 @@ from .reinforce import Reinforce
 from .ddpg import DDPG
 from .sac import SoftActorCritic
 
+# GPS
+from .gps import MDGPS
+

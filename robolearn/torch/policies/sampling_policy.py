@@ -32,8 +32,8 @@ class SamplingPolicy(Mlp, ExplorationPolicy):
         self._squash = squash
 
         # # TODO: WE ARE INITIALIZING LAST LAYER WEIGHTS WITH XAVIER
-        # nn_pol.init.xavier_normal_(self.last_fcs.weight.data)
-        # # self.last_fcs.bias.data.zero_()
+        # nn_pol.init.xavier_normal_(self.last_pfcs.weight.data)
+        # # self.last_pfcs.bias.data.zero_()
 
     def get_action(self, obs_np, deterministic=False):
         # TODO: CHECK IF INDEX 0

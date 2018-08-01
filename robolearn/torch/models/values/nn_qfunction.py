@@ -24,13 +24,12 @@ class NNQFunction(FlattenMlp, Serializable, QFunction):
                             **kwargs
                             )
 
-        print('TODOOO: SETTING Q-FCN INIT VALS')
-        init_w = 1e-3
-        for param in self.parameters():
-            param.data.uniform_(-init_w, init_w)
+        # print('TODOOO: SETTING Q-FCN INIT VALS')
+        # init_w = 1e-4
+        # for param in self.parameters():
+        #     param.data.uniform_(-init_w, init_w)
 
     def get_value(self, obs_np, act_np, **kwargs):
-        # TODO: CHECK IF INDEX 0
         values, info_dict = \
             self.get_values(obs_np[None], act_np[None], **kwargs)
 

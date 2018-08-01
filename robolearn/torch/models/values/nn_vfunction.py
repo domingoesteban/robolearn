@@ -9,7 +9,6 @@ class NNVFunction(Mlp, Serializable, VFunction):
                  obs_dim,
                  hidden_sizes=(100, 100),
                  **kwargs):
-
         VFunction.__init__(self,
                            obs_dim=obs_dim)
 
@@ -23,10 +22,10 @@ class NNVFunction(Mlp, Serializable, VFunction):
                      **kwargs
                      )
 
-        print('TODOOO: SETTING V-FCN INIT VALS')
-        init_w = 1e-3
-        for param in self.parameters():
-            param.data.uniform_(-init_w, init_w)
+        # print('TODOOO: SETTING V-FCN INIT VALS')
+        # init_w = 1e-4
+        # for param in self.parameters():
+        #     param.data.uniform_(-init_w, init_w)
 
     def get_value(self, obs_np, **kwargs):
         values, info_dict = \
@@ -41,9 +40,10 @@ class NNVFunction(Mlp, Serializable, VFunction):
     def get_values(self, obs_np, **kwargs):
         return self.eval_np(obs_np, **kwargs)
 
-    def forward(self, nn_input, return_preactivations=False):
-        nn_ouput = Mlp.forward(self, nn_input,
+    def forward(self, obs, return_preactivations=False):
+        nn_ouput = Mlp.forward(self, obs,
                                return_preactivations=return_preactivations)
+
         if return_preactivations:
             value = nn_ouput[0]
             pre_activations = nn_ouput[1]
@@ -55,5 +55,3 @@ class NNVFunction(Mlp, Serializable, VFunction):
             info_dict = dict()
 
         return value, info_dict
-
-

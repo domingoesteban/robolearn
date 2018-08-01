@@ -12,7 +12,7 @@ import torch.optim as optim
 from collections import OrderedDict
 
 import robolearn.torch.pytorch_util as ptu
-from robolearn.torch.torch_iterative_rl_algorithm import TorchIterativeRLAlgorithm
+from robolearn.torch import TorchIterativeRLAlgorithm
 from robolearn.core import logger, eval_util
 from robolearn.policies import MakeDeterministic
 
@@ -89,7 +89,7 @@ class Reinforce(TorchIterativeRLAlgorithm):
 
     def _do_training(self):
         # batch = self.get_batch()
-        paths = self.get_paths()
+        paths = self.get_exploration_paths()
 
         # Update Networks
 

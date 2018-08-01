@@ -69,6 +69,7 @@ PATHS_PER_EPOCH = 5
 PATHS_PER_EVAL = 1
 
 expt_params = dict(
+    algo_name=Reinforce.__name__,
     algo_params=dict(
         # Common RLAlgo params
         num_epochs=1000,  # n_epochs
