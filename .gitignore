@@ -14,3 +14,5 @@ trajopt_log*
 *log*
 
 !robolearn/core/logger.py
+!robolearn/torch/ops/logsumexp.py
+!robolearn/torch/ops/log_sum_exp.py
