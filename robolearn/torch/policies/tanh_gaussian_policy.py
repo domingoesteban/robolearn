@@ -9,9 +9,10 @@ import robolearn.torch.pytorch_util as ptu
 from robolearn.torch.nn import Mlp
 from robolearn.policies.base import ExplorationPolicy
 from robolearn.torch.distributions import TanhNormal
+from robolearn.torch.distributions import TanhMultivariateNormal
 
-LOG_SIG_MAX = 2
-LOG_SIG_MIN = -20
+LOG_SIG_MAX = 0.0  # 2
+LOG_SIG_MIN = -3.0  # 20
 
 
 class TanhGaussianPolicy(Mlp, ExplorationPolicy):
@@ -42,8 +43,24 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             hidden_b_init_val=0,
             output_w_init=ptu.xavier_init,
             output_b_init_val=0,
+            reparameterize=True,
             **kwargs
     ):
+        """
+
+        Args:
+            obs_dim:
+            action_dim:
+            hidden_sizes:
+            std:
+            hidden_w_init:
+            hidden_b_init_val:
+            output_w_init:
+            output_b_init_val:
+            reparameterize: If True, gradients will flow directly through
+                the action samples.
+            **kwargs:
+        """
         self.save_init_params(locals())
         super(TanhGaussianPolicy, self).__init__(
             hidden_sizes,
@@ -64,12 +81,17 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             if len(hidden_sizes) > 0:
                 last_hidden_size = hidden_sizes[-1]
             self.last_fc_log_std = nn.Linear(last_hidden_size, action_dim)
-            hidden_w_init(self.last_fc_log_std.weight)
+            # hidden_w_init(self.last_fc_log_std.weight)
+            # ptu.fill(self.last_fc_log_std.bias, hidden_b_init_val)
+            nn.init.xavier_normal_(self.last_fc_log_std.weight.data,
+                                   gain=nn.init.calculate_gain('linear'))
             ptu.fill(self.last_fc_log_std.bias, hidden_b_init_val)
 
         else:
             self.log_std = np.log(std)
             assert LOG_SIG_MIN <= self.log_std <= LOG_SIG_MAX
+
+        self._reparameterize = reparameterize
 
     def get_action(self, obs_np, deterministic=False):
         """
@@ -120,19 +142,38 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
         if deterministic:
             action = torch.tanh(mean)
         else:
+            # Using this distribution instead of TanhMultivariateNormal
+            # because it is Diagonal Covariance.
+            # Then, a collection of n independent Gaussian r.v.
             tanh_normal = TanhNormal(mean, std)
-            if return_log_prob:
+
+            # # It is the Lower-triangular factor of covariance because it is
+            # # Diagonal Covariance
+            # scale_trils = torch.stack([torch.diag(m) for m in std])
+            # tanh_normal = TanhMultivariateNormal(mean, scale_tril=scale_trils)
+
+            if self._reparameterize:
                 action, pre_tanh_value = tanh_normal.rsample(
                     return_pretanh_value=True
                 )
+            else:
+                action, pre_tanh_value = tanh_normal.sample(
+                    return_pretanh_value=True
+                )
+
+            if return_log_prob:
+                # log_prob = tanh_normal.log_prob(
+                #     action,
+                #     pre_tanh_value=pre_tanh_value
+                # ).unsqueeze_(-1)
+
                 log_prob = tanh_normal.log_prob(
                     action,
                     pre_tanh_value=pre_tanh_value
                 )
+
+                # THE FOLLOWING ONLY WITH TanhNormal
                 log_prob = log_prob.sum(dim=-1, keepdim=True)
-            else:
-                action, pre_tanh_value = \
-                    tanh_normal.rsample(return_pretanh_value=True)
 
         info_dict = dict(
             mean=mean,
@@ -155,6 +196,7 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
         Returns:
 
         """
+        #TODO: CHECK THIS FUNCTION
         h = obs
         for i, fc in enumerate(self.fcs):
             h = self.hidden_activation(fc(h))
@@ -168,10 +210,19 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
         else:
             std = self.std
 
-        tanh_normal = TanhNormal(mean, std)
-        log_prob = torch.sum(tanh_normal.log_prob(action), dim=-1, keepdim=True)
+        # tanh_normal = TanhNormal(mean, std)
+        # log_prob = torch.sum(tanh_normal.log_prob(action), dim=-1, keepdim=True)
+
+        scale_trils = torch.stack([torch.diag(m) for m in std])
+        tanh_normal = TanhMultivariateNormal(mean, scale_tril=scale_trils)
+        log_prob = tanh_normal.log_prob(action).unsqueeze_(-1)
+
         return log_prob
 
         # z = (action - mean)/stds
         # return -0.5 * torch.sum(torch.mul(z, z), dim=-1, keepdim=True)
+
+    @property
+    def reparameterize(self):
+        return self._reparameterize
 

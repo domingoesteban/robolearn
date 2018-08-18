@@ -51,6 +51,7 @@ def rollout(env, agent, max_path_length=np.inf, animated=False,
         else:
             a, agent_info = agent.get_action(o, deterministic=deterministic)
         next_o, r, d, env_info = env.step(a)
+        # print(path_length, r, d)
 
         observations.append(o)
         rewards.append(r)
@@ -64,6 +65,7 @@ def rollout(env, agent, max_path_length=np.inf, animated=False,
         o = next_o
         if animated:
             env.render()
+        # print(path_length)
 
     actions = np.array(actions)
     if len(actions.shape) == 1:

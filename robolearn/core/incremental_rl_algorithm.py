@@ -28,8 +28,8 @@ class IncrementalRLAlgorithm(RLAlgorithm):
         gt.reset()
         gt.set_def_unique(False)
 
-        self._current_path_builder = PathBuilder()
-        observation = self._start_new_rollout()
+        # self._current_path_builder = PathBuilder()
+        # observation = self._start_new_rollout()
         for epoch in gt.timed_for(
                 range(start_epoch, self.num_epochs),
                 save_itrs=True,
@@ -39,7 +39,9 @@ class IncrementalRLAlgorithm(RLAlgorithm):
             if epoch == 0:
                 epoch_steps += self.min_steps_start_train
 
+            observation = self._start_new_rollout()
             for ss in range(epoch_steps):
+                # print('epoch:%02d | steps:%03d' % (epoch, ss))
                 # Get policy action
                 action, agent_info = self._get_action_and_info(
                     observation,
@@ -69,7 +71,8 @@ class IncrementalRLAlgorithm(RLAlgorithm):
                 )
                 # Check it we need to start a new rollout
                 if terminal or (len(self._current_path_builder) >=
-                                self.max_path_length):
+                                self.max_path_length) \
+                        or ss == (epoch_steps - 1):
                     self._handle_rollout_ending()
                     observation = self._start_new_rollout()
                 else:

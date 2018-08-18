@@ -7,33 +7,33 @@ import yaml
 from builtins import input
 
 import numpy as np
-from robolearn.old_envs.pusher3dof import Pusher3DofBulletEnv
-from robolearn.old_utils.sample.sampler import Sampler
+from robolearn.v010.envs.pusher3dof import Pusher3DofBulletEnv
+from robolearn.v010.utils.sample.sampler import Sampler
 
-from robolearn.old_agents import GPSAgent
-from robolearn.old_algos.gps.dual_gps import DualGPS
+from robolearn.v010.agents import GPSAgent
+from robolearn.v010.algos.gps.dual_gps import DualGPS
 # Costs
-from robolearn.old_costs.cost_action import CostAction
+from robolearn.v010.costs.cost_action import CostAction
 # from robolearn.costs.cost_fk import CostFK
-from robolearn.old_costs.cost_state import CostState
-from robolearn.old_costs.cost_safe_distance import CostSafeDistance
-from robolearn.old_costs.cost_state_difference import CostStateDifference
-from robolearn.old_costs.cost_safe_state_difference import CostSafeStateDifference
-from robolearn.old_costs.cost_sum import CostSum
-from robolearn.old_costs.cost_utils import RAMP_FINAL_ONLY, RAMP_CONSTANT
-from robolearn.old_costs.cost_utils import evall1l2term
+from robolearn.v010.costs.cost_state import CostState
+from robolearn.v010.costs.cost_safe_distance import CostSafeDistance
+from robolearn.v010.costs.cost_state_difference import CostStateDifference
+from robolearn.v010.costs.cost_safe_state_difference import CostSafeStateDifference
+from robolearn.v010.costs.cost_sum import CostSum
+from robolearn.v010.costs.cost_utils import RAMP_FINAL_ONLY, RAMP_CONSTANT
+from robolearn.v010.costs.cost_utils import evall1l2term
 # from robolearn.envs import BigmanEnv
-from robolearn.old_policies.lin_gauss_init import init_pd, init_dual_demos, init_lqr, init_pd_tgt
-from robolearn.old_policies.policy_opt.policy_opt_tf import PolicyOptTf
-from robolearn.old_policies.policy_opt.tf_models import tf_network
-from robolearn.old_policies.policy_prior import ConstantPolicyPrior  # For MDGPS
-from robolearn.old_policies.lin_gauss_policy import LinearGaussianPolicy
-from robolearn.old_policies.dataset_policy import DataSetPolicy
-from robolearn.old_utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
-from robolearn.old_utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
-from robolearn.old_utils.print_utils import change_print_color
-from robolearn.old_utils.transformations_utils import create_quat_pose
-from robolearn.old_utils.traj_opt.dualist_traj_opt import DualistTrajOpt
+from robolearn.v010.policies.lin_gauss_init import init_pd, init_dual_demos, init_lqr, init_pd_tgt
+from robolearn.v010.policies.policy_opt.policy_opt_tf import PolicyOptTf
+from robolearn.v010.policies.policy_opt.tf_models import tf_network
+from robolearn.v010.policies.policy_prior import ConstantPolicyPrior  # For MDGPS
+from robolearn.v010.policies.lin_gauss_policy import LinearGaussianPolicy
+from robolearn.v010.policies.dataset_policy import DataSetPolicy
+from robolearn.v010.utils.dynamics.dynamics_lr_prior import DynamicsLRPrior
+from robolearn.v010.utils.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
+from robolearn.v010.utils.print_utils import change_print_color
+from robolearn.v010.utils.transformations_utils import create_quat_pose
+from robolearn.v010.utils.traj_opt.dualist_traj_opt import DualistTrajOpt
 
 np.set_printoptions(precision=4, suppress=True, linewidth=1000)
 
@@ -482,7 +482,7 @@ class Scenario(object):
                 env_condition[:self.env.get_action_dim()] = joint_pos
                 # env_condition[obst_idx] = init_cond[3:]
 
-                # Temporally hack for getting ee tgt
+                # Temporally hack for getting ee _object
                 self.env.add_custom_init_cond(env_condition)
                 self.env.reset(condition=-1)
                 # obs = self.env.get_observation()

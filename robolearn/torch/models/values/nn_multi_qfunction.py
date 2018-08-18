@@ -45,7 +45,7 @@ class NNMultiQFunction(PyTorchModule, QFunction):
         self.output_activation = output_activation
         self.shared_layer_norm = shared_layer_norm
         self.unshared_layer_norm = unshared_layer_norm
-        self.fcs = []
+        self.sfcs = []
         self.shared_layer_norms = []
         self.ufcs = [list() for _ in range(self._n_qs)]
         self.unshared_layer_norms = [list() for _ in range(self._n_qs)]
@@ -60,8 +60,8 @@ class NNMultiQFunction(PyTorchModule, QFunction):
                 nn.init.xavier_normal_(fc.weight.data,
                                        gain=nn.init.calculate_gain('relu'))
                 ptu.fill(fc.bias, hidden_b_init_val)
-                self.__setattr__("fc{}".format(i), fc)
-                self.fcs.append(fc)
+                self.__setattr__("sfc{}".format(i), fc)
+                self.sfcs.append(fc)
 
                 if self.shared_layer_norm:
                     ln = LayerNorm(next_size)
@@ -120,7 +120,8 @@ class NNMultiQFunction(PyTorchModule, QFunction):
 
         h = torch.cat((obs, act), dim=-1)
 
-        for i, fc in enumerate(self.fcs):
+        # Shared layers
+        for i, fc in enumerate(self.sfcs):
             h = self.hidden_activation(fc(h))
 
         hs = [h.clone() for _ in val_idxs]

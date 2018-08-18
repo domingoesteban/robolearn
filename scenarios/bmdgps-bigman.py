@@ -667,7 +667,7 @@ if generate_dual_sets is True:
     change_print_color.change('GREEN')
     if dual_dir is None:
         task_space_torque_control_dual_params = {
-            'active_joints': 'RA',
+            '_active_joints': 'RA',
             'n_good_samples': 3,
             'n_bad_samples': 3,
             'conditions_to_sample': range(len(bigman_env.get_conditions())),

@@ -47,6 +47,16 @@ def get_average_multigoal_returns(paths, multigoal_idx):
     return np.mean(returns)
 
 
+def get_average_multigoal_rewards(paths, multigoal_idx):
+    n = 0
+    accum_r = 0
+    for path in paths:
+        for r_multi in path['env_infos']:
+            accum_r += r_multi['reward_multigoal'][multigoal_idx]
+            n += 1
+    return accum_r/n
+
+
 def create_stats_ordered_dict(
         name,
         data,

@@ -41,7 +41,7 @@ class Mlp(PyTorchModule):
             in_size = next_size
             # hidden_w_init(fc.weight)
             nn.init.xavier_normal_(fc.weight.data,
-                                    gain=nn.init.calculate_gain('relu'))
+                                   gain=nn.init.calculate_gain('relu'))
             ptu.fill(fc.bias, hidden_b_init_val)
             self.__setattr__("fc{}".format(i), fc)
             self.fcs.append(fc)

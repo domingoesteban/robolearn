@@ -84,10 +84,9 @@ class TanhNormal(Distribution):
             ) / 2
 
         return self.normal.log_prob(pre_tanh_value) - \
-            torch.log(1 - value * value + self._epsilon)
-
+            torch.log(1. - value * value + self._epsilon)
         # return self.normal.log_prob(pre_tanh_value) - \
-        #     torch.log(1 - torch.tanh(pre_tanh_value)**2)
+        #     torch.log(1. - torch.tanh(pre_tanh_value)**2 + self._epsilon)
 
     def cdf(self, value, pre_tanh_value=None):
         if pre_tanh_value is None:

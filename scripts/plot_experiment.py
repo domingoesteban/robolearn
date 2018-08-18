@@ -5,20 +5,23 @@ from robolearn.utils.plots import plot_process_iu_returns
 from robolearn.utils.plots import plot_process_iu_policies
 from robolearn.utils.plots import plot_process_iu_values_errors
 from robolearn.utils.plots import plot_process_general_data
+from robolearn.utils.plots.learning_process_plots import plot_process_haarnoja
 
 
 def main(args):
     # plot_process_general_data(csv_file=args.file, n_unintentional=args.un,
     #                           block=False)
 
-    plot_process_iu_values_errors(csv_file=args.file, n_unintentional=args.un,
-                                  block=False)
+    # plot_process_iu_values_errors(csv_file=args.file, n_unintentional=args.un,
+    #                               block=False)
+    #
+    # plot_process_iu_policies(csv_file=args.file, n_unintentional=args.un,
+    #                          block=False)
+    #
+    # plot_process_iu_returns(csv_file=args.file, n_unintentional=args.un,
+    #                         block=False)
 
-    plot_process_iu_policies(csv_file=args.file, n_unintentional=args.un,
-                             block=False)
-
-    plot_process_iu_returns(csv_file=args.file, n_unintentional=args.un,
-                            block=False)
+    plot_process_haarnoja(csv_file=args.file)
 
 
 if __name__ == '__main__':

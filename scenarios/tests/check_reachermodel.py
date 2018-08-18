@@ -60,7 +60,7 @@ env_condition = np.zeros(env.get_obs_dim())
 env_condition[:env.get_action_dim()] = joint_pos
 # env_condition[obst_idx] = init_cond[3:]
 
-# Temporally hack for getting ee tgt
+# Temporally hack for getting ee _object
 env.add_custom_init_cond(env_condition)
 env.reset(condition=-1)
 # obs = self.env.get_observation()

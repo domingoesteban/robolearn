@@ -106,6 +106,7 @@ class RLAlgorithm(object):
         self.save_environment = save_environment
 
         # Internal variables
+        self._n_epochs = 0
         self._n_env_steps_total = 0  # Accumulated interactions with the env
         self._n_train_steps_total = 0  # Accumulated training steps
         self._n_epoch_train_steps = 0  # Accumulated epoch's training steps
@@ -330,6 +331,7 @@ class RLAlgorithm(object):
         self._epoch_start_time = time.time()
         self._exploration_paths = []
         self._n_epoch_train_steps = 0
+        self._n_epochs = epoch + 1
         logger.push_prefix('Iteration #%d | ' % epoch)
 
     def _end_epoch(self):

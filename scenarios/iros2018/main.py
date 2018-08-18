@@ -4,7 +4,7 @@ import yaml
 import random
 import numpy as np
 import shutil
-from scenario import Scenario
+from .scenario import Scenario
 from builtins import input
 
 

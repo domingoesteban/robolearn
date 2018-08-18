@@ -16,9 +16,9 @@ from itertools import chain
 
 # LOG_SIG_MAX = 2
 # LOG_SIG_MIN = -20
-LOG_SIG_MAX = -1.0
-# LOG_SIG_MIN = -10
-LOG_SIG_MIN = -4.0
+LOG_SIG_MAX = 0.0  # 2
+LOG_SIG_MIN = -3.0  # 20
+
 # LOG_MIX_COEFF_MIN = -10
 # LOG_MIX_COEFF_MAX = -1e-6  #-4.5e-5
 LOG_MIX_COEFF_MIN = -1
@@ -58,12 +58,13 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             output_w_init=ptu.xavier_init,
             output_b_init_val=1e-6,
             pol_output_activation=identity,
-            mix_output_activation=F.tanh,
+            mix_output_activation=torch.tanh,
             shared_layer_norm=False,
             policies_layer_norm=False,
             mixture_layer_norm=False,
             mixing_temperature=1.,
             temp_init_gain=1.0,
+            reparameterize=True,
             **kwargs
     ):
         self.save_init_params(locals())
@@ -122,8 +123,8 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 self.add_shared_module("sfc{}".format(i), sfc)
 
                 if self.shared_layer_norm:
-                    # ln = LayerNorm(next_size)
-                    ln = nn.BatchNorm1d(next_size)
+                    ln = LayerNorm(next_size)
+                    # ln = nn.BatchNorm1d(next_size)
                     self.__setattr__("norm_sfc{}".format(i), ln)
                     self.norm_sfcs.append(ln)
                     self.add_shared_module("norm_sfc{}".format(i), ln)
@@ -151,8 +152,8 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                                              idx=pol_idx)
 
                     if self.policies_layer_norm:
-                        # ln = LayerNorm(next_size)
-                        ln = nn.BatchNorm1d(next_size)
+                        ln = LayerNorm(next_size)
+                        # ln = nn.BatchNorm1d(next_size)
                         self.__setattr__("norm_pfc{}_{}".format(pol_idx, i), ln)
                         self.norm_pfcs[pol_idx].append(ln)
                         self.add_policies_module("norm_pfc{}_{}".format(pol_idx,
@@ -192,8 +193,8 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 self.add_mixing_module("mfc{}".format(i), mfc)
 
                 if self.mixture_layer_norm:
-                    # ln = LayerNorm(next_size)
-                    ln = nn.BatchNorm1d(next_size)
+                    ln = LayerNorm(next_size)
+                    # ln = nn.BatchNorm1d(next_size)
                     self.__setattr__("norm_mfc{}".format(i), ln)
                     self.norm_mfcs.append(ln)
                     self.add_mixing_module("norm_mfc{}".format(i), ln)
@@ -206,8 +207,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         # nn.init.xavier_uniform_(last_mfc.weight.data,
         #                         gain=nn.init.calculate_gain('linear'))
         nn.init.xavier_normal_(last_mfc.weight.data,
-                               gain=nn.init.calculate_gain('tanh')*temp_init_gain)
-                               # gain=nn.init.calculate_gain('linear'))
+                               gain=nn.init.calculate_gain('linear'))
         ptu.fill(last_mfc.bias, output_b_init_val)
         self.__setattr__("last_mfc", last_mfc)
         self.last_mfc = last_mfc
@@ -245,6 +245,8 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             for std in stds:
                 self.log_std.append(np.log(stds))
                 assert LOG_SIG_MIN <= self.log_std[-1] <= LOG_SIG_MAX
+
+        self._reparameterize = reparameterize
 
     def get_action(self, obs_np, **kwargs):
         action, info_dict = self.get_actions(obs_np[None], **kwargs)
@@ -413,10 +415,8 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         # print('-----')
 
         if torch.isnan(mixture_coeff).any():
-            raise ValueError('Any mixture coeff is NAN:',
+            raise ValueError('Some mixture coeff(s) is(are) NAN:',
                              mixture_coeff)
-
-
 
 
         """
@@ -518,8 +518,12 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         else:
             tanh_normals = TanhNormal(means, stds)
 
-            actions, pre_tanh_values = \
-                tanh_normals.rsample(return_pretanh_value=True)  # N x dA x K
+            if self._reparameterize:
+                actions, pre_tanh_values = \
+                    tanh_normals.rsample(return_pretanh_value=True)  # N x dA x K
+            else:
+                actions, pre_tanh_values = \
+                    tanh_normals.sample(return_pretanh_value=True)  # N x dA x K
 
             log_probs = \
                 tanh_normals.log_prob(actions,
@@ -532,13 +536,12 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 action = torch.sum(actions*z.unsqueeze(-2), dim=-1)
                 pre_tanh_value = \
                     torch.sum(pre_tanh_values*z.unsqueeze(-2), dim=-1)
+                log_prob = torch.sum(log_probs*z.unsqueeze(-2), dim=-1)
 
                 # log_prob = \
                 #     logsumexp(log_probs + log_mixture_coeff.unsqueeze(-2),
                 #               dim=-1, keepdim=False) \
                 #     - logsumexp(log_mixture_coeff, dim=-1, keepdim=True)
-
-                log_prob = torch.sum(log_probs*z.unsqueeze(-2), dim=-1)
 
             else:
                 indices = ptu.LongTensor([pol_idx])
@@ -548,11 +551,6 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                     torch.index_select(pre_tanh_values, dim=-1, index=indices).squeeze(-1)
                 log_prob = \
                     torch.index_select(log_probs, dim=-1, index=indices).squeeze(-1)
-
-        # print('act', np.round(action.data.numpy(), 2))
-        # print('mean', np.round(means.data.numpy(), 2))
-        # print('stds', np.round(stds.data.numpy(), 2))
-        # print('----')
 
         info_dict = dict(
             mean=mean,
@@ -723,3 +721,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
     def add_mixing_module(self, name, module):
         ptu.add_module(self._mixing_modules, name, module)
+
+    @property
+    def reparameterize(self):
+        return self._reparameterize

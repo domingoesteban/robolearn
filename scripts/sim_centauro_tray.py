@@ -5,6 +5,7 @@ from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn_gym_envs.pybullet import CentauroTrayEnv
 from robolearn.torch.policies import MultiPolicySelector
 from robolearn.torch.policies import WeightedMultiPolicySelector
+from robolearn.torch.policies import TanhGaussianPolicy
 from robolearn.policies import MakeDeterministic
 from robolearn.utils.plots import plot_reward_composition
 from robolearn.utils.plots import plot_reward_iu
@@ -16,6 +17,7 @@ import joblib
 import uuid
 from robolearn.core import logger
 import json
+import numpy as np
 
 filename = str(uuid.uuid4())
 
@@ -32,9 +34,12 @@ def simulate_policy(args):
                     # WeightedMultiPolicySelector(data['u_policy'], args.un))
             else:
                 # policy = MakeDeterministic(data['u_policies'][args.un])
-                policy = MakeDeterministic(
-                    WeightedMultiPolicySelector(data['policy'], args.un)
-                )
+                if isinstance(data['policy'], TanhGaussianPolicy):
+                    policy = MakeDeterministic(data['policy'])
+                else:
+                    policy = MakeDeterministic(
+                        WeightedMultiPolicySelector(data['policy'], args.un)
+                    )
         else:
             print('Using the deterministic version of the Intentional policy.')
             policy = MakeDeterministic(data['policy'])
@@ -62,19 +67,44 @@ def simulate_policy(args):
 
     if 'obs_mean' in data.keys():
         obs_mean = data['obs_mean']
+        print('OBS_MEAN')
+        print(repr(obs_mean))
     else:
         obs_mean = None
+        # obs_mean = np.array([ 0.07010766,  0.37585765,  0.21402615,  0.24426296,  0.5789634 ,
+        #                       0.88510203,  1.6878743 ,  0.02656335,  0.03794186, -1.0241051 ,
+        #                       -0.5226027 ,  0.6198239 ,  0.49062446,  0.01197532,  0.7888951 ,
+        #                       -0.4857273 ,  0.69160587, -0.00617676,  0.08966777, -0.14694819,
+        #                       0.9559917 ,  1.0450271 , -0.40958315,  0.86435956,  0.00609685,
+        #                       -0.01115279, -0.21607827,  0.9762933 ,  0.80748135, -0.48661205,
+        #                       0.7473679 ,  0.01649722,  0.15451911, -0.17285274,  0.89978695])
 
-    if 'obs_std' in data.keys():
-        obs_std = data['obs_std']
+    if 'obs_var' in data.keys():
+        obs_var = data['obs_var']
+        print('OBS_VAR')
+        print(repr(obs_var))
     else:
-        obs_std = None
+        obs_var = None
+        # obs_var = np.array([0.10795759, 0.12807205, 0.9586606 , 0.46407   , 0.8994803 ,
+        #                     0.35167143, 0.30286264, 0.34667444, 0.35105848, 1.9919134 ,
+        #                     0.9462659 , 2.245269  , 0.84190637, 1.5407104 , 0.1       ,
+        #                     0.10330457, 0.1       , 0.1       , 0.1       , 0.1528581 ,
+        #                     0.1       , 0.1       , 0.1       , 0.1       , 0.1       ,
+        #                     0.1       , 0.1       , 0.1       , 0.1       , 0.12320185,
+        #                     0.1       , 0.18369523, 0.200373  , 0.11895574, 0.15118493])
+
+    if args.task_env and args.un != -1:
+        env_params['subtask'] = args.un
+    else:
+        env_params['subtask'] = None
 
     env = NormalizedBoxEnv(
         CentauroTrayEnv(**env_params),
-        obs_mean=obs_mean,
-        obs_std=obs_std,
+        normalize_obs=True,
         online_normalization=False,
+        obs_mean=None,
+        obs_var=None,
+        obs_alpha=0.001,
     )
     print("Environment loaded!!")
 
@@ -128,6 +158,7 @@ if __name__ == "__main__":
     parser.add_argument('--env', type=str, default='manipulator')
     parser.add_argument('--un', type=int, default=-1,
                         help='Unintentional id')
+    parser.add_argument('--task_env', action='store_true')
     args = parser.parse_args()
 
     simulate_policy(args)

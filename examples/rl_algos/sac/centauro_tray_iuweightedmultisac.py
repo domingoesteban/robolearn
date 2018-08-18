@@ -20,30 +20,35 @@ from robolearn.torch.models import NNQFunction, NNVFunction
 from robolearn.torch.models import NNMultiQFunction, NNMultiVFunction
 
 from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
+from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy2
+from robolearn.torch.policies import TanhGaussianComposedMultiPolicy
 
 import argparse
 import joblib
 
-Tend = 0.5  # Seconds
+# np.seterr(all='raise')  # WARNING RAISE ERROR IN NUMPY
+
+Tend = 5.0  # Seconds
 
 SIM_TIMESTEP = 0.01
 FRAME_SKIP = 1
 DT = SIM_TIMESTEP * FRAME_SKIP
 
 PATH_LENGTH = int(np.ceil(Tend / DT))
-PATHS_PER_EPOCH = 5
-# PATHS_PER_LOCAL_POL = 2
+PATHS_PER_EPOCH = 2
 PATHS_PER_EVAL = 1
 PATHS_PER_HARD_UPDATE = 12
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 
 SEED = 10
-NP_THREADS = 4
+# NP_THREADS = 6
+
+POLICY = TanhGaussianWeightedMultiPolicy2
 
 
 def experiment(variant):
 
-    os.environ['OMP_NUM_THREADS'] = str(NP_THREADS)
+    # os.environ['OMP_NUM_THREADS'] = str(NP_THREADS)
 
     np.random.seed(SEED)
 
@@ -52,29 +57,32 @@ def experiment(variant):
 
     env = NormalizedBoxEnv(
         CentauroTrayEnv(**variant['env_params']),
-        reward_scale=1.,
+        # normalize_obs=True,
+        normalize_obs=False,
+        online_normalization=False,
         obs_mean=None,
-        obs_std=None,
-        online_normalization=True,
-        # online_normalization=False,
+        obs_var=None,
+        obs_alpha=0.001,
     )
 
     obs_dim = int(np.prod(env.observation_space.shape))
     action_dim = int(np.prod(env.action_space.shape))
 
-    n_unintentional = 1
+    n_unintentional = 2
 
     if variant['log_dir']:
         params_file = os.path.join(variant['log_dir'], 'params.pkl')
         data = joblib.load(params_file)
         start_epoch = data['epoch']
         u_qf = data['u_qf']
+        u_qf2 = data['u_qf2']
         i_qf = data['qf']
+        i_qf2 = data['qf2']
         u_vf = data['u_vf']
         i_vf = data['vf']
         policy = data['policy']
         env._obs_mean = data['obs_mean']
-        env._obs_std = data['obs_std']
+        env._obs_var = data['obs_var']
     else:
         start_epoch = 0
         net_size = variant['net_size']
@@ -84,9 +92,18 @@ def experiment(variant):
                                 # shared_hidden_sizes=[net_size, net_size],
                                 shared_hidden_sizes=[],
                                 unshared_hidden_sizes=[net_size, net_size])
+        u_qf2 = NNMultiQFunction(obs_dim=obs_dim,
+                                 action_dim=action_dim,
+                                 n_qs=n_unintentional,
+                                 # shared_hidden_sizes=[net_size, net_size],
+                                 shared_hidden_sizes=[],
+                                 unshared_hidden_sizes=[net_size, net_size])
         i_qf = NNQFunction(obs_dim=obs_dim,
                            action_dim=action_dim,
                            hidden_sizes=[net_size, net_size])
+        i_qf2 = NNQFunction(obs_dim=obs_dim,
+                            action_dim=action_dim,
+                            hidden_sizes=[net_size, net_size])
 
         u_vf = NNMultiVFunction(obs_dim=obs_dim,
                                 n_vs=n_unintentional,
@@ -96,7 +113,7 @@ def experiment(variant):
         i_vf = NNVFunction(obs_dim=obs_dim,
                            hidden_sizes=[net_size, net_size])
 
-        policy = TanhGaussianWeightedMultiPolicy(
+        policy = POLICY(
             obs_dim=obs_dim,
             action_dim=action_dim,
             n_policies=n_unintentional,
@@ -108,7 +125,8 @@ def experiment(variant):
             shared_layer_norm=variant['shared_layer_norm'],
             policies_layer_norm=variant['policies_layer_norm'],
             mixture_layer_norm=variant['mixture_layer_norm'],
-            mixing_temperature=1,
+            mixing_temperature=1.,
+            reparameterize=True,
         )
 
     replay_buffer = MultiGoalReplayBuffer(
@@ -130,6 +148,8 @@ def experiment(variant):
         batch_size=BATCH_SIZE,  # batch_size
         i_qf=i_qf,
         i_vf=i_vf,
+        u_qf2=u_qf2,
+        i_qf2=i_qf2,
         eval_env=env,
         save_environment=False,
         **variant['algo_params']
@@ -143,6 +163,7 @@ def experiment(variant):
 
 expt_params = dict(
     algo_name=IUWeightedMultiSAC.__name__,
+    policy_name=POLICY.__name__,
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
@@ -152,48 +173,52 @@ expt_params = dict(
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
-        # ReplayBuffer params
         # SoftActorCritic params
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
         min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
-        policy_lr=1.e-4,
-        policies_lr=1.e-4,
-        mixing_lr=1.e-4,
+        reparameterize=True,
+        action_prior='uniform',
+        i_entropy_scale=0.05,
+        u_entropy_scale=[0.05, 0.05],
+
+        i_policy_lr=1.e-3,
+        u_policies_lr=1.e-3,
+        u_mixing_lr=1.e-3,
         i_qf_lr=1.e-3,
-        i_vf_lr=1.e-2,
+        i_vf_lr=1.e-3,
         u_qf_lr=1.e-3,
-        u_vf_lr=1.e-2,
-        i_soft_target_tau=1.e-2,
-        u_soft_target_tau=1.e-2,
+        u_vf_lr=1.e-3,
+        i_soft_target_tau=1.e-3,
+        u_soft_target_tau=1.e-3,
         # policy_mean_regu_weight=1e-3,
         # policy_std_regu_weight=1e-3,
         # policy_mixing_coeff_weight=1e-3,
-        i_policy_mean_regu_weight=0.,
-        i_policy_std_regu_weight=0.,
-        i_policy_pre_activation_weight=0.,
-        i_policy_mixing_coeff_weight=0,
+        i_policy_mean_regu_weight=0.e-3,
+        i_policy_std_regu_weight=0.e-3,
+        i_policy_pre_activation_weight=0.e-3,
+        i_policy_mixing_coeff_weight=0.e-3,
 
-        u_policy_mean_regu_weight=[0., 0.],
-        u_policy_std_regu_weight=[0., 0.],
-        u_policy_pre_activation_weight=[0., 0.],
+        u_policy_mean_regu_weight=[0.e-3, 0.e-3],
+        u_policy_std_regu_weight=[0.e-3, 0.e-3],
+        u_policy_pre_activation_weight=[0.e-3, 0.e-3],
 
-        # discount=0.99,
-        discount=0.90,
+        discount=0.99,
+        # discount=0.90,
         # discount=0.000,
         # reward_scale=1.0,
         # reward_scale=0.01,
-        reward_scale=10.0,
+        reward_scale=0.10,  # Working with previous cost
         # reward_scale=1000.0,
-        u_reward_scales=[10.0, 10.0],
+        u_reward_scales=[0.10, 0.20],
     ),
-    net_size=64,
+    net_size=256,
     replay_buffer_size=1e6,
-    # shared_layer_norm=False,
-    # policies_layer_norm=False,
-    # mixture_layer_norm=False,
-    shared_layer_norm=True,
-    policies_layer_norm=True,
-    mixture_layer_norm=True,
+    shared_layer_norm=False,
+    policies_layer_norm=False,
+    mixture_layer_norm=False,
+    # shared_layer_normTrue,
+    # policies_layer_norm=True,
+    # mixture_layer_norm=True,
 )
 
 
@@ -209,24 +234,25 @@ env_params = dict(
     obs_distances=False,
     balance_cost_weight=2.0,
     fall_cost_weight=2.0,
-    tgt_cost_weight=2.0,
-    balance_done_cost=0.0,
-    tgt_done_reward=20.0,
+    tgt_cost_weight=4.0,
+    balance_done_cost=0.,  # 2.0*PATH_LENGTH,  # TODO: dont forget same balance weight
+    tgt_done_reward=0.,  # 20.0,
     # tgt_cost_weight=5.0,
     # balance_cost_weight=0.0,
     # fall_cost_weight=0.0,
     # tgt_cost_weight=0.0,
     # balance_cost_weight=5.0,
     # fall_cost_weight=7.0,
-    ctrl_cost_weight=1.0e-4,
+    ctrl_cost_weight=1.0e-1,
     use_log_distances=True,
-    log_alpha_pos=1e-2,
-    log_alpha_ori=1e-2,
+    log_alpha_pos=1e-4,
+    log_alpha_ori=1e-4,
     goal_tolerance=0.05,
-    min_obj_height=0.75,
-    max_obj_height=1.10,
+    min_obj_height=0.60,
+    max_obj_height=1.20,
     max_obj_distance=0.20,
     max_time=None,
+    subtask=None,
 )
 
 

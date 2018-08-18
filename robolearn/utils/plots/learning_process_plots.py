@@ -47,9 +47,15 @@ def plot_process_iu_returns(csv_file, n_unintentional=None, block=False):
 
 def plot_process_iu_policies(csv_file, n_unintentional=None, block=False,
                              plot_initial=False):
-    labels_to_plot = ['Mixing Weights', 'Rewards',
-                      'Policy Entropy', 'Log Policy Target',
-                      'Policy Mean', 'Policy Std']
+    labels_to_plot = [
+        'Mixing Weights',
+        'Pol KL Loss',
+        'Rewards',
+        'Policy Entropy',
+        # 'Log Policy Target',
+        # 'Policy Mean',
+        'Policy Std'
+        ]
 
     if n_unintentional is None:
         n_unintentional = 0
@@ -205,6 +211,48 @@ def plot_process_general_data(csv_file, n_unintentional=None, block=False):
 
     plt.show(block=block)
 
+
+def plot_process_haarnoja(csv_file, n_unintentional=None, block=False):
+    labels_to_plot = ['return-average', 'episode-length-avg', 'log-pi-mean', 'log-sigs-mean']
+
+    if n_unintentional is None:
+        n_unintentional = 0
+    else:
+        n_unintentional += 1
+
+    # Add Intentional-Unintentional Label
+    new_labels = list()
+    for label in labels_to_plot:
+        for uu in range(n_unintentional):
+            new_string = ('[U-%02d] ' % uu) + label
+            new_labels.append(new_string)
+
+        # new_string = '[I] ' + label
+        new_string = label
+        new_labels.append(new_string)
+
+    n_subplots = len(labels_to_plot) * (n_unintentional + 1)
+
+    data = get_csv_data(csv_file, new_labels)
+
+    fig, axs = subplots(n_subplots)
+    if not isinstance(axs, np.ndarray):
+        axs = np.array([axs])
+    fig.subplots_adjust(hspace=0)
+    fig.suptitle('Avg Return and Avg Reward',
+                 fontweight='bold')
+
+    for aa, ax in enumerate(axs):
+        ax.plot(data[aa])
+        ax.set_ylabel(new_labels[aa])
+        plt.setp(ax.get_xticklabels(), visible=False)
+
+    axs[-1].set_xlabel('Episodes')
+    plt.setp(axs[-1].get_xticklabels(), visible=True)
+
+    plt.show(block=block)
+
+
 def get_csv_data(csv_file, labels):
     data, all_labels = get_csv_data_and_labels(csv_file)
 
@@ -212,6 +260,7 @@ def get_csv_data(csv_file, labels):
 
     new_data = np.zeros((len(labels), n_data))
 
+    print(all_labels)
     for ll, name in enumerate(labels):
         if name in all_labels:
             idx = all_labels.index(name)
