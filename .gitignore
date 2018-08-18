@@ -12,3 +12,5 @@ LOG_2017-*
 gps_log*
 trajopt_log*
 *log*
+
+!robolearn/core/logger.py
