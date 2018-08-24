@@ -21,6 +21,8 @@ from robolearn.torch.models import NNMultiQFunction, NNMultiVFunction
 
 from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
 from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy2
+from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy3
+from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy4
 from robolearn.torch.policies import TanhGaussianComposedMultiPolicy
 
 import argparse
@@ -28,7 +30,7 @@ import joblib
 
 # np.seterr(all='raise')  # WARNING RAISE ERROR IN NUMPY
 
-Tend = 5.0  # Seconds
+Tend = 3.0  # Seconds
 
 SIM_TIMESTEP = 0.01
 FRAME_SKIP = 1
@@ -43,7 +45,7 @@ BATCH_SIZE = 256
 SEED = 10
 # NP_THREADS = 6
 
-POLICY = TanhGaussianWeightedMultiPolicy2
+POLICY = TanhGaussianWeightedMultiPolicy3
 
 
 def experiment(variant):
@@ -168,7 +170,7 @@ expt_params = dict(
         # Common RL algorithm params
         rollouts_per_epoch=PATHS_PER_EPOCH,
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=30000,  # n_epochs
+        num_epochs=10000,  # n_epochs
         num_updates_per_train_call=int(PATH_LENGTH*0.2),  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         # EnvSampler params
@@ -179,8 +181,8 @@ expt_params = dict(
         min_start_eval=1,  # Min nsteps to start to eval
         reparameterize=True,
         action_prior='uniform',
-        i_entropy_scale=1.0e-1,
-        u_entropy_scale=[1.0e-1, 1.0e-1],
+        i_entropy_scale=1.0e-0,
+        u_entropy_scale=[1.0e-0, 1.0e-0],
 
         i_policy_lr=1.e-3,
         u_policies_lr=1.e-3,
@@ -208,9 +210,9 @@ expt_params = dict(
         # discount=0.000,
         # reward_scale=1.0,
         # reward_scale=0.01,
-        reward_scale=1.e-2,  # Working with previous cost
+        reward_scale=5.e-1,  # Working with previous cost
         # reward_scale=1000.0,
-        u_reward_scales=[1.e-2, 3.e-2],
+        u_reward_scales=[2.e-1, 5.e-1],
     ),
     net_size=256,
     replay_buffer_size=1e6,

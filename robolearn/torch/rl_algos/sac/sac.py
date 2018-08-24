@@ -47,6 +47,10 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
             policy_std_regu_weight=1e-3,
             policy_pre_activation_weight=0.,
 
+            policy_weight_decay=0.,
+            q_weight_decay=0.,
+            v_weight_decay=0.,
+
             optimizer_class=optim.Adam,
             # optimizer_class=optim.SGD,
             amsgrad=True,
@@ -115,6 +119,7 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
             self._qf.parameters(),
             lr=qf_lr,
             amsgrad=amsgrad,
+            weight_decay=q_weight_decay,
         )
         if self._qf2 is None:
             self._qf2_optimizer = None
@@ -123,6 +128,7 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
                 self._qf2.parameters(),
                 lr=qf_lr,
                 amsgrad=amsgrad,
+                weight_decay=q_weight_decay,
             )
 
         # V-function optimizer
@@ -130,12 +136,14 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
             self._vf.parameters(),
             lr=vf_lr,
             amsgrad=amsgrad,
+            weight_decay=v_weight_decay,
         )
 
         # Policy optimizer
         self._policy_optimizer = optimizer_class(
             self._policy.parameters(),
             lr=policy_lr,
+            weight_decay=policy_weight_decay,
         )
 
         # Policy regularization coefficients (weights)
@@ -160,9 +168,37 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
 
         self._summary_writer = SummaryWriter(log_dir=logger.get_snapshot_dir())
 
-    def pretrain(self):
+    def pretrain(self, n_pretrain_samples):
         # We do not require any pretrain (I think...)
-        pass
+        observation = self.env.reset()
+        for ii in range(n_pretrain_samples):
+            action = self.env.action_space.sample()
+            # Interact with environment
+            next_ob, raw_reward, terminal, env_info = (
+                self.env.step(action)
+            )
+            agent_info = None
+
+            # Increase counter
+            self._n_env_steps_total += 1
+            # Create np.array of obtained terminal and reward
+            reward = raw_reward * self.reward_scale
+            terminal = np.array([terminal])
+            reward = np.array([reward])
+            # Add to replay buffer
+            self.replay_buffer.add_sample(
+                observation=observation,
+                action=action,
+                reward=reward,
+                terminal=terminal,
+                next_observation=next_ob,
+                agent_info=agent_info,
+                env_info=env_info,
+            )
+            observation = next_ob
+
+            if terminal:
+                self.env.reset()
 
     def _do_training(self):
         # Get batch of samples
@@ -224,10 +260,14 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
             q2_new_actions = self._qf2(obs, new_actions)[0]
             q_new_actions = torch.min(q_new_actions, q2_new_actions)
 
+        advantages_new_actions = q_new_actions - v_pred.detach()
+
         # KL loss
         if self._reparameterize:
             # TODO: In HAarnoja code it does not use the min, but the one from self._qf
-            policy_kl_loss = torch.mean(log_pi - q_new_actions)
+            # policy_kl_loss = torch.mean(log_pi - q_new_actions)
+            # policy_kl_loss = -torch.mean(q_new_actions - log_pi)
+            policy_kl_loss = -torch.mean(advantages_new_actions - log_pi)
         else:
             policy_kl_loss = (
                     log_pi * (log_pi - q_new_actions + v_pred
@@ -284,11 +324,15 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
             self._summary_writer.add_scalar('Training/qf2_loss',
                                             ptu.get_numpy(qf2_loss),
                                             self._n_env_steps_total)
+
         self._summary_writer.add_scalar('Training/vf_loss',
                                         ptu.get_numpy(vf_loss),
                                         self._n_env_steps_total)
         self._summary_writer.add_scalar('Training/avg_reward',
                                         ptu.get_numpy(rewards.mean()),
+                                        self._n_env_steps_total)
+        self._summary_writer.add_scalar('Training/avg_advantage',
+                                        ptu.get_numpy(advantages_new_actions.mean()),
                                         self._n_env_steps_total)
         self._summary_writer.add_scalar('Training/policy_loss',
                                         ptu.get_numpy(policy_loss),
@@ -301,6 +345,9 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
                                         self._n_env_steps_total)
         self._summary_writer.add_scalar('Training/policy_std',
                                         np.exp(ptu.get_numpy(policy_log_std.mean())),
+                                        self._n_env_steps_total)
+        self._summary_writer.add_scalar('Training/q_vals',
+                                        ptu.get_numpy(q_new_actions.mean()),
                                         self._n_env_steps_total)
 
         if self._n_env_steps_total % 500 == 0:
@@ -399,6 +446,14 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         ptu.soft_update_from_to(self._vf, self._target_vf, self.soft_target_tau)
 
     def get_epoch_snapshot(self, epoch):
+        """
+        Stuff to save in file.
+        Args:
+            epoch:
+
+        Returns:
+
+        """
         if self._epoch_plotter is not None:
             self._epoch_plotter.draw()
             self._epoch_plotter.save_figure(epoch)
@@ -494,6 +549,7 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         self.logging_policy_log_std[:] = 0
         self.logging_policy_mean[:] = 0
         self.logging_qf_loss[:] = 0
+        self.logging_qf2_loss[:] = 0
         self.logging_vf_loss[:] = 0
         self.logging_pol_kl_loss[:] = 0
         self.logging_rewards[:] = 0

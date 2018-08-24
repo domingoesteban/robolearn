@@ -188,27 +188,29 @@ def plot_weigths_unintentionals(path_list, block=False):
     if 'mixing_coeff' not in path_list['agent_infos'][-1]:
         print('There is not mixing_coeff. Then not plotting anything!')
         return
-    n_unintentional = len(path_list['agent_infos'][-1]['mixing_coeff'])
     H = len(path_list['agent_infos'])
+    act_dim = path_list['agent_infos'][-1]['mixing_coeff'].shape[0]
+    n_unintentional = path_list['agent_infos'][-1]['mixing_coeff'].shape[1]
 
-    fig, axs = subplots(n_unintentional, sharex=True)
+    fig, axs = subplots(act_dim, sharex=True)
     if not isinstance(axs, np.ndarray):
         axs = np.array([axs])
     fig.subplots_adjust(hspace=0)
     fig.suptitle('Mixing weights for Unintentional Policies',
                  fontweight='bold')
 
-    ts = np.arange(H)
-    for rr in range(n_unintentional):
-        data = np.zeros(H)
-        for tt in range(H):
-            data[tt] = path_list['agent_infos'][tt]['mixing_coeff'][rr]
-            # print(tt, '|', data[tt])
+    data = np.zeros((H, act_dim, n_unintentional))
+    for tt in range(H):
+        data[tt] = path_list['agent_infos'][tt]['mixing_coeff']
+        # print(tt, '|', data[tt])
 
-        axs[rr].plot(ts, data, color=COMPO_COLORS[rr], linestyle=':')
-        axs[rr].set_ylabel('U - %02d' % rr)
-        axs[rr].set_xlabel('Time step')
-        axs[rr].set_ylim(-0.1, 1.1)
+    ts = np.arange(H)
+    for aa in range(act_dim):
+        # axs[aa].plot(ts, data[:, aa, :], color=COMPO_COLORS[aa], linestyle=':')
+        axs[aa].plot(ts, data[:, aa, :], linestyle=':')
+        axs[aa].set_ylabel('U - %02d' % aa)
+        axs[aa].set_xlabel('Time step')
+        # axs[aa].set_ylim(-0.1, 1.1)
 
     plt.show(block=block)
 

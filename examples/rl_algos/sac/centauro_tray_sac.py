@@ -25,20 +25,23 @@ import joblib
 
 # np.seterr(all='raise')  # WARNING RAISE ERROR IN NUMPY
 
-Tend = 5.0  # Seconds
+Tend = 2.5  # Seconds
 
 SIM_TIMESTEP = 0.01
 FRAME_SKIP = 1
 DT = SIM_TIMESTEP * FRAME_SKIP
 
 PATH_LENGTH = int(np.ceil(Tend / DT))
-PATHS_PER_EPOCH = 2
-PATHS_PER_EVAL = 1
+PATHS_PER_EPOCH = 10
+PATHS_PER_EVAL = 3
 PATHS_PER_HARD_UPDATE = 12
 BATCH_SIZE = 256
 
-SEED = 10
+# SEED = 10
+SEED = 110
 # NP_THREADS = 6
+
+POLICY = TanhGaussianPolicy
 
 
 def experiment(variant):
@@ -88,7 +91,7 @@ def experiment(variant):
         vf = NNVFunction(obs_dim=obs_dim,
                          hidden_sizes=(net_size, net_size))
 
-        policy = TanhGaussianPolicy(
+        policy = POLICY(
             obs_dim=obs_dim,
             action_dim=action_dim,
             hidden_sizes=(net_size, net_size),
@@ -115,6 +118,7 @@ def experiment(variant):
     )
     if ptu.gpu_enabled():
         algorithm.cuda()
+    # algorithm.pretrain(PATH_LENGTH*2)
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm
@@ -122,6 +126,7 @@ def experiment(variant):
 
 expt_params = dict(
     algo_name=SoftActorCritic.__name__,
+    policy_name=POLICY.__name__,
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
@@ -136,21 +141,28 @@ expt_params = dict(
         min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
         reparameterize=True,
         action_prior='uniform',
-        entropy_scale=0.05,
+        entropy_scale=1.0e-0,
 
         policy_lr=1.e-4,
-        qf_lr=1.e-3,
-        vf_lr=1.e-3,
-        soft_target_tau=1.e-3,
+        qf_lr=1.e-4,
+        vf_lr=1.e-4,
+        soft_target_tau=5.e-3,
         target_update_interval=1,
         policy_mean_regu_weight=0.e-3,
         policy_std_regu_weight=0.e-3,
         policy_pre_activation_weight=0.,
 
+        policy_weight_decay=1.e-5,
+        q_weight_decay=1e-5,
+        v_weight_decay=1e-5,
+
         discount=0.99,
+        # discount=0.10,  # Si es muy bajo se estanca!!
         # reward_scale=0.2,  # Metodo anterior
         # reward_scale=2.0,  # Metodo nuevo
-        reward_scale=0.10,  # TODO: TEMPORAL
+        # reward_scale=5.e-1,  # TODO: TEMPORAL
+        # reward_scale=1.5e+1,  # TODO: TEMPORAL
+        reward_scale=4.0e+1,  # TODO: TEMPORAL
 
     ),
     net_size=256,
@@ -169,8 +181,9 @@ env_params = dict(
     frame_skip=FRAME_SKIP,
     obs_distances=False,
     balance_cost_weight=2.0,
-    fall_cost_weight=2.0,
-    tgt_cost_weight=2.0,
+    fall_cost_weight=0.5,
+    tgt_cost_weight=10.0,
+    # tgt_cost_weight=50.0,
     balance_done_cost=0.,  # 2.0*PATH_LENGTH,  # TODO: dont forget same balance weight
     tgt_done_reward=0.,  # 20.0,
     # tgt_cost_weight=5.0,
@@ -188,7 +201,9 @@ env_params = dict(
     max_obj_height=1.20,
     max_obj_distance=0.20,
     max_time=None,
-    subtask=1,
+    subtask=None,
+    # subtask=1,
+    random_init=True,
 )
 
 

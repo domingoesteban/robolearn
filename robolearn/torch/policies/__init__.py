@@ -4,7 +4,6 @@ from .tanh_gaussian_policy import TanhGaussianPolicy
 from .tanh_gaussian_multi_policy import TanhGaussianMultiPolicy
 from .mixture_tanh_gaussian_multi_policy import MixtureTanhGaussianMultiPolicy
 from .tanh_gaussian_weighted_multi_policy import TanhGaussianWeightedMultiPolicy
-from .tanh_gaussian_weighted_multi_policy2 import TanhGaussianWeightedMultiPolicy2
 from .tanh_gaussian_composed_multi_policy import TanhGaussianComposedMultiPolicy
 
 from .multi_policy_selector import MultiPolicySelector

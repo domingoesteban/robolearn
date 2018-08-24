@@ -18,7 +18,6 @@ from robolearn.utils.samplers import InPlacePathSampler
 from robolearn.torch.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
 from robolearn.policies import MakeDeterministic
 from robolearn.torch.policies import WeightedMultiPolicySelector
-from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy2
 from torch.autograd import Variable
 
 from tensorboardX import SummaryWriter
@@ -69,6 +68,13 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             u_policy_mean_regu_weight=None,
             u_policy_std_regu_weight=None,
             u_policy_pre_activation_weight=None,
+
+            i_policy_weight_decay=0.,
+            u_policy_weight_decay=0.,
+            i_q_weight_decay=0.,
+            u_q_weight_decay=0.,
+            i_v_weight_decay=0.,
+            u_v_weight_decay=0.,
 
             optimizer_class=optim.Adam,
             # optimizer_class=optim.SGD,
@@ -165,23 +171,29 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
 
         # Q-function optimizers
         self._u_qf_optimizer = optimizer_class(self._u_qf.parameters(),
-                                               lr=u_qf_lr, amsgrad=amsgrad)
+                                               lr=u_qf_lr, amsgrad=amsgrad,
+                                               weight_decay=u_q_weight_decay)
         self._i_qf_optimizer = optimizer_class(self._i_qf.parameters(),
-                                               lr=i_qf_lr, amsgrad=amsgrad)
+                                               lr=i_qf_lr, amsgrad=amsgrad,
+                                               weight_decay=i_q_weight_decay)
         if u_qf2 is not None:
             self._u_qf2_optimizer = optimizer_class(self._u_qf2.parameters(),
                                                     lr=u_qf2_lr,
-                                                    amsgrad=amsgrad)
+                                                    amsgrad=amsgrad,
+                                                    weight_decay=u_q_weight_decay)
         if i_qf2 is not None:
             self._i_qf2_optimizer = optimizer_class(self._i_qf2.parameters(),
                                                     lr=i_qf2_lr,
-                                                    amsgrad=amsgrad)
+                                                    amsgrad=amsgrad,
+                                                    weight_decay=i_q_weight_decay)
 
         # V-function optimizers
         self._u_vf_optimizer = optimizer_class(self._u_vf.parameters(),
-                                               lr=u_vf_lr, amsgrad=amsgrad)
+                                               lr=u_vf_lr, amsgrad=amsgrad,
+                                               weight_decay=u_v_weight_decay)
         self._i_vf_optimizer = optimizer_class(self._i_vf.parameters(),
-                                               lr=i_vf_lr, amsgrad=amsgrad)
+                                               lr=i_vf_lr, amsgrad=amsgrad,
+                                               weight_decay=i_v_weight_decay)
 
         # Policy optimizer
         # self._policy_optimizer = optimizer_class([
@@ -193,15 +205,19 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         #      'lr': i_policy_lr},
         # ])
         self._policy_optimizer = optimizer_class(self._policy.parameters(),
-                                                 lr=i_policy_lr, amsgrad=amsgrad)
+                                                 lr=i_policy_lr, amsgrad=amsgrad,
+                                                 weight_decay=i_policy_weight_decay,
+                                                 )
         self._mixing_optimizer = \
             optimizer_class(chain(self._policy.shared_parameters(),
                                   self._policy.mixing_parameters()),
-                            lr=u_mixing_lr, amsgrad=amsgrad)
+                            lr=u_mixing_lr, amsgrad=amsgrad,
+                            weight_decay=i_policy_weight_decay)
         self._policies_optimizer = \
             optimizer_class(chain(self._policy.shared_parameters(),
                                   self._policy.policies_parameters()),
-                            lr=u_policies_lr, amsgrad=amsgrad)
+                            lr=u_policies_lr, amsgrad=amsgrad,
+                            weight_decay=u_policy_weight_decay)
 
         # Policy regularization coefficients (weights)
         self._i_policy_mean_regu_weight = i_policy_mean_regu_weight
@@ -256,15 +272,46 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         self.logging_policy_entropy = np.zeros((self.num_env_steps_per_epoch,
                                                 self._n_unintentional + 1))
         self.logging_policy_log_std = np.zeros((self.num_env_steps_per_epoch,
+                                                self.env.action_dim,
                                                 self._n_unintentional + 1))
         self.logging_policy_mean = np.zeros((self.num_env_steps_per_epoch,
+                                             self.env.action_dim,
                                              self._n_unintentional + 1))
         self.logging_mixing_coeff = np.zeros((self.num_env_steps_per_epoch,
+                                              self.env.action_dim,
                                               self._n_unintentional))
 
-    def pretrain(self):
+    def pretrain(self, n_pretrain_samples):
         # We do not require any pretrain (I think...)
-        pass
+        observation = self.env.reset()
+        for ii in range(n_pretrain_samples):
+            action = self.env.action_space.sample()
+            # Interact with environment
+            next_ob, raw_reward, terminal, env_info = (
+                self.env.step(action)
+            )
+            agent_info = None
+
+            # Increase counter
+            self._n_env_steps_total += 1
+            # Create np.array of obtained terminal and reward
+            reward = raw_reward * self.reward_scale
+            terminal = np.array([terminal])
+            reward = np.array([reward])
+            # Add to replay buffer
+            self.replay_buffer.add_sample(
+                observation=observation,
+                action=action,
+                reward=reward,
+                terminal=terminal,
+                next_observation=next_ob,
+                agent_info=agent_info,
+                env_info=env_info,
+            )
+            observation = next_ob
+
+            if terminal:
+                self.env.reset()
 
     def _do_training(self):
         # Get batch of samples
@@ -412,12 +459,12 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         # ########### #
         # Critic Step #
         # ########### #
-        accum_u_qf_loss = 0
-        u_q_preds = qf(obs, actions)[0]  # Get all unintentional Q-values
         u_v_values_next = target_vf(next_obs)[0]  # Get all unintentional V-vals
+        u_q_preds = qf(obs, actions)[0]  # Get all unintentional Q-values
+        accum_u_qf_loss = 0
         if qf2 is not None:
-            accum_u_qf2_loss = 0
             u_q2_preds = qf2(obs, actions)[0]  # Get all unintentional Q2-values
+            accum_u_qf2_loss = 0
         for uu in range(self._n_unintentional):
             # Get batch rewards and terminal for unintentional tasks
             rewards = batch['reward_vectors'][:, uu].unsqueeze(-1) \
@@ -493,10 +540,14 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
                 q2_new_actions = qf2(obs, new_actions)[0][uu]
                 q_new_actions = torch.min(q_new_actions, q2_new_actions)
 
+            advantages_new_actions = q_new_actions - v_pred.detach()
+
             # KL loss
             if self._reparameterize:
                 # TODO: In HAarnoja code it does not use the min, but the one from self._qf
-                policy_kl_loss = torch.mean(log_pi - q_new_actions)
+                # policy_kl_loss = torch.mean(log_pi - q_new_actions)
+                # policy_kl_loss = -torch.mean(q_new_actions - log_pi)
+                policy_kl_loss = -torch.mean(advantages_new_actions - log_pi)
             else:
                 policy_kl_loss = (
                         log_pi * (log_pi - q_new_actions + v_pred
@@ -525,10 +576,10 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             # ############### #
             self.logging_policy_entropy[step_idx, uu] = \
                 ptu.get_numpy(-log_pi.mean(dim=0))
-            self.logging_policy_log_std[step_idx, uu] = \
-                ptu.get_numpy(policy_log_std.mean())
-            self.logging_policy_mean[step_idx, uu] = \
-                ptu.get_numpy(policy_mean.mean())
+            self.logging_policy_log_std[step_idx, :, uu] = \
+                ptu.get_numpy(policy_log_std.mean(dim=0))
+            self.logging_policy_mean[step_idx, :, uu] = \
+                ptu.get_numpy(policy_mean.mean(dim=0))
             self.logging_vf_loss[step_idx, uu] = \
                 ptu.get_numpy(u_vf_loss)
             self.logging_pol_kl_loss[step_idx, uu] = \
@@ -550,6 +601,12 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             self._summary_writer.add_scalar('TrainingU%2d/policy_std' % uu,
                                             np.exp(ptu.get_numpy(
                                                 policy_log_std.mean())),
+                                            self._n_env_steps_total)
+            self._summary_writer.add_scalar('TrainingU%2d/q_vals' % uu,
+                                            ptu.get_numpy(q_new_actions.mean()),
+                                            self._n_env_steps_total)
+            self._summary_writer.add_scalar('TrainingU%2d/avg_advantage' % uu,
+                                            ptu.get_numpy(advantages_new_actions.mean()),
                                             self._n_env_steps_total)
 
         # Update Unintentional (Composable) Policies
@@ -637,10 +694,14 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             q2_new_actions = qf2(obs, new_actions)[0]
             q_new_actions = torch.min(q_new_actions, q2_new_actions)
 
+        advantages_new_actions = q_new_actions - v_pred.detach()
+
         # KL loss
         if self._reparameterize:
             # TODO: In HAarnoja code it does not use the min, but the one from self._qf
-            policy_kl_loss = torch.mean(log_pi - q_new_actions)
+            # policy_kl_loss = torch.mean(log_pi - q_new_actions)
+            # policy_kl_loss = -torch.mean(q_new_actions - log_pi)
+            policy_kl_loss = -torch.mean(advantages_new_actions - log_pi)
         else:
             policy_kl_loss = (
                     log_pi * (log_pi - q_new_actions + v_pred
@@ -686,26 +747,25 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
                                           target_vf=self._i_target_vf,
                                           soft_target_tau=self._i_soft_target_tau)
 
-
-        # TEMPORAL
-        if isinstance(self._policy, TanhGaussianWeightedMultiPolicy2):
-            mixing_coeff = mixing_coeff.mean(dim=-2)  # Average over dA
+        # # TEMPORAL
+        # if isinstance(self._policy, TanhGaussianWeightedMultiPolicy2):
+        #     mixing_coeff = mixing_coeff.mean(dim=-2)  # Average over dA
 
         # ########################### #
         # LOG Useful Intentional Data #
         # ########################### #
         self.logging_policy_entropy[step_idx, -1] = \
             ptu.get_numpy(-log_pi.mean(dim=0))
-        self.logging_policy_log_std[step_idx, -1] = \
-            ptu.get_numpy(policy_log_std.mean())
-        self.logging_policy_mean[step_idx, -1] = \
-            ptu.get_numpy(policy_mean.mean())
+        self.logging_policy_log_std[step_idx, :, -1] = \
+            ptu.get_numpy(policy_log_std.mean(dim=0))
+        self.logging_policy_mean[step_idx, :, -1] = \
+            ptu.get_numpy(policy_mean.mean(dim=0))
         self.logging_qf_loss[step_idx, -1] = ptu.get_numpy(i_qf_loss)
         self.logging_vf_loss[step_idx, -1] = ptu.get_numpy(i_vf_loss)
         self.logging_pol_kl_loss[step_idx, -1] = ptu.get_numpy(policy_kl_loss)
         self.logging_rewards[step_idx, -1] = \
             ptu.get_numpy(rewards.mean(dim=0))
-        self.logging_mixing_coeff[step_idx, :] = \
+        self.logging_mixing_coeff[step_idx, :, :] = \
             ptu.get_numpy(mixing_coeff.mean(dim=0))
 
         self._summary_writer.add_scalar('TrainingI/qf_loss',
@@ -732,6 +792,12 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
                                         self._n_env_steps_total)
         self._summary_writer.add_scalar('TrainingI/policy_std',
                                         np.exp(ptu.get_numpy(policy_log_std.mean())),
+                                        self._n_env_steps_total)
+        self._summary_writer.add_scalar('TrainingI/q_vals',
+                                        ptu.get_numpy(q_new_actions.mean()),
+                                        self._n_env_steps_total)
+        self._summary_writer.add_scalar('TrainingI/avg_advantage',
+                                        ptu.get_numpy(advantages_new_actions.mean()),
                                         self._n_env_steps_total)
 
         for uu in range(self._n_unintentional):
@@ -889,9 +955,11 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         snapshot.update(
             policy=self._policy,
             qf=self._i_qf,
+            qf2=self._i_qf2,
             vf=self._i_vf,
             target_vf=self._i_target_vf,
             u_qf=self._u_qf,
+            u_qf2=self._u_qf,
             u_vf=self._u_vf,
             target_u_vf=self._u_target_vf,
         )
@@ -922,10 +990,6 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         for uu in range(self._n_unintentional):
             self.eval_statistics['[U-%02d] Policy Entropy' % uu] = \
                 np.nan_to_num(np.mean(self.logging_policy_entropy[:max_step, uu]))
-            self.eval_statistics['[U-%02d] Policy Std' % uu] = \
-                np.nan_to_num(np.mean(np.exp(self.logging_policy_log_std[:max_step, uu])))
-            self.eval_statistics['[U-%02d] Policy Mean' % uu] = \
-                np.nan_to_num(np.mean(self.logging_policy_mean[:max_step, uu]))
             self.eval_statistics['[U-%02d] Qf Loss' % uu] = \
                 np.nan_to_num(np.mean(self.logging_qf_loss[:max_step, uu]))
             self.eval_statistics['[U-%02d] Vf Loss' % uu] = \
@@ -937,13 +1001,15 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             self.eval_statistics['[U-%02d] Mixing Weights' % uu] = \
                 np.nan_to_num(np.mean(self.logging_mixing_coeff[:max_step, uu]))
 
+            for aa in range(self.env.action_dim):
+                self.eval_statistics['[U-%02d] Policy Std [%02d]' % (uu, aa)] = \
+                    np.nan_to_num(np.mean(np.exp(self.logging_policy_log_std[:max_step, aa, uu])))
+                self.eval_statistics['[U-%02d] Policy Mean [%02d]' % (uu, aa)] = \
+                    np.nan_to_num(np.mean(self.logging_policy_mean[:max_step, aa, uu]))
+
         # Intentional info
         self.eval_statistics['[I] Policy Entropy'] = \
             np.nan_to_num(np.mean(self.logging_policy_entropy[:max_step, -1]))
-        self.eval_statistics['[I] Policy Std'] = \
-            np.nan_to_num(np.mean(np.exp(self.logging_policy_log_std[:max_step, -1])))
-        self.eval_statistics['[I] Policy Mean'] = \
-            np.nan_to_num(np.mean(self.logging_policy_mean[:max_step, -1]))
         self.eval_statistics['[I] Qf Loss'] = \
             np.nan_to_num(np.mean(self.logging_qf_loss[:max_step, -1]))
         self.eval_statistics['[I] Vf Loss'] = \
@@ -952,6 +1018,11 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             np.nan_to_num(np.mean(self.logging_pol_kl_loss[:max_step, -1]))
         self.eval_statistics['[I] Rewards'] = \
             np.nan_to_num(np.mean(self.logging_rewards[:max_step, -1]))
+        for aa in range(self.env.action_dim):
+            self.eval_statistics['[I] Policy Std [%02d]'] = \
+                np.nan_to_num(np.mean(np.exp(self.logging_policy_log_std[:max_step, aa, -1])))
+            self.eval_statistics['[I] Policy Mean [%02d]'] = \
+                np.nan_to_num(np.mean(self.logging_policy_mean[:max_step, aa, -1]))
 
     def evaluate(self, epoch):
         statistics = OrderedDict()
@@ -1019,7 +1090,6 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             statistics['[I] Test Rewards Mean'] * self.reward_scale,
             self._n_epochs
         )
-
 
         if hasattr(self.env, "log_diagnostics"):
             # TODO: CHECK ENV LOG_DIAGNOSTICS

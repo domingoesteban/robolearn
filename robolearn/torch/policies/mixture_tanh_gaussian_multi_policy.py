@@ -9,13 +9,11 @@ import robolearn.torch.pytorch_util as ptu
 from robolearn.policies.base import ExplorationPolicy
 from robolearn.torch.nn import identity
 from robolearn.torch.distributions import TanhNormal
-from robolearn.torch.ops import logsumexp
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
 LOG_MIX_COEFF_MIN = -10
 LOG_MIX_COEFF_MAX = -4.5e-5
-
 
 
 class MixtureTanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
@@ -118,13 +116,16 @@ class MixtureTanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
             h = self.mix_hidden_activation(fc(h))
         log_mixture_coeff = self.last_mixfc(h)
 
-        log_mixture_coeff = torch.clamp(log_mixture_coeff,
-                                        min=LOG_MIX_COEFF_MIN,
-                                        max=LOG_MIX_COEFF_MAX)  # NxK
+        # TODO: CHECK IF ITS VETTER TO CLAMP
+        # log_mixture_coeff = torch.clamp(log_mixture_coeff,
+        #                                 min=LOG_MIX_COEFF_MIN,
+        #                                 max=LOG_MIX_COEFF_MAX)  # NxK
 
         mixture_coeff = torch.exp(log_mixture_coeff) \
                         / torch.sum(torch.exp(log_mixture_coeff), dim=-1,
                                     keepdim=True)
+        print(mixture_coeff.shape)
+        input("wuuu")
 
         if torch.isnan(mixture_coeff).any():
             raise ValueError('Any mixture coeff is NAN:',
@@ -156,9 +157,9 @@ class MixtureTanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
             log_actions_concat = torch.sum(log_actions_concat*z.unsqueeze(-1),
                                            dim=-2)
             weighted_log_action = \
-                logsumexp(log_actions_concat + log_mixture_coeff, dim=-1,
+                torch.logsumexp(log_actions_concat + log_mixture_coeff, dim=-1,
                           keepdim=True) \
-                - logsumexp(log_mixture_coeff, dim=-1, keepdim=True)
+                - torch.logsumexp(log_mixture_coeff, dim=-1, keepdim=True)
 
             # weighted_log_action = \
             #     torch.sum(log_actions_concat * log_mixture_coeff.unsqueeze(-2),
@@ -189,9 +190,9 @@ class MixtureTanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
                           dim=-2)
 
             weighted_log_action = \
-                logsumexp(log_actions_concat + log_mixture_coeff, dim=-1,
+                torch.logsumexp(log_actions_concat + log_mixture_coeff, dim=-1,
                           keepdim=True) \
-                - logsumexp(log_mixture_coeff, dim=-1, keepdim=True)
+                - torch.logsumexp(log_mixture_coeff, dim=-1, keepdim=True)
         else:
             weighted_log_action = None
         """

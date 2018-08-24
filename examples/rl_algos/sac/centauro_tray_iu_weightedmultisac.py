@@ -19,8 +19,8 @@ from robolearn.torch.rl_algos.sac.iu_weightedmultisac import IUWeightedMultiSAC
 from robolearn.torch.models import NNQFunction, NNVFunction
 from robolearn.torch.models import NNMultiQFunction, NNMultiVFunction
 
+from robolearn.torch.policies import MixtureTanhGaussianMultiPolicy
 from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
-from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy2
 from robolearn.torch.policies import TanhGaussianComposedMultiPolicy
 
 import argparse
@@ -28,22 +28,24 @@ import joblib
 
 # np.seterr(all='raise')  # WARNING RAISE ERROR IN NUMPY
 
-Tend = 5.0  # Seconds
+Tend = 3.0  # Seconds
 
 SIM_TIMESTEP = 0.01
 FRAME_SKIP = 1
 DT = SIM_TIMESTEP * FRAME_SKIP
 
 PATH_LENGTH = int(np.ceil(Tend / DT))
-PATHS_PER_EPOCH = 2
-PATHS_PER_EVAL = 1
+PATHS_PER_EPOCH = 3 #10
+PATHS_PER_EVAL = 1 #3
 PATHS_PER_HARD_UPDATE = 12
 BATCH_SIZE = 256
 
-SEED = 10
+# SEED = 10
+SEED = 110
 # NP_THREADS = 6
 
-POLICY = TanhGaussianWeightedMultiPolicy2
+POLICY = TanhGaussianWeightedMultiPolicy
+# POLICY = MixtureTanhGaussianMultiPolicy
 
 
 def experiment(variant):
@@ -100,7 +102,7 @@ def experiment(variant):
                                  unshared_hidden_sizes=[net_size, net_size])
         i_qf = NNQFunction(obs_dim=obs_dim,
                            action_dim=action_dim,
-                           hidden_sizes=[net_size, net_size])
+                           hidden_sizes=(net_size, net_size))
         i_qf2 = NNQFunction(obs_dim=obs_dim,
                             action_dim=action_dim,
                             hidden_sizes=[net_size, net_size])
@@ -136,9 +138,6 @@ def experiment(variant):
         reward_vector_size=n_unintentional,
     )
 
-    # QF Plot
-    variant['algo_params']['epoch_plotter'] = None
-
     algorithm = IUWeightedMultiSAC(
         env=env,
         policy=policy,
@@ -156,6 +155,7 @@ def experiment(variant):
     )
     if ptu.gpu_enabled():
         algorithm.cuda()
+    # algorithm.pretrain(PATH_LENGTH*2)
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm
@@ -167,7 +167,7 @@ expt_params = dict(
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=30000,  # n_epochs
+        num_epochs=10000,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         # EnvSampler params
@@ -178,18 +178,18 @@ expt_params = dict(
         min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
         reparameterize=True,
         action_prior='uniform',
-        i_entropy_scale=0.05,
-        u_entropy_scale=[0.05, 0.05],
+        i_entropy_scale=1.0e-0,
+        u_entropy_scale=[1.0e-0, 1.0e-0],
 
-        i_policy_lr=1.e-3,
-        u_policies_lr=1.e-3,
-        u_mixing_lr=1.e-3,
-        i_qf_lr=1.e-3,
-        i_vf_lr=1.e-3,
-        u_qf_lr=1.e-3,
-        u_vf_lr=1.e-3,
-        i_soft_target_tau=1.e-3,
-        u_soft_target_tau=1.e-3,
+        i_policy_lr=1.e-4,
+        u_policies_lr=1.e-4,
+        u_mixing_lr=1.e-4,
+        i_qf_lr=1.e-4,
+        i_vf_lr=1.e-4,
+        u_qf_lr=1.e-4,
+        u_vf_lr=1.e-4,
+        i_soft_target_tau=5.e-3,
+        u_soft_target_tau=5.e-3,
         # policy_mean_regu_weight=1e-3,
         # policy_std_regu_weight=1e-3,
         # policy_mixing_coeff_weight=1e-3,
@@ -202,14 +202,21 @@ expt_params = dict(
         u_policy_std_regu_weight=[0.e-3, 0.e-3],
         u_policy_pre_activation_weight=[0.e-3, 0.e-3],
 
+        i_policy_weight_decay=1.e-5,
+        u_policy_weight_decay=1.e-5,
+        i_q_weight_decay=1e-5,
+        u_q_weight_decay=1e-5,
+        i_v_weight_decay=1e-5,
+        u_v_weight_decay=1e-5,
+
         discount=0.99,
         # discount=0.90,
         # discount=0.000,
         # reward_scale=1.0,
         # reward_scale=0.01,
-        reward_scale=0.10,  # Working with previous cost
+        reward_scale=2.e+1,  # Working with previous cost
         # reward_scale=1000.0,
-        u_reward_scales=[0.10, 0.20],
+        u_reward_scales=[4.e+1, 4.e+1],
     ),
     net_size=256,
     replay_buffer_size=1e6,
@@ -233,8 +240,9 @@ env_params = dict(
     frame_skip=FRAME_SKIP,
     obs_distances=False,
     balance_cost_weight=2.0,
-    fall_cost_weight=2.0,
-    tgt_cost_weight=4.0,
+    fall_cost_weight=0.5,
+    tgt_cost_weight=20.0,
+    # tgt_cost_weight=50.0,
     balance_done_cost=0.,  # 2.0*PATH_LENGTH,  # TODO: dont forget same balance weight
     tgt_done_reward=0.,  # 20.0,
     # tgt_cost_weight=5.0,
@@ -253,6 +261,8 @@ env_params = dict(
     max_obj_distance=0.20,
     max_time=None,
     subtask=None,
+    # subtask=1,
+    random_init=True,
 )
 
 
