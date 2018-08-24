@@ -18,11 +18,17 @@ import uuid
 from robolearn.core import logger
 import json
 import numpy as np
+import robolearn.torch.pytorch_util as ptu
 
 filename = str(uuid.uuid4())
+SEED = 110
 
 
 def simulate_policy(args):
+
+    np.random.seed(SEED)
+    ptu.seed(SEED)
+
     data = joblib.load(args.file)
     if args.deterministic:
         if args.un > -1:
@@ -100,7 +106,8 @@ def simulate_policy(args):
 
     env = NormalizedBoxEnv(
         CentauroTrayEnv(**env_params),
-        normalize_obs=True,
+        # normalize_obs=True,
+        normalize_obs=False,
         online_normalization=False,
         obs_mean=None,
         obs_var=None,
@@ -136,6 +143,7 @@ def simulate_policy(args):
         if isinstance(q_fcn, PyTorchModule):
             q_fcn.train(False)
         plot_q_vals(path, q_fcn=q_fcn, block=False)
+
         input('Press a key to continue...')
 
         if hasattr(env, "log_diagnostics"):
