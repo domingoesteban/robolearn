@@ -501,7 +501,7 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
                                             ptu.get_numpy(rewards.mean()),
                                             self._n_env_steps_total)
 
-        # Update Unintentional Q-values
+        # Update Unintentional Q-Values
         self._u_qf_optimizer.zero_grad()
         accum_u_qf_loss.backward()
         self._u_qf_optimizer.step()

@@ -1,10 +1,9 @@
 """
-Run PyTorch IU Multi Soft Actor Critic on CentauroTrayEnv.
+Run PyTorch IU Multi Soft Actor Critic on Pusher2D3DofGoalCompoEnv.
 
 NOTE: You need PyTorch 0.4
 """
 
-import os
 import numpy as np
 
 import robolearn.torch.pytorch_util as ptu
@@ -12,12 +11,13 @@ from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management import MultiGoalReplayBuffer
 
-from robolearn_gym_envs.pybullet import CentauroTrayEnv
+from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
 
 from robolearn.torch.rl_algos.sac.iu_weightedmultisac import IUWeightedMultiSAC
 
 from robolearn.torch.models import NNQFunction, NNVFunction
 from robolearn.torch.models import NNMultiQFunction, NNMultiVFunction
+# from robolearn.torch.models import AvgNNQFunction, AvgNNVFunction
 
 from robolearn.torch.policies import MixtureTanhGaussianMultiPolicy
 from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
@@ -40,7 +40,6 @@ PATHS_PER_EVAL = 1 #3
 PATHS_PER_HARD_UPDATE = 12
 BATCH_SIZE = 256
 
-# SEED = 10
 SEED = 110
 # NP_THREADS = 6
 
@@ -57,8 +56,13 @@ def experiment(variant):
     ptu.set_gpu_mode(variant['gpu'])
     ptu.seed(SEED)
 
+    goal = variant['env_params'].get('goal')
+    variant['env_params']['goal_poses'] = \
+        [goal, (goal[0], 'any'), ('any', goal[1])]
+    variant['env_params'].pop('goal')
+
     env = NormalizedBoxEnv(
-        CentauroTrayEnv(**variant['env_params']),
+        Pusher2D3DofGoalCompoEnv(**variant['env_params']),
         # normalize_obs=True,
         normalize_obs=False,
         online_normalization=False,
@@ -169,7 +173,7 @@ expt_params = dict(
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=10000,  # n_epochs
+        num_epochs=1500,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         # EnvSampler params
@@ -212,15 +216,17 @@ expt_params = dict(
         u_v_weight_decay=1e-5,
 
         discount=0.99,
-        # discount=0.90,
-        # discount=0.000,
-        # reward_scale=1.0,
-        # reward_scale=0.01,
-        reward_scale=2.e+1,  # Working with previous cost
-        # reward_scale=1000.0,
-        u_reward_scales=[4.e+1, 4.e+1],
+        # reward_scale=1.0,  # 26/06 en iter 50 llegan todos  a log_std=-5
+        # reward_scale=0.1,  # 26/06 hasta itr 730 no mejora. Muy estocastica, en deterministic apenas se mueve
+        # reward_scale=0.6,  # CHECKEAR pusher_compo_2018_06_27_07_45_08_0000--s-0. parece muy estocastico
+        # reward_scale=0.8,  # SIN SHARED. explora muy poco pusher_compo_2018_06_27_17_11_16_0000--s-0
+        # reward_scale=0.6,  # SIN SHARED. 28-19-18-53
+        reward_scale=0.7,  # SIN SHARED.
+        # reward_scale=1.5,
+        # reward_scale=10.0,
+        u_reward_scales=[0.7, 0.7],
     ),
-    net_size=256,
+    net_size=64,
     replay_buffer_size=1e6,
     shared_layer_norm=False,
     policies_layer_norm=False,
@@ -234,37 +240,26 @@ expt_params = dict(
 env_params = dict(
     is_render=False,
     obs_with_img=False,
-    active_joints='RA',
-    control_type='tasktorque',
-    # control_type='torque',
-    # control_type='velocity',
+    goal_poses=None,
+    rdn_goal_pose=True,
+    tgt_pose=None,
+    rdn_tgt_object_pose=True,
     sim_timestep=SIM_TIMESTEP,
     frame_skip=FRAME_SKIP,
-    obs_distances=False,
-    balance_cost_weight=2.0,
-    fall_cost_weight=0.5,
-    tgt_cost_weight=20.0,
-    # tgt_cost_weight=50.0,
-    balance_done_cost=0.,  # 2.0*PATH_LENGTH,  # TODO: dont forget same balance weight
-    tgt_done_reward=0.,  # 20.0,
-    # tgt_cost_weight=5.0,
-    # balance_cost_weight=0.0,
-    # fall_cost_weight=0.0,
-    # tgt_cost_weight=0.0,
-    # balance_cost_weight=5.0,
-    # fall_cost_weight=7.0,
-    ctrl_cost_weight=1.0e-1,
+    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
+    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
+    tgt_cost_weight=1.0, #1.5,
+    # goal_cost_weight=1.5, #3.0,
+    goal_cost_weight=1.5,
+    # goal_cost_weight=0.0,
+    ctrl_cost_weight=1.0e-4,
     use_log_distances=True,
-    log_alpha_pos=1e-4,
-    log_alpha_ori=1e-4,
-    goal_tolerance=0.05,
-    min_obj_height=0.60,
-    max_obj_height=1.20,
-    max_obj_distance=0.20,
+    # use_log_distances=False,
+    log_alpha=1e-1,  # In case use_log_distances=True
+    # max_time=PATH_LENGTH*DT,
     max_time=None,
     subtask=None,
-    # subtask=1,
-    random_init=True,
+    seed=SEED,
 )
 
 
@@ -300,7 +295,7 @@ if __name__ == "__main__":
 
     # Experiment name
     if args.expt_name is None:
-        expt_name = 'centauro_tray'
+        expt_name = 'pusher'
     else:
         expt_name = args.expt_name
 
@@ -308,6 +303,9 @@ if __name__ == "__main__":
 
     expt_variant['env_params'] = env_params
     expt_variant['env_params']['is_render'] = args.render
+    # TODO: MAKE THIS A SCRIPT ARGUMENT
+    expt_variant['env_params']['goal'] = (0.65, 0.65)
+    expt_variant['env_params']['tgt_pose'] = (0.5, 0.25, 1.4660)
 
     expt_variant['log_dir'] = args.log_dir
 

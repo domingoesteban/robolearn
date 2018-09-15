@@ -169,12 +169,12 @@ class MultiQFPolicyPlotter:
 
             if dd == 0:
                 actions = self._i_policy.get_actions(
-                    np.ones((self._n_samples, 1)) * obs[None, :])
+                    np.ones((self._n_samples, 1)) * obs[None, :])[0]
             else:
                 actions = self._u_policy.get_actions(
                     np.ones((self._n_samples, 1)) * obs[None, :],
                     pol_idxs=[dd-1]
-                )[0][0]
+                )[0]
 
             x, y = actions[:, 0], actions[:, 1]
             self._line_objects += ax.plot(x, y, 'b*')

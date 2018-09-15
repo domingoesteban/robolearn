@@ -22,6 +22,7 @@ class MixtureTanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
                  mix_hidden_b_init_val=0,
                  mix_hidden_activation=F.relu,
                  optimize_multipolicy=False,
+                 reparameterize=True,
                  reuse_shared=False):
         self.save_init_params(locals())
         super(MixtureTanhGaussianMultiPolicy, self).__init__()
@@ -66,6 +67,8 @@ class MixtureTanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
 
         # Label to detach gradients from multipolicy
         self._optimize_multipolicy = optimize_multipolicy
+
+        self._reparameterize = reparameterize
 
     def get_action(self, obs_np, **kwargs):
         action, info_dict = self.get_actions(obs_np[None], **kwargs)
@@ -124,8 +127,6 @@ class MixtureTanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
         mixture_coeff = torch.exp(log_mixture_coeff) \
                         / torch.sum(torch.exp(log_mixture_coeff), dim=-1,
                                     keepdim=True)
-        print(mixture_coeff.shape)
-        input("wuuu")
 
         if torch.isnan(mixture_coeff).any():
             raise ValueError('Any mixture coeff is NAN:',

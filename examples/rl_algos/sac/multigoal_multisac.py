@@ -1,7 +1,7 @@
 """
 Run PyTorch Multi Soft Actor Critic on GoalCompositionEnv.
 
-NOTE: You need PyTorch 0.3 or more (to have torch.distributions)
+NOTE: You need PyTorch 0.4
 """
 import numpy as np
 

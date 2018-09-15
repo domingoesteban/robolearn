@@ -135,23 +135,40 @@ class TanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
                 assert LOG_SIG_MIN <= self.log_std[-1] <= LOG_SIG_MAX
 
     def get_action(self, obs_np, **kwargs):
+        pol_idxs = kwargs['pol_idxs']
+
         actions, info_dict = self.get_actions(obs_np[None], **kwargs)
 
-        actions = [action[0, :] for action in actions]
+        if len(pol_idxs) > 1:
+            actions = [action[0, :] for action in actions]
+        else:
+            actions = actions[0, :]
 
         for key, vals in info_dict.items():
-            info_dict[key] = [val[0, :] if isinstance(val, np.ndarray)
-                              else None for val in vals]
+            if len(pol_idxs) > 1:
+                info_dict[key] = [val[0, :] if isinstance(val, np.ndarray)
+                                  else None for val in vals]
+            else:
+                info_dict[key] = vals[0, :] if isinstance(vals, np.ndarray) \
+                                  else None
 
         return actions, info_dict
 
     def get_actions(self, obs_np, **kwargs):
+        pol_idxs = kwargs['pol_idxs']
+
         actions, info_dict = self.eval_np(obs_np, **kwargs)
 
-        actions = [np_ify(tensor) for tensor in actions]
+        if len(pol_idxs) > 1:
+            actions = [np_ify(tensor) for tensor in actions]
+        else:
+            actions = np_ify(actions)
 
         for key, vals in info_dict.items():
-            info_dict[key] = [np_ify(val) for val in vals]
+            if len(pol_idxs) > 1:
+                info_dict[key] = [np_ify(val) for val in vals]
+            else:
+                info_dict[key] = np_ify(vals)
 
         return actions, info_dict
 
@@ -231,6 +248,16 @@ class TanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
                 else:
                     actions[ii], pre_tanh_values[ii] = \
                         tanh_normal.rsample(return_pretanh_value=True)
+
+        if len(pol_idxs) == 1:
+            actions = actions[0]
+            means = means[0]
+            log_stds = log_stds[0]
+            log_probs = log_probs[0]
+            expected_log_probs = expected_log_probs[0]
+            stds = stds[0]
+            mean_action_log_probs = mean_action_log_probs[0]
+            pre_tanh_values = pre_tanh_values[0]
 
         info_dict = dict(
             mean=means,

@@ -21,12 +21,25 @@ from robolearn.torch.models import NNMultiQFunction, NNMultiVFunction
 
 from robolearn.torch.policies import TanhGaussianMultiPolicy
 from robolearn.torch.policies import MixtureTanhGaussianMultiPolicy
+from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
+
 # from robolearn.torch.sac.policies import WeightedTanhGaussianMultiPolicy
 # from robolearn.torch.sac.policies import MultiPolicySelector
 # from robolearn.torch.sac.policies import BernoulliTanhGaussianMultiPolicy
 
 import argparse
 import time
+
+PATH_LENGTH = 50  # time steps
+PATHS_PER_EPOCH = 3
+PATHS_PER_EVAL = 3
+PATHS_PER_HARD_UPDATE = 35
+BATCH_SIZE = 256
+
+SEED = 110
+
+# POLICY = TanhGaussianWeightedMultiPolicy
+POLICY = MixtureTanhGaussianMultiPolicy
 
 
 def experiment(variant):
@@ -35,9 +48,16 @@ def experiment(variant):
     save_q_path = '/home/desteban/logs/goalcompo_q_plots/goalcompo_'+date_now
 
     ptu.set_gpu_mode(variant['gpu'])
+    ptu.seed(SEED)
 
     env = NormalizedBoxEnv(
-        GoalCompositionEnv(**variant['env_params'])
+        GoalCompositionEnv(**variant['env_params']),
+        # normalize_obs=True,
+        normalize_obs=False,
+        online_normalization=False,
+        obs_mean=None,
+        obs_var=None,
+        obs_alpha=0.001,
     )
 
     obs_dim = int(np.prod(env.observation_space.shape))
@@ -45,44 +65,59 @@ def experiment(variant):
 
     n_unintentional = 2
 
-    net_size = variant['net_size']
-    u_qf = NNMultiQFunction(obs_dim=obs_dim,
+    if variant['log_dir']:
+        raise ValueError
+    else:
+        start_epoch = 0
+        net_size = variant['net_size']
+        u_qf = NNMultiQFunction(obs_dim=obs_dim,
+                                action_dim=action_dim,
+                                n_qs=n_unintentional,
+                                shared_hidden_sizes=[net_size, net_size],
+                                # shared_hidden_sizes=[],
+                                unshared_hidden_sizes=[net_size, net_size, net_size])
+        u_qf2 = NNMultiQFunction(obs_dim=obs_dim,
+                                 action_dim=action_dim,
+                                 n_qs=n_unintentional,
+                                 shared_hidden_sizes=[net_size, net_size],
+                                 # shared_hidden_sizes=[],
+                                 unshared_hidden_sizes=[net_size, net_size, net_size])
+        # i_qf = WeightedNNMultiVFunction(u_qf)
+        i_qf = NNQFunction(obs_dim=obs_dim,
+                           action_dim=action_dim,
+                           hidden_sizes=[net_size, net_size])
+        i_qf2 = NNQFunction(obs_dim=obs_dim,
                             action_dim=action_dim,
-                            n_qs=n_unintentional,
-                            shared_hidden_sizes=[net_size, net_size],
-                            unshared_hidden_sizes=[net_size, net_size, net_size])
-    i_qf = NNQFunction(obs_dim=obs_dim,
-                       action_dim=action_dim,
-                       hidden_sizes=[net_size, net_size])
-    # i_qf = WeightedNNMultiVFunction(u_qf)
+                            hidden_sizes=[net_size, net_size])
 
-    u_vf = NNMultiVFunction(obs_dim=obs_dim,
-                            n_vs=n_unintentional,
-                            shared_hidden_sizes=[net_size, net_size],
-                            unshared_hidden_sizes=[net_size, net_size, net_size])
-    i_vf = NNVFunction(obs_dim=obs_dim,
-                       hidden_sizes=[net_size, net_size])
-    # i_vf = WeightedNNMultiVFunction(u_vf)
+        u_vf = NNMultiVFunction(obs_dim=obs_dim,
+                                n_vs=n_unintentional,
+                                shared_hidden_sizes=[net_size, net_size],
+                                # shared_hidden_sizes=[],
+                                unshared_hidden_sizes=[net_size, net_size, net_size])
+        i_vf = NNVFunction(obs_dim=obs_dim,
+                           hidden_sizes=[net_size, net_size])
+        # i_vf = WeightedNNMultiVFunction(u_vf)
 
-    u_policy = TanhGaussianMultiPolicy(obs_dim=obs_dim,
-                                       action_dim=action_dim,
-                                       n_policies=n_unintentional,
-                                       shared_hidden_sizes=[net_size, net_size],
-                                       unshared_hidden_sizes=[net_size, net_size])
-    i_policy = MixtureTanhGaussianMultiPolicy(u_policy,
-                                              mix_hidden_sizes=[net_size, net_size],
-                                              pol_idxs=None,
-                                              optimize_multipolicy=False)
+        u_policy = TanhGaussianMultiPolicy(obs_dim=obs_dim,
+                                           action_dim=action_dim,
+                                           n_policies=n_unintentional,
+                                           shared_hidden_sizes=[net_size, net_size],
+                                           unshared_hidden_sizes=[net_size, net_size])
+        policy = POLICY(u_policy,
+                        mix_hidden_sizes=[net_size, net_size],
+                        pol_idxs=None,
+                        optimize_multipolicy=False)
+
     # i_policy = MultiPolicySelector(u_policy, 0)
     # i_policy = BernoulliTanhGaussianMultiPolicy(u_policy, prob=0.5)
 
     replay_buffer = MultiGoalReplayBuffer(
-        variant['algo_params']['replay_buffer_size'],
-        np.prod(env.observation_space.shape),
-        np.prod(env.action_space.shape),
-        n_unintentional
+        max_replay_buffer_size=variant['replay_buffer_size'],
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        reward_vector_size=n_unintentional,
     )
-    variant['algo_params']['replay_buffer'] = replay_buffer
 
     # QF Plot
     goal_pos = expt_variant['env_params']['goal_position']
@@ -96,7 +131,7 @@ def experiment(variant):
     ]
     plotter = MultiQFPolicyPlotter(
         i_qf=i_qf,
-        i_policy=i_policy,
+        i_policy=policy,
         u_qf=u_qf,
         u_policy=u_policy,
         obs_lst=q_fcn_positions,
@@ -110,34 +145,33 @@ def experiment(variant):
 
     algorithm = IUWeightedMultiSAC(
         env=env,
-        training_env=env,
-        save_environment=False,
-        u_policy=u_policy,
+        policy=policy,
         u_qf=u_qf,
         u_vf=u_vf,
-        i_policy=i_policy,
+        replay_buffer=replay_buffer,
+        batch_size=BATCH_SIZE,  # batch_size
         i_qf=i_qf,
         i_vf=i_vf,
-        algo_interface='torch',
-        min_buffer_size=variant['algo_params']['batch_size'],
+        u_qf2=u_qf2,
+        i_qf2=i_qf2,
+        eval_env=env,
+        save_environment=False,
         **variant['algo_params']
     )
     if ptu.gpu_enabled():
         algorithm.cuda()
-    algorithm.train()
+    # algorithm.pretrain(PATH_LENGTH*2)
+    algorithm.train(start_epoch=start_epoch)
 
     return algorithm
 
 
-PATH_LENGTH = 50  # time steps
-PATHS_PER_EPOCH = 3
-PATHS_PER_EVAL = 3
-PATHS_PER_HARD_UPDATE = 35
-
 expt_params = dict(
-    algo_name=IUMultiSAC.__name__,
+    # algo_name=IUMultiSAC.__name__,
+    algo_name=IUWeightedMultiSAC.__name__,
+    policy_name=POLICY.__name__,
     algo_params=dict(
-        # Common RLAlgo params
+        # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
         num_epochs=1000,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
@@ -145,25 +179,18 @@ expt_params = dict(
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
-        # ReplayBuffer params
-        batch_size=64,  # batch_size
-        replay_buffer_size=1e4,
         # SoftActorCritic params
-        # TODO: epoch_plotter
-        iu_mode='composition',
-        policy_lr=1e-3,
-        qf_lr=1e-4,
-        vf_lr=1e-4,
-        # use_hard_updates=False,  # Hard update for target Q-fcn
-        # hard_update_period=PATHS_PER_HARD_UPDATE*PATH_LENGTH,  # td_target_update_interval (steps)
-        soft_target_tau=1e-2,  # Not used if use_hard_updates=True
-        # TODO:kernel_fn
-        policy_mean_reg_weight=1e-3,
-        policy_std_reg_weight=1e-3,
-        policy_pre_activation_weight=0.,
+        min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
+        min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
+        reparameterize=True,
+        action_prior='uniform',
+        i_entropy_scale=1.0e-0,
+        u_entropy_scale=[1.0e-0, 1.0e-0],
+
+        i_policy_lr=1e-3,
+        u_policies_lr=1.e-4,
 
         discount=0.99,
-        # discount=0.1,
         # reward_scale=0.08,
         # reward_scale=0.10,  # No funciona 10/06
         reward_scale=1.00,
@@ -175,19 +202,24 @@ expt_params = dict(
         # reward_scale=1000.0,  # Mixture ... con este 10/06
     ),
     net_size=64,
+    replay_buffer_size=1e4,
 )
 
 env_params = dict(
+    # Costs
     goal_reward=5,
     actuation_cost_coeff=0.5,
     distance_cost_coeff=0.0,
     log_distance_cost_coeff=1.5,
     alpha=1e-6,
+    # Initial Condition
     init_position=(-4., -4.),
     init_sigma=1.50,
+    # Goal
     goal_position=None,
-    dynamics_sigma=0.1,
     goal_threshold=0.05,
+    # Others
+    dynamics_sigma=0.1,
     # horizon=PATH_LENGTH,
     horizon=None,
 )
@@ -200,12 +232,14 @@ def parse_args():
     # parser.add_argument('--expt_name', type=str, default=timestamp())
     # Logging arguments
     parser.add_argument('--snap_mode', type=str, default='gap_and_last')
-    parser.add_argument('--snap_gap', type=int, default=50)
+    parser.add_argument('--snap_gap', type=int, default=25)
     # parser.add_argument('--mode', type=str, default='local')
     parser.add_argument('--log_dir', type=str, default=None)
+    # GPU arguments
+    parser.add_argument('--gpu', action="store_true")
+    # Other arguments
     parser.add_argument('--render', action="store_true")
     parser.add_argument('--render_q', action="store_true")
-    parser.add_argument('--gpu', action="store_true")
     args = parser.parse_args()
 
     return args
@@ -233,10 +267,11 @@ if __name__ == "__main__":
     expt_variant['algo_params']['render'] = args.render
 
     expt_variant['env_params'] = env_params
-
     # TODO: MAKE THIS A SCRIPT ARGUMENT
     expt_variant['env_params']['goal_position'] = (3.5, 4.5)
     # expt_variant['env_params']['goal_position'] = (7., 7.)
+
+    expt_variant['log_dir'] = args.log_dir
 
     setup_logger(expt_name,
                  variant=expt_variant,
