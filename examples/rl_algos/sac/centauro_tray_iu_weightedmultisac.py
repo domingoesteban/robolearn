@@ -100,20 +100,30 @@ def experiment(variant):
                                  # shared_hidden_sizes=[net_size, net_size],
                                  shared_hidden_sizes=[],
                                  unshared_hidden_sizes=[net_size, net_size])
+<<<<<<< HEAD
         # i_qf = WeightedNNMultiVFunction(u_qf)
+=======
+>>>>>>> 359a84d1aeac5042dc64e73d031ac5d4ea688a4d
         i_qf = NNQFunction(obs_dim=obs_dim,
                            action_dim=action_dim,
                            hidden_sizes=(net_size, net_size))
         i_qf2 = NNQFunction(obs_dim=obs_dim,
                             action_dim=action_dim,
+<<<<<<< HEAD
                             hidden_sizes=(net_size, net_size))
+=======
+                            hidden_sizes=[net_size, net_size])
+>>>>>>> 359a84d1aeac5042dc64e73d031ac5d4ea688a4d
 
         u_vf = NNMultiVFunction(obs_dim=obs_dim,
                                 n_vs=n_unintentional,
                                 # shared_hidden_sizes=[net_size, net_size],
                                 shared_hidden_sizes=[],
                                 unshared_hidden_sizes=[net_size, net_size])
+<<<<<<< HEAD
         # i_vf = WeightedNNMultiVFunction(u_vf)
+=======
+>>>>>>> 359a84d1aeac5042dc64e73d031ac5d4ea688a4d
         i_vf = NNVFunction(obs_dim=obs_dim,
                            hidden_sizes=[net_size, net_size])
 

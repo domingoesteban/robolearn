@@ -135,6 +135,7 @@ class TanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
                 assert LOG_SIG_MIN <= self.log_std[-1] <= LOG_SIG_MAX
 
     def get_action(self, obs_np, **kwargs):
+<<<<<<< HEAD
         pol_idxs = kwargs['pol_idxs']
 
         actions, info_dict = self.get_actions(obs_np[None], **kwargs)
@@ -151,10 +152,20 @@ class TanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
             else:
                 info_dict[key] = vals[0, :] if isinstance(vals, np.ndarray) \
                                   else None
+=======
+        actions, info_dict = self.get_actions(obs_np[None], **kwargs)
+
+        actions = [action[0, :] for action in actions]
+
+        for key, vals in info_dict.items():
+            info_dict[key] = [val[0, :] if isinstance(val, np.ndarray)
+                              else None for val in vals]
+>>>>>>> 359a84d1aeac5042dc64e73d031ac5d4ea688a4d
 
         return actions, info_dict
 
     def get_actions(self, obs_np, **kwargs):
+<<<<<<< HEAD
         pol_idxs = kwargs['pol_idxs']
 
         actions, info_dict = self.eval_np(obs_np, **kwargs)
@@ -169,6 +180,14 @@ class TanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
                 info_dict[key] = [np_ify(val) for val in vals]
             else:
                 info_dict[key] = np_ify(vals)
+=======
+        actions, info_dict = self.eval_np(obs_np, **kwargs)
+
+        actions = [np_ify(tensor) for tensor in actions]
+
+        for key, vals in info_dict.items():
+            info_dict[key] = [np_ify(val) for val in vals]
+>>>>>>> 359a84d1aeac5042dc64e73d031ac5d4ea688a4d
 
         return actions, info_dict
 
@@ -249,6 +268,7 @@ class TanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
                     actions[ii], pre_tanh_values[ii] = \
                         tanh_normal.rsample(return_pretanh_value=True)
 
+<<<<<<< HEAD
         if len(pol_idxs) == 1:
             actions = actions[0]
             means = means[0]
@@ -259,6 +279,8 @@ class TanhGaussianMultiPolicy(PyTorchModule, ExplorationPolicy):
             mean_action_log_probs = mean_action_log_probs[0]
             pre_tanh_values = pre_tanh_values[0]
 
+=======
+>>>>>>> 359a84d1aeac5042dc64e73d031ac5d4ea688a4d
         info_dict = dict(
             mean=means,
             log_std=log_stds,
