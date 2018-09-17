@@ -197,7 +197,7 @@ class Dualism(object):
             self._bad_duality_info[cond].traj_cost = np.mean(bad_true_cost,
                                                              axis=0)
 
-            # Cost estimate.
+            # Reward estimate.
             self.good_trajs_info[cond].Cm = good_cost_estimate[0]  # Quadratic term (matrix).
             self.good_trajs_info[cond].cv = good_cost_estimate[1]  # Linear term (vector).
             self.good_trajs_info[cond].cc = good_cost_estimate[2]  # Constant term (scalar).

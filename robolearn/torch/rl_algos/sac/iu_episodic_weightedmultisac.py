@@ -15,8 +15,8 @@ from itertools import chain
 import robolearn.torch.pytorch_util as ptu
 from robolearn.core import logger, eval_util
 from robolearn.utils.samplers import InPlacePathSampler
-from robolearn.torch.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
-from robolearn.torch.torch_iterative_rl_algorithm import TorchIterativeRLAlgorithm
+from robolearn.torch.rl_algos.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
+from robolearn.torch.rl_algos.torch_iterative_rl_algorithm import TorchIterativeRLAlgorithm
 from robolearn.policies import MakeDeterministic
 from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy2

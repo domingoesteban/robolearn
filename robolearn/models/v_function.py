@@ -1,7 +1,8 @@
 import abc
+from future.utils import with_metaclass
 
 
-class VFunction(object, metaclass=abc.ABCMeta):
+class VFunction(with_metaclass(abc.ABCMeta, object)):
     """
     General state value function (V-function) interface.
     """

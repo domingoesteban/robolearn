@@ -14,7 +14,7 @@ from gym.spaces.box import Box
 
 class MultiCompositionEnv(Serializable):
     """
-    Move a 2D point mass to one of the goal positions. Cost is the distance to
+    Move a 2D point mass to one of the goal positions. Reward is the distance to
     the closest goal.
 
     State: position.

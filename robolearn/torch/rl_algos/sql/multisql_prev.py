@@ -12,7 +12,7 @@ import torch.optim as optim
 from collections import OrderedDict
 
 import robolearn.torch.pytorch_util as ptu
-from robolearn.torch.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
+from robolearn.torch.rl_algos.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
 from robolearn.core import logger, eval_util
 from robolearn.utils.samplers import InPlacePathSampler
 from robolearn.torch.sql.policies import MakeDeterministic
@@ -154,7 +154,7 @@ class MultiSQL(TorchIncrementalRLAlgorithm):
                 self.eval_statistics = OrderedDict()
             self.eval_statistics['[%d] Bellman Residual (QFcn)' % demon] = \
                 np.mean(ptu.get_numpy(bellman_residual))
-            self.eval_statistics['[%d] Surrogate Cost (Policy)' % demon] = \
+            self.eval_statistics['[%d] Surrogate Reward (Policy)' % demon] = \
                 np.mean(ptu.get_numpy(surrogate_cost))
 
     def _update_q_fcn(self, batch, demon):

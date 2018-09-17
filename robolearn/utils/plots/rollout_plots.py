@@ -105,7 +105,7 @@ def plot_reward_composition_v010(cost_list, ignore_last=False,
     if not isinstance(axs, np.ndarray):
         axs = np.array([axs])
     fig.subplots_adjust(hspace=0)
-    fig.suptitle('Cost composition',
+    fig.suptitle('Reward composition',
                  fontweight='bold')
 
     # fig = plt.figure()
@@ -117,7 +117,7 @@ def plot_reward_composition_v010(cost_list, ignore_last=False,
     for rr in range(n_reward_vector):
         data[rr, :] = cost_list[rr]
         axs[rr].plot(ts, data[rr, :], color=COMPO_COLORS[rr], linestyle=':')
-        axs[rr].set_ylabel('Cost %02d' % rr)
+        axs[rr].set_ylabel('Reward %02d' % rr)
         # ax = fig.add_subplot(n_reward_vector, 1, rr+1)
         # ax.plot(ts, data)
     data[-1, :] = np.sum(data[:n_reward_vector, :], axis=0)
@@ -137,7 +137,7 @@ def plot_reward_composition_v010(cost_list, ignore_last=False,
                      label='%02d' % rr, color=COMPO_COLORS[rr])
 
     axs[-1].plot(ts[:max_t], data[-1, :max_t], linewidth=2,
-                 color=COMPO_COLORS[n_reward_vector], label='Total Cost')
+                 color=COMPO_COLORS[n_reward_vector], label='Total Reward')
     axs[-1].set_xlabel('Time')
     axs[-1].legend()
 

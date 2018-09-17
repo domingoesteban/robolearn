@@ -106,7 +106,7 @@ class Reinforce(TorchIterativeRLAlgorithm):
             self.eval_statistics = OrderedDict()
             # self.eval_statistics['Bellman Residual (QFcn)'] = \
             #     np.mean(ptu.get_numpy(bellman_residual))
-            self.eval_statistics['Surrogate Cost (Policy)'] = \
+            self.eval_statistics['Surrogate Reward (Policy)'] = \
                 np.mean(ptu.get_numpy(surrogate_cost))
 
     def _update_q_fcn(self, batch):

@@ -1,7 +1,8 @@
 import abc
+from future.utils import with_metaclass
 
 
-class QFunction(object, metaclass=abc.ABCMeta):
+class QFunction(with_metaclass(abc.ABCMeta, object)):
     """
     General state-action value function (Q-function) interface.
     """

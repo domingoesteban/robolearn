@@ -1,12 +1,11 @@
 import abc
+from future.utils import with_metaclass
 
 
-class Policy(object):
+class Policy(with_metaclass(abc.ABCMeta, object)):
     """
     General policy superclass.
     """
-    __metaclass__ = abc.ABCMeta
-
     def __init__(self, action_dim):
         self._action_dim = action_dim
 

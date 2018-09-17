@@ -12,9 +12,8 @@ import torch.optim as optim
 from collections import OrderedDict
 
 import robolearn.torch.pytorch_util as ptu
-from robolearn.torch.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
+from robolearn.torch.rl_algos.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
 from robolearn.core import logger, eval_util
-from robolearn.utils.samplers import InPlacePathSampler
 from robolearn.policies import MakeDeterministic
 from robolearn.torch.rl_algos.sql.kernel import adaptive_isotropic_gaussian_kernel
 from robolearn.torch.ops import log_sum_exp
@@ -144,7 +143,7 @@ class SQL(TorchIncrementalRLAlgorithm):
             self.eval_statistics = OrderedDict()
             self.eval_statistics['Bellman Residual (QFcn)'] = \
                 np.mean(ptu.get_numpy(bellman_residual))
-            self.eval_statistics['Surrogate Cost (Policy)'] = \
+            self.eval_statistics['Surrogate Reward (Policy)'] = \
                 np.mean(ptu.get_numpy(surrogate_cost))
 
     def _update_q_fcn(self, batch):

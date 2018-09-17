@@ -162,7 +162,7 @@ def plot_process_general_data(csv_file, n_unintentional=None, block=False):
     labels_to_plot = [
         # 'mean-sq-bellman-error',
         # 'Bellman Residual (QFcn)',
-        # 'Surrogate Cost (Policy)',
+        # 'Surrogate Reward (Policy)',
         # 'return-average',
         'Exploration Returns Mean',
         'Test Returns Mean',

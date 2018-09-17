@@ -15,7 +15,7 @@ from itertools import chain
 import robolearn.torch.pytorch_util as ptu
 from robolearn.core import logger, eval_util
 from robolearn.utils.samplers import InPlacePathSampler
-from robolearn.torch.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
+from robolearn.torch.rl_algos.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
 from robolearn.policies import MakeDeterministic
 from robolearn.torch.policies import WeightedMultiPolicySelector
 from torch.autograd import Variable
@@ -501,11 +501,7 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
                                             ptu.get_numpy(rewards.mean()),
                                             self._n_env_steps_total)
 
-<<<<<<< HEAD
         # Update Unintentional Q-Values
-=======
-        # Update Unintentional Q-values
->>>>>>> 359a84d1aeac5042dc64e73d031ac5d4ea688a4d
         self._u_qf_optimizer.zero_grad()
         accum_u_qf_loss.backward()
         self._u_qf_optimizer.step()

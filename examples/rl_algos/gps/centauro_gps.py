@@ -111,7 +111,7 @@ dynamics_hyperparams = dict(
 dynamics = DynamicsLRPrior(dynamics_hyperparams)
 
 
-# Cost Fcn
+# Reward Fcn
 action_cost = {
     'type': CostAction,
     'wu': 1e-3 / TORQUE_GAINS,
@@ -290,7 +290,7 @@ for ii in range(Niter):
             Phi + (N*priorm) / (N+priorm) * \
             np.outer(x0mu-mu0, x0mu-mu0) / (N+n0)
 
-    # Eval Samples Cost
+    # Eval Samples Reward
     print('****'*2)
     print('EVALUATING COST...')
     print('****'*2)
@@ -328,7 +328,7 @@ for ii in range(Niter):
                     + 0.5 * np.sum(rdiff * cv_update, axis=1)
         cv[n, :, :] += cv_update
 
-    # Cost estimate.
+    # Reward estimate.
     cc = np.mean(cc, axis=0)  # Constant term (scalar).
     cv = np.mean(cv, axis=0)  # Linear term (vector).
     Cm = np.mean(Cm, axis=0)  # Quadratic term (matrix).

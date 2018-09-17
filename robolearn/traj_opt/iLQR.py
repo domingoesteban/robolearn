@@ -7,7 +7,7 @@ import scipy as sp
 from numpy.linalg import LinAlgError
 import copy
 
-from .core import TrajOpt
+from .base import TrajOpt
 
 
 DEFAULT_HYPERPARAMS = dict(
@@ -133,7 +133,7 @@ class iLQR(object):
         Qtt = np.zeros((self._T, self._dX+self._dU, self._dX+self._dU))
         Qt = np.zeros((self._T, self._dX+self._dU))
 
-        # Gradient and Hessian of Cost
+        # Gradient and Hessian of Reward
         fCm = costs.fCm
         fcv = costs.fcv
 

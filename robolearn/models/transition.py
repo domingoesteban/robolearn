@@ -1,7 +1,8 @@
 import abc
+from future.utils import with_metaclass
 
 
-class Transition(object, metaclass=abc.ABCMeta):
+class Transition(with_metaclass(abc.ABCMeta, object)):
     """
     General transition function interface.
     """

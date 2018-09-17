@@ -4,11 +4,11 @@ Based on Finn-GPS
 
 """
 import abc
+from future.utils import with_metaclass
 
 
-class TrajOpt(object):
+class TrajOpt(with_metaclass(abc.ABCMeta, object)):
     """ Trajectory optimization superclass. """
-    __metaclass__ = abc.ABCMeta
 
     def __init__(self, hyperparams):
         self._hyperparams = hyperparams
