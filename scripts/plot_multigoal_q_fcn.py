@@ -3,7 +3,7 @@ import argparse
 import joblib
 import IPython
 
-from robolearn.envs.simple_envs.multigoal_q_plot_ import QFPolicyPlotter
+from robolearn.envs.simple_envs.multigoal_deprecated.multigoal_q_plot_ import QFPolicyPlotter
 
 
 def main(args):

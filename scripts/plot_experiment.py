@@ -26,7 +26,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('file', type=str, default='./parameters.pkl',
+    parser.add_argument('file', type=str, default='./progress.csv',
                         help='path to the progress.csv file')
     parser.add_argument('--un', type=int, default=-1,
                         help='Unintentional id')

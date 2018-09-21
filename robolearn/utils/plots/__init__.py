@@ -4,6 +4,7 @@ from .plt_pause import plt_pause
 # General plots
 from .core import subplots
 from .core import set_latex_plot
+from .core import get_csv_data
 
 # Rollout Plots
 from .rollout_plots import plot_reward_composition

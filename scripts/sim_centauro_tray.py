@@ -156,7 +156,7 @@ def simulate_policy(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('file', type=str, default='./progress.csv',
+    parser.add_argument('file', type=str, default='./params.pkl',
                         help='path to the snapshot file')
     parser.add_argument('--H', type=int, default=500,
                         help='Max length of rollout')

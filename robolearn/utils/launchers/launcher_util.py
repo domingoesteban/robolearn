@@ -219,6 +219,7 @@ def setup_logger(
         snapshot_mode="last",
         snapshot_gap=1,
         log_tabular_only=False,
+        log_stdout=True,
         log_dir=None,
         git_info=None,
         script_name=None,
@@ -244,6 +245,7 @@ def setup_logger(
     :param tabular_log_file:
     :param snapshot_mode:
     :param log_tabular_only:
+    :param log_stdout:
     :param snapshot_gap:
     :param log_dir:
     :param git_info:
@@ -276,6 +278,7 @@ def setup_logger(
     logger.set_snapshot_mode(snapshot_mode)
     logger.set_snapshot_gap(snapshot_gap)
     logger.set_log_tabular_only(log_tabular_only)
+    logger.set_log_stdout(log_stdout)
     exp_name = log_dir.split("/")[-1]
     logger.push_prefix("[%s] " % exp_name)
 

@@ -12,7 +12,8 @@ import torch.optim as optim
 from collections import OrderedDict
 
 import robolearn.torch.pytorch_util as ptu
-from robolearn.torch import TorchIterativeRLAlgorithm
+from robolearn.torch.rl_algos.torch_iterative_rl_algorithm \
+    import TorchIterativeRLAlgorithm
 from robolearn.core import logger, eval_util
 from robolearn.policies import MakeDeterministic
 

@@ -3,9 +3,7 @@ import time
 import numpy as np, numpy.random as nr, gym
 import matplotlib.pyplot as plt
 np.set_printoptions(precision=3)
-from robolearn.old_envs.cliff import CliffEnv
-
-
+from robolearn.envs.simple_envs.cliff import CliffEnv
 
 render = 'human'
 # render = 'rgb_array'

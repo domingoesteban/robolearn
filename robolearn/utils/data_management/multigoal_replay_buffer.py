@@ -1,6 +1,6 @@
 import numpy as np
 
-from rlkit.data_management.replay_buffer import ReplayBuffer
+from robolearn.utils.data_management.replay_buffer import ReplayBuffer
 
 
 class MultiGoalReplayBuffer(ReplayBuffer):

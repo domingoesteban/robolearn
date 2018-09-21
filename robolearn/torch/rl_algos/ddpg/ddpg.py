@@ -14,7 +14,8 @@ import robolearn.torch.pytorch_util as ptu
 from robolearn.core.eval_util import create_stats_ordered_dict
 from robolearn.policies import RandomPolicy
 from robolearn.utils.samplers import rollout
-from robolearn.torch import TorchIncrementalRLAlgorithm
+from robolearn.torch.rl_algos.torch_incremental_rl_algorithm \
+    import TorchIncrementalRLAlgorithm
 from robolearn.torch.data_management import TorchFixedNormalizer
 
 

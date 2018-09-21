@@ -2,6 +2,38 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import numpy as np
+import pandas as pd
+
+
+def get_csv_data(csv_file, labels):
+    data, all_labels = get_csv_data_and_labels(csv_file)
+
+    n_data = data.shape[0]
+
+    new_data = np.zeros((len(labels), n_data))
+
+    # # Uncomment for debugging
+    # print(all_labels)
+
+    for ll, name in enumerate(labels):
+        if name in all_labels:
+            idx = all_labels.index(name)
+            new_data[ll, :] = data[:, idx]
+        else:
+            raise ValueError("Label '%s' not available in file '%s'"
+                             % (name, csv_file))
+
+    return new_data
+
+
+def get_csv_data_and_labels(csv_file):
+    # Read from CSV file
+    series = pd.read_csv(csv_file)
+
+    data = series.as_matrix()
+    labels = list(series)
+
+    return data, labels
 
 
 def set_latex_plot():

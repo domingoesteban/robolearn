@@ -1093,7 +1093,8 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
 
         if hasattr(self.env, "log_diagnostics"):
             # TODO: CHECK ENV LOG_DIAGNOSTICS
-            print('TODO: WE NEED LOG_DIAGNOSTICS IN ENV')
+            print('%03d' % self._n_epochs,
+                  'TODO: WE NEED LOG_DIAGNOSTICS IN ENV')
             # self.env.log_diagnostics(test_paths[demon])
 
         # Record the data

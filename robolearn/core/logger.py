@@ -53,6 +53,8 @@ _snapshot_gap = 1
 _log_tabular_only = False
 _header_printed = False
 
+_log_stdout = True
+
 
 def _add_output(file_name, arr, fds, mode='a'):
     if file_name not in arr:
@@ -128,6 +130,15 @@ def get_log_tabular_only():
     return _log_tabular_only
 
 
+def set_log_stdout(log_stdout):
+    global _log_stdout
+    _log_stdout = log_stdout
+
+
+def get_log_stdout():
+    return _log_stdout
+
+
 def log(s, with_prefix=True, with_timestamp=True):
     out = s
     if with_prefix:
@@ -137,8 +148,9 @@ def log(s, with_prefix=True, with_timestamp=True):
         timestamp = now.strftime('%Y-%m-%d %H:%M:%S.%f %Z')
         out = "%s | %s" % (timestamp, out)
     if not _log_tabular_only:
-        # Also log to stdout
-        print(out)
+        if _log_stdout:
+            # Also log to stdout
+            print(out)
         for fd in list(_text_fds.values()):
             fd.write(out + '\n')
             fd.flush()

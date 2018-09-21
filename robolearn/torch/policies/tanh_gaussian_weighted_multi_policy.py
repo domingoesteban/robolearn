@@ -200,6 +200,9 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             for pol_idx in range(self._n_policies):
                 last_hidden_size = obs_dim
                 if unshared_hidden_sizes is None:
+                    if shared_hidden_sizes is None:
+                        raise AttributeError("Neither shared or unshared hidden"
+                                             " sizes have been specified.")
                     if len(shared_hidden_sizes) > 0:
                         last_hidden_size = shared_hidden_sizes[-1]
                 else:

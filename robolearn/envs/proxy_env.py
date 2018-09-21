@@ -22,6 +22,12 @@ class ProxyEnv(Serializable, Env):
     def render(self, *args, **kwargs):
         return self._wrapped_env.render(*args, **kwargs)
 
+    def close(self, *args, **kwargs):
+        return self._wrapped_env.close(*args, **kwargs)
+
+    def seed(self, *args, **kwargs):
+        return self._wrapped_env.seed(*args, **kwargs)
+
     def log_diagnostics(self, paths, *args, **kwargs):
         if hasattr(self._wrapped_env, 'log_diagnostics'):
             self._wrapped_env.log_diagnostics(paths, *args, **kwargs)

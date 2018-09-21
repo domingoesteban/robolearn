@@ -4,7 +4,8 @@ Berkeley Deep RL Bootcamp, August 2017. Bootcamp website with slides and lecture
 videos: https://sites.google.com/view/deep-rl-bootcamp/.
 
 Code adapted from Berkeley Deep RL Class [HW2]
-(https://github.com/berkeleydeeprlcourse/homework/blob/c1027d83cd542e67ebed982d44666e0d22a00141/hw2/HW2.ipynb) [(license)](https://github.com/berkeleydeeprlcourse/homework/blob/master/LICENSE).
+(https://github.com/berkeleydeeprlcourse/homework/blob/c1027d83cd542e67ebed982d44666e0d22a00141/hw2/HW2.ipynb)
+[(license)](https://github.com/berkeleydeeprlcourse/homework/blob/master/LICENSE).
 
 Copyright 2017 Deep RL Bootcamp Organizers.
 

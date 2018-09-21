@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from robolearn.utils.plots import subplots
-import pandas as pd
+from robolearn.utils.plots import get_csv_data
 from builtins import input
 
 
@@ -251,32 +251,3 @@ def plot_process_haarnoja(csv_file, n_unintentional=None, block=False):
     plt.setp(axs[-1].get_xticklabels(), visible=True)
 
     plt.show(block=block)
-
-
-def get_csv_data(csv_file, labels):
-    data, all_labels = get_csv_data_and_labels(csv_file)
-
-    n_data = data.shape[0]
-
-    new_data = np.zeros((len(labels), n_data))
-
-    print(all_labels)
-    for ll, name in enumerate(labels):
-        if name in all_labels:
-            idx = all_labels.index(name)
-            new_data[ll, :] = data[:, idx]
-        else:
-            raise ValueError("Label '%s' not available in file '%s'"
-                             % (name, csv_file))
-
-    return new_data
-
-
-def get_csv_data_and_labels(csv_file):
-    # Read from CSV file
-    series = pd.read_csv(csv_file)
-
-    data = series.as_matrix()
-    labels = list(series)
-
-    return data, labels
