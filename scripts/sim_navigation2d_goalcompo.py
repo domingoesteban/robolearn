@@ -2,7 +2,8 @@ from robolearn.utils.samplers import rollout
 from robolearn.torch.core import PyTorchModule
 from robolearn.torch.pytorch_util import set_gpu_mode
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
-from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
+# from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
+from robolearn.envs.simple_envs.goal_composition import GoalCompositionEnv
 from robolearn.torch.policies import MultiPolicySelector
 from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.torch.policies import TanhGaussianPolicy
@@ -67,7 +68,7 @@ def simulate_policy(args):
     env_params.pop('goal', None)
     env_params['is_render'] = True
     env = NormalizedBoxEnv(
-        Pusher2D3DofGoalCompoEnv(**env_params),
+        GoalCompositionEnv(**env_params),
         # normalize_obs=True,
         normalize_obs=False,
         online_normalization=False,

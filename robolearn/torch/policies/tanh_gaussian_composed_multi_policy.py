@@ -507,16 +507,16 @@ class TanhGaussianComposedMultiPolicy(PyTorchModule, ExplorationPolicy):
         #                             keepdim=True)
         #
         # # Multi Policies
-        # hs = [h for _ in range(self._n_policies)]
+        # hs = [h for _ in range(self._n_subpolicies)]
         #
         # if len(self.pfcs) > 0:
-        #     for ii in range(self._n_policies):
+        #     for ii in range(self._n_subpolicies):
         #         for i, fc in enumerate(self.pfcs[ii]):
         #             hs[ii] = self.hidden_activation(fc(hs[ii]))
         #
         # means = torch.cat(
         #     [(self.output_activation(self.last_pfcs[ii](hs[ii]))).unsqueeze(dim=-1)
-        #      for ii in range(self._n_policies)
+        #      for ii in range(self._n_subpolicies)
         #      ], dim=-1)
         #
         # if self.stds is None:
@@ -524,7 +524,7 @@ class TanhGaussianComposedMultiPolicy(PyTorchModule, ExplorationPolicy):
         #         [torch.clamp((self.output_activation(
         #             self.last_pfc_log_stds[ii](hs[ii])).unsqueeze(dim=-1)
         #                       ), min=LOG_SIG_MIN, max=LOG_SIG_MAX)
-        #          for ii in range(self._n_policies)],
+        #          for ii in range(self._n_subpolicies)],
         #         dim=-1
         #     )
         #     stds = torch.exp(log_stds)

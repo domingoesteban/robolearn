@@ -4,6 +4,7 @@ Run PyTorch IU Multi Soft Actor Critic on Pusher2D3DofGoalCompoEnv.
 NOTE: You need PyTorch 0.4
 """
 
+import os
 import numpy as np
 
 import robolearn.torch.pytorch_util as ptu

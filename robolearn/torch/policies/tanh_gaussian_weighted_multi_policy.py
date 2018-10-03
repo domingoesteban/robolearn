@@ -17,6 +17,9 @@ LOG_SIG_MAX = 2
 # LOG_SIG_MAX = 0.0  # 2
 LOG_SIG_MIN = -3.0  # 20
 
+SIG_MAX = 7.38905609893065
+SIG_MIN = 0.049787068367863944
+
 LOG_MIX_COEFF_MIN = -10
 LOG_MIX_COEFF_MAX = -1e-6  #-4.5e-5
 LOG_MIX_COEFF_MIN = -1
@@ -52,13 +55,13 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             unshared_hidden_sizes=None,
             unshared_mix_hidden_sizes=None,
             stds=None,
-            hidden_activation=torch.relu,
+            hidden_activation='relu',
             hidden_w_init=ptu.xavier_init,
             hidden_b_init_val=1e-6,
             output_w_init=ptu.xavier_init,
             output_b_init_val=1e-6,
-            pol_output_activation=identity,
-            mix_output_activation=torch.tanh,
+            pol_output_activation='linear',
+            mix_output_activation='linear',
             shared_layer_norm=False,
             policies_layer_norm=False,
             mixture_layer_norm=False,
@@ -72,24 +75,24 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
         self.input_size = obs_dim
         self.output_sizes = action_dim
-        self._n_policies = n_policies
+        self._n_subpolicies = n_policies
         # Activation Fcns
-        self.hidden_activation = hidden_activation
-        self.pol_output_activation = pol_output_activation
-        self.mix_output_activation = mix_output_activation
+        self.hidden_activation = ptu.activation(hidden_activation)
+        self.pol_output_activation = ptu.activation(pol_output_activation)
+        self.mix_output_activation = ptu.activation(mix_output_activation)
         # Normalization Layer Flags
         self.shared_layer_norm = shared_layer_norm
         self.policies_layer_norm = policies_layer_norm
         self.mixture_layer_norm = mixture_layer_norm
         # Layers Lists
         self.sfcs = []  # Shared Layers
-        self.norm_sfcs = []  # Norm. Shared Layers
-        self.pfcs = [list() for _ in range(self._n_policies)]  # Policies Layers
-        self.norm_pfcs = [list() for _ in range(self._n_policies)]  # N. Pol. L.
-        self.last_pfcs = []  # Last Policies Layers
+        self.sfc_norms = []  # Norm. Shared Layers
+        self.pfcs = [list() for _ in range(self._n_subpolicies)]  # Policies Layers
+        self.pfc_norms = [list() for _ in range(self._n_subpolicies)]  # N. Pol. L.
+        self.pfc_lasts = []  # Last Policies Layers
         self.mfcs = []  # Mixing Layers
         self.norm_mfcs = []  # Norm. Mixing Layers
-        # self.last_mfc = None
+        # self.mfc_last = None  # Below is instantiated
 
         self._mixing_temperature = mixing_temperature  # Hyperparameter for exp.
 
@@ -111,7 +114,8 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             for i, next_size in enumerate(shared_hidden_sizes):
                 sfc = nn.Linear(in_size, next_size)
                 nn.init.xavier_normal_(sfc.weight.data,
-                                       gain=nn.init.calculate_gain('relu'))
+                                       gain=nn.init.calculate_gain(hidden_activation)
+                                       )
                 ptu.fill(sfc.bias, hidden_b_init_val)
                 self.__setattr__("sfc{}".format(i), sfc)
                 self.sfcs.append(sfc)
@@ -120,9 +124,9 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 if self.shared_layer_norm:
                     ln = LayerNorm(next_size)
                     # ln = nn.BatchNorm1d(next_size)
-                    self.__setattr__("norm_sfc{}".format(i), ln)
-                    self.norm_sfcs.append(ln)
-                    self.add_shared_module("norm_sfc{}".format(i), ln)
+                    self.__setattr__("sfc{}_norm".format(i), ln)
+                    self.sfc_norms.append(ln)
+                    self.add_shared_module("sfc{}_norm".format(i), ln)
                 in_size = next_size
 
         # Get the output_size of the shared layers
@@ -132,10 +136,10 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         # Multi-Policy Hidden Layers
         if unshared_hidden_sizes is not None:
             for i, next_size in enumerate(unshared_hidden_sizes):
-                for pol_idx in range(self._n_policies):
+                for pol_idx in range(self._n_subpolicies):
                     pfc = nn.Linear(multipol_in_size, next_size)
                     nn.init.xavier_normal_(pfc.weight.data,
-                                           gain=nn.init.calculate_gain('relu'))
+                                           gain=nn.init.calculate_gain(hidden_activation))
                     ptu.fill(pfc.bias, hidden_b_init_val)
                     self.__setattr__("pfc{}_{}".format(pol_idx, i), pfc)
                     self.pfcs[pol_idx].append(pfc)
@@ -145,22 +149,22 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                     if self.policies_layer_norm:
                         ln = LayerNorm(next_size)
                         # ln = nn.BatchNorm1d(next_size)
-                        self.__setattr__("norm_pfc{}_{}".format(pol_idx, i), ln)
-                        self.norm_pfcs[pol_idx].append(ln)
-                        self.add_policies_module("norm_pfc{}_{}".format(pol_idx,
+                        self.__setattr__("pfc{}_{}_norm".format(pol_idx, i), ln)
+                        self.pfc_norms[pol_idx].append(ln)
+                        self.add_policies_module("pfc{}_{}_norm".format(pol_idx,
                                                                         i),
                                                  ln, idx=pol_idx)
                 multipol_in_size = next_size
 
         # Multi-Policy Last Layers
-        for pol_idx in range(self._n_policies):
+        for pol_idx in range(self._n_subpolicies):
             last_pfc = nn.Linear(multipol_in_size, self._action_dim)
             nn.init.xavier_normal_(last_pfc.weight.data,
-                                   gain=nn.init.calculate_gain('linear'))
+                                   gain=nn.init.calculate_gain(pol_output_activation))
             ptu.fill(last_pfc.bias, output_b_init_val)
-            self.__setattr__("last_pfc{}".format(pol_idx), last_pfc)
-            self.last_pfcs.append(last_pfc)
-            self.add_policies_module("last_pfc{}".format(pol_idx), last_pfc,
+            self.__setattr__("pfc_last{}".format(pol_idx), last_pfc)
+            self.pfc_lasts.append(last_pfc)
+            self.add_policies_module("pfc_last{}".format(pol_idx), last_pfc,
                                      idx=pol_idx)
 
         # Unshared Mixing-Weights Hidden Layers
@@ -168,7 +172,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             for i, next_size in enumerate(unshared_mix_hidden_sizes):
                 mfc = nn.Linear(mixture_in_size, next_size)
                 nn.init.xavier_normal_(mfc.weight.data,
-                                       gain=nn.init.calculate_gain('relu'))
+                                       gain=nn.init.calculate_gain(hidden_activation))
                 ptu.fill(mfc.bias, hidden_b_init_val)
                 self.__setattr__("mfc{}".format(i), mfc)
                 self.mfcs.append(mfc)
@@ -178,26 +182,26 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 if self.mixture_layer_norm:
                     ln = LayerNorm(next_size)
                     # ln = nn.BatchNorm1d(next_size)
-                    self.__setattr__("norm_mfc{}".format(i), ln)
+                    self.__setattr__("mfc{}_norm".format(i), ln)
                     self.norm_mfcs.append(ln)
-                    self.add_mixing_module("norm_mfc{}".format(i), ln)
+                    self.add_mixing_module("mfc{}_norm".format(i), ln)
                 mixture_in_size = next_size
 
         # Unshared Mixing-Weights Last Layers
-        last_mfc = nn.Linear(mixture_in_size, self._n_policies*action_dim)
-        nn.init.xavier_normal_(last_mfc.weight.data,
-                               gain=nn.init.calculate_gain('linear'))
-        ptu.fill(last_mfc.bias, output_b_init_val)
-        self.__setattr__("last_mfc", last_mfc)
-        self.last_mfc = last_mfc
+        mfc_last = nn.Linear(mixture_in_size, self._n_subpolicies * action_dim)
+        nn.init.xavier_normal_(mfc_last.weight.data,
+                               gain=nn.init.calculate_gain(mix_output_activation))
+        ptu.fill(mfc_last.bias, output_b_init_val)
+        self.__setattr__("mfc_last", mfc_last)
+        self.mfc_last = mfc_last
         # Add it to specific dictionaries
-        self.add_mixing_module("last_mfc", last_mfc)
+        self.add_mixing_module("mfc_last", mfc_last)
 
         self.stds = stds
         self.log_std = list()
         if stds is None:
-            self.last_pfc_log_stds = list()
-            for pol_idx in range(self._n_policies):
+            self.pfc_log_stds_last = list()
+            for pol_idx in range(self._n_subpolicies):
                 last_hidden_size = obs_dim
                 if unshared_hidden_sizes is None:
                     if shared_hidden_sizes is None:
@@ -212,10 +216,10 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 nn.init.xavier_normal_(last_pfc_log_std.weight.data,
                                        gain=nn.init.calculate_gain('linear'))
                 ptu.fill(last_pfc_log_std.bias, hidden_b_init_val)
-                self.__setattr__("last_pfc_log_std{}".format(pol_idx),
+                self.__setattr__("pfc_log_std_last{}".format(pol_idx),
                                  last_pfc_log_std)
-                self.last_pfc_log_stds.append(last_pfc_log_std)
-                self.add_policies_module("last_pfc_log_std{}".format(pol_idx),
+                self.pfc_log_stds_last.append(last_pfc_log_std)
+                self.add_policies_module("pfc_log_std_last{}".format(pol_idx),
                                          last_pfc_log_std, idx=pol_idx)
 
         else:
@@ -280,7 +284,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             h = fc(h)
 
             if self.mixture_layer_norm:
-                h = self.norm_sfcs[ss](h)
+                h = self.sfc_norms[ss](h)
 
             h = self.hidden_activation(h)
             if print_debug:
@@ -289,7 +293,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         # ############## #
         # Multi Policies #
         # ############## #
-        hs = [h.clone() for _ in range(self._n_policies)]
+        hs = [h.clone() for _ in range(self._n_subpolicies)]
 
         if print_debug:
             print('***', 'HS', '***')
@@ -300,7 +304,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             print('***', 'PFCS', '***')
         # Hidden Layers
         if len(self.pfcs) > 0:
-            for pp in range(self._n_policies):
+            for pp in range(self._n_subpolicies):
                 if print_debug:
                     print(pp)
 
@@ -308,7 +312,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                     hs[pp] = fc(hs[pp])
 
                     if self.policies_layer_norm:
-                       hs[pp] = self.norm_pfcs[pp][ii](hs[pp])
+                       hs[pp] = self.pfc_norms[pp][ii](hs[pp])
 
                     hs[pp] = self.hidden_activation(hs[pp])
 
@@ -317,8 +321,8 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
         # Last Mean Layers
         means_list = \
-            [(self.pol_output_activation(self.last_pfcs[pp](hs[pp]))).unsqueeze(dim=-1)
-             for pp in range(self._n_policies)]
+            [(self.pol_output_activation(self.pfc_lasts[pp](hs[pp]))).unsqueeze(dim=-1)
+             for pp in range(self._n_subpolicies)]
 
         if print_debug:
             print('***', 'LAST_PFCS', '***')
@@ -335,10 +339,10 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         if self.stds is None:
             stds_list = [
                 (torch.clamp(
-                    self.pol_output_activation(self.last_pfc_log_stds[pp](hs[pp])),
+                    self.pol_output_activation(self.pfc_log_stds_last[pp](hs[pp])),
                     min=LOG_SIG_MIN, max=LOG_SIG_MAX)
                 ).unsqueeze(dim=-1)
-                for pp in range(self._n_policies)]
+                for pp in range(self._n_subpolicies)]
 
             log_stds = torch.cat(stds_list, dim=-1)
             stds = torch.exp(log_stds)
@@ -373,7 +377,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 if print_debug:
                     print(mh)
 
-        # log_mixture_coeff = self.mix_output_activation(self.last_mfc(mh))
+        # log_mixture_coeff = self.mix_output_activation(self.mfc_last(mh))
         # if print_debug:
         #     print('***', 'LAST_MFC', '***')
         #     print(log_mixture_coeff)
@@ -384,28 +388,38 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         #                                 max=LOG_MIX_COEFF_MAX)  # NxK
 
         # mixture_coeff = nn.Softmax(dim=-1)(self._mixing_temperature *
-        #     log_mixture_coeff.reshape(-1, self.action_dim, self._n_policies)
+        #     log_mixture_coeff.reshape(-1, self.action_dim, self._n_subpolicies)
         # )
 
         mixture_coeff = \
-            self.last_mfc(mh).reshape(-1, self.action_dim, self._n_policies)
+            self.mfc_last(mh).reshape(-1, self.action_dim, self._n_subpolicies)
 
         # mixture_coeff = nn.Softmax(dim=-1)(self._mixing_temperature *
-        #                                    log_mixture_coeff.reshape(-1, self.action_dim, self._n_policies)
+        #                                    log_mixture_coeff.reshape(-1, self.action_dim, self._n_subpolicies)
         #                                    )
 
         # # NO nonlinear transformation
-        # mixture_coeff = self.last_mfc(mh).reshape(-1, self.action_dim, self._n_policies)
+        # mixture_coeff = self.mfc_last(mh).reshape(-1, self.action_dim, self._n_subpolicies)
 
-        if torch.isnan(mixture_coeff).any():
-            for name, param in self.named_parameters():
-                print(name, '\n', param)
-                print('-')
-            print('---')
-            print('h:', h)
-            print('mh:', mh.reshape(-1, self.action_dim, self._n_policies))
-            raise ValueError('Some mixture coeff(s) is(are) NAN:',
-                             mixture_coeff)
+
+
+        # # TODO: UNCOMMENT FOR DEBUGGING
+        # if torch.isnan(mixture_coeff).any():
+        #     for name, param in self.named_parameters():
+        #         print(name, '\n', param)
+        #         print('-')
+        #     print('\n***'*5)
+        #     for name, param in self.named_parameters():
+        #         print('grad_'+name, '\n', param.grad)
+        #         print('-')
+        #     print('\n***'*5)
+        #     print('---')
+        #     print('h:', h)
+        #     print('mh:', mh.reshape(-1, self.action_dim, self._n_subpolicies))
+        #     print('mfc_last(mh)',self.mfc_last(mh).reshape(-1, self.action_dim, self._n_subpolicies))
+        #     raise ValueError('Some mixture coeff(s) is(are) NAN:',
+        #                      mixture_coeff)
+
 
         if pol_idx is None:
             # Calculate weighted means and stds (and log_stds)
@@ -415,19 +429,23 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 print('***', 'WEIGHTED MEAN', '***')
                 print(mean)
 
-            log_std = torch.clamp(
-                torch.logsumexp(log_stds +
-                          torch.log(torch.sqrt(mixture_coeff**2) + EPS),
-                          dim=-1, keepdim=False),
-                min=LOG_SIG_MIN, max=LOG_SIG_MAX
-            )
+            # # BEFORE 23/09
+            # log_std = torch.clamp(
+            #     torch.logsumexp(log_stds +
+            #               torch.log(torch.sqrt(mixture_coeff**2) + EPS),
+            #               dim=-1, keepdim=False),
+            #     min=LOG_SIG_MIN, max=LOG_SIG_MAX
+            # )
+            #
+            # std = torch.exp(log_std)
 
-            std = torch.exp(log_std)
-
-            # std = torch.sum(stds*mixture_coeff, dim=-1, keepdim=False)
+            variance = torch.sum((stds*mixture_coeff)**2, dim=-1, keepdim=False)
+            std = torch.sqrt(variance)
+            std = torch.clamp(std, min=SIG_MIN, max=SIG_MAX)
+            log_std = torch.log(std)
 
             # log_std = \
-            #     torch.logsumexp(log_stds + log_mixture_coeff.reshape(-1, self.action_dim, self._n_policies), dim=-1,
+            #     torch.logsumexp(log_stds + log_mixture_coeff.reshape(-1, self.action_dim, self._n_subpolicies), dim=-1,
             #               keepdim=False) \
             #     - torch.logsumexp(log_mixture_coeff, dim=-1, keepdim=True)
 
@@ -496,7 +514,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         # if len(self.mfcs) > 0:
         #     for mfc in self.mfcs:
         #         mh = self.hidden_activation(mfc(mh))
-        # log_mixture_coeff = self.output_activation(self.last_mfc(mh))
+        # log_mixture_coeff = self.output_activation(self.mfc_last(mh))
         #
         # log_mixture_coeff = torch.clamp(log_mixture_coeff,
         #                                 min=LOG_MIX_COEFF_MIN)  # NxK
@@ -506,16 +524,16 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         #                             keepdim=True)
         #
         # # Multi Policies
-        # hs = [h for _ in range(self._n_policies)]
+        # hs = [h for _ in range(self._n_subpolicies)]
         #
         # if len(self.pfcs) > 0:
-        #     for ii in range(self._n_policies):
+        #     for ii in range(self._n_subpolicies):
         #         for i, fc in enumerate(self.pfcs[ii]):
         #             hs[ii] = self.hidden_activation(fc(hs[ii]))
         #
         # means = torch.cat(
-        #     [(self.output_activation(self.last_pfcs[ii](hs[ii]))).unsqueeze(dim=-1)
-        #      for ii in range(self._n_policies)
+        #     [(self.output_activation(self.pfc_lasts[ii](hs[ii]))).unsqueeze(dim=-1)
+        #      for ii in range(self._n_subpolicies)
         #      ], dim=-1)
         #
         # if self.stds is None:
@@ -523,7 +541,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         #         [torch.clamp((self.output_activation(
         #             self.last_pfc_log_stds[ii](hs[ii])).unsqueeze(dim=-1)
         #                       ), min=LOG_SIG_MIN, max=LOG_SIG_MAX)
-        #          for ii in range(self._n_policies)],
+        #          for ii in range(self._n_subpolicies)],
         #         dim=-1
         #     )
         #     stds = torch.exp(log_stds)
@@ -563,7 +581,11 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
     @property
     def n_heads(self):
-        return self._n_policies
+        return self._n_subpolicies
+
+    @property
+    def n_subpolicies(self):
+        return self._n_subpolicies
 
     def shared_parameters(self):
         """Returns an iterator over the shared parameters.
@@ -586,7 +608,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         """Returns an iterator over the policies parameters.
         """
         if idx is None:
-            idx_list = list(range(self._n_policies))
+            idx_list = list(range(self._n_subpolicies))
         elif isinstance(idx, list) or isinstance(idx, tuple):
             idx_list = idx
         else:
@@ -600,7 +622,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         name of the parameter as well as the parameter itself
         """
         if idx is None:
-            idx_list = list(range(self._n_policies))
+            idx_list = list(range(self._n_subpolicies))
         elif isinstance(idx, list) or isinstance(idx, tuple):
             idx_list = idx
         else:
@@ -613,7 +635,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
     def add_policies_module(self, name, module, idx=None):
         if idx is None:
-            idx_list = list(range(self._n_policies))
+            idx_list = list(range(self._n_subpolicies))
         elif isinstance(idx, list) or isinstance(idx, tuple):
             idx_list = idx
         else:

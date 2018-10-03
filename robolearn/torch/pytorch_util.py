@@ -34,6 +34,10 @@ def maximum_2d(t1, t2):
     )[0].squeeze(2)
 
 
+def identity(x):
+    return x
+
+
 def kronecker_product(t1, t2):
     """
     Computes the Kronecker product between two tensors
@@ -441,3 +445,20 @@ def add_module(modules_dict, name, module):
     elif name == '':
         raise KeyError("module name can't be empty string \"\"")
     modules_dict[name] = module
+
+
+"""
+Useful functions
+"""
+
+
+def activation(name):
+    name = name.lower()
+    if hasattr(torch, name):
+        return getattr(torch, name)
+    elif name == 'identity' or 'identity':
+        return identity
+    else:
+        raise AttributeError("Pytorch does not have activation '%s'",
+                             name)
+

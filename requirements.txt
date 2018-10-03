@@ -8,3 +8,4 @@ tf
 transforms3d
 future
 gym
+tqdm

@@ -1,10 +1,12 @@
 import numpy as np
 import gtimer as gt
+from tqdm import tqdm, tqdm_notebook
 
 from robolearn.core.rl_algorithm import RLAlgorithm
 from robolearn.policies import ExplorationPolicy
 from robolearn.utils.data_management import PathBuilder
 from robolearn.core import logger
+from robolearn.utils.stdout.notebook_utils import is_ipython
 
 
 class IncrementalRLAlgorithm(RLAlgorithm):
@@ -14,7 +16,7 @@ class IncrementalRLAlgorithm(RLAlgorithm):
         """
         RLAlgorithm.__init__(self, *args, **kwargs)
 
-    def train(self, start_epoch=0):
+    def train(self, start_epoch=0, train_bar=True):
         self.training_mode(False)
 
         # Get snapshot of initial stuff
@@ -28,10 +30,17 @@ class IncrementalRLAlgorithm(RLAlgorithm):
         gt.reset()
         gt.set_def_unique(False)
 
+        epoch_range = range(start_epoch, self.num_epochs)
+        if train_bar:
+            if is_ipython():
+                epoch_range = tqdm_notebook(epoch_range)
+            else:
+                epoch_range = tqdm(epoch_range)
+
         # self._current_path_builder = PathBuilder()
         # observation = self._start_new_rollout()
         for epoch in gt.timed_for(
-                range(start_epoch, self.num_epochs),
+                epoch_range,
                 save_itrs=True,
         ):
             self._start_epoch(epoch)

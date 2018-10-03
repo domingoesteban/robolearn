@@ -120,7 +120,7 @@ class RLAlgorithm(object):
     """
     Methods related to Training.
     """
-    def pretrain(self):
+    def pretrain(self, *args, **kwargs):
         """
         Do anything before the main training phase.
         """

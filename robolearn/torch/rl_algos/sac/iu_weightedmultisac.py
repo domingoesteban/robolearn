@@ -4,6 +4,7 @@ Based on Pong's SAC implementation
 https://github.com/vitchyr/rlkit
 """
 
+import math
 import numpy as np
 import torch
 import torch.optim as optim
@@ -91,6 +92,7 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             epoch_plotter=None,
             render_eval_paths=False,
             eval_deterministic=True,
+            log_tensorboard=True,
             **kwargs
     ):
 
@@ -245,10 +247,12 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         self._epoch_plotter = epoch_plotter
         self.render_eval_paths = render_eval_paths
 
+        # TODO: it could not be ussed
+        self._log_tensorboard = log_tensorboard
         self._summary_writer = SummaryWriter(log_dir=logger.get_snapshot_dir())
 
         # Evaluation Sampler (One for each unintentional)
-        self.eval_samplers = [
+        self.eval_u_samplers = [
             InPlacePathSampler(env=env,
                                policy=WeightedMultiPolicySelector(self._policy,
                                                                   idx),
@@ -490,16 +494,17 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             self.logging_rewards[step_idx, uu] = \
                 ptu.get_numpy(rewards.mean(dim=0))
 
-            self._summary_writer.add_scalar('TrainingU%2d/qf_loss' % uu,
-                                            ptu.get_numpy(u_qf_loss),
-                                            self._n_env_steps_total)
-            if qf2 is not None:
-                self._summary_writer.add_scalar('TrainingU%2d/qf2_loss' % uu,
-                                                ptu.get_numpy(u_qf2_loss),
+            if self._log_tensorboard:
+                self._summary_writer.add_scalar('TrainingU%2d/qf_loss' % uu,
+                                                ptu.get_numpy(u_qf_loss),
                                                 self._n_env_steps_total)
-            self._summary_writer.add_scalar('TrainingU%2d/avg_reward' % uu,
-                                            ptu.get_numpy(rewards.mean()),
-                                            self._n_env_steps_total)
+                if qf2 is not None:
+                    self._summary_writer.add_scalar('TrainingU%2d/qf2_loss' % uu,
+                                                    ptu.get_numpy(u_qf2_loss),
+                                                    self._n_env_steps_total)
+                self._summary_writer.add_scalar('TrainingU%2d/avg_reward' % uu,
+                                                ptu.get_numpy(rewards.mean()),
+                                                self._n_env_steps_total)
 
         # Update Unintentional Q-Values
         self._u_qf_optimizer.zero_grad()
@@ -565,6 +570,23 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
 
             accum_u_policy_loss += (policy_kl_loss + policy_regu_loss)
 
+            # # TODO: UNCOMMENT FOR DEBUGGING
+            # if math.isnan(log_pi.sum().item()):
+            #     print('log_pi is nan!', 'IN UPOL:', uu)
+            #     raise ValueError('There is Nan!!')
+            # if math.isnan(q_new_actions.sum().item()):
+            #     print('q_new_act is nan!', 'IN UPOL:', uu)
+            #     raise ValueError('There is Nan!!')
+            # if math.isnan(v_pred.sum().item()):
+            #     print('v_pred is nan!', 'IN UPOL:', uu)
+            #     raise ValueError('There is Nan!!')
+            # if math.isnan(policy_kl_loss.sum().item()):
+            #     print('policy_kl_loss is nan?', 'IN UPOL:', uu)
+            #     raise ValueError('There is Nan!!')
+            # if math.isnan(policy_regu_loss.sum().item()):
+            #     print('policy_regu_loss is nan?', 'IN UPOL:', uu)
+            #     raise ValueError('There is Nan!!')
+
             # Calculate Intentional Vf Loss
             v_target = q_new_actions - log_pi + policy_prior_log_probs
             u_vf_loss = 0.5*self._u_vf_criterion(v_pred, v_target.detach())
@@ -585,29 +607,30 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             self.logging_pol_kl_loss[step_idx, uu] = \
                 ptu.get_numpy(policy_kl_loss)
 
-            self._summary_writer.add_scalar('TrainingU%2d/vf_loss' % uu,
-                                            ptu.get_numpy(u_vf_loss),
-                                            self._n_env_steps_total)
-            self._summary_writer.add_scalar('TrainingU%2d/policy_loss' % uu,
-                                            ptu.get_numpy((policy_kl_loss +
-                                                           policy_regu_loss)),
-                                            self._n_env_steps_total)
-            self._summary_writer.add_scalar('TrainingU%2d/policy_entropy' % uu,
-                                            ptu.get_numpy(-log_pi.mean()),
-                                            self._n_env_steps_total)
-            self._summary_writer.add_scalar('TrainingU%2d/policy_mean' % uu,
-                                            ptu.get_numpy(policy_mean.mean()),
-                                            self._n_env_steps_total)
-            self._summary_writer.add_scalar('TrainingU%2d/policy_std' % uu,
-                                            np.exp(ptu.get_numpy(
-                                                policy_log_std.mean())),
-                                            self._n_env_steps_total)
-            self._summary_writer.add_scalar('TrainingU%2d/q_vals' % uu,
-                                            ptu.get_numpy(q_new_actions.mean()),
-                                            self._n_env_steps_total)
-            self._summary_writer.add_scalar('TrainingU%2d/avg_advantage' % uu,
-                                            ptu.get_numpy(advantages_new_actions.mean()),
-                                            self._n_env_steps_total)
+            if self._log_tensorboard:
+                self._summary_writer.add_scalar('TrainingU%2d/vf_loss' % uu,
+                                                ptu.get_numpy(u_vf_loss),
+                                                self._n_env_steps_total)
+                self._summary_writer.add_scalar('TrainingU%2d/policy_loss' % uu,
+                                                ptu.get_numpy((policy_kl_loss +
+                                                               policy_regu_loss)),
+                                                self._n_env_steps_total)
+                self._summary_writer.add_scalar('TrainingU%2d/policy_entropy' % uu,
+                                                ptu.get_numpy(-log_pi.mean()),
+                                                self._n_env_steps_total)
+                self._summary_writer.add_scalar('TrainingU%2d/policy_mean' % uu,
+                                                ptu.get_numpy(policy_mean.mean()),
+                                                self._n_env_steps_total)
+                self._summary_writer.add_scalar('TrainingU%2d/policy_std' % uu,
+                                                np.exp(ptu.get_numpy(
+                                                    policy_log_std.mean())),
+                                                self._n_env_steps_total)
+                self._summary_writer.add_scalar('TrainingU%2d/q_vals' % uu,
+                                                ptu.get_numpy(q_new_actions.mean()),
+                                                self._n_env_steps_total)
+                self._summary_writer.add_scalar('TrainingU%2d/avg_advantage' % uu,
+                                                ptu.get_numpy(advantages_new_actions.mean()),
+                                                self._n_env_steps_total)
 
         # Update Unintentional (Composable) Policies
         # self._policy_optimizer.zero_grad()
@@ -702,6 +725,7 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             # policy_kl_loss = torch.mean(log_pi - q_new_actions)
             # policy_kl_loss = -torch.mean(q_new_actions - log_pi)
             policy_kl_loss = -torch.mean(advantages_new_actions - log_pi)
+
         else:
             policy_kl_loss = (
                     log_pi * (log_pi - q_new_actions + v_pred
@@ -723,10 +747,40 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
 
         i_policy_loss = policy_kl_loss + policy_regu_loss
 
+        # # TODO: UNCOMMENT FOR DEBUGGING
+        # if math.isnan(log_pi.sum().item()):
+        #     print('log_pi is nan!')
+        #     raise ValueError('There is Nan!!')
+        # if math.isnan(q_new_actions.sum().item()):
+        #     print('q_new_act is nan!')
+        #     raise ValueError('There is Nan!!')
+        # if math.isnan(v_pred.sum().item()):
+        #     print('v_pred is nan!')
+        #     raise ValueError('There is Nan!!')
+        # if math.isnan(policy_kl_loss.sum().item()):
+        #     print('policy_kl_loss is nan?')
+        #     raise ValueError('There is Nan!!')
+        # if math.isnan(policy_regu_loss.sum().item()):
+        #     print('policy_regu_loss is nan?')
+        #     raise ValueError('There is Nan!!')
+
         # Update Intentional Policy
         # self._policy_optimizer.zero_grad()
         self._mixing_optimizer.zero_grad()
         i_policy_loss.backward()
+
+        # # TODO: UNCOMMENT FOR DEBUGGING
+        # any_nan = False
+        # for name, param in policy.named_parameters():
+        #     if param.grad is not None and math.isnan(param.grad.sum().item()):
+        #         print('--')
+        #         print('IT IS NAN: grad_'+name, '\n', param.grad)
+        #         print('For this variable: ' + name, '\n', param)
+        #         print('--')
+        # if any_nan:
+        #     print('*******\n'*5)
+        #     raise ValueError('There is Nan!!')
+
         self._mixing_optimizer.step()
 
         # ############### #
@@ -768,109 +822,110 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         self.logging_mixing_coeff[step_idx, :, :] = \
             ptu.get_numpy(mixing_coeff.mean(dim=0))
 
-        self._summary_writer.add_scalar('TrainingI/qf_loss',
-                                        ptu.get_numpy(i_qf_loss),
-                                        self._n_env_steps_total)
-        if qf2 is not None:
-            self._summary_writer.add_scalar('TrainingI/qf2_loss',
-                                            ptu.get_numpy(i_qf2_loss),
+        if self._log_tensorboard:
+            self._summary_writer.add_scalar('TrainingI/qf_loss',
+                                            ptu.get_numpy(i_qf_loss),
                                             self._n_env_steps_total)
-        self._summary_writer.add_scalar('TrainingI/vf_loss',
-                                        ptu.get_numpy(i_vf_loss),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('TrainingI/avg_reward',
-                                        ptu.get_numpy(rewards.mean()),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('TrainingI/policy_loss',
-                                        ptu.get_numpy(i_policy_loss),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('TrainingI/policy_entropy',
-                                        ptu.get_numpy(-log_pi.mean()),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('TrainingI/policy_mean',
-                                        ptu.get_numpy(policy_mean.mean()),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('TrainingI/policy_std',
-                                        np.exp(ptu.get_numpy(policy_log_std.mean())),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('TrainingI/q_vals',
-                                        ptu.get_numpy(q_new_actions.mean()),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('TrainingI/avg_advantage',
-                                        ptu.get_numpy(advantages_new_actions.mean()),
-                                        self._n_env_steps_total)
-
-        for uu in range(self._n_unintentional):
-            self._summary_writer.add_scalar('TrainingI/weight%02d' % uu,
-                                            ptu.get_numpy(mixing_coeff[:, uu].mean()),
+            if qf2 is not None:
+                self._summary_writer.add_scalar('TrainingI/qf2_loss',
+                                                ptu.get_numpy(i_qf2_loss),
+                                                self._n_env_steps_total)
+            self._summary_writer.add_scalar('TrainingI/vf_loss',
+                                            ptu.get_numpy(i_vf_loss),
+                                            self._n_env_steps_total)
+            self._summary_writer.add_scalar('TrainingI/avg_reward',
+                                            ptu.get_numpy(rewards.mean()),
+                                            self._n_env_steps_total)
+            self._summary_writer.add_scalar('TrainingI/policy_loss',
+                                            ptu.get_numpy(i_policy_loss),
+                                            self._n_env_steps_total)
+            self._summary_writer.add_scalar('TrainingI/policy_entropy',
+                                            ptu.get_numpy(-log_pi.mean()),
+                                            self._n_env_steps_total)
+            self._summary_writer.add_scalar('TrainingI/policy_mean',
+                                            ptu.get_numpy(policy_mean.mean()),
+                                            self._n_env_steps_total)
+            self._summary_writer.add_scalar('TrainingI/policy_std',
+                                            np.exp(ptu.get_numpy(policy_log_std.mean())),
+                                            self._n_env_steps_total)
+            self._summary_writer.add_scalar('TrainingI/q_vals',
+                                            ptu.get_numpy(q_new_actions.mean()),
+                                            self._n_env_steps_total)
+            self._summary_writer.add_scalar('TrainingI/avg_advantage',
+                                            ptu.get_numpy(advantages_new_actions.mean()),
                                             self._n_env_steps_total)
 
-        # LOG NN VALUES AND GRADIENTS
-        if self._n_env_steps_total % 500 == 0:
-            for name, param in self._policy.named_parameters():
-                self._summary_writer.add_histogram('policy/'+name,
-                                                   param.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
-                self._summary_writer.add_histogram('policy_grad/'+name,
-                                                   param.grad.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
+            for uu in range(self._n_unintentional):
+                self._summary_writer.add_scalar('TrainingI/weight%02d' % uu,
+                                                ptu.get_numpy(mixing_coeff[:, uu].mean()),
+                                                self._n_env_steps_total)
 
-            for name, param in self._u_qf.named_parameters():
-                self._summary_writer.add_histogram('u_qf/'+name,
-                                                   param.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
-                self._summary_writer.add_histogram('u_qf_grad/'+name,
-                                                   param.grad.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
-            for name, param in self._i_qf.named_parameters():
-                self._summary_writer.add_histogram('i_qf/'+name,
-                                                   param.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
-                self._summary_writer.add_histogram('i_qf_grad/'+name,
-                                                   param.grad.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
-
-            if self._u_qf2 is not None:
-                for name, param in self._u_qf2.named_parameters():
-                    self._summary_writer.add_histogram('u_qf2/'+name,
+            # LOG NN VALUES AND GRADIENTS
+            if self._n_env_steps_total % 1000 == 0:
+                for name, param in self._policy.named_parameters():
+                    self._summary_writer.add_histogram('policy/'+name,
                                                        param.data.cpu().numpy(),
                                                        self._n_env_steps_total)
-                    self._summary_writer.add_histogram('u_qf2_grad/'+name,
-                                                       param.grad.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-            if self._i_qf2 is not None:
-                for name, param in self._i_qf2.named_parameters():
-                    self._summary_writer.add_histogram('i_qf2/'+name,
-                                                       param.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-                    self._summary_writer.add_histogram('i_qf2_grad/'+name,
+                    self._summary_writer.add_histogram('policy_grad/'+name,
                                                        param.grad.data.cpu().numpy(),
                                                        self._n_env_steps_total)
 
-            for name, param in self._u_vf.named_parameters():
-                self._summary_writer.add_histogram('u_vf/'+name,
-                                                   param.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
-                self._summary_writer.add_histogram('u_vf_grad/'+name,
-                                                   param.grad.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
+                for name, param in self._u_qf.named_parameters():
+                    self._summary_writer.add_histogram('u_qf/'+name,
+                                                       param.data.cpu().numpy(),
+                                                       self._n_env_steps_total)
+                    self._summary_writer.add_histogram('u_qf_grad/'+name,
+                                                       param.grad.data.cpu().numpy(),
+                                                       self._n_env_steps_total)
+                for name, param in self._i_qf.named_parameters():
+                    self._summary_writer.add_histogram('i_qf/'+name,
+                                                       param.data.cpu().numpy(),
+                                                       self._n_env_steps_total)
+                    self._summary_writer.add_histogram('i_qf_grad/'+name,
+                                                       param.grad.data.cpu().numpy(),
+                                                       self._n_env_steps_total)
 
-            for name, param in self._i_vf.named_parameters():
-                self._summary_writer.add_histogram('i_vf/'+name,
-                                                   param.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
-                self._summary_writer.add_histogram('i_vf_grad/'+name,
-                                                   param.grad.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
+                if self._u_qf2 is not None:
+                    for name, param in self._u_qf2.named_parameters():
+                        self._summary_writer.add_histogram('u_qf2/'+name,
+                                                           param.data.cpu().numpy(),
+                                                           self._n_env_steps_total)
+                        self._summary_writer.add_histogram('u_qf2_grad/'+name,
+                                                           param.grad.data.cpu().numpy(),
+                                                           self._n_env_steps_total)
+                if self._i_qf2 is not None:
+                    for name, param in self._i_qf2.named_parameters():
+                        self._summary_writer.add_histogram('i_qf2/'+name,
+                                                           param.data.cpu().numpy(),
+                                                           self._n_env_steps_total)
+                        self._summary_writer.add_histogram('i_qf2_grad/'+name,
+                                                           param.grad.data.cpu().numpy(),
+                                                           self._n_env_steps_total)
 
-            for name, param in self._u_target_vf.named_parameters():
-                self._summary_writer.add_histogram('u_vf_target/'+name,
-                                                   param.cpu().data.numpy(),
-                                                   self._n_env_steps_total)
-            for name, param in self._i_target_vf.named_parameters():
-                self._summary_writer.add_histogram('i_vf_target/'+name,
-                                                   param.cpu().data.numpy(),
-                                                   self._n_env_steps_total)
+                for name, param in self._u_vf.named_parameters():
+                    self._summary_writer.add_histogram('u_vf/'+name,
+                                                       param.data.cpu().numpy(),
+                                                       self._n_env_steps_total)
+                    self._summary_writer.add_histogram('u_vf_grad/'+name,
+                                                       param.grad.data.cpu().numpy(),
+                                                       self._n_env_steps_total)
+
+                for name, param in self._i_vf.named_parameters():
+                    self._summary_writer.add_histogram('i_vf/'+name,
+                                                       param.data.cpu().numpy(),
+                                                       self._n_env_steps_total)
+                    self._summary_writer.add_histogram('i_vf_grad/'+name,
+                                                       param.grad.data.cpu().numpy(),
+                                                       self._n_env_steps_total)
+
+                for name, param in self._u_target_vf.named_parameters():
+                    self._summary_writer.add_histogram('u_vf_target/'+name,
+                                                       param.cpu().data.numpy(),
+                                                       self._n_env_steps_total)
+                for name, param in self._i_target_vf.named_parameters():
+                    self._summary_writer.add_histogram('i_vf_target/'+name,
+                                                       param.cpu().data.numpy(),
+                                                       self._n_env_steps_total)
 
         return (i_policy_loss, i_qf_loss, i_vf_loss,
                 accum_u_policy_loss, accum_u_qf_loss, accum_u_vf_loss)
@@ -1030,11 +1085,12 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         statistics.update(self.eval_statistics)
         self.eval_statistics = None
 
+        # Interaction Paths for each unintentional policy
         test_paths = [None for _ in range(self._n_unintentional)]
         for unint_idx in range(self._n_unintentional):
             logger.log("[U-%02d] Collecting samples for evaluation" % unint_idx)
             test_paths[unint_idx] = \
-                self.eval_samplers[unint_idx].obtain_samples()
+                self.eval_u_samplers[unint_idx].obtain_samples()
 
             statistics.update(eval_util.get_generic_path_information(
                 test_paths[unint_idx], stat_prefix="[U-%02d] Test" % unint_idx,
@@ -1052,18 +1108,20 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             avg_txt = '[U-%02d] Test AverageReturn' % unint_idx
             statistics[avg_txt] = average_returns * self._u_reward_scales[unint_idx]
 
-            self._summary_writer.add_scalar(
-                'EvaluationU%02d/avg_return' % unint_idx,
-                statistics['[U-%02d] Test AverageReturn' % unint_idx],
-                self._n_epochs
-            )
+            if self._log_tensorboard:
+                self._summary_writer.add_scalar(
+                    'EvaluationU%02d/avg_return' % unint_idx,
+                    statistics['[U-%02d] Test AverageReturn' % unint_idx],
+                    self._n_epochs
+                )
 
-            self._summary_writer.add_scalar(
-                'EvaluationU%02d/avg_reward' % unint_idx,
-                statistics['[U-%02d] Test AverageReward' % unint_idx],
-                self._n_epochs
-            )
+                self._summary_writer.add_scalar(
+                    'EvaluationU%02d/avg_reward' % unint_idx,
+                    statistics['[U-%02d] Test AverageReward' % unint_idx],
+                    self._n_epochs
+                )
 
+        # Interaction Paths for each intentional policy
         logger.log("[I] Collecting samples for evaluation")
         i_test_path = self.eval_sampler.obtain_samples()
         statistics.update(eval_util.get_generic_path_information(
@@ -1081,21 +1139,23 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
                 i_test_path, stat_prefix="Exploration",
             ))
 
-        self._summary_writer.add_scalar('EvaluationI/avg_return',
-                                        statistics['[I] Test AverageReturn'],
-                                        self._n_epochs)
+        if self._log_tensorboard:
+            self._summary_writer.add_scalar('EvaluationI/avg_return',
+                                            statistics['[I] Test AverageReturn'],
+                                            self._n_epochs)
 
-        self._summary_writer.add_scalar(
-            'EvaluationI/avg_reward',
-            statistics['[I] Test Rewards Mean'] * self.reward_scale,
-            self._n_epochs
-        )
+            self._summary_writer.add_scalar(
+                'EvaluationI/avg_reward',
+                statistics['[I] Test Rewards Mean'] * self.reward_scale,
+                self._n_epochs
+            )
 
         if hasattr(self.env, "log_diagnostics"):
-            # TODO: CHECK ENV LOG_DIAGNOSTICS
-            print('%03d' % self._n_epochs,
-                  'TODO: WE NEED LOG_DIAGNOSTICS IN ENV')
-            # self.env.log_diagnostics(test_paths[demon])
+            pass
+            # # TODO: CHECK ENV LOG_DIAGNOSTICS
+            # print('%03d' % self._n_epochs,
+            #       'TODO: WE NEED LOG_DIAGNOSTICS IN ENV')
+            # # self.env.log_diagnostics(test_paths[demon])
 
         # Record the data
         for key, value in statistics.items():

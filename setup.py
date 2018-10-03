@@ -12,6 +12,7 @@ setup(
         'gym',
         'numpy',
         'torch',
-        'robolearn_gym_envs'
+        'robolearn_gym_envs',
+        'tqdm',
     ],
 )
