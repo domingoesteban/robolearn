@@ -4,7 +4,8 @@ from torch import nn as nn
 from torch.distributions import Multinomial
 from robolearn.torch.core import PyTorchModule
 from robolearn.torch.core import np_ify
-from robolearn.torch.nn import LayerNorm
+# from robolearn.torch.nn import LayerNorm
+from torch.nn.modules.normalization import LayerNorm
 import robolearn.torch.pytorch_util as ptu
 from robolearn.policies.base import ExplorationPolicy
 from robolearn.torch.nn import identity
@@ -57,9 +58,9 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             stds=None,
             hidden_activation='relu',
             hidden_w_init=ptu.xavier_init,
-            hidden_b_init_val=1e-6,
+            hidden_b_init_val=1e-2,
             output_w_init=ptu.xavier_init,
-            output_b_init_val=1e-6,
+            output_b_init_val=1e-2,
             pol_output_activation='linear',
             mix_output_activation='linear',
             shared_layer_norm=False,
@@ -73,31 +74,31 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         super(TanhGaussianWeightedMultiPolicy, self).__init__()
         ExplorationPolicy.__init__(self, action_dim)
 
-        self.input_size = obs_dim
-        self.output_sizes = action_dim
+        self._input_size = obs_dim
+        self._output_sizes = action_dim
         self._n_subpolicies = n_policies
         # Activation Fcns
-        self.hidden_activation = ptu.activation(hidden_activation)
-        self.pol_output_activation = ptu.activation(pol_output_activation)
-        self.mix_output_activation = ptu.activation(mix_output_activation)
+        self._hidden_activation = ptu.activation(hidden_activation)
+        self._pol_output_activation = ptu.activation(pol_output_activation)
+        self._mix_output_activation = ptu.activation(mix_output_activation)
         # Normalization Layer Flags
-        self.shared_layer_norm = shared_layer_norm
-        self.policies_layer_norm = policies_layer_norm
-        self.mixture_layer_norm = mixture_layer_norm
+        self._shared_layer_norm = shared_layer_norm
+        self._policies_layer_norm = policies_layer_norm
+        self._mixture_layer_norm = mixture_layer_norm
         # Layers Lists
-        self.sfcs = []  # Shared Layers
-        self.sfc_norms = []  # Norm. Shared Layers
-        self.pfcs = [list() for _ in range(self._n_subpolicies)]  # Policies Layers
-        self.pfc_norms = [list() for _ in range(self._n_subpolicies)]  # N. Pol. L.
-        self.pfc_lasts = []  # Last Policies Layers
-        self.mfcs = []  # Mixing Layers
-        self.norm_mfcs = []  # Norm. Mixing Layers
+        self._sfcs = []  # Shared Layers
+        self._sfc_norms = []  # Norm. Shared Layers
+        self._pfcs = [list() for _ in range(self._n_subpolicies)]  # Policies Layers
+        self._pfc_norms = [list() for _ in range(self._n_subpolicies)]  # N. Pol. L.
+        self._pfc_lasts = []  # Last Policies Layers
+        self._mfcs = []  # Mixing Layers
+        self._norm_mfcs = []  # Norm. Mixing Layers
         # self.mfc_last = None  # Below is instantiated
 
         self._mixing_temperature = mixing_temperature  # Hyperparameter for exp.
 
         # Initial size = Obs size
-        in_size = self.input_size
+        in_size = self._input_size
 
         # Ordered Dictionaries for specific modules/parameters
         self._shared_modules = OrderedDict()
@@ -111,114 +112,107 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         # Shared Layers #
         # ############# #
         if shared_hidden_sizes is not None:
-            for i, next_size in enumerate(shared_hidden_sizes):
+            for ii, next_size in enumerate(shared_hidden_sizes):
                 sfc = nn.Linear(in_size, next_size)
                 nn.init.xavier_normal_(sfc.weight.data,
                                        gain=nn.init.calculate_gain(hidden_activation)
                                        )
                 ptu.fill(sfc.bias, hidden_b_init_val)
-                self.__setattr__("sfc{}".format(i), sfc)
-                self.sfcs.append(sfc)
-                self.add_shared_module("sfc{}".format(i), sfc)
+                self.__setattr__("sfc{}".format(ii), sfc)
+                self._sfcs.append(sfc)
+                self.add_shared_module("sfc{}".format(ii), sfc)
 
-                if self.shared_layer_norm:
+                if self._shared_layer_norm:
                     ln = LayerNorm(next_size)
                     # ln = nn.BatchNorm1d(next_size)
-                    self.__setattr__("sfc{}_norm".format(i), ln)
-                    self.sfc_norms.append(ln)
-                    self.add_shared_module("sfc{}_norm".format(i), ln)
+                    self.__setattr__("sfc{}_norm".format(ii), ln)
+                    self._sfc_norms.append(ln)
+                    self.add_shared_module("sfc{}_norm".format(ii), ln)
                 in_size = next_size
 
-        # Get the output_size of the shared layers
+        # Get the output_size of the shared layers (assume same for all)
         multipol_in_size = in_size
         mixture_in_size = in_size
 
-        # Multi-Policy Hidden Layers
+        # Unshared Multi-Policy Hidden Layers
         if unshared_hidden_sizes is not None:
-            for i, next_size in enumerate(unshared_hidden_sizes):
+            for ii, next_size in enumerate(unshared_hidden_sizes):
                 for pol_idx in range(self._n_subpolicies):
                     pfc = nn.Linear(multipol_in_size, next_size)
                     nn.init.xavier_normal_(pfc.weight.data,
                                            gain=nn.init.calculate_gain(hidden_activation))
                     ptu.fill(pfc.bias, hidden_b_init_val)
-                    self.__setattr__("pfc{}_{}".format(pol_idx, i), pfc)
-                    self.pfcs[pol_idx].append(pfc)
-                    self.add_policies_module("pfc{}_{}".format(pol_idx, i), pfc,
-                                             idx=pol_idx)
+                    self.__setattr__("pfc{}_{}".format(pol_idx, ii), pfc)
+                    self._pfcs[pol_idx].append(pfc)
+                    self.add_policies_module("pfc{}_{}".format(pol_idx, ii),
+                                             pfc, idx=pol_idx)
 
-                    if self.policies_layer_norm:
+                    if self._policies_layer_norm:
                         ln = LayerNorm(next_size)
                         # ln = nn.BatchNorm1d(next_size)
-                        self.__setattr__("pfc{}_{}_norm".format(pol_idx, i), ln)
-                        self.pfc_norms[pol_idx].append(ln)
+                        self.__setattr__("pfc{}_{}_norm".format(pol_idx, ii),
+                                         ln)
+                        self._pfc_norms[pol_idx].append(ln)
                         self.add_policies_module("pfc{}_{}_norm".format(pol_idx,
-                                                                        i),
+                                                                        ii),
                                                  ln, idx=pol_idx)
                 multipol_in_size = next_size
 
         # Multi-Policy Last Layers
         for pol_idx in range(self._n_subpolicies):
-            last_pfc = nn.Linear(multipol_in_size, self._action_dim)
+            last_pfc = nn.Linear(multipol_in_size, action_dim)
             nn.init.xavier_normal_(last_pfc.weight.data,
                                    gain=nn.init.calculate_gain(pol_output_activation))
             ptu.fill(last_pfc.bias, output_b_init_val)
             self.__setattr__("pfc_last{}".format(pol_idx), last_pfc)
-            self.pfc_lasts.append(last_pfc)
+            self._pfc_lasts.append(last_pfc)
             self.add_policies_module("pfc_last{}".format(pol_idx), last_pfc,
                                      idx=pol_idx)
 
         # Unshared Mixing-Weights Hidden Layers
         if unshared_mix_hidden_sizes is not None:
-            for i, next_size in enumerate(unshared_mix_hidden_sizes):
+            for ii, next_size in enumerate(unshared_mix_hidden_sizes):
                 mfc = nn.Linear(mixture_in_size, next_size)
                 nn.init.xavier_normal_(mfc.weight.data,
                                        gain=nn.init.calculate_gain(hidden_activation))
                 ptu.fill(mfc.bias, hidden_b_init_val)
-                self.__setattr__("mfc{}".format(i), mfc)
-                self.mfcs.append(mfc)
+                self.__setattr__("mfc{}".format(ii), mfc)
+                self._mfcs.append(mfc)
                 # Add it to specific dictionaries
-                self.add_mixing_module("mfc{}".format(i), mfc)
+                self.add_mixing_module("mfc{}".format(ii), mfc)
 
-                if self.mixture_layer_norm:
+                if self._mixture_layer_norm:
                     ln = LayerNorm(next_size)
                     # ln = nn.BatchNorm1d(next_size)
-                    self.__setattr__("mfc{}_norm".format(i), ln)
-                    self.norm_mfcs.append(ln)
-                    self.add_mixing_module("mfc{}_norm".format(i), ln)
+                    self.__setattr__("mfc{}_norm".format(ii), ln)
+                    self._norm_mfcs.append(ln)
+                    self.add_mixing_module("mfc{}_norm".format(ii), ln)
                 mixture_in_size = next_size
 
         # Unshared Mixing-Weights Last Layers
         mfc_last = nn.Linear(mixture_in_size, self._n_subpolicies * action_dim)
         nn.init.xavier_normal_(mfc_last.weight.data,
-                               gain=nn.init.calculate_gain(mix_output_activation))
+                               gain=nn.init.calculate_gain(mix_output_activation)
+                               )
         ptu.fill(mfc_last.bias, output_b_init_val)
         self.__setattr__("mfc_last", mfc_last)
         self.mfc_last = mfc_last
         # Add it to specific dictionaries
         self.add_mixing_module("mfc_last", mfc_last)
 
+        # Multi-Policy Log-Stds Last Layers
         self.stds = stds
         self.log_std = list()
         if stds is None:
-            self.pfc_log_stds_last = list()
+            self._pfc_log_std_lasts = list()
             for pol_idx in range(self._n_subpolicies):
-                last_hidden_size = obs_dim
-                if unshared_hidden_sizes is None:
-                    if shared_hidden_sizes is None:
-                        raise AttributeError("Neither shared or unshared hidden"
-                                             " sizes have been specified.")
-                    if len(shared_hidden_sizes) > 0:
-                        last_hidden_size = shared_hidden_sizes[-1]
-                else:
-                    last_hidden_size = unshared_hidden_sizes[-1]
-                last_pfc_log_std = nn.Linear(last_hidden_size,
-                                             action_dim)
+                last_pfc_log_std = nn.Linear(multipol_in_size, action_dim)
                 nn.init.xavier_normal_(last_pfc_log_std.weight.data,
-                                       gain=nn.init.calculate_gain('linear'))
+                                       gain=nn.init.calculate_gain(pol_output_activation))
                 ptu.fill(last_pfc_log_std.bias, hidden_b_init_val)
                 self.__setattr__("pfc_log_std_last{}".format(pol_idx),
                                  last_pfc_log_std)
-                self.pfc_log_stds_last.append(last_pfc_log_std)
+                self._pfc_log_std_lasts.append(last_pfc_log_std)
                 self.add_policies_module("pfc_log_std_last{}".format(pol_idx),
                                          last_pfc_log_std, idx=pol_idx)
 
@@ -280,13 +274,13 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             print('***', 'OBS', '***')
             print(h)
             print('***', 'SFCS', '***')
-        for ss, fc in enumerate(self.sfcs):
+        for ss, fc in enumerate(self._sfcs):
             h = fc(h)
 
-            if self.mixture_layer_norm:
-                h = self.sfc_norms[ss](h)
+            if self._mixture_layer_norm:
+                h = self._sfc_norms[ss](h)
 
-            h = self.hidden_activation(h)
+            h = self._hidden_activation(h)
             if print_debug:
                 print(h)
 
@@ -303,25 +297,25 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         if print_debug:
             print('***', 'PFCS', '***')
         # Hidden Layers
-        if len(self.pfcs) > 0:
+        if len(self._pfcs) > 0:
             for pp in range(self._n_subpolicies):
                 if print_debug:
                     print(pp)
 
-                for ii, fc in enumerate(self.pfcs[pp]):
+                for ii, fc in enumerate(self._pfcs[pp]):
                     hs[pp] = fc(hs[pp])
 
-                    if self.policies_layer_norm:
-                       hs[pp] = self.pfc_norms[pp][ii](hs[pp])
+                    if self._policies_layer_norm:
+                       hs[pp] = self._pfc_norms[pp][ii](hs[pp])
 
-                    hs[pp] = self.hidden_activation(hs[pp])
+                    hs[pp] = self._hidden_activation(hs[pp])
 
                     if print_debug:
                         print(hs[pp])
 
         # Last Mean Layers
         means_list = \
-            [(self.pol_output_activation(self.pfc_lasts[pp](hs[pp]))).unsqueeze(dim=-1)
+            [(self._pol_output_activation(self._pfc_lasts[pp](hs[pp]))).unsqueeze(dim=-1)
              for pp in range(self._n_subpolicies)]
 
         if print_debug:
@@ -339,7 +333,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         if self.stds is None:
             stds_list = [
                 (torch.clamp(
-                    self.pol_output_activation(self.pfc_log_stds_last[pp](hs[pp])),
+                    self._pol_output_activation(self._pfc_log_std_lasts[pp](hs[pp])),
                     min=LOG_SIG_MIN, max=LOG_SIG_MAX)
                 ).unsqueeze(dim=-1)
                 for pp in range(self._n_subpolicies)]
@@ -366,14 +360,14 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             print('***', 'MH', '***')
             print(mh)
             print('***', 'MFCS', '***')
-        if len(self.mfcs) > 0:
-            for mm, mfc in enumerate(self.mfcs):
+        if len(self._mfcs) > 0:
+            for mm, mfc in enumerate(self._mfcs):
                 mh = mfc(mh)
 
-                if self.mixture_layer_norm:
-                    mh = self.norm_mfcs[mm](mh)
+                if self._mixture_layer_norm:
+                    mh = self._norm_mfcs[mm](mh)
 
-                mh = self.hidden_activation(mh)
+                mh = self._hidden_activation(mh)
                 if print_debug:
                     print(mh)
 

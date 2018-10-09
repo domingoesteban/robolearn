@@ -61,7 +61,7 @@ def create_stats_ordered_dict(
         name,
         data,
         stat_prefix=None,
-        always_show_all_stats=False,
+        always_show_all_stats=True,
         exclude_max_min=False,
 ):
     if stat_prefix is not None:
