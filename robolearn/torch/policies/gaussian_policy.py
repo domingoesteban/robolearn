@@ -38,10 +38,10 @@ class GaussianPolicy(Mlp, ExplorationPolicy):
             action_dim,
             hidden_sizes,
             std=None,
-            hidden_w_init=ptu.xavier_init,
-            hidden_b_init_val=0,
-            output_w_init=ptu.xavier_init,
-            output_b_init_val=0,
+            hidden_w_init='xavier_normal',
+            hidden_b_init_val=0.1,
+            output_w_init='xavier_normal',
+            output_b_init_val=0.1,
             **kwargs
     ):
         self.save_init_params(locals())
@@ -50,9 +50,9 @@ class GaussianPolicy(Mlp, ExplorationPolicy):
             input_size=obs_dim,
             output_size=action_dim,
             hidden_w_init=ptu.xavier_init,
-            hidden_b_init_val=0,
+            hidden_b_init_val=0.01,
             output_w_init=ptu.xavier_init,
-            output_b_init_val=0,
+            output_b_init_val=0.01,
             **kwargs
         )
         ExplorationPolicy.__init__(self, action_dim)
@@ -64,11 +64,13 @@ class GaussianPolicy(Mlp, ExplorationPolicy):
             if len(hidden_sizes) > 0:
                 last_hidden_size = hidden_sizes[-1]
             self.last_fc_log_std = nn.Linear(last_hidden_size, action_dim)
-            hidden_w_init(self.last_fc_log_std.weight)
-            ptu.fill(self.last_fc_log_std.bias, hidden_b_init_val)
+
+            ptu.layer_init_xavier_normal(layer=self.last_fc_log_std,
+                                         activation='linear',
+                                         b=output_b_init_val)
 
         else:
-            self.log_std = np.log(std)
+            self.log_std = torch.log(std)
             assert LOG_SIG_MIN <= self.log_std <= LOG_SIG_MAX
 
     def get_action(self, obs_np, deterministic=False):

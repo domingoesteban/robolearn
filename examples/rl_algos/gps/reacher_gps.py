@@ -12,7 +12,7 @@ from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management import FakeReplayBuffer
 from robolearn_gym_envs.pybullet import Reacher2D3DofBulletEnv
 
-from robolearn.torch.rl_algos.gps import MDGPS
+from robolearn.algos.gps.mdgps import MDGPS
 
 from robolearn.torch.policies import TanhGaussianPolicy
 from robolearn.torch.policies import MlpPolicy
@@ -67,7 +67,6 @@ def experiment(variant):
     #
     # # QF Plot
     # # variant['algo_params']['epoch_plotter'] = None
-
 
     algorithm = MDGPS(
         env=env,

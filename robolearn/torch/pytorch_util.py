@@ -232,6 +232,55 @@ def xavier_uniform_init(tensor, gain=1):
     return torch.nn.init.xavier_uniform_(tensor, gain=gain)
 
 
+def layer_init_xavier_normal(layer, activation='relu', b=0.01):
+    if activation.lower() in ['relu']:
+        nn.init.xavier_normal_(layer.weight,
+                               gain=nn.init.calculate_gain('relu')
+                               )
+    elif activation in ['leaky_relu']:
+        nn.init.xavier_normal_(layer.weight,
+                               gain=nn.init.calculate_gain('leaky_relu')
+                               )
+    elif activation.lower() in ['tanh']:
+        nn.init.xavier_normal_(layer.weight,
+                               gain=nn.init.calculate_gain('tanh')
+                               )
+    elif activation.lower() in ['sigmoid']:
+        nn.init.xavier_normal_(layer.weight,
+                               gain=nn.init.calculate_gain('sigmoid')
+                               )
+    elif activation.lower() in ['linear']:
+        nn.init.xavier_normal_(layer.weight,
+                               gain=nn.init.calculate_gain('linear')
+                               )
+    else:
+        raise AttributeError('Wrong option')
+
+    if hasattr(layer, 'bias'):
+        fill(layer.bias, b)
+
+
+def get_activation(name):
+    if name.lower() == 'relu':
+        activation = torch.nn.functional.relu
+    elif name.lower() == 'elu':
+        activation = torch.nn.functional.elu
+    elif name.lower() == 'leaky_relu':
+        activation = torch.nn.functional.leaky_relu
+    elif name.lower() == 'selu':
+        activation = torch.nn.functional.selu
+    elif name.lower() == 'sigmoid':
+        activation = torch.nn.functional.sigmoid
+    elif name.lower() == 'tanh':
+        activation = torch.nn.functional.tanh
+    elif name.lower() in ['linear', 'identity']:
+        activation = identity
+    else:
+        raise AttributeError("Pytorch does not have activation '%s'",
+                             name)
+    return activation
+
+
 """
 GPU wrappers
 """
@@ -328,6 +377,14 @@ def ones_like(*args, **kwargs):
     if _use_gpu:
         tensor = tensor.cuda()
     return tensor
+
+
+def eye(*sizes, out=None):
+    tensor = torch.eye(*sizes, out=out)
+    if _use_gpu:
+        tensor = tensor.cuda()
+    return tensor
+
 
 def rand(*args, **kwargs):
     tensor = torch.rand(*args, **kwargs)
@@ -445,20 +502,4 @@ def add_module(modules_dict, name, module):
     elif name == '':
         raise KeyError("module name can't be empty string \"\"")
     modules_dict[name] = module
-
-
-"""
-Useful functions
-"""
-
-
-def activation(name):
-    name = name.lower()
-    if hasattr(torch, name):
-        return getattr(torch, name)
-    elif name == 'identity' or 'identity':
-        return identity
-    else:
-        raise AttributeError("Pytorch does not have activation '%s'",
-                             name)
 

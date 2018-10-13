@@ -78,9 +78,9 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         self._output_sizes = action_dim
         self._n_subpolicies = n_policies
         # Activation Fcns
-        self._hidden_activation = ptu.activation(hidden_activation)
-        self._pol_output_activation = ptu.activation(pol_output_activation)
-        self._mix_output_activation = ptu.activation(mix_output_activation)
+        self._hidden_activation = ptu.get_activation(hidden_activation)
+        self._pol_output_activation = ptu.get_activation(pol_output_activation)
+        self._mix_output_activation = ptu.get_activation(mix_output_activation)
         # Normalization Layer Flags
         self._shared_layer_norm = shared_layer_norm
         self._policies_layer_norm = policies_layer_norm
@@ -114,10 +114,9 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         if shared_hidden_sizes is not None:
             for ii, next_size in enumerate(shared_hidden_sizes):
                 sfc = nn.Linear(in_size, next_size)
-                nn.init.xavier_normal_(sfc.weight.data,
-                                       gain=nn.init.calculate_gain(hidden_activation)
-                                       )
-                ptu.fill(sfc.bias, hidden_b_init_val)
+                ptu.layer_init_xavier_normal(layer=sfc,
+                                             activation=hidden_activation,
+                                             b=hidden_b_init_val)
                 self.__setattr__("sfc{}".format(ii), sfc)
                 self._sfcs.append(sfc)
                 self.add_shared_module("sfc{}".format(ii), sfc)
@@ -139,9 +138,9 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             for ii, next_size in enumerate(unshared_hidden_sizes):
                 for pol_idx in range(self._n_subpolicies):
                     pfc = nn.Linear(multipol_in_size, next_size)
-                    nn.init.xavier_normal_(pfc.weight.data,
-                                           gain=nn.init.calculate_gain(hidden_activation))
-                    ptu.fill(pfc.bias, hidden_b_init_val)
+                    ptu.layer_init_xavier_normal(layer=pfc,
+                                                 activation=hidden_activation,
+                                                 b=hidden_b_init_val)
                     self.__setattr__("pfc{}_{}".format(pol_idx, ii), pfc)
                     self._pfcs[pol_idx].append(pfc)
                     self.add_policies_module("pfc{}_{}".format(pol_idx, ii),
@@ -161,9 +160,9 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         # Multi-Policy Last Layers
         for pol_idx in range(self._n_subpolicies):
             last_pfc = nn.Linear(multipol_in_size, action_dim)
-            nn.init.xavier_normal_(last_pfc.weight.data,
-                                   gain=nn.init.calculate_gain(pol_output_activation))
-            ptu.fill(last_pfc.bias, output_b_init_val)
+            ptu.layer_init_xavier_normal(layer=last_pfc,
+                                         activation=pol_output_activation,
+                                         b=output_b_init_val)
             self.__setattr__("pfc_last{}".format(pol_idx), last_pfc)
             self._pfc_lasts.append(last_pfc)
             self.add_policies_module("pfc_last{}".format(pol_idx), last_pfc,
@@ -173,9 +172,9 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         if unshared_mix_hidden_sizes is not None:
             for ii, next_size in enumerate(unshared_mix_hidden_sizes):
                 mfc = nn.Linear(mixture_in_size, next_size)
-                nn.init.xavier_normal_(mfc.weight.data,
-                                       gain=nn.init.calculate_gain(hidden_activation))
-                ptu.fill(mfc.bias, hidden_b_init_val)
+                ptu.layer_init_xavier_normal(layer=mfc,
+                                             activation=hidden_activation,
+                                             b=hidden_b_init_val)
                 self.__setattr__("mfc{}".format(ii), mfc)
                 self._mfcs.append(mfc)
                 # Add it to specific dictionaries
@@ -191,10 +190,9 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
         # Unshared Mixing-Weights Last Layers
         mfc_last = nn.Linear(mixture_in_size, self._n_subpolicies * action_dim)
-        nn.init.xavier_normal_(mfc_last.weight.data,
-                               gain=nn.init.calculate_gain(mix_output_activation)
-                               )
-        ptu.fill(mfc_last.bias, output_b_init_val)
+        ptu.layer_init_xavier_normal(layer=mfc_last,
+                                     activation=mix_output_activation,
+                                     b=output_b_init_val)
         self.__setattr__("mfc_last", mfc_last)
         self.mfc_last = mfc_last
         # Add it to specific dictionaries
@@ -207,9 +205,9 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             self._pfc_log_std_lasts = list()
             for pol_idx in range(self._n_subpolicies):
                 last_pfc_log_std = nn.Linear(multipol_in_size, action_dim)
-                nn.init.xavier_normal_(last_pfc_log_std.weight.data,
-                                       gain=nn.init.calculate_gain(pol_output_activation))
-                ptu.fill(last_pfc_log_std.bias, hidden_b_init_val)
+                ptu.layer_init_xavier_normal(layer=last_pfc_log_std,
+                                             activation=pol_output_activation,
+                                             b=output_b_init_val)
                 self.__setattr__("pfc_log_std_last{}".format(pol_idx),
                                  last_pfc_log_std)
                 self._pfc_log_std_lasts.append(last_pfc_log_std)

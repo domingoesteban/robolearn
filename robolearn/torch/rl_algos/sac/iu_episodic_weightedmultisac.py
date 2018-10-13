@@ -1026,7 +1026,6 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
             self._n_epochs
         )
 
-
         if hasattr(self.env, "log_diagnostics"):
             # TODO: CHECK ENV LOG_DIAGNOSTICS
             print('TODO: WE NEED LOG_DIAGNOSTICS IN ENV')

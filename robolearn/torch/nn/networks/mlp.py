@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from robolearn.torch.core import PyTorchModule
@@ -12,12 +13,12 @@ class Mlp(PyTorchModule):
             hidden_sizes,
             input_size,
             output_size,
-            hidden_activation=F.relu,
-            output_activation=identity,
-            hidden_w_init=ptu.xavier_init,
-            hidden_b_init_val=0,
-            output_w_init=ptu.xavier_init,
-            output_b_init_val=0,
+            hidden_activation='relu',
+            output_activation='linear',
+            hidden_w_init='xavier_normal',
+            hidden_b_init_val=0.1,
+            output_w_init='xavier_normal',
+            output_b_init_val=0.1,
             layer_norm=False,
             layer_norm_kwargs=None,
     ):
@@ -29,8 +30,10 @@ class Mlp(PyTorchModule):
 
         self.input_size = input_size
         self.output_size = output_size
-        self.hidden_activation = hidden_activation
-        self.output_activation = output_activation
+
+        self.hidden_activation = ptu.get_activation(hidden_activation)
+        self.output_activation = ptu.get_activation(output_activation)
+
         self.layer_norm = layer_norm
         self.fcs = []
         self.layer_norms = []
@@ -39,10 +42,9 @@ class Mlp(PyTorchModule):
         for i, next_size in enumerate(hidden_sizes):
             fc = nn.Linear(in_size, next_size)
             in_size = next_size
-            # hidden_w_init(fc.weight)
-            nn.init.xavier_normal_(fc.weight.data,
-                                   gain=nn.init.calculate_gain('relu'))
-            ptu.fill(fc.bias, hidden_b_init_val)
+            ptu.layer_init_xavier_normal(layer=fc,
+                                         activation=hidden_activation,
+                                         b=hidden_b_init_val)
             self.__setattr__("fc{}".format(i), fc)
             self.fcs.append(fc)
 
@@ -52,10 +54,9 @@ class Mlp(PyTorchModule):
                 self.layer_norms.append(ln)
 
         self.last_fc = nn.Linear(in_size, output_size)
-        # output_w_init(self.last_fc.weight)
-        nn.init.xavier_normal_(self.last_fc.weight.data,
-                                gain=nn.init.calculate_gain('linear'))
-        ptu.fill(self.last_fc.bias, output_b_init_val)
+        ptu.layer_init_xavier_normal(layer=self.last_fc,
+                                     activation=output_activation,
+                                     b=output_b_init_val)
 
     def forward(self, nn_input, return_preactivations=False):
         h = nn_input

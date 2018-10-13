@@ -10,7 +10,7 @@ class Policy(with_metaclass(abc.ABCMeta, object)):
         self._action_dim = action_dim
 
     @abc.abstractmethod
-    def get_action(self, observation):
+    def get_action(self, *args, **kwargs):
         """
 
         :param observation:
