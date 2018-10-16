@@ -1,7 +1,73 @@
 """
-Based on code from Marcin Andrychowicz
+Based on code from Marcin Andrychowicz and OpenAI baselines.
 """
 import numpy as np
+
+
+class RunningNormalizer(object):
+    def __init__(self, epsilon=1e-4, shape=(), mean=0, var=1,
+                 default_clip_range=np.inf):
+        self.mean = mean + np.zeros(shape, np.float64)
+        self.var = var*np.ones(shape, np.float64)
+        self.count = epsilon
+        self.default_clip_range = default_clip_range
+
+    def update(self, x):
+        batch_mean = np.mean(x, axis=0)
+        batch_var = np.var(x, axis=0)
+        batch_count = x.shape[0]
+        self.update_from_moments(batch_mean, batch_var, batch_count)
+
+    def update_from_moments(self, batch_mean, batch_var, batch_count):
+        self.mean, self.var, self.count = update_mean_var_count_from_moments(
+            self.mean, self.var, self.count, batch_mean, batch_var, batch_count
+        )
+
+    def normalize(self, x, clip_range=None):
+        # Get clip range
+        if clip_range is None:
+            clip_range = self.default_clip_range
+        # Get current mean and std
+
+        mean, std = self.mean, self.std
+
+        if x.ndim == 2:
+            mean = mean.reshape(1, -1)
+            std = std.reshape(1, -1)
+
+        # Return clipped values
+        return np.clip((x - mean) / std, -clip_range, clip_range)
+
+    def denormalize(self, v):
+        mean, std = self.mean, self.std
+        if v.ndim == 2:
+            mean = mean.reshape(1, -1)
+            std = std.reshape(1, -1)
+        return v * std + mean
+
+    @property
+    def std(self):
+        return np.sqrt(self.var)
+
+
+def update_mean_var_count_from_moments(mean, var, count,
+                                       batch_mean, batch_var, batch_count):
+    delta = batch_mean - mean
+    tot_count = count + batch_count
+
+    # Calculate new mean
+    new_mean = mean + delta*batch_count / tot_count
+
+    # Calculate new variance
+    m_a = var * count
+    m_b = batch_var * batch_count
+    M2 = m_a + m_b + np.square(delta) * count*count * batch_count / tot_count
+    new_var = M2 / tot_count
+
+    # Calculate new count
+    new_count = tot_count
+
+    return new_mean, new_var, new_count
 
 
 class Normalizer(object):

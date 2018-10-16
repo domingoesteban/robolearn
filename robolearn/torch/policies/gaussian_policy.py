@@ -49,10 +49,10 @@ class GaussianPolicy(Mlp, ExplorationPolicy):
             hidden_sizes,
             input_size=obs_dim,
             output_size=action_dim,
-            hidden_w_init=ptu.xavier_init,
-            hidden_b_init_val=0.01,
-            output_w_init=ptu.xavier_init,
-            output_b_init_val=0.01,
+            hidden_w_init=hidden_w_init,
+            hidden_b_init_val=hidden_b_init_val,
+            output_w_init=output_w_init,
+            output_b_init_val=output_b_init_val,
             **kwargs
         )
         ExplorationPolicy.__init__(self, action_dim)
@@ -65,9 +65,28 @@ class GaussianPolicy(Mlp, ExplorationPolicy):
                 last_hidden_size = hidden_sizes[-1]
             self.last_fc_log_std = nn.Linear(last_hidden_size, action_dim)
 
-            ptu.layer_init_xavier_normal(layer=self.last_fc_log_std,
-                                         activation='linear',
-                                         b=output_b_init_val)
+            if output_w_init == 'xavier_normal':
+                ptu.layer_init_xavier_normal(layer=self.last_fc_log_std,
+                                             activation='linear',
+                                             b=output_b_init_val)
+            elif output_w_init == 'xavier_normal_0.1':
+                ptu.layer_init_xavier_normal(layer=self.last_fc_log_std,
+                                             activation='0.1',
+                                             b=output_b_init_val)
+            elif output_w_init == 'xavier_normal_0.01':
+                ptu.layer_init_xavier_normal(layer=self.last_fc_log_std,
+                                             activation='0.01',
+                                             b=output_b_init_val)
+            elif output_w_init == 'xavier_normal_0.001':
+                ptu.layer_init_xavier_normal(layer=self.last_fc_log_std,
+                                             activation='0.001',
+                                             b=output_b_init_val)
+            elif output_w_init == 'xavier_normal_0.003':
+                ptu.layer_init_xavier_normal(layer=self.last_fc_log_std,
+                                             activation='0.003',
+                                             b=output_b_init_val)
+            else:
+                raise ValueError("Wrong init value:%s" % output_w_init)
 
         else:
             self.log_std = torch.log(std)

@@ -1,5 +1,5 @@
 import numpy as np
-from robolearn.algos.gps.utils import gauss_fit_joint_prior
+from robolearn.rl_algos.gps.utils import gauss_fit_joint_prior
 
 
 class DynamicsLRPrior(object):

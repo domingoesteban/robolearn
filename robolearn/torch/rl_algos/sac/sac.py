@@ -158,14 +158,14 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         self.render_eval_paths = render_eval_paths
 
         # Useful Variables for logging
-        self.logging_pol_kl_loss = np.zeros(self.num_env_steps_per_epoch)
-        self.logging_qf_loss = np.zeros(self.num_env_steps_per_epoch)
-        self.logging_qf2_loss = np.zeros(self.num_env_steps_per_epoch)
-        self.logging_vf_loss = np.zeros(self.num_env_steps_per_epoch)
-        self.logging_rewards = np.zeros(self.num_env_steps_per_epoch)
-        self.logging_policy_entropy = np.zeros(self.num_env_steps_per_epoch)
-        self.logging_policy_log_std = np.zeros(self.num_env_steps_per_epoch)
-        self.logging_policy_mean = np.zeros(self.num_env_steps_per_epoch)
+        self.logging_pol_kl_loss = np.zeros(self.num_train_steps_per_epoch)
+        self.logging_qf_loss = np.zeros(self.num_train_steps_per_epoch)
+        self.logging_qf2_loss = np.zeros(self.num_train_steps_per_epoch)
+        self.logging_vf_loss = np.zeros(self.num_train_steps_per_epoch)
+        self.logging_rewards = np.zeros(self.num_train_steps_per_epoch)
+        self.logging_policy_entropy = np.zeros(self.num_train_steps_per_epoch)
+        self.logging_policy_log_std = np.zeros(self.num_train_steps_per_epoch)
+        self.logging_policy_mean = np.zeros(self.num_train_steps_per_epoch)
 
         self._summary_writer = SummaryWriter(log_dir=logger.get_snapshot_dir())
 
@@ -431,7 +431,7 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         return
 
     @property
-    def networks(self):
+    def torch_models(self):
         networks_list = [
             self._policy,
             self._qf,

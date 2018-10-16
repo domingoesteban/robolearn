@@ -177,8 +177,8 @@ class IUMultiSAC(TorchIncrementalRLAlgorithm):
         self.eval_samplers = [
             InPlacePathSampler(env=env,
                                policy=MultiPolicySelector(self._u_policy, idx),
-                               max_samples=self.num_steps_per_eval,
-                               max_path_length=self.max_path_length,)
+                               total_samples=self.num_steps_per_eval,
+                               max_path_length=self.max_path_length, )
             for idx in range(self._n_unintentional)
         ]
 
@@ -419,7 +419,7 @@ class IUMultiSAC(TorchIncrementalRLAlgorithm):
                 np.mean(ptu.get_numpy(self.tempo_rewards[uu]))
 
     @property
-    def networks(self):
+    def torch_models(self):
         if self._i_target_vf is None:
             target_i_vf = []
         else:

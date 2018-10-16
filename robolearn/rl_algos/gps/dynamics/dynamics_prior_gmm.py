@@ -1,5 +1,5 @@
 import numpy as np
-from robolearn.algos.gps.dynamics.gmm import GMM
+from robolearn.rl_algos.gps.dynamics.gmm import GMM
 
 
 class DynamicsPriorGMM(object):

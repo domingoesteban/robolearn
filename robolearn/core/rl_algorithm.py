@@ -7,8 +7,6 @@ import numpy as np
 
 from robolearn.core import logger
 from robolearn.utils.data_management.path_builder import PathBuilder
-from robolearn.utils.data_management.env_replay_buffer import EnvReplayBuffer
-from robolearn.policies.base import ExplorationPolicy
 from robolearn.utils.samplers.in_place_path_sampler import InPlacePathSampler
 
 
@@ -22,6 +20,7 @@ class RLAlgorithm(object):
             eval_env=None,
             eval_policy=None,
             eval_sampler=None,
+            obs_normalizer=None,
 
             num_epochs=100,
             num_steps_per_epoch=10000,
@@ -69,6 +68,7 @@ class RLAlgorithm(object):
         self.action_space = env.action_space
         self.obs_space = env.observation_space
         self.exploration_policy = exploration_policy
+        self._obs_normalizer = obs_normalizer
 
         # Evaluation environment, policy and sampler
         self.eval_env = eval_env or pickle.loads(pickle.dumps(env))
@@ -79,20 +79,21 @@ class RLAlgorithm(object):
             eval_sampler = InPlacePathSampler(
                 env=eval_env,
                 policy=eval_policy,
-                max_samples=num_steps_per_eval,
+                total_samples=num_steps_per_eval,
                 max_path_length=max_path_length,
+                obs_normalizer=self._obs_normalizer,
             )
         self.eval_sampler = eval_sampler
 
         # RL algorithm hyperparameters
         self.num_epochs = num_epochs
-        self.num_env_steps_per_epoch = num_steps_per_epoch
+        self.num_train_steps_per_epoch = num_steps_per_epoch
         self.max_path_length = max_path_length
         self.num_updates_per_train_call = num_updates_per_train_call
         self.num_steps_per_eval = num_steps_per_eval
 
-        self.min_steps_start_train = min_steps_start_train
-        self.min_start_eval = min_start_eval
+        self._min_steps_start_train = min_steps_start_train
+        self._min_steps_start_eval = min_start_eval
 
         # Reward related
         self.discount = discount
@@ -162,7 +163,7 @@ class RLAlgorithm(object):
         :return (bool):
         """
         # Bigger than, because n_env_steps_total updated after sampling
-        return self._n_env_steps_total > self.min_steps_start_train
+        return self._n_env_steps_total > self._min_steps_start_train
 
     @abc.abstractmethod
     def training_mode(self, mode):
@@ -276,7 +277,7 @@ class RLAlgorithm(object):
         Evaluation requirements are fulfilled or not.
 
         Evaluate only if you have non-zero exploration paths AND you have
-        more steps than min_start_eval. This value can be the minimum
+        more steps than _min_steps_start_eval. This value can be the minimum
         buffer size in the Replay Buffer.
 
         One annoying thing about the logger table is that the keys at each
@@ -291,7 +292,7 @@ class RLAlgorithm(object):
         """
         return (
                 len(self._exploration_paths) > 0
-                and self._n_epoch_train_steps >= self.min_start_eval
+                and self._n_epoch_train_steps >= self._min_steps_start_eval
         )
 
     @abc.abstractmethod
@@ -442,14 +443,6 @@ class RLAlgorithm(object):
         if self.save_algorithm:
             data_to_save['algorithm'] = self
         return data_to_save
-
-    @abc.abstractmethod
-    def cuda(self):
-        """
-        Turn cuda on.
-        :return:
-        """
-        pass
 
     def _get_action_and_info(self, observation):
         """

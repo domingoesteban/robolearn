@@ -154,8 +154,8 @@ class IUSQL(TorchIncrementalRLAlgorithm):
         # Evaluation Sampler (One for each unintentional
         self.eval_samplers = [
             InPlacePathSampler(env=env, policy=eval_policy,
-                               max_samples=self.num_steps_per_eval + self.max_path_length,
-                               max_path_length=self.max_path_length,)
+                               total_samples=self.num_steps_per_eval + self.max_path_length,
+                               max_path_length=self.max_path_length, )
             for eval_policy in self._u_policies
         ]
 
@@ -414,7 +414,7 @@ class IUSQL(TorchIncrementalRLAlgorithm):
                                     self.soft_target_tau)
 
     @property
-    def networks(self):
+    def torch_models(self):
         if self._i_target_qf is None:
             target_i_q_fcn = []
         else:

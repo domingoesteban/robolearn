@@ -1,6 +1,6 @@
 import numpy as np
-from robolearn.algos.gps.costs.cost_utils import get_ramp_multiplier
-from robolearn.algos.gps.costs.cost_utils import RAMP_CONSTANT
+from robolearn.rl_algos.gps.costs.cost_utils import get_ramp_multiplier
+from robolearn.rl_algos.gps.costs.cost_utils import RAMP_CONSTANT
 
 
 class CostSafeDistance(object):

@@ -308,7 +308,7 @@ class SQL(TorchIncrementalRLAlgorithm):
                                     self.soft_target_tau)
 
     @property
-    def networks(self):
+    def torch_models(self):
         return [
             self.policy,
             self.qf,

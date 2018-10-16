@@ -57,9 +57,9 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             unshared_mix_hidden_sizes=None,
             stds=None,
             hidden_activation='relu',
-            hidden_w_init=ptu.xavier_init,
+            hidden_w_init='xavier_normal',
             hidden_b_init_val=1e-2,
-            output_w_init=ptu.xavier_init,
+            output_w_init='xavier_normal',
             output_b_init_val=1e-2,
             pol_output_activation='linear',
             mix_output_activation='linear',
@@ -411,7 +411,6 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         #     print('mfc_last(mh)',self.mfc_last(mh).reshape(-1, self.action_dim, self._n_subpolicies))
         #     raise ValueError('Some mixture coeff(s) is(are) NAN:',
         #                      mixture_coeff)
-
 
         if pol_idx is None:
             # Calculate weighted means and stds (and log_stds)

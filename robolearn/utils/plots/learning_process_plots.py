@@ -31,8 +31,7 @@ def plot_process_iu_returns(csv_file, n_unintentional=None, block=False):
     if not isinstance(axs, np.ndarray):
         axs = np.array([axs])
     fig.subplots_adjust(hspace=0)
-    fig.suptitle('Avg Return and Avg Reward',
-                 fontweight='bold')
+    fig.suptitle('Avg Return', fontweight='bold')
 
     for aa, ax in enumerate(axs):
         ax.plot(data[aa])
@@ -54,7 +53,7 @@ def plot_process_iu_policies(csv_file, n_unintentional=None, block=False,
         'Policy Entropy',
         # 'Log Policy Target',
         # 'Policy Mean',
-        'Policy Std'
+        # 'Policy Std'
         ]
 
     if n_unintentional is None:

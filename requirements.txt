@@ -1,6 +1,7 @@
 numpy
 matplotlib
 tensorflow
+torch
 rospy
 scipy
 rbdl

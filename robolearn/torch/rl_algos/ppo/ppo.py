@@ -1,6 +1,7 @@
 import torch.optim as optim
 
-from robolearn.torch import TorchIncrementalRLAlgorithm
+from robolearn.torch.rl_algos.torch_incremental_rl_algorithm \
+    import TorchIncrementalRLAlgorithm
 from robolearn.policies import MakeDeterministic
 
 

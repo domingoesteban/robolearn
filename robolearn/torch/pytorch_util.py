@@ -253,6 +253,22 @@ def layer_init_xavier_normal(layer, activation='relu', b=0.01):
         nn.init.xavier_normal_(layer.weight,
                                gain=nn.init.calculate_gain('linear')
                                )
+    elif activation.lower() in ['0.1']:
+        nn.init.xavier_normal_(layer.weight,
+                               gain=0.1,
+                               )
+    elif activation.lower() in ['0.01']:
+        nn.init.xavier_normal_(layer.weight,
+                               gain=0.01,
+                               )
+    elif activation.lower() in ['0.001']:
+        nn.init.xavier_normal_(layer.weight,
+                               gain=0.001,
+                               )
+    elif activation.lower() in ['0.003']:
+        nn.init.xavier_normal_(layer.weight,
+                               gain=0.001,
+                               )
     else:
         raise AttributeError('Wrong option')
 

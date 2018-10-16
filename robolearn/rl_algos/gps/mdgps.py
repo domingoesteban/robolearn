@@ -18,20 +18,20 @@ from robolearn.utils.plots import plt_pause
 
 from collections import OrderedDict
 
-from robolearn.algos.gps.policies.policy_prior import ConstantPolicyPrior
+from robolearn.rl_algos.gps.policies.policy_prior import ConstantPolicyPrior
 
 from robolearn.utils.data_management import PathBuilder
 from robolearn.utils.samplers.exploration_rollout import exploration_rollout
-from robolearn.algos.gps.utils import generate_noise
-from robolearn.algos.gps.utils import IterationData
-from robolearn.algos.gps.utils import TrajectoryInfo
-from robolearn.algos.gps.utils import PolicyInfo
+from robolearn.rl_algos.gps.utils import generate_noise
+from robolearn.rl_algos.gps.utils import IterationData
+from robolearn.rl_algos.gps.utils import TrajectoryInfo
+from robolearn.rl_algos.gps.utils import PolicyInfo
 
 
-from robolearn.algos.gps.dynamics.dynamics_lr_prior import DynamicsLRPrior
-from robolearn.algos.gps.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
+from robolearn.rl_algos.gps.dynamics.dynamics_lr_prior import DynamicsLRPrior
+from robolearn.rl_algos.gps.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
 
-from robolearn.algos.gps.traj_opt.traj_opt_lqr import TrajOptLQR
+from robolearn.rl_algos.gps.traj_opt.traj_opt_lqr import TrajOptLQR
 
 
 class MDGPS(IterativeRLAlgorithm):
@@ -147,6 +147,17 @@ class MDGPS(IterativeRLAlgorithm):
         # Cost Fcn
         self._cost_fcn = cost_fcn
 
+        # Global Policy Optimization
+        self.global_pol_optimizer = torch.optim.Adam(
+            self.global_policy.parameters(),
+            lr=self._global_opt_lr,
+            betas=(0.9, 0.999),
+            eps=1e-08,  # Term added to the denominator for numerical stability
+            # weight_decay=0.005,
+            weight_decay=0.5,
+            amsgrad=True,
+        )
+
         # Local Trajectory Information
         self._local_pol_optimizer = TrajOptLQR(
             cons_per_step=False,
@@ -189,7 +200,7 @@ class MDGPS(IterativeRLAlgorithm):
             params = self.get_epoch_snapshot(-1)
             logger.save_itr_params(-1, params)
 
-        self._n_env_steps_total = start_epoch * self.num_env_steps_per_epoch
+        self._n_env_steps_total = start_epoch * self.num_train_steps_per_epoch
 
         gt.reset()
         gt.set_def_unique(False)
@@ -637,22 +648,22 @@ class MDGPS(IterativeRLAlgorithm):
         self.global_policy.scale = torch.sqrt(var_new)
         self.global_policy.bias = bias_new
 
-        self.global_policy.scale = ptu.eye(self.env.obs_dim)
-        self.global_policy.bias = ptu.zeros(self.env.obs_dim)
+        # self.global_policy.scale = ptu.eye(self.env.obs_dim)
+        # self.global_policy.bias = ptu.zeros(self.env.obs_dim)
 
         # Normalize Inputs
         obs = obs.matmul(self.global_policy.scale) + self.global_policy.bias
 
-        # Global Policy Optimization
-        global_pol_optimizer = torch.optim.Adam(
-            self.global_policy.parameters(),
-            lr=self._global_opt_lr,
-            betas=(0.9, 0.999),
-            eps=1e-08,  # Term added to the denominator for numerical stability
-            # weight_decay=0.005,
-            weight_decay=0.1,
-            amsgrad=True,
-        )
+        # # Global Policy Optimization
+        # self.global_pol_optimizer = torch.optim.Adam(
+        #     self.global_policy.parameters(),
+        #     lr=self._global_opt_lr,
+        #     betas=(0.9, 0.999),
+        #     eps=1e-08,  # Term added to the denominator for numerical stability
+        #     # weight_decay=0.005,
+        #     weight_decay=0.5,
+        #     amsgrad=True,
+        # )
 
         # Assuming that N*T >= self.batch_size.
         batches_per_epoch = math.floor(N*T / self._global_opt_batch_size)
@@ -671,16 +682,16 @@ class MDGPS(IterativeRLAlgorithm):
             print('$$$$\n'*2)
             print('GLOBAL_OPT %02d' % oo)
             print('$$$$\n'*2)
-            # Global Policy Optimization
-            global_pol_optimizer = torch.optim.Adam(
-                self.global_policy.parameters(),
-                lr=self._global_opt_lr,
-                betas=(0.9, 0.999),
-                eps=1e-08,  # Term added to the denominator for numerical stability
-                # weight_decay=0.005,
-                weight_decay=0.1,
-                amsgrad=True,
-            )
+            # # Global Policy Optimization
+            # self.global_pol_optimizer = torch.optim.Adam(
+            #     self.global_policy.parameters(),
+            #     lr=self._global_opt_lr,
+            #     betas=(0.9, 0.999),
+            #     eps=1e-08,  # Term added to the denominator for numerical stability
+            #     # weight_decay=0.005,
+            #     weight_decay=0.5,
+            #     amsgrad=True,
+            # )
 
             for ii in range(self._global_opt_iters):
                 # # Load in data for this batch.
@@ -691,7 +702,7 @@ class MDGPS(IterativeRLAlgorithm):
                 # Load in data for this batch.
                 idx_i = np.random.choice(N*T, self._global_opt_batch_size)
 
-                global_pol_optimizer.zero_grad()
+                self.global_pol_optimizer.zero_grad()
 
                 pol_output = self.global_policy(obs[idx_i], deterministic=True)[0]
 
@@ -701,7 +712,7 @@ class MDGPS(IterativeRLAlgorithm):
                                             batch_size=self._global_opt_batch_size)
 
                 train_loss.backward()
-                global_pol_optimizer.step()
+                self.global_pol_optimizer.step()
 
                 average_loss += train_loss.item()
 
@@ -929,7 +940,7 @@ class MDGPS(IterativeRLAlgorithm):
         PKLv = np.zeros((T, dX+dU))
 
         # TODO: 'WARN: adding a beta to divisor in compute_traj_cost')
-        eps = 1e-6
+        eps = 1e-8
         divisor = (eta + multiplier + eps)
         fCm = Cm / divisor
         fcv = cv / divisor
@@ -1188,12 +1199,12 @@ def euclidean_loss(mlp_out, action, precision, batch_size):
 
     u = action-mlp_out
     uP = torch.matmul(u.unsqueeze(1), precision).squeeze(1)
-    # # This last dot product is then summed, so we just the sum all at once.
-    # uPu = torch.sum(uP*u)
-    # return uPu/scale_factor
-
-    uPu = torch.sum(u**2)
+    # This last dot product is then summed, so we just the sum all at once.
+    uPu = torch.sum(uP*u)
     return uPu/scale_factor
+
+    # uPu = torch.sum(u**2)
+    # return uPu/scale_factor
 
     # uPu = 0.5*torch.sum(mlp_out**2)
     # return uPu

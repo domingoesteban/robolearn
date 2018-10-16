@@ -68,7 +68,7 @@ class MDGPS(TorchIterativeRLAlgorithm):
             params = self.get_epoch_snapshot(-1)
             logger.save_itr_params(-1, params)
 
-        self._n_env_steps_total = start_epoch * self.num_env_steps_per_epoch
+        self._n_env_steps_total = start_epoch * self.num_train_steps_per_epoch
 
         gt.reset()
         gt.set_def_unique(False)
@@ -154,7 +154,7 @@ class MDGPS(TorchIterativeRLAlgorithm):
         pass
 
     @property
-    def networks(self):
+    def torch_models(self):
         return [
             self.global_policy,
         ]

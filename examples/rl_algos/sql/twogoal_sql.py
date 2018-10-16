@@ -81,7 +81,7 @@ def experiment(variant):
         policy=policy,
         **variant['algo_params']
     )
-    for net in algorithm.networks:
+    for net in algorithm.torch_models:
         print(net)
         for pp in net.parameters():
             print(pp.is_cuda)
@@ -91,7 +91,7 @@ def experiment(variant):
     if ptu.gpu_enabled():
         algorithm.cuda()
 
-    for net in algorithm.networks:
+    for net in algorithm.torch_models:
         print(net)
         for pp in net.parameters():
             print(pp.is_cuda)

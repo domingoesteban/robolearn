@@ -172,7 +172,7 @@ class MultiSoftActorCritic(TorchIncrementalRLAlgorithm):
             ))
 
     @property
-    def networks(self):
+    def torch_models(self):
         return [
             self.policy,
             self.qf,

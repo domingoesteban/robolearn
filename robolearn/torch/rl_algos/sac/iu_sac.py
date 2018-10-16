@@ -164,8 +164,8 @@ class IUSAC(TorchIncrementalRLAlgorithm):
         # Evaluation Sampler (One for each unintentional
         self.eval_samplers = [
             InPlacePathSampler(env=env, policy=eval_policy,
-                               max_samples=self.num_steps_per_eval + self.max_path_length,
-                               max_path_length=self.max_path_length,)
+                               total_samples=self.num_steps_per_eval + self.max_path_length,
+                               max_path_length=self.max_path_length, )
             for eval_policy in self._u_policies
         ]
 
@@ -334,7 +334,7 @@ class IUSAC(TorchIncrementalRLAlgorithm):
         ))
 
     @property
-    def networks(self):
+    def torch_models(self):
         if self._i_target_vf is None:
             target_i_vf = []
         else:

@@ -16,9 +16,11 @@ from itertools import chain
 import robolearn.torch.pytorch_util as ptu
 from robolearn.core import logger, eval_util
 from robolearn.utils.samplers import InPlacePathSampler
-from robolearn.torch.rl_algos.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
+from robolearn.torch.rl_algos.torch_incremental_rl_algorithm \
+    import TorchIncrementalRLAlgorithm
 from robolearn.policies import MakeDeterministic
 from robolearn.torch.policies import WeightedMultiPolicySelector
+from robolearn.utils.data_management.normalizer import RunningNormalizer
 from torch.autograd import Variable
 
 from tensorboardX import SummaryWriter
@@ -38,6 +40,7 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
 
             replay_buffer,
             batch_size=1024,
+            normalize_obs=True,
             i_qf=None,
             i_vf=None,
             eval_env=None,
@@ -109,12 +112,19 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         else:
             eval_policy = self._policy
 
+        # Observation Normalizer
+        if normalize_obs:
+            self._obs_normalizer = RunningNormalizer(shape=env.obs_dim)
+        else:
+            self._obs_normalizer = None
+
         TorchIncrementalRLAlgorithm.__init__(
             self,
             env=env,
             exploration_policy=self._policy,
             eval_env=eval_env,
             eval_policy=eval_policy,
+            obs_normalizer=self._obs_normalizer,
             **kwargs
         )
 
@@ -256,32 +266,32 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             InPlacePathSampler(env=env,
                                policy=WeightedMultiPolicySelector(self._policy,
                                                                   idx),
-                               max_samples=self.num_steps_per_eval,
+                               total_samples=self.num_steps_per_eval,
                                max_path_length=self.max_path_length,
                                deterministic=True)
             for idx in range(self._n_unintentional)
         ]
 
         # Useful Variables for logging
-        self.logging_pol_kl_loss = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_pol_kl_loss = np.zeros((self.num_train_steps_per_epoch,
                                              self._n_unintentional + 1))
-        self.logging_qf_loss = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_qf_loss = np.zeros((self.num_train_steps_per_epoch,
                                          self._n_unintentional + 1))
-        self.logging_qf2_loss = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_qf2_loss = np.zeros((self.num_train_steps_per_epoch,
                                          self._n_unintentional + 1))
-        self.logging_vf_loss = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_vf_loss = np.zeros((self.num_train_steps_per_epoch,
                                          self._n_unintentional + 1))
-        self.logging_rewards = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_rewards = np.zeros((self.num_train_steps_per_epoch,
                                          self._n_unintentional + 1))
-        self.logging_policy_entropy = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_policy_entropy = np.zeros((self.num_train_steps_per_epoch,
                                                 self._n_unintentional + 1))
-        self.logging_policy_log_std = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_policy_log_std = np.zeros((self.num_train_steps_per_epoch,
                                                 self.env.action_dim,
                                                 self._n_unintentional + 1))
-        self.logging_policy_mean = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_policy_mean = np.zeros((self.num_train_steps_per_epoch,
                                              self.env.action_dim,
                                              self._n_unintentional + 1))
-        self.logging_mixing_coeff = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_mixing_coeff = np.zeros((self.num_train_steps_per_epoch,
                                               self.env.action_dim,
                                               self._n_unintentional))
 
@@ -314,6 +324,9 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             )
             observation = next_ob
 
+            if self._obs_normalizer is not None:
+                self._obs_normalizer.update(np.array([observation]))
+
             if terminal:
                 self.env.reset()
 
@@ -337,7 +350,7 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         # next_obs = batch['next_observations']
         #
         # step_idx = int((self._n_env_steps_total - 1) %
-        #                self.num_env_steps_per_epoch)
+        #                self.num_train_steps_per_epoch)
         #
         # # ############# #
         # # UNINTENTIONAL #
@@ -955,7 +968,7 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         #     np.mean(ptu.get_numpy(policy_loss))
 
     @property
-    def networks(self):
+    def torch_models(self):
         networks_list = [
             self._policy,
             self._i_qf,
@@ -1024,6 +1037,11 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
                 obs_mean=self.env.obs_mean,
                 obs_var=self.env.obs_var,
             )
+
+        # Observation Normalizer
+        snapshot.update(
+            obs_normalizer=self._obs_normalizer,
+        )
 
         if self.save_replay_buffer:
             snapshot.update(
@@ -1184,6 +1202,13 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
 
     def get_batch(self):
         batch = self.replay_buffer.random_batch(self.batch_size)
+
+        if self._obs_normalizer is not None:
+            batch['observations'] = \
+                self._obs_normalizer.normalize(batch['observations'])
+            batch['next_observations'] = \
+                self._obs_normalizer.normalize(batch['next_observations'])
+
         return np_to_pytorch_batch(batch)
 
     def _handle_step(
@@ -1210,6 +1235,10 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             agent_info=agent_info,
             env_info=env_info,
         )
+
+        # Update observation normalizer (if applicable)
+        if self._obs_normalizer is not None:
+            self._obs_normalizer.update(np.array([observation]))
 
         TorchIncrementalRLAlgorithm._handle_step(
             self,

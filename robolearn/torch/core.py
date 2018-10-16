@@ -34,6 +34,13 @@ class PyTorchModule(nn.Module, Serializable, metaclass=abc.ABCMeta):
         ptu.copy_model_params_from_to(self, copy)
         return copy
 
+    def clamp_all_params(self, min=None, max=None):
+        for param in self.parameters():
+            if min is not None:
+                param.data.clamp_(min=min)
+            if max is not None:
+                param.data.clamp_(max=max)
+
     def save_init_params(self, locals):
         """
         Should call this FIRST THING in the __init__ method if you ever want

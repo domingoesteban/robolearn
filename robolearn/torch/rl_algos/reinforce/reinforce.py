@@ -218,7 +218,7 @@ class Reinforce(TorchIterativeRLAlgorithm):
         return n_data * (std + 1e-8) + mean
 
     @property
-    def networks(self):
+    def torch_models(self):
         return [
             self.policy,
         ]

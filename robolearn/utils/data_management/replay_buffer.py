@@ -1,10 +1,11 @@
 import abc
 
 
-class ReplayBuffer(object, metaclass=abc.ABCMeta):
+class ReplayBuffer(object):
     """
     A class used to save and replay data.
     """
+    __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
     def add_sample(self, observation, action, reward, next_observation,

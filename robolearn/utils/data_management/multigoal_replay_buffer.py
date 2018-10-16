@@ -6,10 +6,28 @@ from robolearn.utils.data_management.replay_buffer import ReplayBuffer
 class MultiGoalReplayBuffer(ReplayBuffer):
     def __init__(self, max_replay_buffer_size, obs_dim, action_dim,
                  reward_vector_size):
+        if not max_replay_buffer_size > 1:
+            raise ValueError("Invalid Maximum Replay Buffer Size: {}".format(
+                max_replay_buffer_size)
+            )
+        if not obs_dim > 1:
+            raise ValueError("Invalid Observation Dimension: {}".format(
+                obs_dim)
+            )
+        if not action_dim > 1:
+            raise ValueError("Invalid Action Dimension: {}".format(
+                action_dim)
+            )
+        if not reward_vector_size > 1:
+            raise ValueError("Invalid Reward Vector Size: {}".format(
+                reward_vector_size)
+            )
+
         max_replay_buffer_size = int(max_replay_buffer_size)
         reward_vector_size = int(reward_vector_size)
         self._obs_dim = obs_dim
         self._action_dim = action_dim
+
         self._max_replay_buffer_size = max_replay_buffer_size
         self._observations = np.zeros((max_replay_buffer_size, obs_dim))
         # It's a bit memory inefficient to save the observations twice,
@@ -22,7 +40,7 @@ class MultiGoalReplayBuffer(ReplayBuffer):
         self._rewards = np.zeros((max_replay_buffer_size, 1))
         self._reward_vectors = np.zeros((max_replay_buffer_size,
                                          reward_vector_size))
-        # self._terminals[i] = a terminal was received at time i
+        # self._terminals[t] = a terminal was received at time t
         self._terminals = np.zeros((max_replay_buffer_size, 1), dtype='uint8')
         self._terminal_vectors = np.zeros((max_replay_buffer_size,
                                            reward_vector_size), dtype='uint8')

@@ -125,8 +125,8 @@ class MultiSQL(TorchIncrementalRLAlgorithm):
         # MULTI - specific
         self.eval_samplers = [
             InPlacePathSampler(env=env, policy=eval_policy,
-                               max_samples=self.num_steps_per_eval + self.max_path_length,
-                               max_path_length=self.max_path_length,)
+                               total_samples=self.num_steps_per_eval + self.max_path_length,
+                               max_path_length=self.max_path_length, )
             for eval_policy in self.policies
         ]
 
@@ -326,7 +326,7 @@ class MultiSQL(TorchIncrementalRLAlgorithm):
                                     self.soft_target_tau)
 
     @property
-    def networks(self):
+    def torch_models(self):
         return self.policies + self.qfs + self.target_qfs
 
     def get_epoch_snapshot(self, epoch):

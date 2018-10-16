@@ -1,9 +1,9 @@
 import numpy as np
 import scipy as sp
-from robolearn.algos.gps.policies.lin_gauss_policy import LinearGaussianPolicy
+from robolearn.rl_algos.gps.policies.lin_gauss_policy import LinearGaussianPolicy
 
 
-def init_pd(dU, dX, T,
+def init_pd(dU, dX, T, x0,
             state_idx=None,
             dstate_idx=None,
             pos_gains=0.001,
@@ -40,8 +40,8 @@ def init_pd(dU, dX, T,
     # if state_to_pd == 'distance':
     #     k = np.tile(-K[0, :, :].dot(x0), [T, 1])
     # else:
-    #     k = np.tile(2*K[0, :, :].dot(x0), [T, 1])
-    k = np.tile(np.zeros(dU), [T, 1])
+    k = np.tile(2*K[0, :, :].dot(x0), [T, 1])
+    # k = np.tile(np.zeros(dU), [T, 1])
 
     #k = np.tile(K[0, :, :].dot(x0), [T, 1])
     PSig = init_var * np.tile(np.eye(dU), [T, 1, 1])

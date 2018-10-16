@@ -12,7 +12,7 @@ from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management import FakeReplayBuffer
 from robolearn_gym_envs.pybullet import Reacher2D3DofBulletEnv
 
-from robolearn.algos.gps.mdgps import MDGPS
+from robolearn.rl_algos.gps.mdgps import MDGPS
 
 from robolearn.torch.policies import TanhGaussianPolicy
 from robolearn.torch.policies import MlpPolicy

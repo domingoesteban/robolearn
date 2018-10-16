@@ -6,12 +6,13 @@ import numpy as np
 from torch.autograd import Variable
 
 from robolearn.core.iterative_rl_algorithm import IterativeRLAlgorithm
+from robolearn.torch.rl_algos.torch_algorithm import TorchAlgorithm
 from robolearn.torch import pytorch_util as ptu
 from robolearn.torch.core import PyTorchModule
 from robolearn.core import logger, eval_util
 
 
-class TorchIterativeRLAlgorithm(IterativeRLAlgorithm):
+class TorchIterativeRLAlgorithm(IterativeRLAlgorithm, TorchAlgorithm):
     def __init__(self, *args, **kwargs):
         super(TorchIterativeRLAlgorithm, self).__init__(*args, **kwargs)
         self.eval_statistics = None
@@ -33,31 +34,13 @@ class TorchIterativeRLAlgorithm(IterativeRLAlgorithm):
                      )
                 for path in paths]
 
-    @property
-    @abc.abstractmethod
-    def networks(self):
-        # type: (None) -> Iterable[PyTorchModule]
-        pass
-
-    def training_mode(self, mode):
-        for net in self.networks:
-            net.train(mode)
-
-    def cuda(self):
-        for net in self.networks:
-            net.cuda()
-
-    def cpu(self):
-        for net in self.networks:
-            net.cpu()
-
-
 def _elem_or_tuple_to_variable(elem_or_tuple):
     if isinstance(elem_or_tuple, tuple):
         return tuple(
             _elem_or_tuple_to_variable(e) for e in elem_or_tuple
         )
-    return Variable(ptu.from_numpy(elem_or_tuple).float(), requires_grad=False)
+    return ptu.Variable(ptu.from_numpy(elem_or_tuple).float(),
+                        requires_grad=False)
 
 
 def _filter_batch(np_batch):

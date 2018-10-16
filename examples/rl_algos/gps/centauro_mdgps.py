@@ -3,18 +3,18 @@ from robolearn_gym_envs.pybullet import CentauroObstacleEnv
 from robolearn_gym_envs.pybullet.centauro.centauro_params import BODY_PARTS
 import torch
 
-from robolearn.algos.gps.mdgps import MDGPS
+from robolearn.rl_algos.gps.mdgps import MDGPS
 
-from robolearn.algos.gps.policies.lin_gauss_init import init_pd
+from robolearn.rl_algos.gps.policies.lin_gauss_init import init_pd
 from robolearn.torch.policies.gaussian_policy import GaussianPolicy
 
-from robolearn.algos.gps.costs.cost_sum import CostSum
-from robolearn.algos.gps.costs.cost_state import CostState
-from robolearn.algos.gps.costs.cost_initial_state import CostInitialState
-from robolearn.algos.gps.costs.cost_safe_distance import CostSafeDistance
-from robolearn.algos.gps.costs.cost_action import CostAction
-from robolearn.algos.gps.costs.cost_utils import RAMP_CONSTANT
-from robolearn.algos.gps.costs.cost_utils import RAMP_FINAL_ONLY
+from robolearn.rl_algos.gps.costs.cost_sum import CostSum
+from robolearn.rl_algos.gps.costs.cost_state import CostState
+from robolearn.rl_algos.gps.costs.cost_initial_state import CostInitialState
+from robolearn.rl_algos.gps.costs.cost_safe_distance import CostSafeDistance
+from robolearn.rl_algos.gps.costs.cost_action import CostAction
+from robolearn.rl_algos.gps.costs.cost_utils import RAMP_CONSTANT
+from robolearn.rl_algos.gps.costs.cost_utils import RAMP_FINAL_ONLY
 
 from robolearn_gym_envs.utils.transformations_utils import create_quat_pose
 from robolearn.utils.launchers.launcher_util import setup_logger
@@ -45,7 +45,7 @@ noise_hyperparams = dict(
     smooth_noise=True,  # Apply Gaussian filter to noise generated
     smooth_noise_var=2.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
     smooth_noise_renormalize=True,  # Renormalize smooth noise to have variance=1
-    noise_var_scale=1.e-4*np.array([1., 1., 1., 1., 1., 1., 1.]),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
+    noise_var_scale=1.e-5*np.array([1., 1., 1., 1., .1, 0.1, 0.1]),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
 )
 
 algo_params = dict(
@@ -53,15 +53,15 @@ algo_params = dict(
     nepochs=100,
     num_samples=3,
     test_samples=1,
-    # noisy_samples=True,
-    noisy_samples=False,
-    train_conds=[0],
-    test_conds=[0],
-    base_kl_step=0.1,  # 0.01,
+    noisy_samples=True,
+    # noisy_samples=False,
+    train_conds=[0, 1, 2],
+    test_conds=[0, 1, 2],
+    base_kl_step=0.05,  # 0.01,
     # base_kl_step=5000000.0,
-    global_opt_iters=10000,
+    global_opt_iters=5000,
     # global_opt_iters=50,
-    global_opt_batch_size=64,
+    global_opt_batch_size=128,
     global_opt_lr=1e-2,
     # TRAJ OPT
     # --------
@@ -69,7 +69,7 @@ algo_params = dict(
     # traj_opt_prev='traj',
     traj_opt_iters=1,
     traj_opt_min_eta=1e-8,
-    traj_opt_max_eta=1e5,  # 1e16
+    traj_opt_max_eta=1e3,  # 1e16
 )
 
 env_params = dict(
@@ -88,11 +88,14 @@ env_params = dict(
 
 policy_params = dict(
     global_pol_params=dict(
-        hidden_sizes=(256, 256),
+        hidden_sizes=(128, 128),
         hidden_activation='relu',
+        # output_w_init='xavier_normal',
+        output_w_init='xavier_normal_0.01',
+        output_b_init_val=0.0,
     ),
     local_pol_params=dict(
-        max_var=0.1,
+        max_var=0.01,
     )
 )
 
@@ -114,8 +117,8 @@ cost_params = dict(
     # 4: safe_distance_final
     # 5: safe_distance_final
     # 6: velocity
-    costs_to_consider=[0],
-    cost_weights=[1.0e-2, 5.0e-3, 1.0e-3, 0.0e+0, 0.0e+0, 1.0e-4, 1.0e-2],
+    costs_to_consider=[0, 1, 2, 6],
+    cost_weights=[1.0e-1, 1.0e+0, 1.0e-2, 0.0e+0, 0.0e+0, 1.0e-4, 1.0e+0],
 )
 
 expt_params = dict(
@@ -338,6 +341,7 @@ def create_policies(env):
         tvlgc_pol = init_pd(dU=env.action_dim,
                             dX=env.obs_dim,
                             T=T,
+                            x0=env.initial_obs_conditions[cc],
                             state_idx=env.get_obs_info(name='position')['idx'],
                             dstate_idx=None,
                             pos_gains=0.00005,  # For dU
@@ -353,6 +357,8 @@ def create_policies(env):
         action_dim=env.action_dim,
         hidden_sizes=policy_params['global_pol_params']['hidden_sizes'],
         hidden_activation=policy_params['global_pol_params']['hidden_activation'],
+        output_w_init=policy_params['global_pol_params']['output_w_init'],
+        output_b_init_val=policy_params['global_pol_params']['output_b_init_val'],
     )
 
     return local_policies, global_policy

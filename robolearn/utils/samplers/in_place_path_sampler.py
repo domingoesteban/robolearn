@@ -3,7 +3,7 @@ from robolearn.utils.samplers.rollout import rollout
 
 class InPlacePathSampler(object):
     """
-    A sampler that does not serialization for sampling. Instead, it just uses
+    A sampler that does not serialize for sampling. Instead, it just uses
     the current policy and environment as-is.
 
     WARNING: This will affect the environment! So
@@ -12,24 +12,26 @@ class InPlacePathSampler(object):
     sampler.obtain_samples  # this has side-effects: env will change!
     ```
     """
-    def __init__(self, env, policy, max_samples, max_path_length,
-                 deterministic=None):
+    def __init__(self, env, policy, total_samples, max_path_length,
+                 deterministic=None, obs_normalizer=None):
         """
 
         Args:
             env:
             policy:
-            max_samples:
-            max_path_length:
+            total_samples:
+            max_path_length: Maximum interaction samples per path.
             deterministic:
         """
         self.env = env
         self.policy = policy
-        self.max_path_length = max_path_length
-        self.max_samples = max_samples
-        assert max_samples >= max_path_length, \
-            "Need max_samples >= max_path_length"
+        self._max_path_length = max_path_length
+        self._total_samples = total_samples
+        if not total_samples >= max_path_length:
+            raise ValueError("Need total_samples >= max_path_length (%d >=%d)"
+                             % (total_samples, max_path_length))
         self.deterministic = deterministic
+        self._obs_normalizer = obs_normalizer
 
     def start_worker(self):
         pass
@@ -46,11 +48,14 @@ class InPlacePathSampler(object):
         """
         paths = []
         n_steps_total = 0
-        while n_steps_total + self.max_path_length <= self.max_samples:
+        while n_steps_total < self._total_samples:
             # Execute a single rollout
+            max_length = min(self._total_samples - n_steps_total,
+                             self._max_path_length)
             path = rollout(
-                self.env, self.policy, max_path_length=self.max_path_length,
-                deterministic=self.deterministic
+                self.env, self.policy, max_path_length=max_length,
+                deterministic=self.deterministic,
+                obs_normalizer=self._obs_normalizer,
             )
             paths.append(path)
             n_steps_total += len(path['observations'])

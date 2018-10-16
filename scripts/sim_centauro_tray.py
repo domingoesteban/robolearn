@@ -127,12 +127,22 @@ def simulate_policy(args):
 
     while True:
         if args.record:
-            env.start_recording_video('prueba.mp4')
+            rollout_start_fcn = lambda: \
+                env.start_recording_video('centauro_video.mp4')
+            rollout_end_fcn = lambda: \
+                env.stop_recording_video()
+        else:
+            rollout_start_fcn = None
+            rollout_end_fcn = None
+
         path = rollout(
             env,
             policy,
             max_path_length=args.H,
             animated=True,
+            obs_normalizer=data['obs_normalizer'],
+            rollout_start_fcn=rollout_start_fcn,
+            rollout_end_fcn=rollout_end_fcn,
         )
 
         plot_reward_composition(path, block=False)
@@ -148,9 +158,10 @@ def simulate_policy(args):
 
         if hasattr(env, "log_diagnostics"):
             env.log_diagnostics([path])
+
         logger.dump_tabular()
+
         if args.record:
-            env.stop_recording_video()
             break
 
 

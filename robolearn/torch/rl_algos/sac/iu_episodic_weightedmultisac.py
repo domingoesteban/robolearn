@@ -237,30 +237,30 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
             InPlacePathSampler(env=env,
                                policy=WeightedMultiPolicySelector(self._policy,
                                                                   idx),
-                               max_samples=self.num_steps_per_eval,
+                               total_samples=self.num_steps_per_eval,
                                max_path_length=self.max_path_length,
                                deterministic=True)
             for idx in range(self._n_unintentional)
         ]
 
         # Useful Variables for logging
-        self.logging_pol_kl_loss = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_pol_kl_loss = np.zeros((self.num_train_steps_per_epoch,
                                              self._n_unintentional + 1))
-        self.logging_qf_loss = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_qf_loss = np.zeros((self.num_train_steps_per_epoch,
                                          self._n_unintentional + 1))
-        self.logging_qf2_loss = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_qf2_loss = np.zeros((self.num_train_steps_per_epoch,
                                          self._n_unintentional + 1))
-        self.logging_vf_loss = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_vf_loss = np.zeros((self.num_train_steps_per_epoch,
                                          self._n_unintentional + 1))
-        self.logging_rewards = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_rewards = np.zeros((self.num_train_steps_per_epoch,
                                          self._n_unintentional + 1))
-        self.logging_policy_entropy = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_policy_entropy = np.zeros((self.num_train_steps_per_epoch,
                                                 self._n_unintentional + 1))
-        self.logging_policy_log_std = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_policy_log_std = np.zeros((self.num_train_steps_per_epoch,
                                                 self._n_unintentional + 1))
-        self.logging_policy_mean = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_policy_mean = np.zeros((self.num_train_steps_per_epoch,
                                              self._n_unintentional + 1))
-        self.logging_mixing_coeff = np.zeros((self.num_env_steps_per_epoch,
+        self.logging_mixing_coeff = np.zeros((self.num_train_steps_per_epoch,
                                               self._n_unintentional))
 
     def pretrain(self):
@@ -287,7 +287,7 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
         # next_obs = batch['next_observations']
         #
         # step_idx = int((self._n_env_steps_total - 1) %
-        #                self.num_env_steps_per_epoch)
+        #                self.num_train_steps_per_epoch)
         #
         # # ############# #
         # # UNINTENTIONAL #
@@ -840,7 +840,7 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
         #     np.mean(ptu.get_numpy(policy_loss))
 
     @property
-    def networks(self):
+    def torch_models(self):
         networks_list = [
             self._policy,
             self._i_qf,

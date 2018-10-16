@@ -270,7 +270,7 @@ class DDPG(TorchIncrementalRLAlgorithm):
         return snapshot
 
     @property
-    def networks(self):
+    def torch_models(self):
         return [
             self.policy,
             self.qf,

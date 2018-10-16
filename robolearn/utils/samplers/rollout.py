@@ -2,16 +2,17 @@ import numpy as np
 
 
 def rollout(env, agent, max_path_length=np.inf, animated=False,
-            deterministic=None):
+            deterministic=None, obs_normalizer=None,
+            rollout_start_fcn=None, rollout_end_fcn=None):
     """
     Execute a single rollout until the task finishes (environment returns done)
     or max_path_length is reached.
 
     Args:
-        env:
-        agent:
+        env: OpenAI-like environment
+        agent: Policy with function get_actions(obs)
         max_path_length:
-        animated:
+        animated (Bool): Call env.render() at each timestep or not
         deterministic:
 
     Returns:
@@ -38,48 +39,59 @@ def rollout(env, agent, max_path_length=np.inf, animated=False,
     agent_infos = []
     env_infos = []
 
-    o = env.reset()
-    next_o = None
+    obs = env.reset()
+
+    if rollout_start_fcn is not None:
+        rollout_start_fcn()
+
+    next_obs = None
     path_length = 0
 
     if animated:
         env.render()
 
     while path_length < max_path_length:
-        if deterministic is None:
-            a, agent_info = agent.get_action(o)
+        if obs_normalizer is None:
+            policy_input = obs
         else:
-            a, agent_info = agent.get_action(o, deterministic=deterministic)
-        next_o, r, d, env_info = env.step(a)
-        # print(path_length, r, d)
+            policy_input = obs_normalizer.normalize(obs)
 
-        observations.append(o)
-        rewards.append(r)
-        terminals.append(d)
-        actions.append(a)
+        if deterministic is None:
+            action, agent_info = agent.get_action(policy_input)
+        else:
+            action, agent_info = agent.get_action(policy_input,
+                                                  deterministic=deterministic)
+        next_obs, reward, done, env_info = env.step(action)
+
+        observations.append(obs)
+        rewards.append(reward)
+        terminals.append(done)
+        actions.append(action)
         agent_infos.append(agent_info)
         env_infos.append(env_info)
         path_length += 1
-        if d:
+        if done:
             break
-        o = next_o
+        obs = next_obs
         if animated:
             env.render()
-        # print(path_length)
+
+    if rollout_end_fcn is not None:
+        rollout_end_fcn()
 
     actions = np.array(actions)
     if len(actions.shape) == 1:
-        actions = np.expand_dims(actions, 1)
+        actions = np.expand_dims(actions, 0)
 
     observations = np.array(observations)
     if len(observations.shape) == 1:
-        observations = np.expand_dims(observations, 1)
-        next_o = np.array([next_o])
+        observations = np.expand_dims(observations, 0)
+        next_obs = np.expand_dims(next_obs, 0)
 
     next_observations = np.vstack(
         (
             observations[1:, :],
-            np.expand_dims(next_o, 0)
+            np.expand_dims(next_obs, 0)
         )
     )
 

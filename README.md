@@ -2,31 +2,46 @@
 
 "A Python package for Robot Learning"
 
-**THIS PACKAGE IS STILL IN DEVELOPMENT**
+This package seeks to create common interfaces between Robot Learning algorithms
+and Real/Simulated robots. 
+
+The package is mainly focused on learning control.
+
+**This package is gradually becoming public**, so the public version is still in 
+development. Sorry for any inconvenience.
 
 ## Algorithms
-- [x] Robot Reinforcement Learning
-    - [ ] Model-Based RL
-        - [x] Guided Policy Search
-            - MDGPS
-            - DMDGPS
-    - [ ] Model-Free RL
-        - [x] Value-based
-            - Soft Q-Learning (SQL)
-        - [x] Policy-based
-            - REINFORCE
-        - [ ] Actor-Critic
-            - Deep Deterministic Policy Gradients (DDPG)
-            - Soft Actor Critic (SAC)
+- Reinforcement Learning
+    - Model-Based RL
+        - Guided Policy Search
+            - [ ] MDGPS
+            - [ ] DMDGPS
+    - Model-Free RL
+        - Value-based
+            - [ ] Deep Q-Learning (DQL)
+            - [ ] Soft Q-Learning (SQL)
+        - Policy-based
+            - [ ] REINFORCE
+            - [ ] PPO
+        - Actor-Critic
+            - [ ] Deep Deterministic Policy Gradients (DDPG)
+            - [ ] Soft Actor Critic (SAC)
 
-- [x] Trajectory Optimization
-    - [ ] Indirect Methods
+- Inverse Reinforcement Learning
+
+- Imitation Learning
+
+- Trajectory Optimization
+    - Indirect Methods
         - iLQR
     - [ ] Direct Methods
 
-- [ ] Robot Inverse Reinforcement Learning
 
-- [ ] Robot Imitation Learning
+## Robot Interfaces
+- [ ] Simulation
+    - [ ] PyBullet
+    - [ ] GAZEBO
+- [ ] Real
 
 # Installation
 
@@ -49,7 +64,8 @@ we would appreciate that you can cite:
       howpublished = {\url{https://github.com/domingoesteban/robolearn}},
     }
 
+<!--
 # Acknowledgements
 - Vitchyr Pong for rlkit repository ([rlkit repository](https://github.com/vitchyr/rlkit)). Some algorithms are based (or almost the same) the ones in rlkit. Many functionalities of robolearn use code from rlkit.
 - Tuomas Haarnoja for softqlearning repository ([softqlearning repository](https://github.com/haarnoja/softqlearning)). SoftQLearning is based in this TensorFlow implementation.
-
+-->

@@ -47,6 +47,99 @@ SEED = 110
 POLICY = TanhGaussianWeightedMultiPolicy
 # POLICY = MixtureTanhGaussianMultiPolicy
 
+expt_params = dict(
+    algo_name=IUWeightedMultiSAC.__name__,
+    policy_name=POLICY.__name__,
+    algo_params=dict(
+        # Common RL algorithm params
+        num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
+        num_epochs=1500,  # n_epochs
+        num_updates_per_train_call=1,  # How to many run algorithm train fcn
+        num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
+        # EnvSampler params
+        max_path_length=PATH_LENGTH,  # max_path_length
+        render=False,
+        # SoftActorCritic params
+        min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
+        min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
+        reparameterize=True,
+        action_prior='uniform',
+        i_entropy_scale=1.0e-0,
+        u_entropy_scale=[1.0e-0, 1.0e-0],
+
+        i_policy_lr=1.e-4,
+        u_policies_lr=1.e-4,
+        u_mixing_lr=1.e-4,
+        i_qf_lr=1.e-4,
+        i_vf_lr=1.e-4,
+        u_qf_lr=1.e-4,
+        u_vf_lr=1.e-4,
+        i_soft_target_tau=5.e-3,
+        u_soft_target_tau=5.e-3,
+        # policy_mean_regu_weight=1e-3,
+        # policy_std_regu_weight=1e-3,
+        # policy_mixing_coeff_weight=1e-3,
+        i_policy_mean_regu_weight=0.e-3,
+        i_policy_std_regu_weight=0.e-3,
+        i_policy_pre_activation_weight=0.e-3,
+        i_policy_mixing_coeff_weight=0.e-3,
+
+        u_policy_mean_regu_weight=[0.e-3, 0.e-3],
+        u_policy_std_regu_weight=[0.e-3, 0.e-3],
+        u_policy_pre_activation_weight=[0.e-3, 0.e-3],
+
+        i_policy_weight_decay=1.e-5,
+        u_policy_weight_decay=1.e-5,
+        i_q_weight_decay=1e-5,
+        u_q_weight_decay=1e-5,
+        i_v_weight_decay=1e-5,
+        u_v_weight_decay=1e-5,
+
+        discount=0.99,
+        # reward_scale=1.0,  # 26/06 en iter 50 llegan todos  a log_std=-5
+        # reward_scale=0.1,  # 26/06 hasta itr 730 no mejora. Muy estocastica, en deterministic apenas se mueve
+        # reward_scale=0.6,  # CHECKEAR pusher_compo_2018_06_27_07_45_08_0000--s-0. parece muy estocastico
+        # reward_scale=0.8,  # SIN SHARED. explora muy poco pusher_compo_2018_06_27_17_11_16_0000--s-0
+        # reward_scale=0.6,  # SIN SHARED. 28-19-18-53
+        reward_scale=1.0e+0,  # SIN SHARED.
+        # reward_scale=1.5,
+        # reward_scale=10.0,
+        u_reward_scales=[1.0e+0, 1.0e+0],
+    ),
+    net_size=64,
+    replay_buffer_size=1e6,
+    shared_layer_norm=False,
+    policies_layer_norm=False,
+    mixture_layer_norm=False,
+    # shared_layer_normTrue,
+    # policies_layer_norm=True,
+    # mixture_layer_norm=True,
+)
+
+
+env_params = dict(
+    is_render=False,
+    obs_with_img=False,
+    goal_poses=None,  # It will be setted later
+    rdn_goal_pose=True,
+    tgt_pose=None,  # It will be setted later
+    rdn_tgt_object_pose=True,
+    sim_timestep=SIM_TIMESTEP,
+    frame_skip=FRAME_SKIP,
+    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
+    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
+    tgt_cost_weight=4.0, #1.5,
+    goal_cost_weight=1.0,
+    ctrl_cost_weight=1.0e-2,
+    use_log_distances=True,
+    # use_log_distances=False,
+    log_alpha=1.e-1,  # In case use_log_distances=True
+    # max_time=PATH_LENGTH*DT,
+    max_time=None,
+    subtask=None,
+    seed=SEED,
+)
+
 
 def experiment(variant):
 
@@ -138,6 +231,15 @@ def experiment(variant):
             reparameterize=True,
         )
 
+        # Clamp parameters
+        u_qf.clamp_all_params(min=-0.003, max=0.003)
+        u_qf2.clamp_all_params(min=-0.003, max=0.003)
+        i_qf.clamp_all_params(min=-0.003, max=0.003)
+        i_qf2.clamp_all_params(min=-0.003, max=0.003)
+        u_vf.clamp_all_params(min=-0.003, max=0.003)
+        i_vf.clamp_all_params(min=-0.003, max=0.003)
+        policy.clamp_all_params(min=-0.003, max=0.003)
+
     replay_buffer = MultiGoalReplayBuffer(
         max_replay_buffer_size=variant['replay_buffer_size'],
         obs_dim=obs_dim,
@@ -166,102 +268,6 @@ def experiment(variant):
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm
-
-
-expt_params = dict(
-    algo_name=IUWeightedMultiSAC.__name__,
-    policy_name=POLICY.__name__,
-    algo_params=dict(
-        # Common RL algorithm params
-        num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=1500,  # n_epochs
-        num_updates_per_train_call=1,  # How to many run algorithm train fcn
-        num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
-        # EnvSampler params
-        max_path_length=PATH_LENGTH,  # max_path_length
-        render=False,
-        # SoftActorCritic params
-        min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
-        min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
-        reparameterize=True,
-        action_prior='uniform',
-        i_entropy_scale=1.0e-0,
-        u_entropy_scale=[1.0e-0, 1.0e-0],
-
-        i_policy_lr=1.e-4,
-        u_policies_lr=1.e-4,
-        u_mixing_lr=1.e-4,
-        i_qf_lr=1.e-4,
-        i_vf_lr=1.e-4,
-        u_qf_lr=1.e-4,
-        u_vf_lr=1.e-4,
-        i_soft_target_tau=5.e-3,
-        u_soft_target_tau=5.e-3,
-        # policy_mean_regu_weight=1e-3,
-        # policy_std_regu_weight=1e-3,
-        # policy_mixing_coeff_weight=1e-3,
-        i_policy_mean_regu_weight=0.e-3,
-        i_policy_std_regu_weight=0.e-3,
-        i_policy_pre_activation_weight=0.e-3,
-        i_policy_mixing_coeff_weight=0.e-3,
-
-        u_policy_mean_regu_weight=[0.e-3, 0.e-3],
-        u_policy_std_regu_weight=[0.e-3, 0.e-3],
-        u_policy_pre_activation_weight=[0.e-3, 0.e-3],
-
-        i_policy_weight_decay=1.e-5,
-        u_policy_weight_decay=1.e-5,
-        i_q_weight_decay=1e-5,
-        u_q_weight_decay=1e-5,
-        i_v_weight_decay=1e-5,
-        u_v_weight_decay=1e-5,
-
-        discount=0.99,
-        # reward_scale=1.0,  # 26/06 en iter 50 llegan todos  a log_std=-5
-        # reward_scale=0.1,  # 26/06 hasta itr 730 no mejora. Muy estocastica, en deterministic apenas se mueve
-        # reward_scale=0.6,  # CHECKEAR pusher_compo_2018_06_27_07_45_08_0000--s-0. parece muy estocastico
-        # reward_scale=0.8,  # SIN SHARED. explora muy poco pusher_compo_2018_06_27_17_11_16_0000--s-0
-        # reward_scale=0.6,  # SIN SHARED. 28-19-18-53
-        reward_scale=0.7,  # SIN SHARED.
-        # reward_scale=1.5,
-        # reward_scale=10.0,
-        u_reward_scales=[0.7, 0.7],
-    ),
-    net_size=64,
-    replay_buffer_size=1e6,
-    shared_layer_norm=False,
-    policies_layer_norm=False,
-    mixture_layer_norm=False,
-    # shared_layer_normTrue,
-    # policies_layer_norm=True,
-    # mixture_layer_norm=True,
-)
-
-
-env_params = dict(
-    is_render=False,
-    obs_with_img=False,
-    goal_poses=None,
-    rdn_goal_pose=True,
-    tgt_pose=None,
-    rdn_tgt_object_pose=True,
-    sim_timestep=SIM_TIMESTEP,
-    frame_skip=FRAME_SKIP,
-    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
-    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
-    tgt_cost_weight=1.0, #1.5,
-    # goal_cost_weight=1.5, #3.0,
-    goal_cost_weight=1.5,
-    # goal_cost_weight=0.0,
-    ctrl_cost_weight=1.0e-4,
-    use_log_distances=True,
-    # use_log_distances=False,
-    log_alpha=1e-1,  # In case use_log_distances=True
-    # max_time=PATH_LENGTH*DT,
-    max_time=None,
-    subtask=None,
-    seed=SEED,
-)
 
 
 def parse_args():

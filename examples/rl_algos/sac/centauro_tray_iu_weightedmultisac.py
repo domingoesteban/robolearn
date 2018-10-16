@@ -26,6 +26,7 @@ from robolearn.torch.policies import TanhGaussianComposedMultiPolicy
 import argparse
 import joblib
 
+np.set_printoptions(suppress=True, precision=4)
 # np.seterr(all='raise')  # WARNING RAISE ERROR IN NUMPY
 
 Tend = 3.0  # Seconds
@@ -46,6 +47,8 @@ SEED = 110
 
 POLICY = TanhGaussianWeightedMultiPolicy
 # POLICY = MixtureTanhGaussianMultiPolicy
+
+NORMALIZE_OBS = True
 
 
 def experiment(variant):
@@ -147,6 +150,7 @@ def experiment(variant):
         u_vf=u_vf,
         replay_buffer=replay_buffer,
         batch_size=BATCH_SIZE,  # batch_size
+        normalize_obs=NORMALIZE_OBS,
         i_qf=i_qf,
         i_vf=i_vf,
         u_qf2=u_qf2,

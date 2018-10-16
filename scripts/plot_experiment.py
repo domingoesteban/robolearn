@@ -12,16 +12,16 @@ def main(args):
     # plot_process_general_data(csv_file=args.file, n_unintentional=args.un,
     #                           block=False)
 
-    # plot_process_iu_values_errors(csv_file=args.file, n_unintentional=args.un,
-    #                               block=False)
-    #
-    # plot_process_iu_policies(csv_file=args.file, n_unintentional=args.un,
-    #                          block=False)
-    #
-    # plot_process_iu_returns(csv_file=args.file, n_unintentional=args.un,
-    #                         block=False)
+    plot_process_iu_values_errors(csv_file=args.file, n_unintentional=args.un,
+                                  block=False)
 
-    plot_process_haarnoja(csv_file=args.file)
+    plot_process_iu_policies(csv_file=args.file, n_unintentional=args.un,
+                             block=False)
+
+    plot_process_iu_returns(csv_file=args.file, n_unintentional=args.un,
+                            block=False)
+
+    # plot_process_haarnoja(csv_file=args.file)
 
 
 if __name__ == '__main__':

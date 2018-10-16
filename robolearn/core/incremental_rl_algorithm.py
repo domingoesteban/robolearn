@@ -3,8 +3,6 @@ import gtimer as gt
 from tqdm import tqdm, tqdm_notebook
 
 from robolearn.core.rl_algorithm import RLAlgorithm
-from robolearn.policies import ExplorationPolicy
-from robolearn.utils.data_management import PathBuilder
 from robolearn.core import logger
 from robolearn.utils.stdout.notebook_utils import is_ipython
 
@@ -25,7 +23,7 @@ class IncrementalRLAlgorithm(RLAlgorithm):
         else:
             self._print_log_header = False
 
-        self._n_env_steps_total = start_epoch * self.num_env_steps_per_epoch
+        self._n_env_steps_total = start_epoch * self.num_train_steps_per_epoch
 
         gt.reset()
         gt.set_def_unique(False)
@@ -44,16 +42,20 @@ class IncrementalRLAlgorithm(RLAlgorithm):
                 save_itrs=True,
         ):
             self._start_epoch(epoch)
-            epoch_steps = self.num_env_steps_per_epoch
+            epoch_steps = self.num_train_steps_per_epoch
             if epoch == 0:
-                epoch_steps += self.min_steps_start_train
+                epoch_steps += self._min_steps_start_train
 
             observation = self._start_new_rollout()
             for ss in range(epoch_steps):
                 # print('epoch:%02d | steps:%03d' % (epoch, ss))
                 # Get policy action
+                if self._obs_normalizer is None:
+                    policy_input = observation
+                else:
+                    policy_input = self._obs_normalizer.normalize(observation)
                 action, agent_info = self._get_action_and_info(
-                    observation,
+                    policy_input,
                 )
                 # Render if it is requested
                 if self._render:
@@ -115,3 +117,31 @@ class IncrementalRLAlgorithm(RLAlgorithm):
 
         logger.dump_tabular(with_prefix=False, with_timestamp=False,
                             write_header=self._print_log_header)
+
+    def evaluate(self, epoch):
+        statistics = OrderedDict()
+        statistics.update(self.eval_statistics)
+        self.eval_statistics = None
+
+        logger.log("Collecting samples for evaluation")
+        test_paths = self.eval_sampler.obtain_samples()
+
+        statistics.update(eval_util.get_generic_path_information(
+            test_paths, stat_prefix="Test",
+        ))
+        statistics.update(eval_util.get_generic_path_information(
+            self._exploration_paths, stat_prefix="Exploration",
+        ))
+        if hasattr(self.env, "log_diagnostics"):
+            self.env.log_diagnostics(test_paths)
+
+        average_returns = eval_util.get_average_returns(test_paths)
+        statistics['AverageReturn'] = average_returns
+        for key, value in statistics.items():
+            logger.record_tabular(key, value)
+
+        if self.render_eval_paths:
+            self.env.render_paths(test_paths)
+
+        if self._epoch_plotter:
+            self._epoch_plotter.draw()
