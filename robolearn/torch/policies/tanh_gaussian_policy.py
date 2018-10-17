@@ -39,9 +39,9 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             action_dim,
             hidden_sizes,
             std=None,
-            hidden_w_init=ptu.xavier_init,
+            hidden_w_init='xavier_normal',
             hidden_b_init_val=0,
-            output_w_init=ptu.xavier_init,
+            output_w_init='xavier_normal',
             output_b_init_val=0,
             reparameterize=True,
             **kwargs
@@ -66,10 +66,10 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             hidden_sizes,
             input_size=obs_dim,
             output_size=action_dim,
-            hidden_w_init=ptu.xavier_init,
-            hidden_b_init_val=0,
-            output_w_init=ptu.xavier_init,
-            output_b_init_val=0,
+            hidden_w_init=hidden_w_init,
+            hidden_b_init_val=hidden_b_init_val,
+            output_w_init=output_w_init,
+            output_b_init_val=output_b_init_val,
             **kwargs
         )
         ExplorationPolicy.__init__(self, action_dim)
@@ -81,23 +81,19 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             if len(hidden_sizes) > 0:
                 last_hidden_size = hidden_sizes[-1]
             self.last_fc_log_std = nn.Linear(last_hidden_size, action_dim)
-            # hidden_w_init(self.last_fc_log_std.weight)
-            # ptu.fill(self.last_fc_log_std.bias, hidden_b_init_val)
-            nn.init.xavier_normal_(self.last_fc_log_std.weight.data,
-                                   gain=nn.init.calculate_gain('linear'))
-            ptu.fill(self.last_fc_log_std.bias, hidden_b_init_val)
-
+            ptu.layer_init_xavier_normal(layer=self.last_fc_log_std,
+                                         activation='linear',
+                                         b=output_b_init_val)
         else:
             self.log_std = np.log(std)
             assert LOG_SIG_MIN <= self.log_std <= LOG_SIG_MAX
 
         self._reparameterize = reparameterize
 
-    def get_action(self, obs_np, deterministic=False):
+    def get_action(self, obs_np, **kwargs):
         """
         """
-        actions, info_dict = self.get_actions(obs_np[None],
-                                              deterministic=deterministic)
+        actions, info_dict = self.get_actions(obs_np[None], **kwargs)
         for key, val in info_dict.items():
             if isinstance(val, np.ndarray):
                 info_dict[key] = val[0, :]
@@ -105,10 +101,10 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
         # Get [0, :] vals (Because it has dimension 1xdA)
         return actions[0, :], info_dict
 
-    def get_actions(self, obs_np, deterministic=False):
+    def get_actions(self, obs_np, **kwargs):
         """
         """
-        return self.eval_np(obs_np, deterministic=deterministic)
+        return self.eval_np(obs_np, **kwargs)
 
     def forward(
             self,
@@ -134,16 +130,16 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             std = self.std
             log_std = self.log_std
 
+        pre_tanh_value = None
         log_prob = None
         expected_log_prob = None
         mean_action_log_prob = None
-        pre_tanh_value = None
 
         if deterministic:
             action = torch.tanh(mean)
         else:
             # Using this distribution instead of TanhMultivariateNormal
-            # because it is Diagonal Covariance.
+            # because it has Diagonal Covariance.
             # Then, a collection of n independent Gaussian r.v.
             tanh_normal = TanhNormal(mean, std)
 
@@ -162,11 +158,6 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
                 )
 
             if return_log_prob:
-                # log_prob = tanh_normal.log_prob(
-                #     action,
-                #     pre_tanh_value=pre_tanh_value
-                # ).unsqueeze_(-1)
-
                 log_prob = tanh_normal.log_prob(
                     action,
                     pre_tanh_value=pre_tanh_value

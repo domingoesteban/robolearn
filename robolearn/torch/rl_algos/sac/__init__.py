@@ -1,4 +1,4 @@
-from .sac import SoftActorCritic
+from .sac import SAC
 from .multisac import MultiSoftActorCritic
 
 from .iu_multisac import IUMultiSAC

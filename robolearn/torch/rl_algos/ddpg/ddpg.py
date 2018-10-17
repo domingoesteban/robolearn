@@ -12,7 +12,7 @@ import torch.optim as optim
 
 import robolearn.torch.pytorch_util as ptu
 from robolearn.core.eval_util import create_stats_ordered_dict
-from robolearn.policies import RandomPolicy
+from robolearn.policies.random_policy import RandomPolicy
 from robolearn.utils.samplers import rollout
 from robolearn.torch.rl_algos.torch_incremental_rl_algorithm \
     import TorchIncrementalRLAlgorithm
@@ -31,6 +31,9 @@ class DDPG(TorchIncrementalRLAlgorithm):
             policy,
             exploration_policy,
 
+            replay_buffer,
+            batch_size=1024,
+
             policy_learning_rate=1e-4,
             qf_learning_rate=1e-3,
             qf_weight_decay=0,
@@ -44,9 +47,6 @@ class DDPG(TorchIncrementalRLAlgorithm):
             policy_pre_activation_weight=0.,
             optimizer_class=optim.Adam,
 
-            plotter=None,
-            render_eval_paths=False,
-
             obs_normalizer: TorchFixedNormalizer=None,
             action_normalizer: TorchFixedNormalizer=None,
             num_paths_for_normalization=0,
@@ -54,6 +54,7 @@ class DDPG(TorchIncrementalRLAlgorithm):
             min_q_value=-np.inf,
             max_q_value=np.inf,
 
+            save_replay_buffer=False,
             **kwargs
     ):
         """
@@ -102,8 +103,6 @@ class DDPG(TorchIncrementalRLAlgorithm):
         self.policy_pre_activation_weight = policy_pre_activation_weight
         self.qf_criterion = qf_criterion
         self.epoch_discount_schedule = epoch_discount_schedule
-        self.plotter = plotter
-        self.render_eval_paths = render_eval_paths
         self.obs_normalizer = obs_normalizer
         self.action_normalizer = action_normalizer
         self.num_paths_for_normalization = num_paths_for_normalization
@@ -115,11 +114,35 @@ class DDPG(TorchIncrementalRLAlgorithm):
             self.qf.parameters(),
             lr=self.qf_learning_rate,
         )
+
+        # Replay Buffer
+        self.replay_buffer = replay_buffer
+        self.batch_size = batch_size
+        self.save_replay_buffer = save_replay_buffer
+
+        # Optimizer
         self.policy_optimizer = optimizer_class(
             self.policy.parameters(),
             lr=self.policy_learning_rate,
         )
         self.eval_statistics = None
+
+        # Useful Variables for logging
+        self.logging_qf_loss = np.zeros(self.num_train_steps_per_epoch)
+        self.logging_policy_loss = np.zeros(self.num_train_steps_per_epoch)
+        self.logging_raw_policy_loss = np.zeros(self.num_train_steps_per_epoch)
+        self.logging_q_pred = np.zeros(
+            (self.num_train_steps_per_epoch, batch_size)
+        )
+        self.logging_q_target = np.zeros(
+            (self.num_train_steps_per_epoch, batch_size)
+        )
+        self.logging_bellman_errors = np.zeros(
+            (self.num_train_steps_per_epoch, batch_size)
+        )
+        self.logging_policy_actions = np.zeros(
+            (self.num_train_steps_per_epoch, batch_size, self.env.action_dim)
+        )
 
     def _do_training(self):
         batch = self.get_batch()
@@ -167,7 +190,8 @@ class DDPG(TorchIncrementalRLAlgorithm):
         q_target = torch.clamp(q_target, self.min_q_value, self.max_q_value)
         # Hack for ICLR rebuttal
         if hasattr(self, 'reward_type') and self.reward_type == 'indicator':
-            q_target = torch.clamp(q_target, -self.reward_scale/(1-self.discount), 0)
+            q_target = \
+                torch.clamp(q_target, -self.reward_scale/(1-self.discount), 0)
         q_pred = self.qf(obs, actions)[0]
         bellman_errors = (q_pred - q_target) ** 2
         raw_qf_loss = self.qf_criterion(q_pred, q_target)
@@ -215,39 +239,18 @@ class DDPG(TorchIncrementalRLAlgorithm):
 
         self._update_target_networks()
 
-        if self.eval_statistics is None:
-            """
-            Eval should set this to None.
-            This way, these statistics are only computed for one batch.
-            """
-            self.eval_statistics = OrderedDict()
-            self.eval_statistics['QF Loss'] = np.mean(ptu.get_numpy(qf_loss))
-            self.eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
-                policy_loss
-            ))
-            self.eval_statistics['Raw Policy Loss'] = np.mean(ptu.get_numpy(
-                raw_policy_loss
-            ))
-            self.eval_statistics['Preactivation Policy Loss'] = (
-                self.eval_statistics['Policy Loss'] -
-                self.eval_statistics['Raw Policy Loss']
-            )
-            self.eval_statistics.update(create_stats_ordered_dict(
-                'Q Predictions',
-                ptu.get_numpy(q_pred),
-            ))
-            self.eval_statistics.update(create_stats_ordered_dict(
-                'Q Targets',
-                ptu.get_numpy(q_target),
-            ))
-            self.eval_statistics.update(create_stats_ordered_dict(
-                'Bellman Errors',
-                ptu.get_numpy(bellman_errors),
-            ))
-            self.eval_statistics.update(create_stats_ordered_dict(
-                'Policy Action',
-                ptu.get_numpy(policy_actions),
-            ))
+        # Get the idx for logging
+        step_idx = self._n_epoch_train_steps
+
+        # Log data
+        self.logging_qf_loss[step_idx] = ptu.get_numpy(qf_loss)
+        self.logging_policy_loss[step_idx] = ptu.get_numpy(policy_loss)
+        self.logging_raw_policy_loss[step_idx] = ptu.get_numpy(raw_policy_loss)
+        self.logging_q_pred[step_idx] = ptu.get_numpy(q_pred).squeeze(-1)
+        self.logging_q_target[step_idx] = ptu.get_numpy(q_target).squeeze(-1)
+        self.logging_bellman_errors[step_idx] = \
+            ptu.get_numpy(bellman_errors).squeeze(-1)
+        self.logging_policy_actions[step_idx] = ptu.get_numpy(policy_actions)
 
     def _update_target_networks(self):
         if self.use_soft_update:
@@ -267,7 +270,58 @@ class DDPG(TorchIncrementalRLAlgorithm):
             target_policy=self.target_policy,
             exploration_policy=self.exploration_policy,
         )
+
+        # Replay Buffer
+        if self.save_replay_buffer:
+            snapshot.update(
+                replay_buffer=self.replay_buffer,
+            )
         return snapshot
+
+    def _update_logging_data(self):
+        max_step = max(self._n_epoch_train_steps, 1)
+
+        if self.eval_statistics is None:
+            self.eval_statistics = OrderedDict()
+            self.eval_statistics['QF Loss'] = \
+                np.nan_to_num(np.mean(self.logging_qf_loss[:max_step]))
+            self.eval_statistics['Policy Loss'] = \
+                np.nan_to_num(np.mean(self.logging_policy_loss[:max_step]))
+            self.eval_statistics['Raw Policy Loss'] = \
+                np.nan_to_num(np.mean(self.logging_raw_policy_loss[:max_step]))
+            self.eval_statistics['Preactivation Policy Loss'] = (
+                    self.eval_statistics['Policy Loss'] -
+                    self.eval_statistics['Raw Policy Loss']
+            )
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'Q Predictions',
+                np.nan_to_num(np.mean(self.logging_q_pred[:max_step]))
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'Q Targets',
+                np.nan_to_num(np.mean(self.logging_q_target[:max_step]))
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'Bellman Errors',
+                np.nan_to_num(np.mean(self.logging_bellman_errors[:max_step]))
+            ))
+            self.eval_statistics.update(create_stats_ordered_dict(
+                'Policy Action',
+                np.nan_to_num(np.mean(self.logging_policy_actions[:max_step]))
+            ))
+
+    def evaluate(self, epoch):
+        self._update_logging_data()
+        TorchIncrementalRLAlgorithm.evaluate(self, epoch)
+
+        # Reset log values
+        self.logging_qf_loss.fill(0)
+        self.logging_policy_loss.fill(0)
+        self.logging_raw_policy_loss.fill(0)
+        self.logging_q_pred.fill(0)
+        self.logging_q_target.fill(0)
+        self.logging_bellman_errors.fill(0)
+        self.logging_policy_actions.fill(0)
 
     @property
     def torch_models(self):
@@ -303,6 +357,47 @@ class DDPG(TorchIncrementalRLAlgorithm):
             self.action_normalizer.set_std(ac_std)
             self.target_qf.action_normalizer = self.action_normalizer
             self.target_policy.action_normalizer = self.action_normalizer
+
+    def get_batch(self):
+        batch = self.replay_buffer.random_batch(self.batch_size)
+
+        return ptu.np_to_pytorch_batch(batch)
+
+    def _handle_step(
+            self,
+            observation,
+            action,
+            reward,
+            next_observation,
+            terminal,
+            agent_info,
+            env_info,
+    ):
+        """
+        Implement anything that needs to happen after every step
+        :return:
+        """
+        # Add to replay buffer
+        self.replay_buffer.add_sample(
+            observation=observation,
+            action=action,
+            reward=reward,
+            terminal=terminal,
+            next_observation=next_observation,
+            agent_info=agent_info,
+            env_info=env_info,
+        )
+
+        TorchIncrementalRLAlgorithm._handle_step(
+            self,
+            observation=observation,
+            action=action,
+            reward=reward,
+            next_observation=next_observation,
+            terminal=terminal,
+            agent_info=agent_info,
+            env_info=env_info,
+        )
 
 
 def compute_normalization(paths):

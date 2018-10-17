@@ -15,7 +15,7 @@ import robolearn.torch.pytorch_util as ptu
 from robolearn.torch.rl_algos.torch_incremental_rl_algorithm \
     import TorchIncrementalRLAlgorithm
 from robolearn.core import logger, eval_util
-from robolearn.policies import MakeDeterministic
+from robolearn.policies.make_deterministic import MakeDeterministic
 from robolearn.torch.rl_algos.sql.kernel import adaptive_isotropic_gaussian_kernel
 from robolearn.torch.ops import log_sum_exp
 

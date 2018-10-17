@@ -157,7 +157,7 @@ def plot_process_iu_values_errors(csv_file, n_unintentional=None, block=False):
     plt.show(block=block)
 
 
-def plot_process_general_data(csv_file, n_unintentional=None, block=False):
+def plot_process_general_data(csv_file, block=False):
     labels_to_plot = [
         # 'mean-sq-bellman-error',
         # 'Bellman Residual (QFcn)',

@@ -11,19 +11,18 @@ import torch.optim as optim
 from torch import nn as nn
 
 import robolearn.torch.pytorch_util as ptu
-from robolearn.core import logger, eval_util
-from robolearn.core.eval_util import create_stats_ordered_dict
+from robolearn.core import logger
+from robolearn.core import eval_util
 
 from robolearn.torch.rl_algos.torch_incremental_rl_algorithm \
     import TorchIncrementalRLAlgorithm
-from robolearn.policies import MakeDeterministic
-from torch.autograd import Variable
+from robolearn.policies.make_deterministic import MakeDeterministic
+from robolearn.utils.data_management.normalizer import RunningNormalizer
 
 from tensorboardX import SummaryWriter
-from robolearn.core import logger
 
 
-class SoftActorCritic(TorchIncrementalRLAlgorithm):
+class SAC(TorchIncrementalRLAlgorithm):
     def __init__(
             self,
             env,
@@ -33,11 +32,13 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
 
             replay_buffer,
             batch_size=1024,
+            normalize_obs=False,
             eval_env=None,
 
             qf2=None,
             reparameterize=True,
             action_prior='uniform',
+
             entropy_scale=1.,
 
             policy_lr=1e-3,
@@ -60,21 +61,17 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
             target_update_interval=1,
 
             save_replay_buffer=False,
-            epoch_plotter=None,
-            render_eval_paths=False,
             eval_deterministic=True,
+            log_tensorboard=False,
             **kwargs
     ):
 
+        # ###### #
+        # Models #
+        # ###### #
+
         # Exploration Policy
         self._policy = policy
-
-        # # TODO: TEMPORALLY REDUCING VALUES
-        # for name, param in self._policy.named_parameters():
-        #     # print(name, param.mean())
-        #     if not name.startswith('last_fc_log_std'):
-        #         param.data.mul_(0.5)
-        #     # print(name, param.mean())
 
         # Evaluation Policy
         if eval_deterministic:
@@ -82,15 +79,23 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         else:
             eval_policy = self._policy
 
+        # Observation Normalizer
+        if normalize_obs:
+            self._obs_normalizer = RunningNormalizer(shape=env.obs_dim)
+        else:
+            self._obs_normalizer = None
+
         TorchIncrementalRLAlgorithm.__init__(
             self,
             env=env,
             exploration_policy=self._policy,
             eval_env=eval_env,
             eval_policy=eval_policy,
+            obs_normalizer=self._obs_normalizer,
             **kwargs
         )
 
+        # Important algorithm hyperparameters
         self._reparameterize = reparameterize
         assert self._reparameterize == self._policy.reparameterize
         self._action_prior = action_prior
@@ -103,7 +108,7 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         self._target_vf = vf.copy()
 
         # Soft-update rate for target Vf
-        self.soft_target_tau = soft_target_tau
+        self._soft_target_tau = soft_target_tau
         self._target_update_interval = target_update_interval
 
         # Replay Buffer
@@ -111,7 +116,7 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         self.batch_size = batch_size
         self.save_replay_buffer = save_replay_buffer
 
-        # Q-function and V-funciton Optimization Criteria
+        # Q-function and V-function Optimization Criteria
         self._qf_criterion = nn.MSELoss()
         self._vf_criterion = nn.MSELoss()
 
@@ -148,14 +153,9 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         )
 
         # Policy regularization coefficients (weights)
-        self.policy_mean_reg_weight = policy_mean_regu_weight
-        self.policy_std_reg_weight = policy_std_regu_weight
+        self.policy_mean_regu_weight = policy_mean_regu_weight
+        self.policy_std_regu_weight = policy_std_regu_weight
         self.policy_pre_activation_weight = policy_pre_activation_weight
-
-        # Other Stuff
-        self.eval_statistics = None
-        self._epoch_plotter = epoch_plotter
-        self.render_eval_paths = render_eval_paths
 
         # Useful Variables for logging
         self.logging_pol_kl_loss = np.zeros(self.num_train_steps_per_epoch)
@@ -167,6 +167,7 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         self.logging_policy_log_std = np.zeros(self.num_train_steps_per_epoch)
         self.logging_policy_mean = np.zeros(self.num_train_steps_per_epoch)
 
+        self._log_tensorboard = log_tensorboard
         self._summary_writer = SummaryWriter(log_dir=logger.get_snapshot_dir())
 
     def pretrain(self, n_pretrain_samples):
@@ -198,6 +199,9 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
             )
             observation = next_ob
 
+            if self._obs_normalizer is not None:
+                self._obs_normalizer.update(np.array([observation]))
+
             if terminal:
                 self.env.reset()
 
@@ -218,23 +222,25 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         # ########### #
         # Critic Step #
         # ########### #
-        # Calculate QF Loss (Soft Bellman Eq.)
         v_value_next = self._target_vf(next_obs)[0]
         q_pred = self._qf(obs, actions)[0]
+
+        # Calculate QF Loss (Soft Bellman Eq.)
         q_target = rewards + (1. - terminals) * self.discount * v_value_next
         qf_loss = 0.5*self._qf_criterion(q_pred, q_target.detach())
 
-        # Update Intentional Q-value
+        # Update Q-value
         self._qf_optimizer.zero_grad()
         qf_loss.backward()
         self._qf_optimizer.step()
 
         if self._qf2 is not None:
             q2_pred = self._qf2(obs, actions)[0]
-            q2_target = rewards + (1. - terminals) * self.discount * v_value_next
-            qf2_loss = 0.5*self._qf_criterion(q2_pred, q2_target.detach())
 
-            # Update Intentional Q-value
+            # Calculate QF2 Loss (Soft Bellman Eq.)
+            qf2_loss = 0.5*self._qf_criterion(q2_pred, q_target.detach())
+
+            # Update Q2-value
             self._qf2_optimizer.zero_grad()
             qf2_loss.backward()
             self._qf2_optimizer.step()
@@ -243,7 +249,9 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         # Actor Step #
         # ########## #
         # Calculate Intentional Policy Loss
-        new_actions, policy_info = self._policy(obs, return_log_prob=True)
+        new_actions, policy_info = self._policy(
+            obs, return_log_prob=True
+        )
         log_pi = policy_info['log_prob'] * self._entropy_scale
         policy_mean = policy_info['mean']
         policy_log_std = policy_info['log_std']
@@ -268,7 +276,7 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
             # TODO: In HAarnoja code it does not use the min, but the one from self._qf
             # policy_kl_loss = torch.mean(log_pi - q_new_actions)
             # policy_kl_loss = -torch.mean(q_new_actions - log_pi)
-            policy_kl_loss = -torch.mean(advantages_new_actions - log_pi)
+            policy_kl_loss = - torch.mean(advantages_new_actions - log_pi)
         else:
             policy_kl_loss = (
                     log_pi * (log_pi - q_new_actions + v_pred
@@ -276,8 +284,8 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
             ).mean()
 
         # Regularization loss
-        mean_reg_loss = self.policy_mean_reg_weight * (policy_mean**2).mean()
-        std_reg_loss = self.policy_std_reg_weight * (policy_log_std**2).mean()
+        mean_reg_loss = self.policy_mean_regu_weight * (policy_mean ** 2).mean()
+        std_reg_loss = self.policy_std_regu_weight * (policy_log_std ** 2).mean()
         pre_activation_reg_loss = self.policy_pre_activation_weight * (
             (pre_tanh_value**2).sum(dim=1).mean()
         )
@@ -304,7 +312,7 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
 
         # Update V Target Network
         if self._n_train_steps_total % self._target_update_interval == 0:
-            self._update_target_network()
+            self._update_v_target_network()
 
         # ########################### #
         # LOG Useful Intentional Data #
@@ -313,119 +321,121 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
             ptu.get_numpy(-log_pi.mean(dim=0))
         self.logging_policy_log_std[step_idx] = ptu.get_numpy(policy_log_std.mean())
         self.logging_policy_mean[step_idx] = ptu.get_numpy(policy_mean.mean())
-        self.logging_qf_loss[step_idx] = ptu.get_numpy(qf_loss)
-        self.logging_vf_loss[step_idx] = ptu.get_numpy(vf_loss)
         self.logging_pol_kl_loss[step_idx] = ptu.get_numpy(policy_kl_loss)
+        self.logging_qf_loss[step_idx] = ptu.get_numpy(qf_loss)
+        if self._qf2 is not None:
+            self.logging_qf2_loss[step_idx] = ptu.get_numpy(qf2_loss)
+        self.logging_vf_loss[step_idx] = ptu.get_numpy(vf_loss)
         self.logging_rewards[step_idx] = ptu.get_numpy(rewards.mean(dim=0))
 
-        self._summary_writer.add_scalar('Training/qf_loss',
-                                        ptu.get_numpy(qf_loss),
-                                        self._n_env_steps_total)
-        if self._qf2 is not None:
-            self._summary_writer.add_scalar('Training/qf2_loss',
-                                            ptu.get_numpy(qf2_loss),
-                                            self._n_env_steps_total)
-
-        self._summary_writer.add_scalar('Training/vf_loss',
-                                        ptu.get_numpy(vf_loss),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('Training/avg_reward',
-                                        ptu.get_numpy(rewards.mean()),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('Training/avg_advantage',
-                                        ptu.get_numpy(advantages_new_actions.mean()),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('Training/policy_loss',
-                                        ptu.get_numpy(policy_loss),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('Training/policy_entropy',
-                                        ptu.get_numpy(-log_pi.mean()),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('Training/policy_mean',
-                                        ptu.get_numpy(policy_mean.mean()),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('Training/policy_std',
-                                        np.exp(ptu.get_numpy(policy_log_std.mean())),
-                                        self._n_env_steps_total)
-        self._summary_writer.add_scalar('Training/q_vals',
-                                        ptu.get_numpy(q_new_actions.mean()),
-                                        self._n_env_steps_total)
-
-        if self._n_env_steps_total % 500 == 0:
-            for name, param in self._policy.named_parameters():
-                self._summary_writer.add_histogram('policy/'+name,
-                                                   param.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
-                self._summary_writer.add_histogram('policy_grad/'+name,
-                                                   param.grad.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
-
-            for name, param in self._qf.named_parameters():
-                self._summary_writer.add_histogram('qf/'+name,
-                                                   param.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
-                self._summary_writer.add_histogram('qf_grad/'+name,
-                                                   param.grad.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
+        if self._log_tensorboard:
+            self._summary_writer.add_scalar(
+                'Training/qf_loss',
+                ptu.get_numpy(qf_loss),
+                self._n_env_steps_total
+            )
             if self._qf2 is not None:
-                for name, param in self._qf2.named_parameters():
-                    self._summary_writer.add_histogram('qf2/'+name,
-                                                       param.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-                    self._summary_writer.add_histogram('qf2_grad/'+name,
-                                                       param.grad.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
+                self._summary_writer.add_scalar(
+                    'Training/qf2_loss',
+                    ptu.get_numpy(qf2_loss),
+                    self._n_env_steps_total
+                )
+            self._summary_writer.add_scalar(
+                'Training/vf_loss',
+                ptu.get_numpy(vf_loss),
+                self._n_env_steps_total
+            )
+            self._summary_writer.add_scalar(
+                'Training/avg_reward',
+                ptu.get_numpy(rewards.mean()),
+                self._n_env_steps_total
+            )
+            self._summary_writer.add_scalar(
+                'Training/avg_advantage',
+                ptu.get_numpy(advantages_new_actions.mean()),
+                self._n_env_steps_total
+            )
+            self._summary_writer.add_scalar(
+                'Training/policy_loss',
+                ptu.get_numpy(policy_loss),
+                self._n_env_steps_total
+            )
+            self._summary_writer.add_scalar(
+                'Training/policy_entropy',
+                ptu.get_numpy(-log_pi.mean()),
+                self._n_env_steps_total
+            )
+            self._summary_writer.add_scalar(
+                'Training/policy_mean',
+                ptu.get_numpy(policy_mean.mean()),
+                self._n_env_steps_total
+            )
+            self._summary_writer.add_scalar(
+                'Training/policy_std',
+                np.exp(ptu.get_numpy(policy_log_std.mean())),
+                self._n_env_steps_total
+            )
+            self._summary_writer.add_scalar(
+                'Training/q_vals',
+                ptu.get_numpy(q_new_actions.mean()),
+                self._n_env_steps_total
+            )
 
-            for name, param in self._vf.named_parameters():
-                self._summary_writer.add_histogram('vf/'+name,
-                                                   param.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
-                self._summary_writer.add_histogram('vf_grad/'+name,
-                                                   param.grad.data.cpu().numpy(),
-                                                   self._n_env_steps_total)
+            if self._n_env_steps_total % 500 == 0:
+                for name, param in self._policy.named_parameters():
+                    self._summary_writer.add_histogram(
+                        'policy/'+name,
+                        param.data.cpu().numpy(),
+                        self._n_env_steps_total
+                    )
+                    self._summary_writer.add_histogram(
+                        'policy_grad/'+name,
+                        param.grad.data.cpu().numpy(),
+                        self._n_env_steps_total
+                    )
 
-            for name, param in self._target_vf.named_parameters():
-                self._summary_writer.add_histogram('vf_target/'+name,
-                                                   param.cpu().data.numpy(),
-                                                   self._n_env_steps_total)
+                for name, param in self._qf.named_parameters():
+                    self._summary_writer.add_histogram(
+                        'qf/'+name,
+                        param.data.cpu().numpy(),
+                        self._n_env_steps_total
+                    )
+                    self._summary_writer.add_histogram(
+                        'qf_grad/'+name,
+                        param.grad.data.cpu().numpy(),
+                        self._n_env_steps_total
+                    )
+                if self._qf2 is not None:
+                    for name, param in self._qf2.named_parameters():
+                        self._summary_writer.add_histogram(
+                            'qf2/'+name,
+                            param.data.cpu().numpy(),
+                            self._n_env_steps_total
+                        )
+                        self._summary_writer.add_histogram(
+                            'qf2_grad/'+name,
+                            param.grad.data.cpu().numpy(),
+                            self._n_env_steps_total
+                        )
 
+                for name, param in self._vf.named_parameters():
+                    self._summary_writer.add_histogram(
+                        'vf/'+name,
+                        param.data.cpu().numpy(),
+                        self._n_env_steps_total
+                    )
+                    self._summary_writer.add_histogram(
+                        'vf_grad/'+name,
+                        param.grad.data.cpu().numpy(),
+                        self._n_env_steps_total
+                    )
 
-
-
-        # """
-        # Save some statistics for eval
-        # """
-        # if self.eval_statistics is None:
-        #     """
-        #     Eval should set this to None.
-        #     This way, these statistics are only computed for one batch.
-        #     """
-        #     self.eval_statistics = OrderedDict()
-        #     self.eval_statistics['QF Loss'] = np.mean(ptu.get_numpy(qf_loss))
-        #     self.eval_statistics['VF Loss'] = np.mean(ptu.get_numpy(vf_loss))
-        #     self.eval_statistics['Policy Loss'] = np.mean(ptu.get_numpy(
-        #         policy_loss
-        #     ))
-        #     self.eval_statistics.update(create_stats_ordered_dict(
-        #         'Q Predictions',
-        #         ptu.get_numpy(q_pred),
-        #     ))
-        #     self.eval_statistics.update(create_stats_ordered_dict(
-        #         'V Predictions',
-        #         ptu.get_numpy(v_pred),
-        #     ))
-        #     self.eval_statistics.update(create_stats_ordered_dict(
-        #         'Log Pis',
-        #         ptu.get_numpy(log_pi),
-        #     ))
-        #     self.eval_statistics.update(create_stats_ordered_dict(
-        #         'Policy mu',
-        #         ptu.get_numpy(policy_mean),
-        #     ))
-        #     self.eval_statistics.update(create_stats_ordered_dict(
-        #         'Policy log std',
-        #         ptu.get_numpy(policy_log_std),
-        #     ))
+                for name, param in self._target_vf.named_parameters():
+                    self._summary_writer.add_histogram(
+                        'vf_target/'+name,
+                        param.cpu().data.numpy(),
+                        self._n_env_steps_total
+                    )
 
     def _do_not_training(self):
         return
@@ -443,8 +453,12 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
 
         return networks_list
 
-    def _update_target_network(self):
-        ptu.soft_update_from_to(self._vf, self._target_vf, self.soft_target_tau)
+    def _update_v_target_network(self):
+        ptu.soft_update_from_to(
+            self._vf,
+            self._target_vf,
+            self._soft_target_tau
+        )
 
     def get_epoch_snapshot(self, epoch):
         """
@@ -459,14 +473,14 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
             self._epoch_plotter.draw()
             self._epoch_plotter.save_figure(epoch)
 
-        snapshot = super(SoftActorCritic, self).get_epoch_snapshot(epoch)
+        snapshot = TorchIncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
 
         snapshot.update(
             policy=self._policy,
             qf=self._qf,
+            qf2=self._qf2,  # It could be None
             vf=self._vf,
             target_vf=self._target_vf,
-            qf2=self._qf2,  # It could be None
         )
 
         if self.env.online_normalization or self.env.normalize_obs:
@@ -475,6 +489,12 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
                 obs_var=self.env.obs_var,
             )
 
+        # Observation Normalizer
+        snapshot.update(
+            obs_normalizer=self._obs_normalizer,
+        )
+
+        # Replay Buffer
         if self.save_replay_buffer:
             snapshot.update(
                 replay_buffer=self.replay_buffer,
@@ -535,29 +555,38 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
                                         self._n_epochs)
 
         if hasattr(self.env, "log_diagnostics"):
-            # TODO: CHECK ENV LOG_DIAGNOSTICS
-            print('TODO: WE NEED LOG_DIAGNOSTICS IN ENV')
+            pass
+            # # TODO: CHECK ENV LOG_DIAGNOSTICS
+            # print('TODO: WE NEED LOG_DIAGNOSTICS IN ENV')
 
         # Record the data
         for key, value in statistics.items():
             logger.record_tabular(key, value)
 
+        # Epoch Plotter
         if self._epoch_plotter is not None:
             self._epoch_plotter.draw()
 
         # RESET
-        self.logging_policy_entropy[:] = 0
-        self.logging_policy_log_std[:] = 0
-        self.logging_policy_mean[:] = 0
-        self.logging_qf_loss[:] = 0
-        self.logging_qf2_loss[:] = 0
-        self.logging_vf_loss[:] = 0
-        self.logging_pol_kl_loss[:] = 0
-        self.logging_rewards[:] = 0
+        self.logging_policy_entropy.fill(0)
+        self.logging_policy_log_std.fill(0)
+        self.logging_policy_mean.fill(0)
+        self.logging_qf_loss.fill(0)
+        self.logging_qf2_loss.fill(0)
+        self.logging_vf_loss.fill(0)
+        self.logging_pol_kl_loss.fill(0)
+        self.logging_rewards.fill(0)
 
     def get_batch(self):
         batch = self.replay_buffer.random_batch(self.batch_size)
-        return np_to_pytorch_batch(batch)
+
+        if self._obs_normalizer is not None:
+            batch['observations'] = \
+                self._obs_normalizer.normalize(batch['observations'])
+            batch['next_observations'] = \
+                self._obs_normalizer.normalize(batch['next_observations'])
+
+        return ptu.np_to_pytorch_batch(batch)
 
     def _handle_step(
             self,
@@ -584,6 +613,10 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
             env_info=env_info,
         )
 
+        # Update observation normalizer (if applicable)
+        if self._obs_normalizer is not None:
+            self._obs_normalizer.update(np.array([observation]))
+
         TorchIncrementalRLAlgorithm._handle_step(
             self,
             observation=observation,
@@ -603,27 +636,3 @@ class SoftActorCritic(TorchIncrementalRLAlgorithm):
         self.replay_buffer.terminate_episode()
 
         TorchIncrementalRLAlgorithm._handle_rollout_ending(self)
-
-
-def np_to_pytorch_batch(np_batch):
-    return {
-        k: _elem_or_tuple_to_variable(x)
-        for k, x in _filter_batch(np_batch)
-        if x.dtype != np.dtype('O')  # ignore object (e.g. dictionaries)
-    }
-
-
-def _elem_or_tuple_to_variable(elem_or_tuple):
-    if isinstance(elem_or_tuple, tuple):
-        return tuple(
-            _elem_or_tuple_to_variable(e) for e in elem_or_tuple
-        )
-    return Variable(ptu.from_numpy(elem_or_tuple).float(), requires_grad=False)
-
-
-def _filter_batch(np_batch):
-    for k, v in np_batch.items():
-        if v.dtype == np.bool:
-            yield k, v.astype(int)
-        else:
-            yield k, v

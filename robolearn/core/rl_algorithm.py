@@ -39,6 +39,9 @@ class RLAlgorithm(object):
 
             save_algorithm=False,
             save_environment=True,
+
+            epoch_plotter=None,
+            render_eval_paths=False,
     ):
         # type: # (gym.Env, ExplorationPolicy) -> None
         """
@@ -117,6 +120,13 @@ class RLAlgorithm(object):
         self._current_path_builder = PathBuilder()  # Current path
         self._exploration_paths = []  # All paths in current epoch
         self._print_log_header = None  # Print the header in log
+
+        # ########### #
+        # Other Stuff
+        # ########### #
+        self.eval_statistics = None
+        self._epoch_plotter = epoch_plotter
+        self.render_eval_paths = render_eval_paths
 
     """
     Methods related to Training.

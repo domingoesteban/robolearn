@@ -1,5 +1,5 @@
 from robolearn.torch.core import PyTorchModule
-from robolearn.policies import ExplorationPolicy
+from robolearn.policies.base import ExplorationPolicy
 
 
 class WeightedMultiPolicySelector(PyTorchModule, ExplorationPolicy):

@@ -1,5 +1,5 @@
 """
-Run PyTorch Reinforce on Pusher2D3DofGoalCompoEnv.
+Run PyTorch SAC on Reacher2D3DofEnv.
 
 NOTE: You need PyTorch 0.4
 """
@@ -10,9 +10,9 @@ import robolearn.torch.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management import SimpleReplayBuffer
-import gym
+from robolearn_gym_envs.pybullet import Reacher2D3DofBulletEnv
 
-from robolearn.torch.rl_algos.sac import SoftActorCritic
+from robolearn.torch.rl_algos.sac import SAC
 
 from robolearn.torch.models import NNQFunction, NNVFunction
 from robolearn.torch.policies import TanhGaussianPolicy
@@ -24,7 +24,7 @@ def experiment(variant):
     ptu.set_gpu_mode(variant['gpu'])
 
     env = NormalizedBoxEnv(
-        gym.make(variant['env_name'])
+        Reacher2D3DofBulletEnv(**variant['env_params'])
     )
 
     obs_dim = int(np.prod(env.observation_space.shape))
@@ -57,9 +57,9 @@ def experiment(variant):
     # QF Plot
     # variant['algo_params']['epoch_plotter'] = None
 
-    algorithm = SoftActorCritic(
+    algorithm = SAC(
         env=env,
-        # training_env=env,
+        training_env=env,
         save_environment=False,
         policy=policy,
         qf=qf,
@@ -73,14 +73,15 @@ def experiment(variant):
     return algorithm
 
 
-PATH_LENGTH = 1000
-PATHS_PER_EPOCH = 1
+PATH_LENGTH = 500
+PATHS_PER_EPOCH = 5
 PATHS_PER_EVAL = 1
 
-SHARED_PARAMS = dict(
+expt_params = dict(
+    algo_name=SAC.__name__,
     algo_params=dict(
         # Common RLAlgo params
-        num_epochs=100,  # n_epochs
+        num_epochs=1000,  # n_epochs
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
@@ -90,7 +91,7 @@ SHARED_PARAMS = dict(
         # ReplayBuffer params
         batch_size=64,  # batch_size
         replay_buffer_size=1e4,
-        # SoftActorCritic params
+        # SAC params
         policy_lr=1e-3,
         qf_lr=1e-3,
         vf_lr=1e-3,
@@ -100,36 +101,47 @@ SHARED_PARAMS = dict(
         policy_pre_activation_weight=0.,
 
         discount=0.99,
-        reward_scale=1.0,
+        # reward_scale=1.0,  # NO FUNCA 20/06
+        reward_scale=10.0,
     ),
     net_size=64
 )
 
-ENV_PARAMS = dict(
-    mountaincar=dict(
-        env_name='MountainCarContinuous-v0',
-        algo_params=dict(
-            reward_scale=1e-8,
-        ),
-        net_size=64,
-    )
-)
+SIM_TIMESTEP = 0.001
+FRAME_SKIP = 10
+DT = SIM_TIMESTEP * FRAME_SKIP
 
-AVAILABLE_ENVS = list(ENV_PARAMS.keys())
-DEFAULT_ENV = 'mountaincar'
+env_params = dict(
+    is_render=False,
+    obs_with_img=False,
+    rdn_tgt_pos=True,
+    tgt_pose=None,
+    rdn_robot_config=True,
+    robot_config=None,
+    sim_timestep=SIM_TIMESTEP,
+    frame_skip=FRAME_SKIP,
+    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
+    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
+    tgt_cost_weight=1.0,
+    ctrl_cost_weight=1.0e-2,
+    # use_log_distances=True,
+    use_log_distances=False,
+    log_alpha=1e-6,
+    tgt_tolerance=0.05,
+    # max_time=PATH_LENGTH*DT,
+    max_time=None,
+    half_env=False,
+)
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str,
-                        choices=AVAILABLE_ENVS,
-                        default=DEFAULT_ENV)
     parser.add_argument('--net_size', type=int, default=None)
     parser.add_argument('--expt_name', type=str, default=None)
     # parser.add_argument('--expt_name', type=str, default=timestamp())
     # Logging arguments
     parser.add_argument('--snap_mode', type=str, default='gap_and_last')
-    parser.add_argument('--snap_gap', type=int, default=10)
+    parser.add_argument('--snap_gap', type=int, default=50)
     # parser.add_argument('--mode', type=str, default='local')
     parser.add_argument('--log_dir', type=str, default=None)
     parser.add_argument('--render', action="store_true")
@@ -142,16 +154,7 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    specific_variant = ENV_PARAMS[args.env]
-
-    expt_variant = SHARED_PARAMS
-    for param in specific_variant:
-        if param != 'algo_params':
-            expt_variant[param] = specific_variant[param]
-        else:
-            for algo_param in specific_variant['algo_params']:
-                expt_variant['algo_params'][algo_param] = \
-                    specific_variant['algo_params'][algo_param]
+    expt_variant = expt_params
 
     # Net size
     if args.net_size is not None:
@@ -161,16 +164,14 @@ if __name__ == "__main__":
 
     # Experiment name
     if args.expt_name is None:
-        expt_name = 'gym_'+args.env
+        expt_name = 'reacher'
     else:
         expt_name = args.expt_name
 
     expt_variant['algo_params']['render'] = args.render
 
-    if args.env == 'mountaincar':
-        expt_variant['env_name'] = 'MountainCarContinuous-v0'
-    else:
-        raise NotImplementedError
+    expt_variant['env_params'] = env_params
+    expt_variant['env_params']['is_render'] = args.render
 
     setup_logger(expt_name,
                  variant=expt_variant,

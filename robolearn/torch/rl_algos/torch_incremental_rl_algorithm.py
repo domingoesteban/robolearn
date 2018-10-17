@@ -5,12 +5,7 @@ from robolearn.torch import pytorch_util as ptu
 
 class TorchIncrementalRLAlgorithm(IncrementalRLAlgorithm, TorchAlgorithm):
     def __init__(self, *args, **kwargs):
-        render_eval_paths = kwargs.pop('render_eval_paths', False)
-        plotter = kwargs.pop('plotter', None)
         IncrementalRLAlgorithm.__init__(self, *args, **kwargs)
-        self.eval_statistics = None
-        self.render_eval_paths = render_eval_paths
-        self._epoch_plotter = plotter
 
     def get_exploration_paths(self):
         paths = self._exploration_paths

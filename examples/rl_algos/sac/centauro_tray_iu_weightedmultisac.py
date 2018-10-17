@@ -29,7 +29,7 @@ import joblib
 np.set_printoptions(suppress=True, precision=4)
 # np.seterr(all='raise')  # WARNING RAISE ERROR IN NUMPY
 
-Tend = 3.0  # Seconds
+Tend = 5.0  # Seconds
 
 SIM_TIMESTEP = 0.01
 FRAME_SKIP = 1
@@ -179,7 +179,7 @@ expt_params = dict(
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
-        # SoftActorCritic params
+        # SAC params
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
         min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
         reparameterize=True,
@@ -241,7 +241,6 @@ env_params = dict(
     active_joints='RA',
     control_type='tasktorque',
     # control_type='torque',
-    # control_type='velocity',
     sim_timestep=SIM_TIMESTEP,
     frame_skip=FRAME_SKIP,
     obs_distances=False,
@@ -257,7 +256,7 @@ env_params = dict(
     # tgt_cost_weight=0.0,
     # balance_cost_weight=5.0,
     # fall_cost_weight=7.0,
-    ctrl_cost_weight=1.0e-1,
+    ctrl_cost_weight=1.0e-2,
     use_log_distances=True,
     log_alpha_pos=1e-4,
     log_alpha_ori=1e-4,

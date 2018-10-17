@@ -9,7 +9,7 @@ import robolearn.torch.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.torch.policies import TanhGaussianPolicy
-from robolearn.torch.rl_algos.sac import SoftActorCritic
+from robolearn.torch.rl_algos.sac import SAC
 from robolearn.torch.models import NNQFunction, NNVFunction
 from robolearn.envs.simple_envs.multigoal_env import MultiCompositionEnv
 
@@ -42,7 +42,7 @@ def experiment(variant):
         hidden_sizes=(net_size, net_size),
     )
 
-    algorithm = SoftActorCritic(
+    algorithm = SAC(
         env=env,
         policy=policy,
         qf=qf,
@@ -61,7 +61,7 @@ PATHS_PER_EPOCH = 30
 PATHS_PER_EVAL = 3
 
 expt_params = dict(
-    algo_name=SoftActorCritic.__name__,
+    algo_name=SAC.__name__,
     algo_params=dict(
         # Common RLAlgo params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
@@ -74,7 +74,7 @@ expt_params = dict(
         # ReplayBuffer params
         batch_size=64,  # batch_size
         replay_buffer_size=1e6,
-        # SoftActorCritic params
+        # SAC params
         policy_lr=1e-3,
         qf_lr=1e-3,
         vf_lr=1e-3,

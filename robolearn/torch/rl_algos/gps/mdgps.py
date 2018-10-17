@@ -18,7 +18,7 @@ import robolearn.torch.pytorch_util as ptu
 from robolearn.torch.rl_algos.torch_iterative_rl_algorithm \
     import TorchIterativeRLAlgorithm
 from robolearn.core import logger, eval_util
-from robolearn.policies import MakeDeterministic
+from robolearn.policies.make_deterministic import MakeDeterministic
 from robolearn.utils.samplers.exploration_rollout import exploration_rollout
 from robolearn.utils.data_management import PathBuilder
 from robolearn.policies.base import ExplorationPolicy

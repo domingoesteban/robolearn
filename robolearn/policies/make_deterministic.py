@@ -1,4 +1,4 @@
-from robolearn.policies import Policy
+from robolearn.policies.base import Policy
 
 
 class MakeDeterministic(Policy):

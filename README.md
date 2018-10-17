@@ -10,6 +10,12 @@ The package is mainly focused on learning control.
 **This package is gradually becoming public**, so the public version is still in 
 development. Sorry for any inconvenience.
 
+
+
+![robolearn logo](robolearn_logo.svg)
+
+
+
 ## Algorithms
 - Reinforcement Learning
     - Model-Based RL

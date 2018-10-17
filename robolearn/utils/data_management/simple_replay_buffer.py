@@ -43,6 +43,9 @@ class SimpleReplayBuffer(ReplayBuffer):
             self._size += 1
 
     def random_batch(self, batch_size):
+        if batch_size > self._size:
+            raise ValueError("Requested batch size is bigger than current "
+                             "samples: %d > %d" % (batch_size, self._size))
         indices = np.random.randint(0, self._size, batch_size)
         return dict(
             observations=self._observations[indices],

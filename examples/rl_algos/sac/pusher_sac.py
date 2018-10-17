@@ -1,5 +1,5 @@
 """
-Run PyTorch IU-Multi-SAC on Pusher2D3DofGoalCompoEnv.
+Run PyTorch SAC on Pusher2D3DofGoalCompoEnv.
 
 NOTE: You need PyTorch 0.4
 """
@@ -10,21 +10,16 @@ import numpy as np
 import robolearn.torch.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
-from robolearn.utils.data_management import MultiGoalReplayBuffer
+from robolearn.utils.data_management import SimpleReplayBuffer
 
 from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
 
-from robolearn.torch.rl_algos.sac.iu_weightedmultisac import IUWeightedMultiSAC
+from robolearn.torch.rl_algos.sac import SAC
 
 from robolearn.torch.models import NNQFunction
 from robolearn.torch.models import NNVFunction
-from robolearn.torch.models import NNMultiQFunction
-from robolearn.torch.models import NNMultiVFunction
-# from robolearn.torch.models import AvgNNQFunction, AvgNNVFunction
 
-from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
-from robolearn.torch.policies import MixtureTanhGaussianMultiPolicy
-from robolearn.torch.policies import TanhGaussianComposedMultiPolicy
+from robolearn.torch.policies import TanhGaussianPolicy
 
 import argparse
 import joblib
@@ -48,13 +43,14 @@ BATCH_SIZE = 256
 SEED = 110
 # NP_THREADS = 6
 
-# POLICY = MixtureTanhGaussianMultiPolicy
-POLICY = TanhGaussianWeightedMultiPolicy
+POLICY = TanhGaussianPolicy
 REPARAM_POLICY = True
+
+USE_Q2 = False
 
 
 expt_params = dict(
-    algo_name=IUWeightedMultiSAC.__name__,
+    algo_name=SAC.__name__,
     policy_name=POLICY.__name__,
     algo_params=dict(
         # Common RL algorithm params
@@ -70,49 +66,20 @@ expt_params = dict(
         # SAC params
         reparameterize=REPARAM_POLICY,
         action_prior='uniform',
-        i_entropy_scale=1.0e-0,
-        u_entropy_scale=[1.0e-0, 1.0e-0],
-
-        i_policy_lr=1.e-4,
-        u_policies_lr=1.e-4,
-        u_mixing_lr=1.e-4,
-        i_qf_lr=1.e-4,
-        i_vf_lr=1.e-4,
-        u_qf_lr=1.e-4,
-        u_vf_lr=1.e-4,
-        i_soft_target_tau=1.e-3,
-        u_soft_target_tau=1.e-3,
-        # policy_mean_regu_weight=1e-3,
-        # policy_std_regu_weight=1e-3,
-        # policy_mixing_coeff_weight=1e-3,
-        i_policy_mean_regu_weight=0.e-3,
-        i_policy_std_regu_weight=0.e-3,
-        i_policy_pre_activation_weight=0.e-3,
-        i_policy_mixing_coeff_weight=0.e-3,
-
-        u_policy_mean_regu_weight=[0.e-3, 0.e-3],
-        u_policy_std_regu_weight=[0.e-3, 0.e-3],
-        u_policy_pre_activation_weight=[0.e-3, 0.e-3],
-
-        i_policy_weight_decay=1.e-5,
-        u_policy_weight_decay=1.e-5,
-        i_q_weight_decay=1e-5,
-        u_q_weight_decay=1e-5,
-        i_v_weight_decay=1e-5,
-        u_v_weight_decay=1e-5,
+        entropy_scale=1.0e-0,
+        policy_lr=1e-4,
+        qf_lr=1e-4,
+        vf_lr=1e-4,
+        soft_target_tau=1.e-3,
+        policy_mean_regu_weight=1e-3,
+        policy_std_regu_weight=1e-3,
+        policy_pre_activation_weight=0.,
 
         discount=0.99,
         reward_scale=1.0e+1,
-        u_reward_scales=[1.0e+1, 1.0e+1],
     ),
     net_size=64,
     replay_buffer_size=1e6,
-    shared_layer_norm=False,
-    policies_layer_norm=False,
-    mixture_layer_norm=False,
-    # shared_layer_normTrue,
-    # policies_layer_norm=True,
-    # mixture_layer_norm=True,
 )
 
 
@@ -167,96 +134,65 @@ def experiment(variant):
     obs_dim = int(np.prod(env.observation_space.shape))
     action_dim = int(np.prod(env.action_space.shape))
 
-    n_unintentional = 2
-
     if variant['log_dir']:
         params_file = os.path.join(variant['log_dir'], 'params.pkl')
         data = joblib.load(params_file)
         start_epoch = data['epoch']
-        u_qf = data['u_qf']
-        u_qf2 = data['u_qf2']
-        i_qf = data['qf']
-        i_qf2 = data['qf2']
-        u_vf = data['u_vf']
-        i_vf = data['vf']
+        qf = data['qf']
+        qf2 = data['qf2']
+        vf = data['vf']
         policy = data['policy']
         env._obs_mean = data['obs_mean']
         env._obs_var = data['obs_var']
     else:
         start_epoch = 0
         net_size = variant['net_size']
-        u_qf = NNMultiQFunction(obs_dim=obs_dim,
-                                action_dim=action_dim,
-                                n_qs=n_unintentional,
-                                # shared_hidden_sizes=[net_size, net_size],
-                                shared_hidden_sizes=[],
-                                unshared_hidden_sizes=[net_size, net_size])
-        u_qf2 = NNMultiQFunction(obs_dim=obs_dim,
-                                 action_dim=action_dim,
-                                 n_qs=n_unintentional,
-                                 # shared_hidden_sizes=[net_size, net_size],
-                                 shared_hidden_sizes=[],
-                                 unshared_hidden_sizes=[net_size, net_size])
-        # i_qf = WeightedNNMultiVFunction(u_qf)
-        i_qf = NNQFunction(obs_dim=obs_dim,
-                           action_dim=action_dim,
-                           hidden_sizes=[net_size, net_size])
-        i_qf2 = NNQFunction(obs_dim=obs_dim,
-                            action_dim=action_dim,
-                            hidden_sizes=[net_size, net_size])
 
-        u_vf = NNMultiVFunction(obs_dim=obs_dim,
-                                n_vs=n_unintentional,
-                                # shared_hidden_sizes=[net_size, net_size],
-                                shared_hidden_sizes=[],
-                                unshared_hidden_sizes=[net_size, net_size])
-        # i_vf = WeightedNNMultiVFunction(u_vf)
-        i_vf = NNVFunction(obs_dim=obs_dim,
-                           hidden_sizes=[net_size, net_size])
-
+        qf = NNQFunction(
+            obs_dim=obs_dim,
+            action_dim=action_dim,
+            hidden_sizes=[net_size, net_size]
+        )
+        if USE_Q2:
+            qf2 = NNQFunction(
+                obs_dim=obs_dim,
+                action_dim=action_dim,
+                hidden_sizes=[net_size, net_size]
+            )
+        else:
+            qf2 = None
+        vf = NNVFunction(
+            obs_dim=obs_dim,
+            hidden_sizes=[net_size, net_size]
+        )
         policy = POLICY(
             obs_dim=obs_dim,
             action_dim=action_dim,
-            n_policies=n_unintentional,
-            # shared_hidden_sizes=[net_size, net_size],
-            shared_hidden_sizes=[],
-            unshared_hidden_sizes=[net_size, net_size],
-            unshared_mix_hidden_sizes=[net_size, net_size],
-            stds=None,
-            shared_layer_norm=variant['shared_layer_norm'],
-            policies_layer_norm=variant['policies_layer_norm'],
-            mixture_layer_norm=variant['mixture_layer_norm'],
-            mixing_temperature=1.,
+            hidden_sizes=[net_size, net_size],
             reparameterize=REPARAM_POLICY,
         )
 
         # Clamp model parameters
-        u_qf.clamp_all_params(min=-0.003, max=0.003)
-        u_qf2.clamp_all_params(min=-0.003, max=0.003)
-        i_qf.clamp_all_params(min=-0.003, max=0.003)
-        i_qf2.clamp_all_params(min=-0.003, max=0.003)
-        u_vf.clamp_all_params(min=-0.003, max=0.003)
-        i_vf.clamp_all_params(min=-0.003, max=0.003)
+        qf.clamp_all_params(min=-0.003, max=0.003)
+        vf.clamp_all_params(min=-0.003, max=0.003)
         policy.clamp_all_params(min=-0.003, max=0.003)
+        if USE_Q2:
+            qf2.clamp_all_params(min=-0.003, max=0.003)
 
-    replay_buffer = MultiGoalReplayBuffer(
+    replay_buffer = SimpleReplayBuffer(
         max_replay_buffer_size=variant['replay_buffer_size'],
         obs_dim=obs_dim,
         action_dim=action_dim,
-        reward_vector_size=n_unintentional,
     )
 
-    algorithm = IUWeightedMultiSAC(
+    algorithm = SAC(
         env=env,
         policy=policy,
-        u_qf=u_qf,
-        u_vf=u_vf,
+        qf=qf,
+        qf2=qf2,
+        vf=vf,
         replay_buffer=replay_buffer,
         batch_size=BATCH_SIZE,
-        i_qf=i_qf,
-        i_vf=i_vf,
-        u_qf2=u_qf2,
-        i_qf2=i_qf2,
         eval_env=env,
         save_environment=False,
         **variant['algo_params']

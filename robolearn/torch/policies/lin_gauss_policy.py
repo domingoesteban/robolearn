@@ -1,6 +1,6 @@
 import numpy as np
 from robolearn.torch.core import PyTorchModule
-from robolearn.policies import Policy
+from robolearn.policies.base import Policy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

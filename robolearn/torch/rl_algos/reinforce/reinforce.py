@@ -15,7 +15,7 @@ import robolearn.torch.pytorch_util as ptu
 from robolearn.torch.rl_algos.torch_iterative_rl_algorithm \
     import TorchIterativeRLAlgorithm
 from robolearn.core import logger, eval_util
-from robolearn.policies import MakeDeterministic
+from robolearn.policies.make_deterministic import MakeDeterministic
 
 EPS = 1e-6
 
@@ -81,7 +81,7 @@ class Reinforce(TorchIterativeRLAlgorithm):
         )
 
         # Return computation
-        self.causality = causality
+        self._causality = causality
         self.discounted = discounted
 
     def pretrain(self):
@@ -192,7 +192,7 @@ class Reinforce(TorchIterativeRLAlgorithm):
     def _accum_rewards(self, rewards, normalize=False):
         """ take 1D float array of rewards and compute discounted reward """
 
-        if self.causality:
+        if self._causality:
             discounted_r = ptu.zeros_like(rewards)
             T = rewards.shape[0]
             running_add = 0

@@ -133,7 +133,7 @@ expt_params = dict(
         # ReplayBuffer params
         batch_size=64,  # batch_size
         replay_buffer_size=1e6,
-        # SoftActorCritic params
+        # SAC params
         # TODO: epoch_plotter
         iu_mode='composition',
         policy_lr=1e-3,

@@ -1,6 +1,6 @@
 import numpy as np
 from robolearn.torch.nn import Mlp
-from robolearn.policies import Policy
+from robolearn.policies.base import Policy
 from robolearn.core.serializable import Serializable
 import robolearn.torch.pytorch_util as ptu
 
@@ -10,9 +10,9 @@ class MlpPolicy(Mlp, Serializable, Policy):
                  obs_dim,
                  action_dim,
                  hidden_sizes=(100, 100),
-                 hidden_w_init=ptu.xavier_init,
+                 hidden_w_init='xavier_normal',
                  hidden_b_init_val=0,
-                 output_w_init=ptu.xavier_init,
+                 output_w_init='xavier_normal',
                  output_b_init_val=0,
                  **kwargs
                  ):

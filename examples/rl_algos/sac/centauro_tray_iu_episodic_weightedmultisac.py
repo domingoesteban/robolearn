@@ -176,7 +176,7 @@ expt_params = dict(
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
-        # SoftActorCritic params
+        # SAC params
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
         min_start_eval=1,  # Min nsteps to start to eval
         reparameterize=True,

@@ -11,6 +11,6 @@ class TanhMlpPolicy(MlpPolicy, Serializable):
         self.save_init_params(locals())
         super(TanhMlpPolicy, self).__init__(
             *args,
-            output_activation=torch.tanh,
+            output_activation='tanh',
             **kwargs)
 

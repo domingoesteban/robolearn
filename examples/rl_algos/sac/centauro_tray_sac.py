@@ -14,7 +14,7 @@ from robolearn.utils.data_management import SimpleReplayBuffer
 
 from robolearn_gym_envs.pybullet import CentauroTrayEnv
 
-from robolearn.torch.rl_algos.sac import SoftActorCritic
+from robolearn.torch.rl_algos.sac import SAC
 
 from robolearn.torch.models import NNQFunction, NNVFunction
 
@@ -104,7 +104,7 @@ def experiment(variant):
         action_dim=action_dim,
     )
 
-    algorithm = SoftActorCritic(
+    algorithm = SAC(
         env=env,
         policy=policy,
         qf=qf,
@@ -125,7 +125,7 @@ def experiment(variant):
 
 
 expt_params = dict(
-    algo_name=SoftActorCritic.__name__,
+    algo_name=SAC.__name__,
     policy_name=POLICY.__name__,
     algo_params=dict(
         # Common RL algorithm params
@@ -136,7 +136,7 @@ expt_params = dict(
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
-        # SoftActorCritic params
+        # SAC params
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
         min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
         reparameterize=True,

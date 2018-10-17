@@ -216,28 +216,29 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
         else:
             for std in stds:
-                self.log_std.append(np.log(stds))
+                self.log_std.append(torch.log(stds))
                 assert LOG_SIG_MIN <= self.log_std[-1] <= LOG_SIG_MAX
 
         self._reparameterize = reparameterize
 
     def get_action(self, obs_np, **kwargs):
-        action, info_dict = self.get_actions(obs_np[None], **kwargs)
+        actions, info_dict = self.get_actions(obs_np[None], **kwargs)
 
         for key, val in info_dict.items():
             info_dict[key] = val[0, :]
 
-        return action[0, :], info_dict
+        # Get [0, :] vals (Because it has dimension 1xdA)
+        return actions[0, :], info_dict
 
     def get_actions(self, obs_np, **kwargs):
-        action, torch_info_dict = self.eval_np(obs_np, **kwargs)
+        actions, torch_info_dict = self.eval_np(obs_np, **kwargs)
 
         info_dict = dict()
         for key, vals in torch_info_dict.items():
             if key in ['mixing_coeff']:
                 info_dict[key] = np_ify(torch_info_dict[key])
 
-        return action, info_dict
+        return actions, info_dict
 
     def forward(
             self,
@@ -462,7 +463,15 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 print('***', 'ACTION', '***')
                 print(action)
         else:
+            # Using this distribution instead of TanhMultivariateNormal
+            # because it has Diagonal Covariance.
+            # Then, a collection of n independent Gaussian r.v.
             tanh_normal = TanhNormal(mean, std)
+
+            # # It is the Lower-triangular factor of covariance because it is
+            # # Diagonal Covariance
+            # scale_trils = torch.stack([torch.diag(m) for m in std])
+            # tanh_normal = TanhMultivariateNormal(mean, scale_tril=scale_trils)
 
             if self._reparameterize:
                 action, pre_tanh_value = tanh_normal.rsample(
@@ -474,8 +483,11 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 )
 
             if return_log_prob:
-                log_prob = tanh_normal.log_prob(action,
-                                                pre_tanh_value=pre_tanh_value)
+                log_prob = tanh_normal.log_prob(
+                    action,
+                    pre_tanh_value=pre_tanh_value
+                )
+                # THE FOLLOWING ONLY WITH TanhNormal
                 log_prob = log_prob.sum(dim=-1, keepdim=True)
 
         info_dict = dict(
@@ -578,6 +590,10 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
     def n_subpolicies(self):
         return self._n_subpolicies
 
+    # ################# #
+    # Shared parameters #
+    # ################# #
+
     def shared_parameters(self):
         """Returns an iterator over the shared parameters.
         """
@@ -594,6 +610,10 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
     def add_shared_module(self, name, module):
         ptu.add_module(self._shared_modules, name, module)
+
+    # ####################### #
+    # Sub-Policies parameters #
+    # ####################### #
 
     def policies_parameters(self, idx=None):
         """Returns an iterator over the policies parameters.
@@ -634,6 +654,10 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
         for idx in idx_list:
             ptu.add_module(self._policies_modules[idx], name, module)
+
+    # ################# #
+    # Mixing parameters #
+    # ################# #
 
     def mixing_parameters(self):
         """Returns an iterator over the mixing parameters.
