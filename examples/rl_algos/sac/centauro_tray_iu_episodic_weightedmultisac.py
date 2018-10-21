@@ -42,10 +42,107 @@ PATHS_PER_EVAL = 1
 PATHS_PER_HARD_UPDATE = 12
 BATCH_SIZE = 256
 
-SEED = 10
+SEED = 110
 # NP_THREADS = 6
 
 POLICY = TanhGaussianWeightedMultiPolicy3
+REPARAM_POLICY = True
+
+
+expt_params = dict(
+    algo_name=IUEpisodicWeightedMultiSAC.__name__,
+    policy_name=POLICY.__name__,
+    algo_params=dict(
+        # Common RL algorithm params
+        rollouts_per_epoch=PATHS_PER_EPOCH,
+        num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
+        num_epochs=10000,  # n_epochs
+        num_updates_per_train_call=int(PATH_LENGTH*0.2),  # How to many run algorithm train fcn
+        num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
+        min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
+        min_start_eval=1,  # Min nsteps to start to eval
+        # EnvSampler params
+        max_path_length=PATH_LENGTH,  # max_path_length
+        render=False,
+        # SAC params
+        reparameterize=REPARAM_POLICY,
+        action_prior='uniform',
+        i_entropy_scale=1.0e-0,
+        u_entropy_scale=[1.0e-0, 1.0e-0],
+
+        i_policy_lr=1.e-3,
+        u_policies_lr=1.e-3,
+        u_mixing_lr=1.e-3,
+        i_qf_lr=1.e-3,
+        i_vf_lr=1.e-3,
+        u_qf_lr=1.e-3,
+        u_vf_lr=1.e-3,
+        i_soft_target_tau=1.e-3,
+        u_soft_target_tau=1.e-3,
+        # policy_mean_regu_weight=1e-3,
+        # policy_std_regu_weight=1e-3,
+        # policy_mixing_coeff_weight=1e-3,
+        i_policy_mean_regu_weight=0.e-3,
+        i_policy_std_regu_weight=0.e-3,
+        i_policy_pre_activation_weight=0.e-3,
+        i_policy_mixing_coeff_weight=0.e-3,
+
+        u_policy_mean_regu_weight=[0.e-3, 0.e-3],
+        u_policy_std_regu_weight=[0.e-3, 0.e-3],
+        u_policy_pre_activation_weight=[0.e-3, 0.e-3],
+
+        discount=0.99,
+        # discount=0.90,
+        # discount=0.000,
+        # reward_scale=1.0,
+        # reward_scale=0.01,
+        reward_scale=5.e-1,  # Working with previous cost
+        # reward_scale=1000.0,
+        u_reward_scales=[2.e-1, 5.e-1],
+    ),
+    net_size=256,
+    replay_buffer_size=1e6,
+    shared_layer_norm=False,
+    policies_layer_norm=False,
+    mixture_layer_norm=False,
+    # shared_layer_normTrue,
+    # policies_layer_norm=True,
+    # mixture_layer_norm=True,
+)
+
+
+env_params = dict(
+    is_render=False,
+    obs_with_img=False,
+    active_joints='RA',
+    control_type='tasktorque',
+    # control_type='torque',
+    # control_type='velocity',
+    sim_timestep=SIM_TIMESTEP,
+    frame_skip=FRAME_SKIP,
+    obs_distances=False,
+    balance_cost_weight=1.0,
+    fall_cost_weight=1.0,
+    tgt_cost_weight=2.0,
+    balance_done_cost=0.,  # 2.0*PATH_LENGTH,  # TODO: dont forget same balance weight
+    tgt_done_reward=0.,  # 20.0,
+    # tgt_cost_weight=5.0,
+    # balance_cost_weight=0.0,
+    # fall_cost_weight=0.0,
+    # tgt_cost_weight=0.0,
+    # balance_cost_weight=5.0,
+    # fall_cost_weight=7.0,
+    ctrl_cost_weight=1.0e-1,
+    use_log_distances=True,
+    log_alpha_pos=1e-4,
+    log_alpha_ori=1e-4,
+    goal_tolerance=0.05,
+    min_obj_height=0.60,
+    max_obj_height=1.20,
+    max_obj_distance=0.20,
+    max_time=None,
+    subtask=None,
+)
 
 
 def experiment(variant):
@@ -161,102 +258,6 @@ def experiment(variant):
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm
-
-
-expt_params = dict(
-    algo_name=IUEpisodicWeightedMultiSAC.__name__,
-    policy_name=POLICY.__name__,
-    algo_params=dict(
-        # Common RL algorithm params
-        rollouts_per_epoch=PATHS_PER_EPOCH,
-        num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=10000,  # n_epochs
-        num_updates_per_train_call=int(PATH_LENGTH*0.2),  # How to many run algorithm train fcn
-        num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
-        # EnvSampler params
-        max_path_length=PATH_LENGTH,  # max_path_length
-        render=False,
-        # SAC params
-        min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
-        min_start_eval=1,  # Min nsteps to start to eval
-        reparameterize=True,
-        action_prior='uniform',
-        i_entropy_scale=1.0e-0,
-        u_entropy_scale=[1.0e-0, 1.0e-0],
-
-        i_policy_lr=1.e-3,
-        u_policies_lr=1.e-3,
-        u_mixing_lr=1.e-3,
-        i_qf_lr=1.e-3,
-        i_vf_lr=1.e-3,
-        u_qf_lr=1.e-3,
-        u_vf_lr=1.e-3,
-        i_soft_target_tau=1.e-3,
-        u_soft_target_tau=1.e-3,
-        # policy_mean_regu_weight=1e-3,
-        # policy_std_regu_weight=1e-3,
-        # policy_mixing_coeff_weight=1e-3,
-        i_policy_mean_regu_weight=0.e-3,
-        i_policy_std_regu_weight=0.e-3,
-        i_policy_pre_activation_weight=0.e-3,
-        i_policy_mixing_coeff_weight=0.e-3,
-
-        u_policy_mean_regu_weight=[0.e-3, 0.e-3],
-        u_policy_std_regu_weight=[0.e-3, 0.e-3],
-        u_policy_pre_activation_weight=[0.e-3, 0.e-3],
-
-        discount=0.99,
-        # discount=0.90,
-        # discount=0.000,
-        # reward_scale=1.0,
-        # reward_scale=0.01,
-        reward_scale=5.e-1,  # Working with previous cost
-        # reward_scale=1000.0,
-        u_reward_scales=[2.e-1, 5.e-1],
-    ),
-    net_size=256,
-    replay_buffer_size=1e6,
-    shared_layer_norm=False,
-    policies_layer_norm=False,
-    mixture_layer_norm=False,
-    # shared_layer_normTrue,
-    # policies_layer_norm=True,
-    # mixture_layer_norm=True,
-)
-
-
-env_params = dict(
-    is_render=False,
-    obs_with_img=False,
-    active_joints='RA',
-    control_type='tasktorque',
-    # control_type='torque',
-    # control_type='velocity',
-    sim_timestep=SIM_TIMESTEP,
-    frame_skip=FRAME_SKIP,
-    obs_distances=False,
-    balance_cost_weight=1.0,
-    fall_cost_weight=1.0,
-    tgt_cost_weight=2.0,
-    balance_done_cost=0.,  # 2.0*PATH_LENGTH,  # TODO: dont forget same balance weight
-    tgt_done_reward=0.,  # 20.0,
-    # tgt_cost_weight=5.0,
-    # balance_cost_weight=0.0,
-    # fall_cost_weight=0.0,
-    # tgt_cost_weight=0.0,
-    # balance_cost_weight=5.0,
-    # fall_cost_weight=7.0,
-    ctrl_cost_weight=1.0e-1,
-    use_log_distances=True,
-    log_alpha_pos=1e-4,
-    log_alpha_ori=1e-4,
-    goal_tolerance=0.05,
-    min_obj_height=0.60,
-    max_obj_height=1.20,
-    max_obj_distance=0.20,
-    max_time=None,
-    subtask=None,
-)
 
 
 def parse_args():

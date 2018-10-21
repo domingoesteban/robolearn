@@ -15,7 +15,8 @@ from robolearn.utils.data_management import MultiGoalReplayBuffer
 
 from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
 
-from robolearn.torch.rl_algos.sac.iu_weightedmultisac import IUWeightedMultiSAC
+from robolearn.torch.rl_algos.sac.iu_episodic_weightedmultisac \
+    import IUEpisodicWeightedMultiSAC
 
 from robolearn.torch.models import NNQFunction
 from robolearn.torch.models import NNVFunction
@@ -43,7 +44,7 @@ PATH_LENGTH = int(np.ceil(Tend / DT))
 PATHS_PER_EPOCH = 5 #10
 PATHS_PER_EVAL = 3 #3
 PATHS_PER_HARD_UPDATE = 12
-BATCH_SIZE = 256
+BATCH_SIZE = 512
 
 # SEED = 10
 SEED = 110
@@ -55,18 +56,18 @@ REPARAM_POLICY = True
 
 USE_Q2 = False
 
-
 expt_params = dict(
-    algo_name=IUWeightedMultiSAC.__name__,
+    algo_name=IUEpisodicWeightedMultiSAC.__name__,
     policy_name=POLICY.__name__,
     algo_params=dict(
         # Common RL algorithm params
+        rollouts_per_epoch=PATHS_PER_EPOCH,
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
         num_epochs=3000,  # n_epochs
-        num_updates_per_train_call=1,  # How to many run algorithm train fcn
+        num_updates_per_train_call=int(PATHS_PER_EPOCH * PATH_LENGTH * 0.1),  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
-        min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
+        min_start_eval=1,  # Min nsteps to start to eval
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
@@ -102,8 +103,8 @@ expt_params = dict(
         u_v_weight_decay=1e-5,
 
         discount=0.99,
-        reward_scale=1.0e+2,
-        u_reward_scales=[1.0e+2, 1.0e+2],
+        reward_scale=1.0e+4,
+        u_reward_scales=[1.0e+3, 1.0e+3],
     ),
     net_size=64,
     replay_buffer_size=1e6,
@@ -246,7 +247,7 @@ def experiment(variant):
 
         set_average_mixing(policy, n_unintentional, obs_dim,
                            batch_size=50,
-                           total_iters=10000)
+                           total_iters=1000)
 
     replay_buffer = MultiGoalReplayBuffer(
         max_replay_buffer_size=variant['replay_buffer_size'],
@@ -255,7 +256,7 @@ def experiment(variant):
         reward_vector_size=n_unintentional,
     )
 
-    algorithm = IUWeightedMultiSAC(
+    algorithm = IUEpisodicWeightedMultiSAC(
         env=env,
         policy=policy,
         u_qf=u_qf,
@@ -272,6 +273,7 @@ def experiment(variant):
     )
     if ptu.gpu_enabled():
         algorithm.cuda()
+
     # algorithm.pretrain(PATH_LENGTH*2)
     algorithm.train(start_epoch=start_epoch)
 
@@ -298,7 +300,7 @@ def parse_args():
 
 
 def set_average_mixing(policy, n_unintentional, obs_dim, batch_size=50,
-                       total_iters=10000):
+                       total_iters=1000):
     mixing_optimizer = torch.optim.Adam(
         policy.mixing_parameters(),
         lr=1.0e-4,

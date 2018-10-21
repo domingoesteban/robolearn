@@ -10,7 +10,7 @@ import robolearn.torch.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.torch.policies import TanhGaussianPolicy
-from robolearn.torch.rl_algos.sac import SoftActorCritic
+from robolearn.torch.rl_algos.sac import SAC
 from robolearn.torch.nn import FlattenMlp
 
 import argparse
@@ -38,7 +38,7 @@ def experiment(variant):
         obs_dim=obs_dim,
         action_dim=action_dim,
     )
-    algorithm = SoftActorCritic(
+    algorithm = SAC(
         env=env,
         policy=policy,
         qf=qf,

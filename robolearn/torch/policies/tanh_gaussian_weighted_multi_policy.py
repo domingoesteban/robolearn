@@ -384,17 +384,13 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         #     log_mixture_coeff.reshape(-1, self.action_dim, self._n_subpolicies)
         # )
 
-        mixture_coeff = \
-            self.mfc_last(mh).reshape(-1, self.action_dim, self._n_subpolicies)
-
         # mixture_coeff = nn.Softmax(dim=-1)(self._mixing_temperature *
         #                                    log_mixture_coeff.reshape(-1, self.action_dim, self._n_subpolicies)
         #                                    )
 
         # # NO nonlinear transformation
-        # mixture_coeff = self.mfc_last(mh).reshape(-1, self.action_dim, self._n_subpolicies)
-
-
+        mixture_coeff = \
+            self.mfc_last(mh).reshape(-1, self.action_dim, self._n_subpolicies)
 
         # # TODO: UNCOMMENT FOR DEBUGGING
         # if torch.isnan(mixture_coeff).any():

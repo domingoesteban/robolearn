@@ -6,7 +6,8 @@ from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
 from robolearn.torch.policies import MultiPolicySelector
 from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.torch.policies import TanhGaussianPolicy
-from robolearn.policies import MakeDeterministic
+from robolearn.policies.make_deterministic import MakeDeterministic
+from robolearn.policies.base import ExplorationPolicy
 import argparse
 import joblib
 import uuid
@@ -43,7 +44,10 @@ def simulate_policy(args):
                     )
         else:
             print('Using the deterministic version of the Intentional policy.')
-            policy = MakeDeterministic(data['policy'])
+            if isinstance(data['policy'], ExplorationPolicy):
+                policy = MakeDeterministic(data['policy'])
+            else:
+                policy = data['policy']
     else:
         if args.un > -1:
             print('Using the UNintentional stochastic policy %02d' % args.un)
@@ -97,12 +101,14 @@ def simulate_policy(args):
             rollout_start_fcn = None
             rollout_end_fcn = None
 
+        obs_normalizer = data.get('obs_normalizer')
+
         path = rollout(
             env,
             policy,
             max_path_length=args.H,
             animated=True,
-            obs_normalizer=data['obs_normalizer'],
+            obs_normalizer=obs_normalizer,
             rollout_start_fcn=rollout_start_fcn,
             rollout_end_fcn=rollout_end_fcn,
         )

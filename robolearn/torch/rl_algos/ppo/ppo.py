@@ -35,6 +35,7 @@ class PPO(TorchIterativeRLAlgorithm):
             eval_env=None,
 
             reparameterize=True,
+            action_prior='uniform',
 
             entropy_scale=1.,
 
@@ -95,6 +96,7 @@ class PPO(TorchIterativeRLAlgorithm):
         # Important algorithm hyperparameters
         self._reparameterize = reparameterize
         assert self._reparameterize == self._policy.reparameterize
+        self._action_prior = action_prior
         self._entropy_scale = entropy_scale
 
         # Q-function
@@ -146,15 +148,15 @@ class PPO(TorchIterativeRLAlgorithm):
 
     def _do_training(self):
         # Get batch of samples
-        batch = self.get_batch()
-        self.get_exploration_paths()
+        # batch = self.get_batch()
+        cosa = self.get_exploration_paths()
 
-        # Get common data from batch
-        rewards = batch['rewards']
-        terminals = batch['terminals']
-        obs = batch['observations']
-        actions = batch['actions']
-        next_obs = batch['next_observations']
+        # # Get common data from batch
+        # rewards = batch['rewards']
+        # terminals = batch['terminals']
+        # obs = batch['observations']
+        # actions = batch['actions']
+        # next_obs = batch['next_observations']
 
         # ########################### #
         # LOG Useful Intentional Data #
@@ -216,10 +218,7 @@ class PPO(TorchIterativeRLAlgorithm):
             self.eval_statistics = OrderedDict()
 
     def evaluate(self, epoch):
-        statistics = OrderedDict()
-        self._update_logging_data()
-        statistics.update(self.eval_statistics)
-        self.eval_statistics = None
+        TorchIterativeRLAlgorithm.evaluate(self, epoch)
 
     def get_batch(self):
         pass

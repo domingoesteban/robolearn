@@ -55,7 +55,7 @@ expt_params = dict(
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=1500,  # n_epochs
+        num_epochs=3000,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
@@ -74,9 +74,12 @@ expt_params = dict(
         policy_mean_regu_weight=1e-3,
         policy_std_regu_weight=1e-3,
         policy_pre_activation_weight=0.,
+        policy_weight_decay=0.,
+        q_weight_decay=0.,
+        v_weight_decay=0.,
 
         discount=0.99,
-        reward_scale=1.0e+1,
+        reward_scale=1.0e+2,
     ),
     net_size=64,
     replay_buffer_size=1e6,
@@ -94,15 +97,16 @@ env_params = dict(
     frame_skip=FRAME_SKIP,
     # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
     obs_distances=True,  # If True obs contain 'distance' vectors instead poses
-    tgt_cost_weight=4.0, #1.5
-    goal_cost_weight=3.0,
-    ctrl_cost_weight=1.0e-2,
+    tgt_cost_weight=2.0,
+    goal_cost_weight=1.0,
+    ctrl_cost_weight=1.0e-3,
     use_log_distances=True,
     # use_log_distances=False,
     log_alpha=1.e-1,  # In case use_log_distances=True
     # max_time=PATH_LENGTH*DT,
     max_time=None,
-    subtask=None,
+    # subtask=None,
+    subtask=0,
     seed=SEED,
 )
 
@@ -189,10 +193,10 @@ def experiment(variant):
         env=env,
         policy=policy,
         qf=qf,
-        qf2=qf2,
         vf=vf,
         replay_buffer=replay_buffer,
         batch_size=BATCH_SIZE,
+        qf2=qf2,
         eval_env=env,
         save_environment=False,
         **variant['algo_params']
@@ -259,4 +263,4 @@ if __name__ == "__main__":
                  log_dir=args.log_dir)
     algo = experiment(expt_variant)
 
-    input('Press a key to close the script...')
+    # input('Press a key to close the script...')

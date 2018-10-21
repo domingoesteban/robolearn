@@ -457,11 +457,13 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
                 policy_prior_log_probs = 0.0  # Uniform prior
 
             v_pred = u_v_preds[uu]
-            q_new_actions = qf(obs, new_actions)[0][uu]
+            q1_new_actions = qf(obs, new_actions)[0][uu]
 
             if qf2 is not None:
                 q2_new_actions = qf2(obs, new_actions)[0][uu]
-                q_new_actions = torch.min(q_new_actions, q2_new_actions)
+                q_new_actions = torch.min(q1_new_actions, q2_new_actions)
+            else:
+                q_new_actions = q1_new_actions
 
             advantages_new_actions = q_new_actions - v_pred.detach()
 
@@ -469,8 +471,8 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             if self._reparameterize:
                 # TODO: In HAarnoja code it does not use the min, but the one from self._qf
                 # policy_kl_loss = torch.mean(log_pi - q_new_actions)
-                # policy_kl_loss = -torch.mean(q_new_actions - log_pi)
-                policy_kl_loss = -torch.mean(advantages_new_actions - log_pi)
+                policy_kl_loss = -torch.mean(q_new_actions - log_pi)
+                # policy_kl_loss = -torch.mean(advantages_new_actions - log_pi)
             else:
                 policy_kl_loss = (
                         log_pi * (log_pi - q_new_actions + v_pred
@@ -547,7 +549,7 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
                 )
 
         # Update Unintentional (Composable) Policies
-        # self._policy_optimizer.zero_grad()
+        self._policy_optimizer.zero_grad()
         # accum_u_policy_loss.backward()
         # self._policy_optimizer.step()
         self._policies_optimizer.zero_grad()
@@ -630,11 +632,13 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
             policy_prior_log_probs = 0.0
 
         v_pred = vf(obs)[0]
-        q_new_actions = qf(obs, new_actions)[0]
+        q1_new_actions = qf(obs, new_actions)[0]
 
         if qf2 is not None:
             q2_new_actions = qf2(obs, new_actions)[0]
-            q_new_actions = torch.min(q_new_actions, q2_new_actions)
+            q_new_actions = torch.min(q1_new_actions, q2_new_actions)
+        else:
+            q_new_actions = q1_new_actions
 
         advantages_new_actions = q_new_actions - v_pred.detach()
 
@@ -683,7 +687,7 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         #     raise ValueError('There is Nan!!')
 
         # Update Intentional Policy
-        # self._policy_optimizer.zero_grad()
+        self._policy_optimizer.zero_grad()
         # i_policy_loss.backward()
         # self._policy_optimizer.step()
         self._mixing_optimizer.zero_grad()

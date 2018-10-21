@@ -5,6 +5,7 @@ https://github.com/vitchyr/rlkit
 import torch
 from torch.distributions import Distribution
 from torch.distributions import Normal
+import robolearn.torch.pytorch_util as ptu
 
 
 class TanhNormal(Distribution):
@@ -25,41 +26,52 @@ class TanhNormal(Distribution):
                 log-prob.
         """
         super(TanhNormal, self).__init__()
-        self.normal = Normal(normal_mean, normal_std)
+        self._normal_mean = normal_mean
+        self._normal_std = normal_std
+        self._normal = Normal(normal_mean, normal_std)
         self._epsilon = epsilon
 
     @property
     def mean(self):
-        return self.normal.mean
+        return self._normal.mean
 
     @property
     def variance(self):
-        return self.normal.variance
+        return self._normal.variance
 
     @property
     def stddev(self):
-        return self.normal.stddev
+        return self._normal.stddev
 
     @property
     def epsilon(self):
         return self._epsilon
 
     def sample(self, return_pretanh_value=False):
-        z = self.normal.sample()
+        # z = self._normal.sample()
+        z = self._normal.sample().detach()
         if return_pretanh_value:
             return torch.tanh(z), z
         else:
             return torch.tanh(z)
 
     def rsample(self, return_pretanh_value=False):
-        z = self.normal.rsample()
+        z = self._normal.rsample()
+        # z = (
+        #     self._normal_mean +
+        #     self._normal_std *
+        #     Normal(
+        #         ptu.zeros(self._normal_mean.size()),
+        #         ptu.ones(self._normal_std.size()),
+        #     ).sample()
+        # )
         if return_pretanh_value:
             return torch.tanh(z), z
         else:
             return torch.tanh(z)
 
     def sample_n(self, n, return_pre_tanh_value=False):
-        z = self.normal.sample_n(n)
+        z = self._normal.sample_n(n)
         if return_pre_tanh_value:
             return torch.tanh(z), z
         else:
@@ -83,7 +95,7 @@ class TanhNormal(Distribution):
                 (1+value) / (1-value)
             ) / 2
 
-        return self.normal.log_prob(pre_tanh_value) - \
+        return self._normal.log_prob(pre_tanh_value) - \
             torch.log(1. - value * value + self._epsilon)
         # return self.normal.log_prob(pre_tanh_value) - \
         #     torch.log(1. - torch.tanh(pre_tanh_value)**2 + self._epsilon)
@@ -93,6 +105,6 @@ class TanhNormal(Distribution):
             pre_tanh_value = torch.log(
                 (1+value) / (1-value)
             ) / 2
-        return self.normal.cdf(pre_tanh_value)
+        return self._normal.cdf(pre_tanh_value)
 
 

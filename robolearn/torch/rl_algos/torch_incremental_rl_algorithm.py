@@ -8,8 +8,13 @@ class TorchIncrementalRLAlgorithm(IncrementalRLAlgorithm, TorchAlgorithm):
         IncrementalRLAlgorithm.__init__(self, *args, **kwargs)
 
     def get_exploration_paths(self):
+        """
+        Get the current exploration paths.
+        Returns:
+
+        """
         paths = self._exploration_paths
-        # batch = self.replay_buffer.random_batch(self.batch_size)
+
         return [dict(observations=ptu.np_to_var(path['observations']),
                      actions=ptu.np_to_var(path['actions']),
                      rewards=ptu.np_to_var(path['rewards']),

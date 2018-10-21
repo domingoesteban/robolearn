@@ -92,9 +92,9 @@ class Scenario(object):
         # Environment
         self.env = self.create_environment()
 
-        self.action_dim = self.env.get_action_dim()
-        self.state_dim = self.env.get_state_dim()
-        self.obs_dim = self.env.get_obs_dim()
+        self.action_dim = self.env.action_dim
+        self.state_dim = self.env.state_dim
+        self.obs_dim = self.env.obs_dim
 
         # Agent
         self.agent = self.create_agent()
@@ -423,8 +423,8 @@ class Scenario(object):
             #     init_cond = cond_std*rand_data + cond_mean
             #     joint_pos = np.deg2rad(init_cond[:3])
             #
-            #     env_condition = np.zeros(self.env.get_obs_dim())
-            #     env_condition[:self.env.get_action_dim()] = joint_pos
+            #     env_condition = np.zeros(self.env.obs_dim)
+            #     env_condition[:self.env.action_dim] = joint_pos
             #     # env_condition[obst_idx] = init_cond[3:]
             #
             #     # Temporally hack for getting ee _object

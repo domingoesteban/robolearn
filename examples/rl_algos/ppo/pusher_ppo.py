@@ -1,5 +1,5 @@
 """
-Run PyTorch DDPG on Pusher2D3DofGoalCompoEnv.
+Run PyTorch SAC on Pusher2D3DofGoalCompoEnv.
 
 NOTE: You need PyTorch 0.4
 """
@@ -14,15 +14,11 @@ from robolearn.utils.data_management import SimpleReplayBuffer
 
 from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
 
-from robolearn.torch.rl_algos.ddpg import DDPG
+from robolearn.torch.rl_algos.ppo import PPO
 
 from robolearn.torch.models import NNQFunction
 
-from robolearn.torch.policies import TanhMlpPolicy
-
-from robolearn.utils.exploration_strategies import OUStrategy
-from robolearn.utils.exploration_strategies import \
-    PolicyWrappedWithExplorationStrategy
+from robolearn.torch.policies import TanhGaussianPolicy
 
 import argparse
 import joblib
@@ -46,27 +42,41 @@ BATCH_SIZE = 256
 SEED = 110
 # NP_THREADS = 6
 
+POLICY = TanhGaussianPolicy
+REPARAM_POLICY = True
+
+
 expt_params = dict(
-    algo_name=DDPG.__name__,
+    algo_name=PPO.__name__,
+    policy_name=POLICY.__name__,
     algo_params=dict(
         # Common RL algorithm params
+        rollouts_per_epoch=PATHS_PER_EPOCH,
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=3000,  # n_epochs
+        num_epochs=5000,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
-        min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
+        # min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
+        min_start_eval=1,  # Min nsteps to start to eval
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
-        # DDPG params
-        policy_learning_rate=1e-4,
-        qf_learning_rate=1e-3,
-        use_soft_update=True,
-        tau=1e-2,
+        # SAC params
+        reparameterize=REPARAM_POLICY,
+        action_prior='uniform',
+        entropy_scale=1.0e-0,
+
+        policy_lr=1e-4,
+        qf_lr=1e-4,
+        # soft_target_tau=1.e-3,
+
+        policy_mean_regu_weight=1e-3,
+        policy_std_regu_weight=1e-3,
+        policy_pre_activation_weight=0.,
 
         discount=0.99,
-        reward_scale=1.0,
+        reward_scale=5.0e+1,
     ),
     net_size=64,
     replay_buffer_size=1e6,
@@ -127,7 +137,11 @@ def experiment(variant):
     if variant['log_dir']:
         params_file = os.path.join(variant['log_dir'], 'params.pkl')
         data = joblib.load(params_file)
-        raise NotImplementedError
+        start_epoch = data['epoch']
+        qf = data['qf']
+        policy = data['policy']
+        env._obs_mean = data['obs_mean']
+        env._obs_var = data['obs_var']
     else:
         start_epoch = 0
         net_size = variant['net_size']
@@ -137,22 +151,11 @@ def experiment(variant):
             action_dim=action_dim,
             hidden_sizes=[net_size, net_size]
         )
-        policy = TanhMlpPolicy(
+        policy = POLICY(
             obs_dim=obs_dim,
             action_dim=action_dim,
             hidden_sizes=[net_size, net_size],
-        )
-        es = OUStrategy(
-            action_space=env.action_space,
-            mu=0,
-            theta=0.15,
-            max_sigma=0.3,
-            min_sigma=0.3,
-            decay_period=100000,
-        )
-        exploration_policy = PolicyWrappedWithExplorationStrategy(
-            exploration_strategy=es,
-            policy=policy,
+            reparameterize=REPARAM_POLICY,
         )
 
         # Clamp model parameters
@@ -165,13 +168,12 @@ def experiment(variant):
         action_dim=action_dim,
     )
 
-    algorithm = DDPG(
+    algorithm = PPO(
         env=env,
         policy=policy,
-        exploration_policy=exploration_policy,
         qf=qf,
-        replay_buffer=replay_buffer,
-        batch_size=BATCH_SIZE,
+        # replay_buffer=replay_buffer,
+        # batch_size=BATCH_SIZE,
         eval_env=env,
         save_environment=False,
         **variant['algo_params']
@@ -238,4 +240,4 @@ if __name__ == "__main__":
                  log_dir=args.log_dir)
     algo = experiment(expt_variant)
 
-    input('Press a key to close the script...')
+    # input('Press a key to close the script...')
