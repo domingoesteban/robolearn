@@ -130,9 +130,9 @@ bigman_env = BigmanEnv(interface=interface, mode='simulation',
 current_state = bigman_env.get_state()
 bigman_env.set_initial_conditions([current_state])
 
-action_dim = bigman_env.get_action_dim()
-state_dim = bigman_env.get_state_dim()
-observation_dim = bigman_env.get_obs_dim()
+action_dim = bigman_env.action_dim
+state_dim = bigman_env.state_dim
+observation_dim = bigman_env.obs_dim
 
 print("Bigman Environment OK. body_part_active:%s (action_dim=%d). Command_type:%s" % (body_part_active, action_dim, command_type))
 

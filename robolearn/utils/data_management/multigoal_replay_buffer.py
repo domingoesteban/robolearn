@@ -18,7 +18,7 @@ class MultiGoalReplayBuffer(ReplayBuffer):
             raise ValueError("Invalid Action Dimension: {}".format(
                 action_dim)
             )
-        if not reward_vector_size > 1:
+        if not reward_vector_size > 0:
             raise ValueError("Invalid Reward Vector Size: {}".format(
                 reward_vector_size)
             )

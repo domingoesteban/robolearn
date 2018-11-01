@@ -130,7 +130,7 @@ class Scenario(object):
             obs_with_img=False,
             active_joints='RA',
             control_type='tasktorque',
-            # control_type='velocity',
+            # _control_type='velocity',
             sim_timestep=SIM_TIMESTEP,
             frame_skip=frame_skip,
             obs_distances=True,

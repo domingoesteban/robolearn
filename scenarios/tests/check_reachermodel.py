@@ -56,8 +56,8 @@ rand_data = all_rand_data[idx_rdn_data, :]
 init_cond = cond_std*rand_data + cond_mean
 joint_pos = np.deg2rad(init_cond[:3])
 
-env_condition = np.zeros(env.get_obs_dim())
-env_condition[:env.get_action_dim()] = joint_pos
+env_condition = np.zeros(env.obs_dim)
+env_condition[:env.action_dim] = joint_pos
 # env_condition[obst_idx] = init_cond[3:]
 
 # Temporally hack for getting ee _object

@@ -1,10 +1,12 @@
 from .mlp_policy import MlpPolicy
 from .tanh_mlp_policy import TanhMlpPolicy
 from .tanh_gaussian_policy import TanhGaussianPolicy
+
 from .tanh_gaussian_multi_policy import TanhGaussianMultiPolicy
 from .mixture_tanh_gaussian_multi_policy import MixtureTanhGaussianMultiPolicy
 from .tanh_gaussian_weighted_multi_policy import TanhGaussianWeightedMultiPolicy
 from .tanh_gaussian_composed_multi_policy import TanhGaussianComposedMultiPolicy
+from .weighted_tanh_mlp_multi_policy import WeightedTanhMlpMultiPolicy
 
 from .multi_policy_selector import MultiPolicySelector
 from .weighted_multi_policy_selector import WeightedMultiPolicySelector

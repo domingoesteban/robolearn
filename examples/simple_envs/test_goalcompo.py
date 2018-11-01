@@ -1,7 +1,7 @@
 from builtins import input
 import numpy as np
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
-from robolearn.envs.simple_envs import GoalCompositionEnv
+from robolearn.envs.simple_envs import Navigation2dGoalCompoEnv
 
 GOAL = (0.65, 0.65)
 TGT_POSE = (0.5, 0.25, 1.4660)
@@ -30,7 +30,7 @@ env_params = dict(
     horizon=None,
 )
 env = NormalizedBoxEnv(
-    GoalCompositionEnv(**env_params)
+    Navigation2dGoalCompoEnv(**env_params)
 )
 for ii in range(5):
     env.reset()

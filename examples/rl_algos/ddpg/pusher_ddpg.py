@@ -178,6 +178,7 @@ def experiment(variant):
     )
     if ptu.gpu_enabled():
         algorithm.cuda()
+
     # algorithm.pretrain(PATH_LENGTH*2)
     algorithm.train(start_epoch=start_epoch)
 

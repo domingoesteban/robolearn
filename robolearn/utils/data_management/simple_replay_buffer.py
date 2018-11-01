@@ -20,7 +20,7 @@ class SimpleReplayBuffer(ReplayBuffer):
         # Make everything a 2D np array to make it easier for other code to
         # reason about the shape of the data
         self._rewards = np.zeros((max_replay_buffer_size, 1))
-        # self._terminals[i] = a terminal was received at time i
+        # self._terminals[t] = a terminal was received at time t
         self._terminals = np.zeros((max_replay_buffer_size, 1), dtype='uint8')
         self._top = 0
         self._size = 0
@@ -44,8 +44,9 @@ class SimpleReplayBuffer(ReplayBuffer):
 
     def random_batch(self, batch_size):
         if batch_size > self._size:
-            raise ValueError("Requested batch size is bigger than current "
-                             "samples: %d > %d" % (batch_size, self._size))
+            raise AttributeError('Not enough samples to get. %d bigger than '
+                                 'current %d!' % (batch_size, self._size))
+
         indices = np.random.randint(0, self._size, batch_size)
         return dict(
             observations=self._observations[indices],

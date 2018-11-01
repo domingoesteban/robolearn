@@ -6,19 +6,14 @@ from torch.distributions import Multinomial
 from torch.distributions import Normal
 from robolearn.torch.core import PyTorchModule
 from robolearn.torch.core import np_ify
+# from robolearn.torch.nn import LayerNorm
 from torch.nn.modules.normalization import LayerNorm
 import robolearn.torch.pytorch_util as ptu
-from robolearn.policies.base import ExplorationPolicy
+from robolearn.policies.base import Policy
+from robolearn.torch.nn import identity
 from robolearn.torch.distributions import TanhNormal
 from collections import OrderedDict
 from itertools import chain
-
-LOG_SIG_MAX = 2
-# LOG_SIG_MIN = -20
-LOG_SIG_MIN = -3.0  # 20
-
-SIG_MAX = 7.38905609893065
-SIG_MIN = 0.049787068367863944
 
 LOG_MIX_COEFF_MIN = -10
 LOG_MIX_COEFF_MAX = -1e-6  #-4.5e-5
@@ -28,23 +23,15 @@ LOG_MIX_COEFF_MAX = 1  #-4.5e-5
 EPS = 1e-12
 
 
-class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
+class WeightedTanhMlpMultiPolicy(PyTorchModule, Policy):
     """
     Usage:
 
     ```
-    policy = TanhGaussianWeightedMultiPolicy(...)
+    policy = WeightedTanhMlpMultiPolicy(...)
     action, policy_dict = policy(obs)
-    action, policy_dict = policy(obs, deterministic=True)
-    action, policy_dict = policy(obs, return_log_prob=True)
     ```
 
-    Here, mean and log_std are the mean and log_std of the Gaussian that is
-    sampled from.
-
-    If deterministic is True, action = tanh(mean).
-    If return_log_prob is False (default), log_prob = None
-        This is done because computing the log_prob can be a bit expensive.
     """
     def __init__(
             self,
@@ -54,7 +41,6 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             shared_hidden_sizes=None,
             unshared_hidden_sizes=None,
             unshared_mix_hidden_sizes=None,
-            stds=None,
             hidden_activation='relu',
             hidden_w_init='xavier_normal',
             hidden_b_init_val=1e-2,
@@ -66,14 +52,13 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             policies_layer_norm=False,
             mixture_layer_norm=False,
             reparameterize=True,
-            epsilon=1e-6,
             softmax_weights=False,
             mixing_temperature=1.,
             **kwargs
     ):
         self.save_init_params(locals())
-        super(TanhGaussianWeightedMultiPolicy, self).__init__()
-        ExplorationPolicy.__init__(self, action_dim)
+        PyTorchModule.__init__(self)
+        Policy.__init__(self, action_dim)
 
         self._input_size = obs_dim
         self._output_sizes = action_dim
@@ -139,9 +124,6 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         multipol_in_size = in_size
         mixture_in_size = in_size
 
-        # ############### #
-        # Unshared Layers #
-        # ############### #
         # Unshared Multi-Policy Hidden Layers
         if unshared_hidden_sizes is not None:
             for ii, next_size in enumerate(unshared_hidden_sizes):
@@ -172,35 +154,11 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             ptu.layer_init_xavier_normal(layer=last_pfc,
                                          activation=pol_output_activation,
                                          b=output_b_init_val)
-            self.__setattr__("pfc{}_last".format(pol_idx), last_pfc)
+            self.__setattr__("pfc_last{}".format(pol_idx), last_pfc)
             self._pfc_lasts.append(last_pfc)
-            self.add_policies_module("pfc{}_last".format(pol_idx), last_pfc,
+            self.add_policies_module("pfc_last{}".format(pol_idx), last_pfc,
                                      idx=pol_idx)
 
-        # Multi-Policy Log-Stds Last Layers
-        self.stds = stds
-        self.log_std = list()
-        if stds is None:
-            self._pfc_log_std_lasts = list()
-            for pol_idx in range(self._n_subpolicies):
-                last_pfc_log_std = nn.Linear(multipol_in_size, action_dim)
-                ptu.layer_init_xavier_normal(layer=last_pfc_log_std,
-                                             activation=pol_output_activation,
-                                             b=output_b_init_val)
-                self.__setattr__("pfc{}_log_std_last".format(pol_idx),
-                                 last_pfc_log_std)
-                self._pfc_log_std_lasts.append(last_pfc_log_std)
-                self.add_policies_module("pfc{}_log_std_last".format(pol_idx),
-                                         last_pfc_log_std, idx=pol_idx)
-
-        else:
-            for std in stds:
-                self.log_std.append(torch.log(stds))
-                assert LOG_SIG_MIN <= self.log_std[-1] <= LOG_SIG_MAX
-
-        # ############# #
-        # Mixing Layers #
-        # ############# #
         # Unshared Mixing-Weights Hidden Layers
         if unshared_mix_hidden_sizes is not None:
             for ii, next_size in enumerate(unshared_mix_hidden_sizes):
@@ -233,12 +191,6 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
         self._reparameterize = reparameterize
 
-        self._normal_dist = Normal(loc=ptu.zeros(action_dim),
-                                   scale=ptu.ones(action_dim))
-        self._epsilon = epsilon
-
-        self._pols_idxs = ptu.arange(self._n_subpolicies)
-
     def get_action(self, obs_np, **kwargs):
         actions, info_dict = self.get_actions(obs_np[None], **kwargs)
 
@@ -261,33 +213,33 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
     def forward(
             self,
             obs,
-            deterministic=False,
-            return_log_prob=False,
             pol_idx=None,
             optimize_policies=True,
+            print_debug=False,
     ):
         """
 
         Args:
             obs (Tensor): Observation(s)
-            deterministic (bool):
-            return_log_prob (bool):
             pol_idx (int):
             optimize_policies (bool):
+            print_debug (bool):
 
         Returns:
             action (Tensor):
             pol_info (dict):
 
         """
-        # pol_idx = int(0)
-
         h = obs
         nbatch = obs.shape[0]
 
         # ############# #
         # Shared Layers #
         # ############# #
+        if print_debug:
+            print('***', 'OBS', '***')
+            print(h)
+            print('***', 'SFCS', '***')
         for ss, fc in enumerate(self._sfcs):
             h = fc(h)
 
@@ -295,62 +247,65 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 h = self._sfc_norms[ss](h)
 
             h = self._hidden_activation(h)
+            if print_debug:
+                print(h)
 
         # ############## #
         # Multi Policies #
         # ############## #
         hs = [h.clone() for _ in range(self._n_subpolicies)]
 
+        if print_debug:
+            print('***', 'HS', '***')
+            for hh in hs:
+                print(hh)
+
+        if print_debug:
+            print('***', 'PFCS', '***')
         # Hidden Layers
         if len(self._pfcs) > 0:
             for pp in range(self._n_subpolicies):
+                if print_debug:
+                    print(pp)
+
                 for ii, fc in enumerate(self._pfcs[pp]):
-                    # if ii == 0:
-                    #     print('---')
-                    #     print('uno', hs[pp], '|', ii)
                     hs[pp] = fc(hs[pp])
-                    # if ii == 0:
-                    #     print('dos', hs[pp]), '|', ii
 
                     if self._policies_layer_norm:
                        hs[pp] = self._pfc_norms[pp][ii](hs[pp])
 
                     hs[pp] = self._hidden_activation(hs[pp])
-                    # if ii == 0:
-                    #     print('tres', hs[pp], '|', ii)
-                    #     input('wuu')
 
-        # Last Mean Layers
-        means_list = \
-            [(self._pol_output_activation(self._pfc_lasts[pp](hs[pp]))).unsqueeze(dim=1)
+                    if print_debug:
+                        print(hs[pp])
+
+        # Last Layers
+        outputs_list = \
+            [(
+                 self._pol_output_activation(self._pfc_lasts[pp](hs[pp]))
+              ).unsqueeze(dim=1)
              for pp in range(self._n_subpolicies)]
 
-        means = torch.cat(means_list, dim=1)
+        if print_debug:
+            print('***', 'LAST_PFCS', '***')
+            for tt, tensor in enumerate(outputs_list):
+                print(tt, '\n', tensor)
 
-        # Last Log-Std Layers
-        if self.stds is None:
-            log_stds_list = [
-                (self._pol_output_activation(
-                    self._pfc_log_std_lasts[pp](hs[pp])
-                )
-                ).unsqueeze(dim=1)
-                for pp in range(self._n_subpolicies)]
+        outputs = torch.cat(outputs_list, dim=1)
 
-            log_stds = torch.cat(log_stds_list, dim=1)
-            log_stds = torch.clamp(log_stds, min=LOG_SIG_MIN, max=LOG_SIG_MAX)
-            stds = torch.exp(log_stds)
-            variances = stds**2
-
-        else:
-            stds = self.stds
-            variances = stds**2
-            log_stds = self.log_std
+        if print_debug:
+            print('***', 'CONCATENATED OUTPUTS', '***')
+            print(outputs)
 
         # ############## #
         # Mixing Weigths #
         # ############## #
         mh = h.clone()
 
+        if print_debug:
+            print('***', 'MH', '***')
+            print(mh)
+            print('***', 'MFCS', '***')
         if len(self._mfcs) > 0:
             for mm, mfc in enumerate(self._mfcs):
                 mh = mfc(mh)
@@ -359,6 +314,8 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                     mh = self._norm_mfcs[mm](mh)
 
                 mh = self._hidden_activation(mh)
+                if print_debug:
+                    print(mh)
 
         # NO nonlinear transformation
         mixture_coeff = \
@@ -367,193 +324,38 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         if self._softmax_fcn is not None:
             mixture_coeff = self._softmax_fcn(mixture_coeff)
 
-        # log_mixture_coeff = self.mix_output_activation(self.mfc_last(mh))
-
-        # log_mixture_coeff = torch.clamp(log_mixture_coeff,
-        #                                 min=LOG_MIX_COEFF_MIN,
-        #                                 max=LOG_MIX_COEFF_MAX)  # NxK
-
-        # mixture_coeff = nn.Softmax(dim=-1)(self._mixing_temperature *
-        #     log_mixture_coeff.reshape(-1, self.action_dim, self._n_subpolicies)
-        # )
-
-        # mixture_coeff = nn.Softmax(dim=-1)(self._mixing_temperature *
-        #                                    log_mixture_coeff.reshape(-1, self.action_dim, self._n_subpolicies)
-        #                                    )
-        # print(mixture_coeff.data.numpy())
-        # print('--')
-
-        if torch.isnan(mixture_coeff).any():
-            raise ValueError('Some mixture coeff(s) is(are) NAN:',
-                             mixture_coeff)
-
-        if torch.isnan(means).any():
-            raise ValueError('Some means are NAN:',
-                             mixture_coeff)
-
-        if torch.isnan(stds).any():
-            raise ValueError('Some stds are NAN:',
-                             mixture_coeff)
-
         if pol_idx is None:
-            # Calculate weighted means and stds (and log_stds)
+            # Calculate weighted output
 
             if optimize_policies:
-                mean = torch.sum(means*mixture_coeff, dim=1, keepdim=False)
+                output = torch.sum(outputs*mixture_coeff, dim=1, keepdim=False)
             else:
-                mean = torch.sum(means.detach()*mixture_coeff, dim=1,
-                                 keepdim=False)
+                output = torch.sum(outputs.detach()*mixture_coeff, dim=1,
+                                   keepdim=False)
 
-            # # BEFORE 23/09
-            # log_std = torch.clamp(
-            #     torch.logsumexp(log_stds +
-            #               torch.log(torch.sqrt(mixture_coeff**2) + EPS),
-            #               dim=-1, keepdim=False),
-            #     min=LOG_SIG_MIN, max=LOG_SIG_MAX
-            # )
-            #
-            # std = torch.exp(log_std)
-
-            if optimize_policies:
-                variance = torch.sum(variances*(mixture_coeff)**2,
-                                     dim=1, keepdim=False)
-            else:
-                variance = torch.sum(variances.detach()*(mixture_coeff)**2,
-                                     dim=1, keepdim=False)
-            std = torch.sqrt(variance)
-            std = torch.clamp(std, min=SIG_MIN, max=SIG_MAX)
-            log_std = torch.log(std)
-
-            # log_std = torch.logsumexp(
-            #     log_stds + log_mixture_coeff.reshape(-1,
-            #                                          self.action_dim,
-            #                                          self._n_subpolicies),
-            #     dim=-1,
-            #     keepdim=False
-            # ) - torch.logsumexp(log_mixture_coeff, dim=-1, keepdim=True)
-
-            # log_std = torch.log(std)
+            if print_debug:
+                print('***', 'WEIGHTED MEAN', '***')
+                print(output)
 
         else:
-            index = self._pols_idxs[pol_idx]
-            mean = \
-                torch.index_select(means, dim=1, index=index).squeeze(1)
-            std = \
-                torch.index_select(stds, dim=1, index=index).squeeze(1)
-            log_std = \
-                torch.index_select(log_stds, dim=1, index=index).squeeze(1)
-            variance = \
-                torch.index_select(variances, dim=1, index=index).squeeze(1)
+            indices = ptu.LongTensor([pol_idx])
+            output = \
+                torch.index_select(outputs, dim=1, index=indices).squeeze(1)
 
-        pre_tanh_value = None
-        log_prob = None
-        entropy = None
-        mean_action_log_prob = None
-        log_probs = None
-        pre_tanh_values = None
-
-        if deterministic:
-            action = torch.tanh(mean)
-            actions = torch.tanh(means)
-        else:
-            # # Using this distribution instead of TanhMultivariateNormal
-            # # because it has Diagonal Covariance.
-            # # Then, a collection of n independent Gaussian r.v.
-            # tanh_normal = TanhNormal(mean, std)
-            #
-            # # # It is the Lower-triangular factor of covariance because it is
-            # # # Diagonal Covariance
-            # # scale_trils = torch.stack([torch.diag(m) for m in std])
-            # # tanh_normal = TanhMultivariateNormal(mean, scale_tril=scale_trils)
-            #
-            # if self._reparameterize:
-            #     action, pre_tanh_value = tanh_normal.rsample(
-            #         return_pretanh_value=True
-            #     )
-            # else:
-            #     action, pre_tanh_value = tanh_normal.sample(
-            #         return_pretanh_value=True
-            #     )
-            #
-            # if return_log_prob:
-            #     log_prob = tanh_normal.log_prob(
-            #         action,
-            #         pre_tanh_value=pre_tanh_value
-            #     )
-            #     log_prob = log_prob.sum(dim=-1, keepdim=True)
-
-            noise = self._normal_dist.sample((nbatch,))
-            pre_tanh_value = std*noise + mean
-            pre_tanh_values = stds*noise.unsqueeze(1) + means
-            action = torch.tanh(pre_tanh_value)
-            actions = torch.tanh(pre_tanh_values)
-
-            if return_log_prob:
-                # Log probability: Main Policy
-                log_prob = -((pre_tanh_value - mean) ** 2) / (2 * variance) \
-                           - torch.log(std) - math.log(math.sqrt(2 * math.pi))
-                log_prob -= torch.log(1. - action**2 + self._epsilon)
-                log_prob = log_prob.sum(dim=-1, keepdim=True)
-
-                # Log probability: Sub-Policies
-                log_probs = -((pre_tanh_values - means) ** 2) / (2 * variances)\
-                            - torch.log(stds) - math.log(math.sqrt(2 * math.pi))
-                log_probs -= torch.log(1. - actions**2 + self._epsilon)
-                log_probs = log_probs.sum(dim=-1, keepdim=True)
-
-        if torch.isnan(action).any():
-            raise ValueError('ACTION NAN')
-
-        if torch.isnan(actions).any():
-            raise ValueError('ACTION NAN')
-
-        # action.data = actions[:, 0, :]
-        # mean.data = means[:, 0, :]
-        # log_std.data = log_stds[:, 0, :]
-        # if log_prob is not None:
-        #     log_prob.data = log_probs[:, 0, :]
-        # if pre_tanh_value is not None:
-        #     pre_tanh_value.data = pre_tanh_values[:, 0, :]
-
-        # actions.data[:, 1, :] = actions[:, 0, :]
-        # means.data[:, 1, :] = means[:, 0, :]
-        # log_stds.data[:, 1, :] = log_stds[:, 0, :]
-        # if log_probs is not None:
-        #     log_probs.data[:, 1, :] = log_probs[:, 0, :]
-        #
-        # if pre_tanh_values is not None:
-        #     pre_tanh_values.data[:, 1, :] = pre_tanh_values[:, 0, :]
-
-        # print(mixture_coeff[:, 0, :])
-        # print(mixture_coeff[:, 1, :])
-        # print('---')
-        # print('PIPI', actions[:, 1, :])
-        # print('ACTXXxx', action)
-        # print('--')
-        # input('pip')
+        action = torch.tanh(output)
+        actions = torch.tanh(outputs)
+        if print_debug:
+            print('***', 'ACTION', '***')
+            print(action)
 
         info_dict = dict(
-            mean=mean,
-            log_std=log_std,
-            log_prob=log_prob,
-            entropy=entropy,
-            std=std,
-            mean_action_log_prob=mean_action_log_prob,
-            pre_tanh_value=pre_tanh_value,
-            # log_mixture_coeff=log_mixture_coeff,
+            pre_tanh_value=output,
             mixing_coeff=mixture_coeff,
             pol_actions=actions,
-            pol_means=means,
-            pol_stds=stds,
-            pol_log_stds=log_stds,
-            pol_log_probs=log_probs,
-            pol_pre_tanh_values=pre_tanh_values,
+            pol_pre_tanh_values=outputs,
         )
 
         return action, info_dict
-
-    def log_action(self, actions, obs, pol_idx=None):
-        raise NotImplementedError
 
     @property
     def n_heads(self):

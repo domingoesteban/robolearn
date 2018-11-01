@@ -3,12 +3,13 @@ This has been adapted from Vitchyr Pong's Soft Actor Critic implementation.
 https://github.com/vitchyr/rlkit
 """
 
-from collections import OrderedDict
-
 import numpy as np
 import torch
 import torch.optim as optim
 from torch import nn as nn
+
+from collections import OrderedDict
+
 
 import robolearn.torch.pytorch_util as ptu
 from robolearn.core import logger
@@ -23,6 +24,9 @@ from tensorboardX import SummaryWriter
 
 
 class SAC(TorchIncrementalRLAlgorithm):
+    """
+    Soft Actor Critic (SAC)
+    """
     def __init__(
             self,
             env,
@@ -53,8 +57,9 @@ class SAC(TorchIncrementalRLAlgorithm):
             q_weight_decay=0.,
             v_weight_decay=0.,
 
-            optimizer_class=optim.Adam,
-            # optimizer_class=optim.SGD,
+            # optimizer='adam',
+            optimizer='rmsprop',
+            # optimizer='sgd',
             amsgrad=True,
 
             soft_target_tau=1e-2,
@@ -116,16 +121,33 @@ class SAC(TorchIncrementalRLAlgorithm):
         self.batch_size = batch_size
         self.save_replay_buffer = save_replay_buffer
 
+        # ########## #
+        # Optimizers #
+        # ########## #
+
         # Q-function and V-function Optimization Criteria
         self._qf_criterion = nn.MSELoss()
         self._vf_criterion = nn.MSELoss()
+
+        if optimizer.lower() == 'adam':
+            optimizer_class = optim.Adam
+            optimizer_params = dict(
+                amsgrad=amsgrad,
+            )
+        elif optimizer.lower() == 'rmsprop':
+            optimizer_class = optim.RMSprop
+            optimizer_params = dict(
+
+            )
+        else:
+            raise ValueError('Wrong optimizer')
 
         # Q-function(s) optimizer(s)
         self._qf_optimizer = optimizer_class(
             self._qf.parameters(),
             lr=qf_lr,
-            amsgrad=amsgrad,
             weight_decay=q_weight_decay,
+            **optimizer_params
         )
         if self._qf2 is None:
             self._qf2_optimizer = None
@@ -133,16 +155,16 @@ class SAC(TorchIncrementalRLAlgorithm):
             self._qf2_optimizer = optimizer_class(
                 self._qf2.parameters(),
                 lr=qf_lr,
-                amsgrad=amsgrad,
                 weight_decay=q_weight_decay,
+                **optimizer_params
             )
 
         # V-function optimizer
         self._vf_optimizer = optimizer_class(
             self._vf.parameters(),
             lr=vf_lr,
-            amsgrad=amsgrad,
             weight_decay=v_weight_decay,
+            **optimizer_params
         )
 
         # Policy optimizer
@@ -150,6 +172,7 @@ class SAC(TorchIncrementalRLAlgorithm):
             self._policy.parameters(),
             lr=policy_lr,
             weight_decay=policy_weight_decay,
+            **optimizer_params
         )
 
         # Policy regularization coefficients (weights)
@@ -213,8 +236,6 @@ class SAC(TorchIncrementalRLAlgorithm):
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']
-        rewards = batch['rewards']
-        terminals = batch['terminals']
 
         # Get the idx for logging
         step_idx = self._n_epoch_train_steps
@@ -222,7 +243,11 @@ class SAC(TorchIncrementalRLAlgorithm):
         # ########### #
         # Critic Step #
         # ########### #
+        rewards = batch['rewards']
+        terminals = batch['terminals']
+
         v_value_next = self._target_vf(next_obs)[0]
+
         q_pred = self._qf(obs, actions)[0]
 
         # Calculate QF Loss (Soft Bellman Eq.)
@@ -305,7 +330,7 @@ class SAC(TorchIncrementalRLAlgorithm):
         v_target = q_new_actions - log_pi + policy_prior_log_probs
         vf_loss = 0.5*self._vf_criterion(v_pred, v_target.detach())
 
-        # Update V-value
+        # Update V-value function
         self._vf_optimizer.zero_grad()
         vf_loss.backward()
         self._vf_optimizer.step()
@@ -314,9 +339,9 @@ class SAC(TorchIncrementalRLAlgorithm):
         if self._n_train_steps_total % self._target_update_interval == 0:
             self._update_v_target_network()
 
-        # ########################### #
-        # LOG Useful Intentional Data #
-        # ########################### #
+        # ############### #
+        # LOG Useful Data #
+        # ############### #
         self.logging_policy_entropy[step_idx] = \
             ptu.get_numpy(-log_pi.mean(dim=0))
         self.logging_policy_log_std[step_idx] = ptu.get_numpy(policy_log_std.mean())

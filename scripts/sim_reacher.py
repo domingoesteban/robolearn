@@ -10,12 +10,18 @@ import joblib
 import uuid
 from robolearn.core import logger
 import json
+import numpy as np
+import robolearn.torch.pytorch_util as ptu
 
 filename = str(uuid.uuid4())
 SEED = 110
 
 
 def simulate_policy(args):
+
+    np.random.seed(SEED)
+    ptu.seed(SEED)
+
     data = joblib.load(args.file)
     if args.deterministic:
         print('Using the deterministic version of the policy.')
@@ -48,8 +54,13 @@ def simulate_policy(args):
     if args.gpu:
         set_gpu_mode(True)
         policy.cuda()
-    if isinstance(policy, PyTorchModule):
-        policy.train(False)
+    if isinstance(policy, MakeDeterministic):
+        if isinstance(policy.stochastic_policy, PyTorchModule):
+            policy.stochastic_policy.train(False)
+    else:
+        if isinstance(policy, PyTorchModule):
+            policy.train(False)
+
     while True:
         if args.record:
             rollout_start_fcn = lambda: \
@@ -60,11 +71,14 @@ def simulate_policy(args):
             rollout_start_fcn = None
             rollout_end_fcn = None
 
+        obs_normalizer = data.get('obs_normalizer')
+
         path = rollout(
             env,
             policy,
             max_path_length=args.H,
             animated=True,
+            obs_normalizer=obs_normalizer,
             rollout_start_fcn=rollout_start_fcn,
             rollout_end_fcn=rollout_end_fcn,
         )

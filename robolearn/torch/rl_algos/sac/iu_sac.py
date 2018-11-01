@@ -173,6 +173,7 @@ class IUSAC(TorchIncrementalRLAlgorithm):
         pass
 
     def _do_training(self):
+        # Get batch of samples
         batch = self.get_batch()
 
         # Update Unintentional Networks

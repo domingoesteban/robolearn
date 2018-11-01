@@ -3,7 +3,7 @@ import numpy as np
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from rllab.misc.instrument import run_experiment_lite
 from sac.algos import SAC
-# from sac.envs import GoalCompositionEnv
+# from sac.envs import Navigation2dGoalCompoEnv
 from robolearn.envs.simple_envs.multigoal_env import MultiCompositionEnv
 from sac.misc.plotter import QFPolicyPlotter
 from sac.misc.utils import timestamp

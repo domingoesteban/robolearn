@@ -6,7 +6,7 @@ from rllab.envs.normalized_env import normalize
 from softqlearning.algorithms import SQL
 from softqlearning.misc.kernel import adaptive_isotropic_gaussian_kernel
 from softqlearning.environments import MultiGoalEnv
-# from robolearn.envs.multigoal import GoalCompositionEnv
+# from robolearn.envs.multigoal import Navigation2dGoalCompoEnv
 from softqlearning.replay_buffers import SimpleReplayBuffer
 from softqlearning.value_functions import NNQFunction
 from softqlearning.misc.plotter import QFPolicyPlotter

@@ -20,7 +20,7 @@ COLOR_DICT = dict(zip(mcolors.CSS4_COLORS.keys(),
                        for color in mcolors.CSS4_COLORS.values()]))
 
 
-class GoalCompositionEnv(gym.Env, Serializable):
+class Navigation2dGoalCompoEnv(gym.Env, Serializable):
     """
     Move a 2D point mass to one goal position.
 
@@ -58,10 +58,9 @@ class GoalCompositionEnv(gym.Env, Serializable):
 
         # Goal Position
         if goal_position is None:
-            self.goal_position = \
-                np.array([5, 5], dtype=np.float32)
+            self._goal_position = np.array([5, 5], dtype=np.float32)
         else:
-            self.goal_position = np.array(goal_position, dtype=np.float32)
+            self._goal_position = np.array(goal_position, dtype=np.float32)
 
         # Masks
         self.goal_masks = [[True, True],
@@ -151,7 +150,6 @@ class GoalCompositionEnv(gym.Env, Serializable):
         # if sum(action) != 0 and action[0] == action[1] and sum(action**2) != 2:
         #     print(action)
         #     raise ValueError
-        # print(action)
 
         action = action.ravel()
 
@@ -170,6 +168,14 @@ class GoalCompositionEnv(gym.Env, Serializable):
 
         # Compute Done
         done, done_multigoal = self._check_termination()
+
+        # print('rewMULTI', reward_multigoal, '|', reward)
+        # print('rewardXX', reward)
+        # print('rewCOMPOO', reward_composition, '|', reward)
+        # input('wuu')
+        # print('**'*20)
+        # print('OOOBSSS', next_obs)
+        # print('**'*20)
 
         # Update Counter
         self._t_counter += 1
@@ -243,19 +249,26 @@ class GoalCompositionEnv(gym.Env, Serializable):
         # TODO:penalize staying with the log barriers ???
 
         # Compute Multigoal reward
-        reward_subtasks = [goal_cost + log_goal_cost + action_cost + bonus_goal_reward
-                           for goal_cost, log_goal_cost, bonus_goal_reward
-                           in zip(goal_costs[1:], log_goal_costs[1:],
-                                  bonus_goal_rewards[1:])]
-
-        # Subtract Maximum reward
-        reward_subtasks = [reward_multi - max_reward
-                           for reward_multi, max_reward
-                           in zip(reward_subtasks, self._max_rewards[1:])]
+        reward_subtasks = [
+            sum([
+                goal_cost,
+                log_goal_cost,
+                action_cost,
+                bonus_goal_reward,
+                -max_reward,
+            ])
+            for goal_cost, log_goal_cost, bonus_goal_reward, max_reward
+            in zip(goal_costs[1:], log_goal_costs[1:], bonus_goal_rewards[1:],
+                   self._max_rewards[1:])]
 
         # Compute Main-Task Reward
-        reward_composition = [goal_costs[0], log_goal_costs[0], action_cost,
-                              bonus_goal_rewards[0], -self._max_rewards[0]]
+        reward_composition = [
+            goal_costs[0],
+            log_goal_costs[0],
+            action_cost,
+            bonus_goal_rewards[0],
+            -self._max_rewards[0]
+        ]
         reward = np.sum(reward_composition, axis=-1)
 
         return reward, reward_composition, reward_subtasks
@@ -382,17 +395,18 @@ class GoalCompositionEnv(gym.Env, Serializable):
     def _init_main_plot(self):
         plt.ion()
         self._main_fig = plt.figure(figsize=(7, 7))
-        self._main_fig.canvas.set_window_title('Multigoal Environment | '
+        self._main_fig.canvas.set_window_title('Navigation2D Goal Composition'
+                                               'Environment | '
                                                't=%002d' % self._t_counter)
         self._main_ax = self._main_fig.add_subplot(111)
         self._main_ax.axis('equal')
         self._main_ax.set_aspect('equal', 'box')
 
         self._env_lines = list()
-        self._main_ax.set_xlim(self._xlim)
-        self._main_ax.set_ylim(self._ylim)
+        self._main_ax.set_xlim(left=self._xlim[0], right=self._xlim[1])
+        self._main_ax.set_ylim(bottom=self._ylim[0], top=self._ylim[1])
 
-        self._main_ax.set_title('Multigoal Environment')
+        self._main_ax.set_title('Navigation2D Goal Composition Environment')
         self._main_ax.set_xlabel('X')
         self._main_ax.set_ylabel('Y')
 
@@ -413,7 +427,8 @@ class GoalCompositionEnv(gym.Env, Serializable):
             col = aa % n_cols
             self._subgoals_ax[row, col].set_xlim(self._xlim)
             self._subgoals_ax[row, col].set_ylim(self._ylim)
-            self._subgoals_ax[row, col].set_title('Multigoal Env. | '
+            self._subgoals_ax[row, col].set_title('Navigation2D GoalCompo '
+                                                  'Env. | '
                                                   'Sub-goal %d' % aa)
             self._subgoals_ax[row, col].set_xlabel('X')
             self._subgoals_ax[row, col].set_ylabel('Y')
@@ -431,7 +446,7 @@ class GoalCompositionEnv(gym.Env, Serializable):
         xy_mesh = np.meshgrid(all_x, all_y)
 
         # Compute sub-goal costs
-        all_obs = np.array(xy_mesh).T.reshape(-1, 2)
+        all_obs = np.array(xy_mesh).transpose(1, 2, 0).reshape(-1, 2)
         costs = self.compute_reward(all_obs,
                                     action=np.zeros_like(all_obs))[0]
         costs = costs.reshape(len(all_x), len(all_y))
@@ -475,7 +490,7 @@ class GoalCompositionEnv(gym.Env, Serializable):
         xy_mesh = np.meshgrid(all_x, all_y)
 
         # Compute sub-goal costs
-        all_obs = np.array(xy_mesh).T.reshape(-1, 2)
+        all_obs = np.array(xy_mesh).transpose(1, 2, 0).reshape(-1, 2)
         subgoal_costs = \
             self.compute_reward(all_obs, action=np.zeros_like(all_obs))[2]
 
@@ -551,6 +566,10 @@ class GoalCompositionEnv(gym.Env, Serializable):
             return False
         else:
             return plt.fignum_exists(self._subgoals_fig.number)
+
+    @property
+    def goal_position(self):
+        return self._goal_position.copy()
 
     @staticmethod
     def _robot_marker(axis, x, y, color='red', zoom=0.03):

@@ -18,10 +18,16 @@ def main(args):
     if algo_name in ['IUWeightedMultiSAC', 'SAC', 'IUEpisodicWeightedMultiSAC']:
         plot_process_iu_values_errors(csv_file=args.file, n_unintentional=args.un,
                                       block=False)
-
         plot_process_iu_policies(csv_file=args.file, n_unintentional=args.un,
-                                 block=False)
+                                 block=False, plot_intentional=args.no_in,
+                                 deterministic=False)
+        plot_process_iu_returns(csv_file=args.file, n_unintentional=args.un,
+                                block=False)
 
+    elif algo_name in ['IUWeightedMultiDDPG']:
+        plot_process_iu_policies(csv_file=args.file, n_unintentional=args.un,
+                                 block=False, plot_intentional=args.no_in,
+                                 deterministic=True)
         plot_process_iu_returns(csv_file=args.file, n_unintentional=args.un,
                                 block=False)
     else:
@@ -36,6 +42,7 @@ if __name__ == '__main__':
                         help='path to the progress.csv file')
     parser.add_argument('--un', type=int, default=-1,
                         help='Unintentional id')
+    parser.add_argument('--no_in', action='store_false')
     args = parser.parse_args()
 
     main(args)

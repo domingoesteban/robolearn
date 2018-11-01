@@ -2,7 +2,7 @@ from robolearn.utils.samplers import rollout
 from robolearn.torch.core import PyTorchModule
 from robolearn.torch.pytorch_util import set_gpu_mode
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
-from robolearn.envs.simple_envs.navigation2d import Navigation2dGoalCompoEnv
+from robolearn_gym_envs.pybullet import Reacher2D3DofGoalCompoEnv
 from robolearn.torch.policies import MultiPolicySelector
 from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.torch.policies import TanhGaussianPolicy
@@ -26,13 +26,6 @@ def simulate_policy(args):
     ptu.seed(SEED)
 
     data = joblib.load(args.file)
-    #
-    # pol = data['policy']
-    # for name, param in pol.named_parameters():
-    #     print(name, param)
-    #     input('wuu')
-    # input('wuuu')
-
     if args.deterministic:
         if args.un > -1:
             print('Using the deterministic version of the UNintentional policy '
@@ -76,8 +69,9 @@ def simulate_policy(args):
         env_params = json.load(json_data)['env_params']
 
     env_params.pop('goal', None)
+    env_params['is_render'] = True
     env = NormalizedBoxEnv(
-        Navigation2dGoalCompoEnv(**env_params),
+        Reacher2D3DofGoalCompoEnv(**env_params),
         # normalize_obs=True,
         normalize_obs=False,
         online_normalization=False,
@@ -100,7 +94,7 @@ def simulate_policy(args):
     while True:
         if args.record:
             rollout_start_fcn = lambda: \
-                env.start_recording_video('pusher_video.mp4')
+                env.start_recording_video('reacher_video.mp4')
             rollout_end_fcn = lambda: \
                 env.stop_recording_video()
         else:
@@ -108,8 +102,6 @@ def simulate_policy(args):
             rollout_end_fcn = None
 
         obs_normalizer = data.get('obs_normalizer')
-        # print(obs_normalizer)
-        # input('pipi')
 
         path = rollout(
             env,
@@ -134,7 +126,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('file', type=str, default='./params.pkl',
                         help='path to the snapshot file')
-    parser.add_argument('--H', type=int, default=50,
+    parser.add_argument('--H', type=int, default=500,
                         help='Max length of rollout')
     parser.add_argument('--gpu', action='store_true')
     parser.add_argument('--deterministic', action="store_true")

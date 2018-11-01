@@ -109,7 +109,7 @@ class NNMultiQFunction(PyTorchModule, QFunction):
             val_idxs = list(range(self._n_qs))
 
         h = torch.cat((obs, act), dim=-1)
-
+        # Shared Layers
         for i, fc in enumerate(self._sfcs):
             h = self._hidden_activation(fc(h))
 

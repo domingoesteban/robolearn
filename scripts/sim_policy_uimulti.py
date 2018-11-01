@@ -2,7 +2,7 @@ from robolearn.utils.samplers import rollout
 from robolearn.torch.core import PyTorchModule
 from robolearn.torch.pytorch_util import set_gpu_mode
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
-from robolearn.envs.simple_envs.goal_composition.goal_composition_env import GoalCompositionEnv
+from robolearn.envs.simple_envs.navigation2d.navigation2d_goalcompo_env import Navigation2dGoalCompoEnv
 import argparse
 import joblib
 import uuid
@@ -35,7 +35,7 @@ def simulate_policy(args):
     with open('variant.json') as json_data:
         env_params = json.load(json_data)['env_params']
     env = NormalizedBoxEnv(
-        GoalCompositionEnv(**env_params)
+        Navigation2dGoalCompoEnv(**env_params)
     )
     print("Environment loaded!!")
 

@@ -48,6 +48,8 @@ REPARAM_POLICY = True
 
 USE_Q2 = False
 
+OPTIMIZER = 'adam'
+# OPTIMIZER = 'rmsprop'
 
 expt_params = dict(
     algo_name=SAC.__name__,
@@ -83,8 +85,11 @@ expt_params = dict(
     ),
     net_size=64,
     replay_buffer_size=1e6,
+    shared_layer_norm=False,
+    # hidden_activation='relu',
+    # hidden_activation='tanh',
+    hidden_activation='elu',
 )
-
 
 env_params = dict(
     is_render=False,
@@ -135,8 +140,8 @@ def experiment(variant):
         obs_alpha=0.001,
     )
 
-    obs_dim = int(np.prod(env.observation_space.shape))
-    action_dim = int(np.prod(env.action_space.shape))
+    obs_dim = env.obs_dim
+    action_dim = env.action_dim
 
     if variant['log_dir']:
         params_file = os.path.join(variant['log_dir'], 'params.pkl')
@@ -155,23 +160,27 @@ def experiment(variant):
         qf = NNQFunction(
             obs_dim=obs_dim,
             action_dim=action_dim,
-            hidden_sizes=[net_size, net_size]
+            hidden_activation=expt_params['hidden_activation'],
+            hidden_sizes=[net_size, net_size],
         )
         if USE_Q2:
             qf2 = NNQFunction(
                 obs_dim=obs_dim,
                 action_dim=action_dim,
-                hidden_sizes=[net_size, net_size]
+                hidden_activation=expt_params['hidden_activation'],
+                hidden_sizes=[net_size, net_size],
             )
         else:
             qf2 = None
         vf = NNVFunction(
             obs_dim=obs_dim,
-            hidden_sizes=[net_size, net_size]
+            hidden_activation=expt_params['hidden_activation'],
+            hidden_sizes=[net_size, net_size],
         )
         policy = POLICY(
             obs_dim=obs_dim,
             action_dim=action_dim,
+            hidden_activation=expt_params['hidden_activation'],
             hidden_sizes=[net_size, net_size],
             reparameterize=REPARAM_POLICY,
         )
@@ -203,6 +212,7 @@ def experiment(variant):
     )
     if ptu.gpu_enabled():
         algorithm.cuda()
+
     # algorithm.pretrain(PATH_LENGTH*2)
     algorithm.train(start_epoch=start_epoch)
 

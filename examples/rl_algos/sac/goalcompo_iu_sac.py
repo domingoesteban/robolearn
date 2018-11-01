@@ -11,7 +11,7 @@ from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management.multigoal_replay_buffer import MultiGoalReplayBuffer
 
-from robolearn.envs.simple_envs.goal_composition.goal_composition_env import GoalCompositionEnv
+from robolearn.envs.simple_envs.navigation2d.navigation2d_goalcompo_env import Navigation2dGoalCompoEnv
 
 from robolearn.torch.rl_algos.sac.iu_sac import IUSAC
 
@@ -29,7 +29,7 @@ def experiment(variant):
     ptu.set_gpu_mode(variant['gpu'])
 
     env = NormalizedBoxEnv(
-        GoalCompositionEnv(**variant['env_params'])
+        Navigation2dGoalCompoEnv(**variant['env_params'])
     )
 
     obs_dim = int(np.prod(env.observation_space.shape))

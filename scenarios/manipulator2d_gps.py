@@ -83,9 +83,9 @@ manipulator2d_env = Manipulator2dEnv()
 raw_input('esperameeee')
 
 
-action_dim = manipulator2d_env.get_action_dim()
-state_dim = manipulator2d_env.get_state_dim()
-observation_dim = manipulator2d_env.get_obs_dim()
+action_dim = manipulator2d_env.action_dim
+state_dim = manipulator2d_env.state_dim
+observation_dim = manipulator2d_env.obs_dim
 
 print("Manipulator2d Environment OK. \n action_dim=%02d, obs_dim=%02d, state_dim=%0.02d" % (action_dim, observation_dim,
                                                                                             state_dim))
@@ -247,7 +247,7 @@ init_traj_distr = {'type': init_pd,
                    'pos_gains': 0.001,  #np.array([1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 5.0e-2, 5.0e-2, 5.0e-2])*1.0e+1,  # 0.001,  # Position gains (Default:10)
                    'vel_gains_mult': 0.01,  # Velocity gains multiplier on pos_gains
                    'init_action_offset': None,
-                   'dJoints': manipulator2d_env.get_action_dim(),  # Total joints in state
+                   'dJoints': manipulator2d_env.action_dim,  # Total joints in state
                    'state_to_pd': 'joints',  # Joints
                    'dDistance': 6,
                    }
@@ -308,7 +308,7 @@ gps_hyperparams = {
     #'smooth_noise_var': 5.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
     'smooth_noise_var': 8.0e+0,  # np.power(2*Ts, 2), # Variance to apply to Gaussian Filter. In Kumar (2016) paper, it is the std dev of 2 Ts
     'smooth_noise_renormalize': True,  # Renormalize smooth noise to have variance=1
-    'noise_var_scale': np.ones(manipulator2d_env.get_action_dim()),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
+    'noise_var_scale': np.ones(manipulator2d_env.action_dim),  # Scale to Gaussian noise: N(0, 1)*sqrt(noise_var_scale), only if smooth_noise_renormalize
     'cost': cost_sum,
     # Conditions
     'conditions': len(manipulator2d_env.get_conditions()),  # Total number of initial conditions

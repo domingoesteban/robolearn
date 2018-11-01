@@ -45,15 +45,24 @@ def plot_process_iu_returns(csv_file, n_unintentional=None, block=False):
 
 
 def plot_process_iu_policies(csv_file, n_unintentional=None, block=False,
-                             plot_initial=False):
-    labels_to_plot = [
-        'Mixing Weights',
-        'Pol KL Loss',
-        'Rewards',
-        'Policy Entropy',
-        # 'Log Policy Target',
-        # 'Policy Mean',
-        # 'Policy Std'
+                             plot_initial=False, plot_intentional=False,
+                             deterministic=False):
+    if deterministic:
+        labels_to_plot = [
+            'Mixing Weights',
+            'Policy Loss',
+            # 'Raw Policy Loss',
+            'Rewards',
+        ]
+    else:
+        labels_to_plot = [
+            'Mixing Weights',
+            'Pol KL Loss',
+            'Rewards',
+            'Policy Entropy',
+            # 'Log Policy Target',
+            # 'Policy Mean',
+            # 'Policy Std'
         ]
 
     if n_unintentional is None:
@@ -73,7 +82,7 @@ def plot_process_iu_policies(csv_file, n_unintentional=None, block=False,
             new_string = ('[U-%02d] ' % uu) + label
             new_labels.append(new_string)
 
-        if ll > 0:
+        if ll > 0 and plot_intentional:
             new_string = '[I] ' + label
             new_labels.append(new_string)
 
@@ -91,6 +100,7 @@ def plot_process_iu_policies(csv_file, n_unintentional=None, block=False,
     idx_counter = 0
     lines = list()
     labels = list()
+
     for aa, ax in enumerate(axs):
         for uu in range(n_unintentional):
             line, = ax.plot(data[idx_counter, idx0:], label='[U-%02d] ' % uu)
@@ -99,7 +109,7 @@ def plot_process_iu_policies(csv_file, n_unintentional=None, block=False,
                 lines.append(line)
                 labels.append('[U-%02d] ' % uu)
 
-        if aa > 0:
+        if aa > 0 and plot_intentional:
             line, = ax.plot(data[idx_counter, idx0:], label='[I]')
             idx_counter += 1
             if aa == 1:

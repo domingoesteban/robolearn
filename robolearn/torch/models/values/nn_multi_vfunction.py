@@ -106,7 +106,7 @@ class NNMultiVFunction(PyTorchModule, VFunction):
             val_idxs = list(range(self._n_vs))
 
         h = obs
-
+        # Shared Layers
         for i, fc in enumerate(self._sfcs):
             h = self._hidden_activation(fc(h))
 
@@ -151,4 +151,8 @@ class NNMultiVFunction(PyTorchModule, VFunction):
 
     @property
     def n_heads(self):
+        return self._n_vs
+
+    @property
+    def n_values(self):
         return self._n_vs

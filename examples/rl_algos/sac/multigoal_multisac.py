@@ -1,5 +1,5 @@
 """
-Run PyTorch Multi Soft Actor Critic on GoalCompositionEnv.
+Run PyTorch Multi Soft Actor Critic on Navigation2dGoalCompoEnv.
 
 <<<<<<< HEAD
 NOTE: You need PyTorch 0.4

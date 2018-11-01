@@ -1,5 +1,5 @@
 """
-Run PyTorch Multi Soft Q-learning on GoalCompositionEnv.
+Run PyTorch Multi Soft Q-learning on Navigation2dGoalCompoEnv.
 
 NOTE: You need PyTorch 0.4
 """

@@ -137,7 +137,7 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
         if u_entropy_scale is None:
             u_entropy_scale = [i_entropy_scale
                                for _ in range(self._n_unintentional)]
-        self._u_entropy_scale = u_entropy_scale
+        self._u_entropy_scale = ptu.FloatTensor(u_entropy_scale)
 
         # Intentional (Main Task) Q-function and V-function
         self._i_qf = i_qf
@@ -162,7 +162,7 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
             reward_scale = kwargs['reward_scale']
             u_reward_scales = [reward_scale
                                for _ in range(self._n_unintentional)]
-        self._u_reward_scales = u_reward_scales
+        self._u_reward_scales = ptu.FloatTensor(u_reward_scales)
 
         # Replay Buffer
         self.replay_buffer = replay_buffer
@@ -264,15 +264,18 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
         if u_policy_mean_regu_weight is None:
             u_policy_mean_regu_weight = [i_policy_mean_regu_weight
                                          for _ in range(self._n_unintentional)]
-        self._u_policy_mean_regu_weight = u_policy_mean_regu_weight
+        self._u_policy_mean_regu_weight = \
+            ptu.FloatTensor(u_policy_mean_regu_weight)
         if u_policy_std_regu_weight is None:
             u_policy_std_regu_weight = [i_policy_std_regu_weight
                                         for _ in range(self._n_unintentional)]
-        self._u_policy_std_regu_weight = u_policy_std_regu_weight
+        self._u_policy_std_regu_weight = \
+            ptu.FloatTensor(u_policy_std_regu_weight)
         if u_policy_pre_activation_weight is None:
             u_policy_pre_activation_weight = [i_policy_pre_activation_weight
                                        for _ in range(self._n_unintentional)]
-        self._u_policy_pre_activation_weight = u_policy_pre_activation_weight
+        self._u_policy_pre_activation_weight = \
+            ptu.FloatTensor(u_policy_pre_activation_weight)
 
         # Evaluation Sampler (One for each unintentional)
         self.eval_u_samplers = [
@@ -299,14 +302,16 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
         self.logging_policy_entropy = np.zeros((self.num_train_steps_per_epoch,
                                                 self._n_unintentional + 1))
         self.logging_policy_log_std = np.zeros((self.num_train_steps_per_epoch,
+                                                self._n_unintentional + 1,
                                                 self.env.action_dim,
-                                                self._n_unintentional + 1))
+                                                ))
         self.logging_policy_mean = np.zeros((self.num_train_steps_per_epoch,
+                                             self._n_unintentional + 1,
                                              self.env.action_dim,
-                                             self._n_unintentional + 1))
+                                             ))
         self.logging_mixing_coeff = np.zeros((self.num_train_steps_per_epoch,
-                                              self.env.action_dim,
-                                              self._n_unintentional))
+                                              self._n_unintentional,
+                                              self.env.action_dim))
 
         self._log_tensorboard = log_tensorboard
         self._summary_writer = SummaryWriter(log_dir=logger.get_snapshot_dir())
@@ -327,361 +332,721 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
         # Get the idx for logging
         step_idx = self._n_epoch_train_steps
 
-        """
-        ** ****************** **
-        ** ****************** ** 
-        ** UNINTENTIONAL LOSS ** 
-        ** ****************** **
-        ** ****************** ** 
-        """
-        policy = self._policy
-        qf = self._u_qf
-        qf2 = self._u_qf2
-        vf = self._u_vf
-        target_vf = self._u_target_vf
-
-        # ########### #
-        # Critic Step #
-        # ########### #
-        u_v_values_next = target_vf(next_obs)[0]  # Get all unintentional V-vals
-        u_q_preds = qf(obs, actions)[0]  # Get all unintentional Q-values
-        accum_u_qf_loss = 0
-        if qf2 is not None:
-            u_q2_preds = qf2(obs, actions)[0]  # Get all unintentional Q2-values
-            accum_u_qf2_loss = 0
-        for uu in range(self._n_unintentional):
-            # Get batch rewards and terminal for unintentional tasks
-            rewards = batch['reward_vectors'][:, uu].unsqueeze(-1) \
-                      * self._u_reward_scales[uu]
-            terminals = batch['terminal_vectors'][:, uu].unsqueeze(-1)
-
-            v_value_next = u_v_values_next[uu]
-
-            # Calculate QF Loss (Soft Bellman Eq.)
-            q_target = rewards + (1. - terminals) * self.discount * v_value_next
-            u_qf_loss = 0.5*self._u_qf_criterion(u_q_preds[uu],
-                                                 q_target.detach())
-            accum_u_qf_loss += u_qf_loss
-
-            if qf2 is not None:
-                u_qf2_loss = 0.5*self._u_qf_criterion(u_q2_preds[uu],
-                                                      q_target.detach())
-                accum_u_qf2_loss += u_qf2_loss
-
-            # Log data
-            self.logging_qf_loss[step_idx, uu] = ptu.get_numpy(u_qf_loss)
-            if qf2 is not None:
-                self.logging_qf2_loss[step_idx, uu] = ptu.get_numpy(u_qf2_loss)
-            self.logging_rewards[step_idx, uu] = \
-                ptu.get_numpy(rewards.mean(dim=0))
-
-            if self._log_tensorboard:
-                self._summary_writer.add_scalar(
-                    'TrainingU%2d/qf_loss' % uu,
-                    ptu.get_numpy(u_qf_loss),
-                    self._n_env_steps_total
-                )
-                if qf2 is not None:
-                    self._summary_writer.add_scalar(
-                        'TrainingU%2d/qf2_loss' % uu,
-                        ptu.get_numpy(u_qf2_loss),
-                        self._n_env_steps_total
-                    )
-                self._summary_writer.add_scalar(
-                    'TrainingU%2d/avg_reward' % uu,
-                    ptu.get_numpy(rewards.mean()),
-                    self._n_env_steps_total
-                )
-
-        # Update Unintentional Q-Values
-        self._u_qf_optimizer.zero_grad()
-        accum_u_qf_loss.backward()
-        self._u_qf_optimizer.step()
-
-        if qf2 is not None:
-            self._u_qf2_optimizer.zero_grad()
-            accum_u_qf2_loss.backward()
-            self._u_qf2_optimizer.step()
-
-        # ############### #
-        # Actor & Vf Step #
-        # ############### #
-        accum_u_policy_loss = 0
-        accum_u_vf_loss = 0
-        u_v_preds = vf(obs)[0]  # Get all unintentional V-vals
-        for uu in range(self._n_unintentional):
-            # Get Actions and Info from Unintentional Policy
-            new_actions, policy_info = policy(obs, deterministic=False,
-                                              return_log_prob=True,
-                                              pol_idx=uu,
-                                              optimize_policies=True)
-            log_pi = policy_info['log_prob'] * self._u_entropy_scale[uu]
-            policy_mean = policy_info['mean']
-            policy_log_std = policy_info['log_std']
-            pre_tanh_value = policy_info['pre_tanh_value']
-
-            if self._action_prior == 'normal':
-                raise NotImplementedError
-            else:
-                policy_prior_log_probs = 0.0  # Uniform prior
-
-            v_pred = u_v_preds[uu]
-            q1_new_actions = qf(obs, new_actions)[0][uu]
-
-            if qf2 is not None:
-                q2_new_actions = qf2(obs, new_actions)[0][uu]
-                q_new_actions = torch.min(q1_new_actions, q2_new_actions)
-            else:
-                q_new_actions = q1_new_actions
-
-            advantages_new_actions = q_new_actions - v_pred.detach()
-
-            # KL loss
-            if self._reparameterize:
-                # TODO: In HAarnoja code it does not use the min, but the one from self._qf
-                # policy_kl_loss = torch.mean(log_pi - q_new_actions)
-                policy_kl_loss = -torch.mean(q_new_actions - log_pi)
-                # policy_kl_loss = -torch.mean(advantages_new_actions - log_pi)
-            else:
-                policy_kl_loss = (
-                        log_pi * (log_pi - q_new_actions + v_pred
-                                  - policy_prior_log_probs).detach()
-                ).mean()
-
-            # Regularization loss
-            mean_reg_loss = self._u_policy_mean_regu_weight[uu] * \
-                (policy_mean ** 2).mean()
-            std_reg_loss = self._u_policy_std_regu_weight[uu] * \
-                (policy_log_std ** 2).mean()
-            pre_activation_reg_loss = \
-                self._u_policy_pre_activation_weight[uu] * \
-                (pre_tanh_value**2).sum(dim=-1).mean()
-            policy_regu_loss = mean_reg_loss + std_reg_loss + pre_activation_reg_loss
-
-            accum_u_policy_loss += (policy_kl_loss + policy_regu_loss)
-
-            # Calculate Intentional Vf Loss
-            v_target = q_new_actions - log_pi + policy_prior_log_probs
-            u_vf_loss = 0.5*self._u_vf_criterion(v_pred, v_target.detach())
-
-            accum_u_vf_loss += u_vf_loss
-
-            # ############### #
-            # LOG Useful Data #
-            # ############### #
-            self.logging_policy_entropy[step_idx, uu] = \
-                ptu.get_numpy(-log_pi.mean(dim=0))
-            self.logging_policy_log_std[step_idx, :, uu] = \
-                ptu.get_numpy(policy_log_std.mean(dim=0))
-            self.logging_policy_mean[step_idx, :, uu] = \
-                ptu.get_numpy(policy_mean.mean(dim=0))
-            self.logging_vf_loss[step_idx, uu] = \
-                ptu.get_numpy(u_vf_loss)
-            self.logging_pol_kl_loss[step_idx, uu] = \
-                ptu.get_numpy(policy_kl_loss)
-
-            if self._log_tensorboard:
-                self._summary_writer.add_scalar(
-                    'TrainingU%2d/vf_loss' % uu,
-                    ptu.get_numpy(u_vf_loss),
-                    self._n_env_steps_total
-                )
-                self._summary_writer.add_scalar(
-                    'TrainingU%2d/policy_loss' % uu,
-                    ptu.get_numpy((policy_kl_loss + policy_regu_loss)),
-                    self._n_env_steps_total
-                )
-                self._summary_writer.add_scalar(
-                    'TrainingU%2d/policy_entropy' % uu,
-                    ptu.get_numpy(-log_pi.mean()),
-                    self._n_env_steps_total
-                )
-                self._summary_writer.add_scalar(
-                    'TrainingU%2d/policy_mean' % uu,
-                    ptu.get_numpy(policy_mean.mean()),
-                    self._n_env_steps_total
-                )
-                self._summary_writer.add_scalar(
-                    'TrainingU%2d/policy_std' % uu,
-                    np.exp(ptu.get_numpy(policy_log_std.mean())),
-                    self._n_env_steps_total
-                )
-                self._summary_writer.add_scalar(
-                    'TrainingU%2d/q_vals' % uu,
-                    ptu.get_numpy(q_new_actions.mean()),
-                    self._n_env_steps_total
-                )
-                self._summary_writer.add_scalar(
-                    'TrainingU%2d/avg_advantage' % uu,
-                    ptu.get_numpy(advantages_new_actions.mean()),
-                    self._n_env_steps_total
-                )
-
-        # Update Unintentional (Composable) Policies
-        self._policy_optimizer.zero_grad()
+        # """
+        # ** ****************** **
+        # ** ****************** **
+        # ** UNINTENTIONAL LOSS **
+        # ** ****************** **
+        # ** ****************** **
+        # """
+        # policy = self._policy
+        # qf = self._u_qf
+        # qf2 = self._u_qf2
+        # vf = self._u_vf
+        # target_vf = self._u_target_vf
+        #
+        # # ########### #
+        # # Critic Step #
+        # # ########### #
+        # u_v_values_next = target_vf(next_obs)[0]  # Get all unintentional V-vals
+        # u_q_preds = qf(obs, actions)[0]  # Get all unintentional Q-values
+        # accum_u_qf_loss = 0
+        # if qf2 is not None:
+        #     u_q2_preds = qf2(obs, actions)[0]  # Get all unintentional Q2-values
+        #     accum_u_qf2_loss = 0
+        # for uu in range(self._n_unintentional):
+        #     # Get batch rewards and terminal for unintentional tasks
+        #     rewards = batch['reward_vectors'][:, uu].unsqueeze(-1) \
+        #               * self._u_reward_scales[uu]
+        #     terminals = batch['terminal_vectors'][:, uu].unsqueeze(-1)
+        #
+        #     v_value_next = u_v_values_next[uu]
+        #
+        #     # Calculate QF Loss (Soft Bellman Eq.)
+        #     q_target = rewards + (1. - terminals) * self.discount * v_value_next
+        #     u_qf_loss = 0.5*self._u_qf_criterion(u_q_preds[uu],
+        #                                          q_target.detach())
+        #     accum_u_qf_loss += u_qf_loss
+        #
+        #     if qf2 is not None:
+        #         u_qf2_loss = 0.5*self._u_qf_criterion(u_q2_preds[uu],
+        #                                               q_target.detach())
+        #         accum_u_qf2_loss += u_qf2_loss
+        #
+        #     # Log data
+        #     self.logging_qf_loss[step_idx, uu] = ptu.get_numpy(u_qf_loss)
+        #     if qf2 is not None:
+        #         self.logging_qf2_loss[step_idx, uu] = ptu.get_numpy(u_qf2_loss)
+        #     self.logging_rewards[step_idx, uu] = \
+        #         ptu.get_numpy(rewards.mean(dim=0))
+        #
+        #     if self._log_tensorboard:
+        #         self._summary_writer.add_scalar(
+        #             'TrainingU%2d/qf_loss' % uu,
+        #             ptu.get_numpy(u_qf_loss),
+        #             self._n_env_steps_total
+        #         )
+        #         if qf2 is not None:
+        #             self._summary_writer.add_scalar(
+        #                 'TrainingU%2d/qf2_loss' % uu,
+        #                 ptu.get_numpy(u_qf2_loss),
+        #                 self._n_env_steps_total
+        #             )
+        #         self._summary_writer.add_scalar(
+        #             'TrainingU%2d/avg_reward' % uu,
+        #             ptu.get_numpy(rewards.mean()),
+        #             self._n_env_steps_total
+        #         )
+        #
+        # # Update Unintentional Q-Values
+        # self._u_qf_optimizer.zero_grad()
+        # accum_u_qf_loss.backward()
+        # self._u_qf_optimizer.step()
+        #
+        # if qf2 is not None:
+        #     self._u_qf2_optimizer.zero_grad()
+        #     accum_u_qf2_loss.backward()
+        #     self._u_qf2_optimizer.step()
+        #
+        # # ############### #
+        # # Actor & Vf Step #
+        # # ############### #
+        # accum_u_policy_loss = 0
+        # accum_u_vf_loss = 0
+        # u_v_preds = vf(obs)[0]  # Get all unintentional V-vals
+        # for uu in range(self._n_unintentional):
+        #     # Get Actions and Info from Unintentional Policy
+        #     new_actions, policy_info = policy(obs, deterministic=False,
+        #                                       return_log_prob=True,
+        #                                       pol_idx=uu,
+        #                                       optimize_policies=True)
+        #     log_pi = policy_info['log_prob'] * self._u_entropy_scale[uu]
+        #     policy_mean = policy_info['mean']
+        #     policy_log_std = policy_info['log_std']
+        #     pre_tanh_value = policy_info['pre_tanh_value']
+        #
+        #     if self._action_prior == 'normal':
+        #         raise NotImplementedError
+        #     else:
+        #         policy_prior_log_probs = 0.0  # Uniform prior
+        #
+        #     v_pred = u_v_preds[uu]
+        #     q1_new_actions = qf(obs, new_actions)[0][uu]
+        #
+        #     if qf2 is not None:
+        #         q2_new_actions = qf2(obs, new_actions)[0][uu]
+        #         q_new_actions = torch.min(q1_new_actions, q2_new_actions)
+        #     else:
+        #         q_new_actions = q1_new_actions
+        #
+        #     advantages_new_actions = q_new_actions - v_pred.detach()
+        #
+        #     # KL loss
+        #     if self._reparameterize:
+        #         # TODO: In HAarnoja code it does not use the min, but the one from self._qf
+        #         # policy_kl_loss = torch.mean(log_pi - q_new_actions)
+        #         policy_kl_loss = -torch.mean(q_new_actions - log_pi)
+        #         # policy_kl_loss = -torch.mean(advantages_new_actions - log_pi)
+        #     else:
+        #         policy_kl_loss = (
+        #                 log_pi * (log_pi - q_new_actions + v_pred
+        #                           - policy_prior_log_probs).detach()
+        #         ).mean()
+        #
+        #     # Regularization loss
+        #     mean_reg_loss = self._u_policy_mean_regu_weight[uu] * \
+        #         (policy_mean ** 2).mean()
+        #     std_reg_loss = self._u_policy_std_regu_weight[uu] * \
+        #         (policy_log_std ** 2).mean()
+        #     pre_activation_reg_loss = \
+        #         self._u_policy_pre_activation_weight[uu] * \
+        #         (pre_tanh_value**2).sum(dim=-1).mean()
+        #     policy_regu_loss = mean_reg_loss + std_reg_loss + pre_activation_reg_loss
+        #
+        #     accum_u_policy_loss += (policy_kl_loss + policy_regu_loss)
+        #
+        #     # Calculate Intentional Vf Loss
+        #     v_target = q_new_actions - log_pi + policy_prior_log_probs
+        #     u_vf_loss = 0.5*self._u_vf_criterion(v_pred, v_target.detach())
+        #
+        #     accum_u_vf_loss += u_vf_loss
+        #
+        #     # ############### #
+        #     # LOG Useful Data #
+        #     # ############### #
+        #     self.logging_policy_entropy[step_idx, uu] = \
+        #         ptu.get_numpy(-log_pi.mean(dim=0))
+        #     self.logging_policy_log_std[step_idx, :, uu] = \
+        #         ptu.get_numpy(policy_log_std.mean(dim=0))
+        #     self.logging_policy_mean[step_idx, :, uu] = \
+        #         ptu.get_numpy(policy_mean.mean(dim=0))
+        #     self.logging_vf_loss[step_idx, uu] = \
+        #         ptu.get_numpy(u_vf_loss)
+        #     self.logging_pol_kl_loss[step_idx, uu] = \
+        #         ptu.get_numpy(policy_kl_loss)
+        #
+        #     if self._log_tensorboard:
+        #         self._summary_writer.add_scalar(
+        #             'TrainingU%2d/vf_loss' % uu,
+        #             ptu.get_numpy(u_vf_loss),
+        #             self._n_env_steps_total
+        #         )
+        #         self._summary_writer.add_scalar(
+        #             'TrainingU%2d/policy_loss' % uu,
+        #             ptu.get_numpy((policy_kl_loss + policy_regu_loss)),
+        #             self._n_env_steps_total
+        #         )
+        #         self._summary_writer.add_scalar(
+        #             'TrainingU%2d/policy_entropy' % uu,
+        #             ptu.get_numpy(-log_pi.mean()),
+        #             self._n_env_steps_total
+        #         )
+        #         self._summary_writer.add_scalar(
+        #             'TrainingU%2d/policy_mean' % uu,
+        #             ptu.get_numpy(policy_mean.mean()),
+        #             self._n_env_steps_total
+        #         )
+        #         self._summary_writer.add_scalar(
+        #             'TrainingU%2d/policy_std' % uu,
+        #             np.exp(ptu.get_numpy(policy_log_std.mean())),
+        #             self._n_env_steps_total
+        #         )
+        #         self._summary_writer.add_scalar(
+        #             'TrainingU%2d/q_vals' % uu,
+        #             ptu.get_numpy(q_new_actions.mean()),
+        #             self._n_env_steps_total
+        #         )
+        #         self._summary_writer.add_scalar(
+        #             'TrainingU%2d/avg_advantage' % uu,
+        #             ptu.get_numpy(advantages_new_actions.mean()),
+        #             self._n_env_steps_total
+        #         )
+        #
+        # # Update Unintentional (Composable) Policies
+        # self._policy_optimizer.zero_grad()
+        # # accum_u_policy_loss.backward()
+        # # self._policy_optimizer.step()
+        # self._policies_optimizer.zero_grad()
         # accum_u_policy_loss.backward()
-        # self._policy_optimizer.step()
-        self._policies_optimizer.zero_grad()
-        accum_u_policy_loss.backward()
-        self._policies_optimizer.step()
+        # self._policies_optimizer.step()
+        #
+        # # Update Unintentional V-value
+        # self._u_vf_optimizer.zero_grad()
+        # accum_u_vf_loss.backward()
+        # self._u_vf_optimizer.step()
+        #
+        # # Update V Target Network
+        # if self._n_train_steps_total % self._u_target_update_interval == 0:
+        #     self._update_v_target_network(
+        #         vf=self._u_vf,
+        #         target_vf=self._u_target_vf,
+        #         soft_target_tau=self._u_soft_target_tau
+        #     )
+        #
+        # """
+        # ** **************** **
+        # ** **************** **
+        # ** INTENTIONAL STEP **
+        # ** **************** **
+        # ** **************** **
+        # """
+        # rewards = batch['rewards'] * self.reward_scale
+        # terminals = batch['terminals']
+        #
+        # policy = self._policy
+        # qf = self._i_qf
+        # qf2 = self._i_qf2
+        # vf = self._i_vf
+        # target_vf = self._i_target_vf
+        #
+        # # ########### #
+        # # Critic Step #
+        # # ########### #
+        # v_value_next = target_vf(next_obs)[0]
+        # q_pred = qf(obs, actions)[0]
+        #
+        # # Calculate QF Loss (Soft Bellman Eq.)
+        # q_target = rewards + (1. - terminals) * self.discount * v_value_next
+        # i_qf_loss = 0.5*self._i_qf_criterion(q_pred, q_target.detach())
+        #
+        # # Update Intentional Q-value
+        # self._i_qf_optimizer.zero_grad()
+        # i_qf_loss.backward()
+        # self._i_qf_optimizer.step()
+        #
+        # if qf2 is not None:
+        #     q2_pred = qf2(obs, actions)[0]
+        #
+        #     # Calculate QF2 Loss (Soft Bellman Eq.)
+        #     i_qf2_loss = 0.5*self._i_qf_criterion(q2_pred, q_target.detach())
+        #
+        #     # Update Intentional Q2-value
+        #     self._i_qf2_optimizer.zero_grad()
+        #     i_qf2_loss.backward()
+        #     self._i_qf2_optimizer.step()
+        #
+        # # ########## #
+        # # Actor Step #
+        # # ########## #
+        # # Calculate Intentional Policy Loss
+        # new_actions, policy_info = policy(obs, deterministic=False,
+        #                                   return_log_prob=True,
+        #                                   pol_idx=None,
+        #                                   optimize_policies=False)
+        #
+        # log_pi = policy_info['log_prob'] * self._i_entropy_scale
+        # policy_mean = policy_info['mean']
+        # policy_log_std = policy_info['log_std']
+        # pre_tanh_value = policy_info['pre_tanh_value']
+        # mixing_coeff = policy_info['mixing_coeff']
+        #
+        # if self._action_prior == 'normal':
+        #     raise NotImplementedError
+        # else:
+        #     policy_prior_log_probs = 0.0
+        #
+        # v_pred = vf(obs)[0]
+        # q1_new_actions = qf(obs, new_actions)[0]
+        #
+        # if qf2 is not None:
+        #     q2_new_actions = qf2(obs, new_actions)[0]
+        #     q_new_actions = torch.min(q1_new_actions, q2_new_actions)
+        # else:
+        #     q_new_actions = q1_new_actions
+        #
+        # advantages_new_actions = q_new_actions - v_pred.detach()
+        #
+        # # KL loss
+        # if self._reparameterize:
+        #     # TODO: In HAarnoja code it does not use the min, but the one from self._qf
+        #     # policy_kl_loss = torch.mean(log_pi - q_new_actions)
+        #     policy_kl_loss = -torch.mean(q_new_actions - log_pi)
+        #     # policy_kl_loss = -torch.mean(advantages_new_actions - log_pi)
+        # else:
+        #     policy_kl_loss = (
+        #             log_pi * (log_pi - q_new_actions + v_pred
+        #                       - policy_prior_log_probs).detach()
+        #     ).mean()
+        #
+        # # Regularization loss
+        # mean_reg_loss = self._i_policy_mean_regu_weight * \
+        #     (policy_mean ** 2).mean()
+        # std_reg_loss = self._i_policy_std_regu_weight * \
+        #     (policy_log_std ** 2).mean()
+        # pre_activation_reg_loss = self._i_policy_pre_activation_weight * \
+        #     (pre_tanh_value**2).sum(dim=-1).mean()
+        # mixing_coeff_loss = self._i_policy_mixing_coeff_weight * \
+        #     (mixing_coeff ** 2).sum(dim=-1).mean()  # TODO: CHECK THIS
+        #
+        # policy_regu_loss = mean_reg_loss + std_reg_loss + \
+        #     pre_activation_reg_loss + mixing_coeff_loss
+        #
+        # i_policy_loss = policy_kl_loss + policy_regu_loss
+        #
+        # # Update Intentional Policy
+        # self._policy_optimizer.zero_grad()
+        # # i_policy_loss.backward()
+        # # self._policy_optimizer.step()
+        # self._mixing_optimizer.zero_grad()
+        # i_policy_loss.backward()
+        # self._mixing_optimizer.step()
+        #
+        # # ############### #
+        # # V-function Step #
+        # # ############### #
+        # # Calculate Intentional Vf Loss
+        # v_target = q_new_actions - log_pi + policy_prior_log_probs
+        # i_vf_loss = 0.5*self._i_vf_criterion(v_pred, v_target.detach())
+        #
+        # # Update Intentional V-value
+        # self._i_vf_optimizer.zero_grad()
+        # i_vf_loss.backward()
+        # self._i_vf_optimizer.step()
+        #
+        # # Update Intentional V Target Network
+        # if self._n_train_steps_total % self._i_target_update_interval == 0:
+        #     self._update_v_target_network(
+        #         vf=self._i_vf,
+        #         target_vf=self._i_target_vf,
+        #         soft_target_tau=self._i_soft_target_tau
+        #     )
+        #
+        # # ########################### #
+        # # LOG Useful Intentional Data #
+        # # ########################### #
+        # self.logging_policy_entropy[step_idx, -1] = \
+        #     ptu.get_numpy(-log_pi.mean(dim=0))
+        # self.logging_policy_log_std[step_idx, :, -1] = \
+        #     ptu.get_numpy(policy_log_std.mean(dim=0))
+        # self.logging_policy_mean[step_idx, :, -1] = \
+        #     ptu.get_numpy(policy_mean.mean(dim=0))
+        # self.logging_pol_kl_loss[step_idx, -1] = ptu.get_numpy(policy_kl_loss)
+        # self.logging_qf_loss[step_idx, -1] = ptu.get_numpy(i_qf_loss)
+        # if self._i_qf2 is not None:
+        #     self.logging_qf2_loss[step_idx, -1] = ptu.get_numpy(i_qf2_loss)
+        # self.logging_vf_loss[step_idx, -1] = ptu.get_numpy(i_vf_loss)
+        # self.logging_rewards[step_idx, -1] = \
+        #     ptu.get_numpy(rewards.mean(dim=0))
+        # self.logging_mixing_coeff[step_idx, :, :] = \
+        #     ptu.get_numpy(mixing_coeff.mean(dim=0))
+        #
+        # if self._log_tensorboard:
+        #     self._summary_writer.add_scalar('TrainingI/qf_loss',
+        #                                     ptu.get_numpy(i_qf_loss),
+        #                                     self._n_env_steps_total)
+        #     if qf2 is not None:
+        #         self._summary_writer.add_scalar('TrainingI/qf2_loss',
+        #                                         ptu.get_numpy(i_qf2_loss),
+        #                                         self._n_env_steps_total)
+        #     self._summary_writer.add_scalar('TrainingI/vf_loss',
+        #                                     ptu.get_numpy(i_vf_loss),
+        #                                     self._n_env_steps_total)
+        #     self._summary_writer.add_scalar('TrainingI/avg_reward',
+        #                                     ptu.get_numpy(rewards.mean()),
+        #                                     self._n_env_steps_total)
+        #     self._summary_writer.add_scalar('TrainingI/policy_loss',
+        #                                     ptu.get_numpy(i_policy_loss),
+        #                                     self._n_env_steps_total)
+        #     self._summary_writer.add_scalar('TrainingI/policy_entropy',
+        #                                     ptu.get_numpy(-log_pi.mean()),
+        #                                     self._n_env_steps_total)
+        #     self._summary_writer.add_scalar('TrainingI/policy_mean',
+        #                                     ptu.get_numpy(policy_mean.mean()),
+        #                                     self._n_env_steps_total)
+        #     self._summary_writer.add_scalar('TrainingI/policy_std',
+        #                                     np.exp(ptu.get_numpy(policy_log_std.mean())),
+        #                                     self._n_env_steps_total)
+        #     self._summary_writer.add_scalar('TrainingI/q_vals',
+        #                                     ptu.get_numpy(q_new_actions.mean()),
+        #                                     self._n_env_steps_total)
+        #     self._summary_writer.add_scalar('TrainingI/avg_advantage',
+        #                                     ptu.get_numpy(advantages_new_actions.mean()),
+        #                                     self._n_env_steps_total)
+        #
+        #     for uu in range(self._n_unintentional):
+        #         self._summary_writer.add_scalar('TrainingI/weight%02d' % uu,
+        #                                         ptu.get_numpy(mixing_coeff[:, uu].mean()),
+        #                                         self._n_env_steps_total)
+        #
+        #     # LOG NN VALUES AND GRADIENTS
+        #     if self._n_env_steps_total % self.num_updates_per_train_call == 0:
+        #         for name, param in self._policy.named_parameters():
+        #             self._summary_writer.add_histogram('policy/'+name,
+        #                                                param.data.cpu().numpy(),
+        #                                                self._n_env_steps_total)
+        #             self._summary_writer.add_histogram('policy_grad/'+name,
+        #                                                param.grad.data.cpu().numpy(),
+        #                                                self._n_env_steps_total)
+        #
+        #         for name, param in self._u_qf.named_parameters():
+        #             self._summary_writer.add_histogram('u_qf/'+name,
+        #                                                param.data.cpu().numpy(),
+        #                                                self._n_env_steps_total)
+        #             self._summary_writer.add_histogram('u_qf_grad/'+name,
+        #                                                param.grad.data.cpu().numpy(),
+        #                                                self._n_env_steps_total)
+        #         for name, param in self._i_qf.named_parameters():
+        #             self._summary_writer.add_histogram('i_qf/'+name,
+        #                                                param.data.cpu().numpy(),
+        #                                                self._n_env_steps_total)
+        #             self._summary_writer.add_histogram('i_qf_grad/'+name,
+        #                                                param.grad.data.cpu().numpy(),
+        #                                                self._n_env_steps_total)
+        #
+        #         if self._u_qf2 is not None:
+        #             for name, param in self._u_qf2.named_parameters():
+        #                 self._summary_writer.add_histogram('u_qf2/'+name,
+        #                                                    param.data.cpu().numpy(),
+        #                                                    self._n_env_steps_total)
+        #                 self._summary_writer.add_histogram('u_qf2_grad/'+name,
+        #                                                    param.grad.data.cpu().numpy(),
+        #                                                    self._n_env_steps_total)
+        #         if self._i_qf2 is not None:
+        #             for name, param in self._i_qf2.named_parameters():
+        #                 self._summary_writer.add_histogram('i_qf2/'+name,
+        #                                                    param.data.cpu().numpy(),
+        #                                                    self._n_env_steps_total)
+        #                 self._summary_writer.add_histogram('i_qf2_grad/'+name,
+        #                                                    param.grad.data.cpu().numpy(),
+        #                                                    self._n_env_steps_total)
+        #
+        #         for name, param in self._u_vf.named_parameters():
+        #             self._summary_writer.add_histogram('u_vf/'+name,
+        #                                                param.data.cpu().numpy(),
+        #                                                self._n_env_steps_total)
+        #             self._summary_writer.add_histogram('u_vf_grad/'+name,
+        #                                                param.grad.data.cpu().numpy(),
+        #                                                self._n_env_steps_total)
+        #
+        #         for name, param in self._i_vf.named_parameters():
+        #             self._summary_writer.add_histogram('i_vf/'+name,
+        #                                                param.data.cpu().numpy(),
+        #                                                self._n_env_steps_total)
+        #             self._summary_writer.add_histogram('i_vf_grad/'+name,
+        #                                                param.grad.data.cpu().numpy(),
+        #                                                self._n_env_steps_total)
+        #
+        #         for name, param in self._u_target_vf.named_parameters():
+        #             self._summary_writer.add_histogram('u_vf_target/'+name,
+        #                                                param.cpu().data.numpy(),
+        #                                                self._n_env_steps_total)
+        #         for name, param in self._i_target_vf.named_parameters():
+        #             self._summary_writer.add_histogram('i_vf_target/'+name,
+        #                                                param.cpu().data.numpy(),
+        #                                                self._n_env_steps_total)
 
-        # Update Unintentional V-value
-        self._u_vf_optimizer.zero_grad()
-        accum_u_vf_loss.backward()
-        self._u_vf_optimizer.step()
-
-        # Update V Target Network
-        if self._n_train_steps_total % self._u_target_update_interval == 0:
-            self._update_v_target_network(
-                vf=self._u_vf,
-                target_vf=self._u_target_vf,
-                soft_target_tau=self._u_soft_target_tau
-            )
-
-        """
-        ** **************** **
-        ** **************** ** 
-        ** INTENTIONAL STEP ** 
-        ** **************** ** 
-        ** **************** ** 
-        """
-        rewards = batch['rewards'] * self.reward_scale
-        terminals = batch['terminals']
-
-        policy = self._policy
-        qf = self._i_qf
-        qf2 = self._i_qf2
-        vf = self._i_vf
-        target_vf = self._i_target_vf
 
         # ########### #
         # Critic Step #
         # ########### #
-        v_value_next = target_vf(next_obs)[0]
-        q_pred = qf(obs, actions)[0]
+        i_rewards = batch['rewards'] * self.reward_scale
+        i_terminals = batch['terminals']
+
+        i_v_value_next = self._i_target_vf(next_obs)[0]
+        i_q_pred = self._i_qf(obs, actions)[0]
 
         # Calculate QF Loss (Soft Bellman Eq.)
-        q_target = rewards + (1. - terminals) * self.discount * v_value_next
-        i_qf_loss = 0.5*self._i_qf_criterion(q_pred, q_target.detach())
+        i_q_target = i_rewards + (1. - i_terminals) * self.discount * i_v_value_next
+        i_qf_loss = 0.5*self._i_qf_criterion(i_q_pred, i_q_target.detach())
 
         # Update Intentional Q-value
         self._i_qf_optimizer.zero_grad()
         i_qf_loss.backward()
         self._i_qf_optimizer.step()
 
-        if qf2 is not None:
-            q2_pred = qf2(obs, actions)[0]
+        if self._i_qf2 is not None:
+            i_q2_pred = self._i_qf2(obs, actions)[0]
 
             # Calculate QF2 Loss (Soft Bellman Eq.)
-            i_qf2_loss = 0.5*self._i_qf_criterion(q2_pred, q_target.detach())
+            i_qf2_loss = 0.5*self._i_qf_criterion(i_q2_pred, i_q_target.detach())
 
             # Update Intentional Q2-value
             self._i_qf2_optimizer.zero_grad()
             i_qf2_loss.backward()
             self._i_qf2_optimizer.step()
 
-        # ########## #
-        # Actor Step #
-        # ########## #
-        # Calculate Intentional Policy Loss
-        new_actions, policy_info = policy(obs, deterministic=False,
-                                          return_log_prob=True,
-                                          pol_idx=None,
-                                          optimize_policies=False)
+        u_rewards = (batch['reward_vectors'] * self._u_reward_scales).unsqueeze(-1)
+        u_terminals = (batch['terminal_vectors']).unsqueeze(-1)
 
-        log_pi = policy_info['log_prob'] * self._i_entropy_scale
-        policy_mean = policy_info['mean']
-        policy_log_std = policy_info['log_std']
-        pre_tanh_value = policy_info['pre_tanh_value']
+        u_v_value_next = torch.cat([vv.unsqueeze(1)
+                                    for vv in self._u_target_vf(obs)[0]],
+                                   dim=1)
+
+        u_q_pred = [self._u_qf(obs, actions)[0][uu]
+                    for uu in range(self._n_unintentional)]
+        u_q_pred = torch.cat([qq.unsqueeze(1) for qq in u_q_pred],
+                             dim=1)
+
+        # Calculate QF Loss (Soft Bellman Eq.)
+        u_q_target = u_rewards + (1. - u_terminals) * self.discount * u_v_value_next
+        u_qf_loss = 0.5*torch.mean((u_q_pred - u_q_target.detach())**2,
+                                   dim=0).squeeze(-1)
+        total_u_qf_loss = torch.sum(u_qf_loss)
+
+        # Update Intentional Q-value
+        self._i_qf_optimizer.zero_grad()
+        total_u_qf_loss.backward()
+        self._i_qf_optimizer.step()
+
+        if self._i_qf2 is not None:
+            u_q2_pred = [self._u_qf2(obs, actions)[0][uu]
+                         for uu in range(self._n_unintentional)]
+            u_q2_pred = torch.cat([qq.unsqueeze(1) for qq in u_q2_pred],
+                                  dim=1)
+
+            # Calculate QF2 Loss (Soft Bellman Eq.)
+            u_qf2_loss = 0.5*torch.mean((u_q2_pred - u_q_target.detach())**2,
+                                        dim=0).squeeze(-1)
+
+            total_u_qf2_loss = torch.sum(u_qf2_loss)
+
+            # Update Intentional Q2-value
+            self._u_qf2_optimizer.zero_grad()
+            total_u_qf2_loss.backward()
+            self._u_qf2_optimizer.step()
+
+
+        # ############### #
+        # Actor & Vf Step #
+        # ############### #
+        i_new_actions, policy_info = self._policy(obs, deterministic=False,
+                                                  return_log_prob=True,
+                                                  pol_idx=None,
+                                                  optimize_policies=False)
+        i_log_pi = policy_info['log_prob'] * self._i_entropy_scale
+        i_policy_mean = policy_info['mean']
+        i_policy_log_std = policy_info['log_std']
+        i_pre_tanh_value = policy_info['pre_tanh_value']
         mixing_coeff = policy_info['mixing_coeff']
+
+        u_new_actions = policy_info['pol_actions']
+        u_log_pi = policy_info['pol_log_probs'] * self._u_entropy_scale.unsqueeze(1)
+        u_policy_mean = policy_info['pol_means']
+        u_policy_log_std = policy_info['pol_log_stds']
+        u_pre_tanh_value = policy_info['pol_pre_tanh_values']
 
         if self._action_prior == 'normal':
             raise NotImplementedError
         else:
-            policy_prior_log_probs = 0.0
+            i_policy_prior_log_probs = 0.0  # Uniform prior
+            u_policy_prior_log_probs = 0.0  # Uniform prior
 
-        v_pred = vf(obs)[0]
-        q1_new_actions = qf(obs, new_actions)[0]
+        i_v_pred = self._i_vf(obs)[0]
+        u_v_pred = torch.cat([vv.unsqueeze(1) for vv in self._u_vf(obs)[0]],
+                             dim=1)
 
-        if qf2 is not None:
-            q2_new_actions = qf2(obs, new_actions)[0]
-            q_new_actions = torch.min(q1_new_actions, q2_new_actions)
+        i_q1_new_actions = self._i_qf(obs, i_new_actions)[0]
+        u_q1_new_actions = [self._u_qf(obs, u_new_actions[:, uu, :])[0][uu]
+                            for uu in range(self._n_unintentional)]
+        u_q1_new_actions = torch.cat([qq.unsqueeze(1)
+                                      for qq in u_q1_new_actions],
+                                     dim=1)
+
+        if self._i_qf2 is not None:
+            i_q2_new_actions = self._i_qf2(obs, i_new_actions)[0]
+            i_q_new_actions = torch.min(i_q1_new_actions, i_q2_new_actions)
         else:
-            q_new_actions = q1_new_actions
+            i_q_new_actions = i_q1_new_actions
+        if self._u_qf2 is not None:
+            u_q2_new_actions = [self._u_qf2(obs, u_new_actions[:, uu, :])[0][uu]
+                                for uu in range(self._n_unintentional)]
+            u_q2_new_actions = torch.cat([qq.unsqueeze(1)
+                                          for qq in u_q2_new_actions],
+                                         dim=1)
+            u_q_new_actions = torch.min(u_q1_new_actions, u_q2_new_actions)
+        else:
+            u_q_new_actions = u_q1_new_actions
 
-        advantages_new_actions = q_new_actions - v_pred.detach()
+        i_advantages_new_actions = i_q_new_actions - i_v_pred.detach()
+        u_advantages_new_actions = u_q_new_actions - u_v_pred.detach()
 
         # KL loss
         if self._reparameterize:
-            # TODO: In HAarnoja code it does not use the min, but the one from self._qf
-            # policy_kl_loss = torch.mean(log_pi - q_new_actions)
-            policy_kl_loss = -torch.mean(q_new_actions - log_pi)
-            # policy_kl_loss = -torch.mean(advantages_new_actions - log_pi)
+            i_policy_kl_loss = -torch.mean(i_q_new_actions - i_log_pi)
+            # i_policy_kl_loss = -torch.mean(i_advantages_new_actions - i_log_pi)
+            u_policy_kl_loss = -torch.mean(u_q_new_actions - u_log_pi,
+                                           dim=0).squeeze(-1)
         else:
-            policy_kl_loss = (
-                    log_pi * (log_pi - q_new_actions + v_pred
-                              - policy_prior_log_probs).detach()
+            i_policy_kl_loss = (
+                    i_log_pi * (i_log_pi - i_q_new_actions + i_v_pred
+                                - i_policy_prior_log_probs).detach()
             ).mean()
+            u_policy_kl_loss = (
+                    u_log_pi * (u_log_pi - u_q_new_actions + u_v_pred
+                                - u_policy_prior_log_probs).detach()
+            ).mean(dim=0).squeeze(-1)
 
         # Regularization loss
-        mean_reg_loss = self._i_policy_mean_regu_weight * \
-            (policy_mean ** 2).mean()
-        std_reg_loss = self._i_policy_std_regu_weight * \
-            (policy_log_std ** 2).mean()
-        pre_activation_reg_loss = self._i_policy_pre_activation_weight * \
-            (pre_tanh_value**2).sum(dim=-1).mean()
+        i_mean_reg_loss = self._i_policy_mean_regu_weight * \
+            (i_policy_mean ** 2).mean()
+        i_std_reg_loss = self._i_policy_std_regu_weight * \
+            (i_policy_log_std ** 2).mean()
+        i_pre_activation_reg_loss = \
+            self._i_policy_pre_activation_weight * \
+            (i_pre_tanh_value**2).sum(dim=-1).mean()
         mixing_coeff_loss = self._i_policy_mixing_coeff_weight * \
             (mixing_coeff ** 2).sum(dim=-1).mean()  # TODO: CHECK THIS
+        i_policy_regu_loss = (i_mean_reg_loss + i_std_reg_loss
+                              + i_pre_activation_reg_loss + mixing_coeff_loss)
+        i_policy_loss = (i_policy_kl_loss + i_policy_regu_loss)
 
-        policy_regu_loss = mean_reg_loss + std_reg_loss + \
-            pre_activation_reg_loss + mixing_coeff_loss
+        u_mean_reg_loss = self._u_policy_mean_regu_weight * \
+            (u_policy_mean ** 2).mean(dim=0).mean(dim=-1)
+        u_std_reg_loss = self._u_policy_std_regu_weight * \
+            (u_policy_log_std ** 2).mean(dim=0).mean(dim=-1)
+        u_pre_activation_reg_loss = \
+            self._u_policy_pre_activation_weight * \
+            (u_pre_tanh_value**2).sum(dim=-1).mean(dim=0).mean(dim=-1)
+        u_policy_regu_loss = (u_mean_reg_loss + u_std_reg_loss
+                              + u_pre_activation_reg_loss)
+        u_policy_loss = (u_policy_kl_loss + u_policy_regu_loss)
 
-        i_policy_loss = policy_kl_loss + policy_regu_loss
+        # Calculate Intentional Vf Loss
+        i_v_target = i_q_new_actions - i_log_pi + i_policy_prior_log_probs
+        i_vf_loss = 0.5*self._i_vf_criterion(i_v_pred, i_v_target.detach())
+
+        u_v_target = u_q_new_actions - u_log_pi + u_policy_prior_log_probs
+        u_vf_loss = 0.5*torch.mean((u_v_pred - u_v_target.detach())**2,
+                                   dim=0).squeeze(-1)
+
+        total_u_policy_loss = torch.sum(u_policy_loss)
+        total_u_vf_loss = torch.sum(u_vf_loss)
 
         # Update Intentional Policy
         self._policy_optimizer.zero_grad()
-        # i_policy_loss.backward()
+        # accum_u_policy_loss.backward()
         # self._policy_optimizer.step()
+        self._policies_optimizer.zero_grad()
+        total_u_policy_loss.backward()
+        self._policies_optimizer.step()
+
+        self._policy_optimizer.zero_grad()
         self._mixing_optimizer.zero_grad()
         i_policy_loss.backward()
         self._mixing_optimizer.step()
 
-        # ############### #
-        # V-function Step #
-        # ############### #
-        # Calculate Intentional Vf Loss
-        v_target = q_new_actions - log_pi + policy_prior_log_probs
-        i_vf_loss = 0.5*self._i_vf_criterion(v_pred, v_target.detach())
-
-        # Update Intentional V-value
+        # Update V-values
+        self._u_vf_optimizer.zero_grad()
+        total_u_vf_loss.backward()
+        self._u_vf_optimizer.step()
         self._i_vf_optimizer.zero_grad()
         i_vf_loss.backward()
         self._i_vf_optimizer.step()
 
-        # Update Intentional V Target Network
-        if self._n_train_steps_total % self._i_target_update_interval == 0:
+        # Update V Target Networks
+        if self._n_train_steps_total % self._u_target_update_interval == 0:
+            self._update_v_target_network(
+                vf=self._u_vf,
+                target_vf=self._u_target_vf,
+                soft_target_tau=self._u_soft_target_tau
+            )
             self._update_v_target_network(
                 vf=self._i_vf,
                 target_vf=self._i_target_vf,
                 soft_target_tau=self._i_soft_target_tau
             )
 
-        # ########################### #
-        # LOG Useful Intentional Data #
-        # ########################### #
+        # ###############
+        # LOG Useful Data #
+        # ############### #
+        self.logging_policy_entropy[step_idx, :-1] = \
+            ptu.get_numpy(-u_log_pi.mean(dim=0).squeeze(-1))
         self.logging_policy_entropy[step_idx, -1] = \
-            ptu.get_numpy(-log_pi.mean(dim=0))
-        self.logging_policy_log_std[step_idx, :, -1] = \
-            ptu.get_numpy(policy_log_std.mean(dim=0))
-        self.logging_policy_mean[step_idx, :, -1] = \
-            ptu.get_numpy(policy_mean.mean(dim=0))
-        self.logging_pol_kl_loss[step_idx, -1] = ptu.get_numpy(policy_kl_loss)
+            ptu.get_numpy(-i_log_pi.mean(dim=0))
+
+        self.logging_policy_log_std[step_idx, :-1, :] = \
+            ptu.get_numpy(u_policy_log_std.mean(dim=0))
+        self.logging_policy_log_std[step_idx, -1, :] = \
+            ptu.get_numpy(i_policy_log_std.mean(dim=0))
+
+        self.logging_policy_mean[step_idx, :-1, :] = \
+            ptu.get_numpy(u_policy_mean.mean(dim=0))
+        self.logging_policy_mean[step_idx, -1, :] = \
+            ptu.get_numpy(i_policy_mean.mean(dim=0))
+
+        self.logging_vf_loss[step_idx, :-1] = \
+            ptu.get_numpy(u_vf_loss)
+        self.logging_vf_loss[step_idx, -1] = \
+            ptu.get_numpy(i_vf_loss)
+
+        self.logging_pol_kl_loss[step_idx, :-1] = \
+            ptu.get_numpy(u_policy_kl_loss)
+        self.logging_pol_kl_loss[step_idx, -1] = \
+            ptu.get_numpy(i_policy_kl_loss)
+
+        self.logging_qf_loss[step_idx, :-1] = ptu.get_numpy(u_qf_loss)
         self.logging_qf_loss[step_idx, -1] = ptu.get_numpy(i_qf_loss)
+
+        if self._u_qf2 is not None:
+            self.logging_qf2_loss[step_idx, :-1] = ptu.get_numpy(u_qf2_loss)
         if self._i_qf2 is not None:
             self.logging_qf2_loss[step_idx, -1] = ptu.get_numpy(i_qf2_loss)
-        self.logging_vf_loss[step_idx, -1] = ptu.get_numpy(i_vf_loss)
+
+        self.logging_rewards[step_idx, :-1] = \
+            ptu.get_numpy(u_rewards.mean(dim=0).squeeze(-1))
         self.logging_rewards[step_idx, -1] = \
-            ptu.get_numpy(rewards.mean(dim=0))
+            ptu.get_numpy(i_rewards.mean(dim=0).squeeze(-1))
+
         self.logging_mixing_coeff[step_idx, :, :] = \
             ptu.get_numpy(mixing_coeff.mean(dim=0))
 
@@ -689,7 +1054,7 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
             self._summary_writer.add_scalar('TrainingI/qf_loss',
                                             ptu.get_numpy(i_qf_loss),
                                             self._n_env_steps_total)
-            if qf2 is not None:
+            if self._i_qf2 is not None:
                 self._summary_writer.add_scalar('TrainingI/qf2_loss',
                                                 ptu.get_numpy(i_qf2_loss),
                                                 self._n_env_steps_total)
@@ -697,98 +1062,26 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
                                             ptu.get_numpy(i_vf_loss),
                                             self._n_env_steps_total)
             self._summary_writer.add_scalar('TrainingI/avg_reward',
-                                            ptu.get_numpy(rewards.mean()),
+                                            ptu.get_numpy(i_rewards.mean()),
                                             self._n_env_steps_total)
             self._summary_writer.add_scalar('TrainingI/policy_loss',
                                             ptu.get_numpy(i_policy_loss),
                                             self._n_env_steps_total)
             self._summary_writer.add_scalar('TrainingI/policy_entropy',
-                                            ptu.get_numpy(-log_pi.mean()),
+                                            ptu.get_numpy(-i_log_pi.mean()),
                                             self._n_env_steps_total)
             self._summary_writer.add_scalar('TrainingI/policy_mean',
-                                            ptu.get_numpy(policy_mean.mean()),
+                                            ptu.get_numpy(i_policy_mean.mean()),
                                             self._n_env_steps_total)
             self._summary_writer.add_scalar('TrainingI/policy_std',
-                                            np.exp(ptu.get_numpy(policy_log_std.mean())),
+                                            np.exp(ptu.get_numpy(i_policy_log_std.mean())),
                                             self._n_env_steps_total)
             self._summary_writer.add_scalar('TrainingI/q_vals',
-                                            ptu.get_numpy(q_new_actions.mean()),
+                                            ptu.get_numpy(i_q_new_actions.mean()),
                                             self._n_env_steps_total)
             self._summary_writer.add_scalar('TrainingI/avg_advantage',
-                                            ptu.get_numpy(advantages_new_actions.mean()),
+                                            ptu.get_numpy(i_advantages_new_actions.mean()),
                                             self._n_env_steps_total)
-
-            for uu in range(self._n_unintentional):
-                self._summary_writer.add_scalar('TrainingI/weight%02d' % uu,
-                                                ptu.get_numpy(mixing_coeff[:, uu].mean()),
-                                                self._n_env_steps_total)
-
-            # LOG NN VALUES AND GRADIENTS
-            if self._n_env_steps_total % self.num_updates_per_train_call == 0:
-                for name, param in self._policy.named_parameters():
-                    self._summary_writer.add_histogram('policy/'+name,
-                                                       param.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-                    self._summary_writer.add_histogram('policy_grad/'+name,
-                                                       param.grad.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-
-                for name, param in self._u_qf.named_parameters():
-                    self._summary_writer.add_histogram('u_qf/'+name,
-                                                       param.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-                    self._summary_writer.add_histogram('u_qf_grad/'+name,
-                                                       param.grad.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-                for name, param in self._i_qf.named_parameters():
-                    self._summary_writer.add_histogram('i_qf/'+name,
-                                                       param.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-                    self._summary_writer.add_histogram('i_qf_grad/'+name,
-                                                       param.grad.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-
-                if self._u_qf2 is not None:
-                    for name, param in self._u_qf2.named_parameters():
-                        self._summary_writer.add_histogram('u_qf2/'+name,
-                                                           param.data.cpu().numpy(),
-                                                           self._n_env_steps_total)
-                        self._summary_writer.add_histogram('u_qf2_grad/'+name,
-                                                           param.grad.data.cpu().numpy(),
-                                                           self._n_env_steps_total)
-                if self._i_qf2 is not None:
-                    for name, param in self._i_qf2.named_parameters():
-                        self._summary_writer.add_histogram('i_qf2/'+name,
-                                                           param.data.cpu().numpy(),
-                                                           self._n_env_steps_total)
-                        self._summary_writer.add_histogram('i_qf2_grad/'+name,
-                                                           param.grad.data.cpu().numpy(),
-                                                           self._n_env_steps_total)
-
-                for name, param in self._u_vf.named_parameters():
-                    self._summary_writer.add_histogram('u_vf/'+name,
-                                                       param.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-                    self._summary_writer.add_histogram('u_vf_grad/'+name,
-                                                       param.grad.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-
-                for name, param in self._i_vf.named_parameters():
-                    self._summary_writer.add_histogram('i_vf/'+name,
-                                                       param.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-                    self._summary_writer.add_histogram('i_vf_grad/'+name,
-                                                       param.grad.data.cpu().numpy(),
-                                                       self._n_env_steps_total)
-
-                for name, param in self._u_target_vf.named_parameters():
-                    self._summary_writer.add_histogram('u_vf_target/'+name,
-                                                       param.cpu().data.numpy(),
-                                                       self._n_env_steps_total)
-                for name, param in self._i_target_vf.named_parameters():
-                    self._summary_writer.add_histogram('i_vf_target/'+name,
-                                                       param.cpu().data.numpy(),
-                                                       self._n_env_steps_total)
 
     def _do_not_training(self):
         return
@@ -903,9 +1196,9 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
 
             for aa in range(self.env.action_dim):
                 self.eval_statistics['[U-%02d] Policy Std [%02d]' % (uu, aa)] = \
-                    np.nan_to_num(np.mean(np.exp(self.logging_policy_log_std[:max_step, aa, uu])))
+                    np.nan_to_num(np.mean(np.exp(self.logging_policy_log_std[:max_step, uu, aa])))
                 self.eval_statistics['[U-%02d] Policy Mean [%02d]' % (uu, aa)] = \
-                    np.nan_to_num(np.mean(self.logging_policy_mean[:max_step, aa, uu]))
+                    np.nan_to_num(np.mean(self.logging_policy_mean[:max_step, uu, aa]))
 
         # Intentional info
         self.eval_statistics['[I] Policy Entropy'] = \
@@ -920,9 +1213,9 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
             np.nan_to_num(np.mean(self.logging_rewards[:max_step, -1]))
         for aa in range(self.env.action_dim):
             self.eval_statistics['[I] Policy Std [%02d]'] = \
-                np.nan_to_num(np.mean(np.exp(self.logging_policy_log_std[:max_step, aa, -1])))
+                np.nan_to_num(np.mean(np.exp(self.logging_policy_log_std[:max_step, -1, aa])))
             self.eval_statistics['[I] Policy Mean [%02d]'] = \
-                np.nan_to_num(np.mean(self.logging_policy_mean[:max_step, aa, -1]))
+                np.nan_to_num(np.mean(self.logging_policy_mean[:max_step, -1, aa]))
 
     def evaluate(self, epoch):
         statistics = OrderedDict()
@@ -945,13 +1238,15 @@ class IUEpisodicWeightedMultiSAC(TorchIterativeRLAlgorithm):
                 eval_util.get_average_multigoal_rewards(test_paths[unint_idx],
                                                         unint_idx)
             avg_txt = '[U-%02d] Test AverageReward' % unint_idx
-            statistics[avg_txt] = average_rewards * self._u_reward_scales[unint_idx]
+            statistics[avg_txt] = average_rewards * \
+                ptu.get_numpy(self._u_reward_scales[unint_idx])
 
             average_returns = \
                 eval_util.get_average_multigoal_returns(test_paths[unint_idx],
                                                         unint_idx)
             avg_txt = '[U-%02d] Test AverageReturn' % unint_idx
-            statistics[avg_txt] = average_returns * self._u_reward_scales[unint_idx]
+            statistics[avg_txt] = average_returns * \
+                ptu.get_numpy(self._u_reward_scales[unint_idx])
 
             if self._log_tensorboard:
                 self._summary_writer.add_scalar(

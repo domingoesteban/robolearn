@@ -152,6 +152,9 @@ class NormalizedBoxEnv(ProxyEnv, Serializable):
 
         return next_obs, reward, done, info
 
+    def seed(self, *args, **kwargs):
+        self._wrapped_env.seed(*args, **kwargs)
+
     @property
     def online_normalization(self):
         return self._online_normalize_obs

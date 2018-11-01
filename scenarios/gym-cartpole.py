@@ -80,9 +80,9 @@ print("\nCreating GYM environment...")
 # Create a BIGMAN ROS EnvInterface
 gym_env = GymEnv(name=env_name, render=False, seed=seed)
 
-action_dim = gym_env.get_action_dim()
-state_dim = gym_env.get_state_dim()
-observation_dim = gym_env.get_obs_dim()
+action_dim = gym_env.action_dim
+state_dim = gym_env.state_dim
+observation_dim = gym_env.obs_dim
 
 print("Gym Environment OK. name:%s (action_dim=%d), (state_dim=%d)" % (env_name, action_dim, state_dim))
 
@@ -450,9 +450,9 @@ else:
 print("Learning algorithm: %s OK\n" % type(learn_algo))
 
 # import numpy as np
-# dX = gym_env.get_state_dim()
-# dU = gym_env.get_action_dim()
-# dO = gym_env.get_obs_dim()
+# dX = gym_env.state_dim
+# dU = gym_env.action_dim
+# dO = gym_env.obs_dim
 # T = gps_hyperparams['T']
 # all_actions = np.zeros((T, dU))
 # all_states = np.tile(np.expand_dims(np.linspace(0.5, 0, T), axis=1), (1, dX))

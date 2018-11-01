@@ -115,6 +115,14 @@ def layer_init_xavier_normal(layer, activation='relu', b=0.01):
         nn.init.xavier_normal_(layer.weight,
                                gain=nn.init.calculate_gain('linear')
                                )
+    elif activation.lower() in ['elu']:
+        nn.init.xavier_normal_(layer.weight,
+                               gain=nn.init.calculate_gain('relu')
+                               )
+    elif activation.lower() in ['selu']:
+        nn.init.xavier_normal_(layer.weight,
+                               gain=nn.init.calculate_gain('relu')
+                               )
     elif activation.lower() in ['0.1']:
         nn.init.xavier_normal_(layer.weight,
                                gain=0.1,
@@ -245,6 +253,10 @@ def rand(*args, **kwargs):
 
 def randn(*args, **kwargs):
     return torch.randn(*args, **kwargs).to(device)
+
+
+def arange(*args, **kwargs):
+    return torch.arange(*args, **kwargs).to(device)
 
 
 """

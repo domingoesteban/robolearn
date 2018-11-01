@@ -1,5 +1,5 @@
 """
-Run PyTorch IU Multi Soft Actor Critic on GoalCompositionEnv.
+Run PyTorch IU Multi Soft Actor Critic on Navigation2dGoalCompoEnv.
 
 NOTE: You need PyTorch 0.4
 """
@@ -11,8 +11,8 @@ from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management import MultiGoalReplayBuffer
 
-from robolearn.envs.simple_envs.goal_composition import GoalCompositionEnv
-from robolearn.envs.simple_envs.goal_composition import MultiQFPolicyPlotter
+from robolearn.envs.simple_envs.navigation2d import Navigation2dGoalCompoEnv
+from robolearn.envs.simple_envs.navigation2d import MultiQFPolicyPlotter
 
 from robolearn.torch.rl_algos.sac.iu_weightedmultisac import IUWeightedMultiSAC
 
@@ -51,7 +51,7 @@ def experiment(variant):
     ptu.seed(SEED)
 
     env = NormalizedBoxEnv(
-        GoalCompositionEnv(**variant['env_params']),
+        Navigation2dGoalCompoEnv(**variant['env_params']),
         # normalize_obs=True,
         normalize_obs=False,
         online_normalization=False,

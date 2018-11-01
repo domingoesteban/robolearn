@@ -15,13 +15,15 @@ from robolearn.utils.data_management import MultiGoalReplayBuffer
 
 from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
 
-from robolearn.torch.rl_algos.sac.iu_weightedmultisac import IUWeightedMultiSAC
+from robolearn.torch.rl_algos.sac.iu_weightedmultisac \
+    import IUWeightedMultiSAC
 
 from robolearn.torch.models import NNQFunction
 from robolearn.torch.models import NNVFunction
 from robolearn.torch.models import NNMultiQFunction
 from robolearn.torch.models import NNMultiVFunction
-# from robolearn.torch.models import AvgNNQFunction, AvgNNVFunction
+# from robolearn.torch.models import AvgNNQFunction
+# from robolearn.torch.models import AvgNNVFunction
 
 from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
 from robolearn.torch.policies import MixtureTanhGaussianMultiPolicy
@@ -40,21 +42,21 @@ FRAME_SKIP = 10
 DT = SIM_TIMESTEP * FRAME_SKIP
 
 PATH_LENGTH = int(np.ceil(Tend / DT))
-PATHS_PER_EPOCH = 5 #10
-PATHS_PER_EVAL = 3 #3
+PATHS_PER_EPOCH = 5
+PATHS_PER_EVAL = 3
 PATHS_PER_HARD_UPDATE = 12
-BATCH_SIZE = 256
+BATCH_SIZE = 512
 
-# SEED = 10
 SEED = 110
 # NP_THREADS = 6
 
 # POLICY = MixtureTanhGaussianMultiPolicy
 POLICY = TanhGaussianWeightedMultiPolicy
 REPARAM_POLICY = True
+SOFTMAX_WEIGHTS = True
+# SOFTMAX_WEIGHTS = False
 
-USE_Q2 = False
-
+USE_Q2 = True
 
 expt_params = dict(
     algo_name=IUWeightedMultiSAC.__name__,
@@ -62,7 +64,7 @@ expt_params = dict(
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=3000,  # n_epochs
+        num_epochs=1000,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
@@ -102,11 +104,11 @@ expt_params = dict(
         u_v_weight_decay=1e-5,
 
         discount=0.99,
-        reward_scale=1.0e+2,
-        u_reward_scales=[1.0e+2, 1.0e+2],
+        reward_scale=1.0e+1,
+        u_reward_scales=[1.0e+1, 1.0e+1],
     ),
     net_size=64,
-    replay_buffer_size=1e6,
+    replay_buffer_size=1e4,
     shared_layer_norm=False,
     policies_layer_norm=False,
     mixture_layer_norm=False,
@@ -118,23 +120,24 @@ expt_params = dict(
 
 env_params = dict(
     is_render=False,
+    obs_distances=False,  # If True obs contain 'distance' vectors instead poses
+    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
     obs_with_img=False,
+    obs_with_ori=False,
     goal_poses=None,  # It will be setted later
     rdn_goal_pose=True,
     tgt_pose=None,  # It will be setted later
     rdn_tgt_object_pose=True,
-    sim_timestep=SIM_TIMESTEP,
-    frame_skip=FRAME_SKIP,
-    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
-    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
-    tgt_cost_weight=2.0,
+    robot_config=None,
+    rdn_robot_config=True,
+    tgt_cost_weight=3.0,
     goal_cost_weight=1.0,
-    ctrl_cost_weight=1.0e-3,
-    use_log_distances=True,
-    # use_log_distances=False,
-    log_alpha=1.e-1,  # In case use_log_distances=True
+    ctrl_cost_weight=1.0e-2,
+    goal_tolerance=0.01,
     # max_time=PATH_LENGTH*DT,
     max_time=None,
+    sim_timestep=SIM_TIMESTEP,
+    frame_skip=FRAME_SKIP,
     subtask=None,
     seed=SEED,
 )
@@ -164,8 +167,8 @@ def experiment(variant):
         obs_alpha=0.001,
     )
 
-    obs_dim = int(np.prod(env.observation_space.shape))
-    action_dim = int(np.prod(env.action_space.shape))
+    obs_dim = env.obs_dim
+    action_dim = env.action_dim
 
     n_unintentional = 2
 
@@ -191,7 +194,6 @@ def experiment(variant):
                                 # shared_hidden_sizes=[net_size, net_size],
                                 shared_hidden_sizes=[],
                                 unshared_hidden_sizes=[net_size, net_size])
-        # i_qf = WeightedNNMultiVFunction(u_qf)
         i_qf = NNQFunction(obs_dim=obs_dim,
                            action_dim=action_dim,
                            hidden_sizes=[net_size, net_size])
@@ -214,7 +216,6 @@ def experiment(variant):
                                 # shared_hidden_sizes=[net_size, net_size],
                                 shared_hidden_sizes=[],
                                 unshared_hidden_sizes=[net_size, net_size])
-        # i_vf = WeightedNNMultiVFunction(u_vf)
         i_vf = NNVFunction(obs_dim=obs_dim,
                            hidden_sizes=[net_size, net_size])
 
@@ -232,21 +233,23 @@ def experiment(variant):
             mixture_layer_norm=variant['mixture_layer_norm'],
             mixing_temperature=1.,
             reparameterize=REPARAM_POLICY,
+            softmax_weights=SOFTMAX_WEIGHTS,
         )
 
         # Clamp model parameters
+        policy.clamp_all_params(min=-0.003, max=0.003)
         u_qf.clamp_all_params(min=-0.003, max=0.003)
         i_qf.clamp_all_params(min=-0.003, max=0.003)
         u_vf.clamp_all_params(min=-0.003, max=0.003)
         i_vf.clamp_all_params(min=-0.003, max=0.003)
-        policy.clamp_all_params(min=-0.003, max=0.003)
         if USE_Q2:
             u_qf2.clamp_all_params(min=-0.003, max=0.003)
             i_qf2.clamp_all_params(min=-0.003, max=0.003)
 
-        set_average_mixing(policy, n_unintentional, obs_dim,
-                           batch_size=50,
-                           total_iters=10000)
+        if not SOFTMAX_WEIGHTS:
+            set_average_mixing(policy, n_unintentional, obs_dim,
+                               batch_size=50,
+                               total_iters=1000)
 
     replay_buffer = MultiGoalReplayBuffer(
         max_replay_buffer_size=variant['replay_buffer_size'],
@@ -272,6 +275,7 @@ def experiment(variant):
     )
     if ptu.gpu_enabled():
         algorithm.cuda()
+
     # algorithm.pretrain(PATH_LENGTH*2)
     algorithm.train(start_epoch=start_epoch)
 
@@ -298,7 +302,7 @@ def parse_args():
 
 
 def set_average_mixing(policy, n_unintentional, obs_dim, batch_size=50,
-                       total_iters=10000):
+                       total_iters=1000):
     mixing_optimizer = torch.optim.Adam(
         policy.mixing_parameters(),
         lr=1.0e-4,

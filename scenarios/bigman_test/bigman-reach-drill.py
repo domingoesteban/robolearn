@@ -221,9 +221,9 @@ bigman_env = BigmanEnv(interface=interface, mode='simulation',
                        reset_simulation_fcn=reset_condition_bigman_drill_gazebo_fcn)
                        # reset_simulation_fcn=reset_condition_bigman_drill_gazebo)
 
-action_dim = bigman_env.get_action_dim()
-state_dim = bigman_env.get_state_dim()
-observation_dim = bigman_env.get_obs_dim()
+action_dim = bigman_env.action_dim
+state_dim = bigman_env.state_dim
+observation_dim = bigman_env.obs_dim
 
 print("Bigman Environment OK. body_part_active:%s (action_dim=%d). Command_type:%s" % (body_part_active, action_dim,
                                                                                        command_type))
@@ -935,9 +935,9 @@ else:
 print("Learning algorithm: %s OK\n" % type(learn_algo))
 
 # import numpy as np
-# dX = bigman_env.get_state_dim()
-# dU = bigman_env.get_action_dim()
-# dO = bigman_env.get_obs_dim()
+# dX = bigman_env.state_dim
+# dU = bigman_env.action_dim
+# dO = bigman_env.obs_dim
 # T = gps_hyperparams['T']
 # all_actions = np.zeros((T, dU))
 # all_states = np.tile(np.expand_dims(np.linspace(0.5, 0, T), axis=1), (1, dX))
