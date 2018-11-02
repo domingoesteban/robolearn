@@ -1,13 +1,12 @@
 # RoboLearn Python package
-
-<img src="robolearn_logo2.png" alt="robolearn_logo" width="100" height="100" class="center" />
-
 "A Python package for Robot Learning"
 
-This package seeks to create common interfaces between Robot Learning algorithms
-and Real/Simulated robots. 
+<p align="center">
+<img src="robolearn_logo2.png" alt="robolearn_logo" width="100" height="100" class="center" />
+</p>
 
-The package is mainly focused on learning control.
+**Robolearn** is a python package, mainly focused on learning control, that defines common interfaces
+between robot learning algorithms and real/simulated robots.
 
 **This package is gradually becoming public**, so the public version is still in 
 development. Sorry for any inconvenience.
