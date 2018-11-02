@@ -118,11 +118,7 @@ expt_params = dict(
     # hidden_activation='relu',
     # hidden_activation='tanh',
     hidden_activation='elu',
-    # shared_layer_normTrue,
-    # policies_layer_norm=True,
-    # mixture_layer_norm=True,
 )
-
 
 env_params = dict(
     goal_reward=50,
@@ -322,7 +318,7 @@ def set_average_mixing(policy, n_unintentional, obs_dim, batch_size=50,
         dummy_obs = torch.randn((batch_size, obs_dim))
         mix_pred = policy(dummy_obs, deterministic=True)[1]['mixing_coeff']
         mix_des = torch.ones_like(mix_pred) * 1./n_unintentional
-        loss = loss_fn(mix_pred, mix_des.detach())
+        loss = loss_fn(mix_pred, mix_des)
         mixing_optimizer.zero_grad()
         loss.backward()
         mixing_optimizer.step()

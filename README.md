@@ -1,5 +1,5 @@
-# RoboLearn Python package
-"A Python package for Robot Learning"
+# RoboLearn
+"A *Python* package for Robot Learning"
 
 <p align="center">
 <img src="robolearn_logo2.png" alt="robolearn_logo" width="100" height="100" class="center" />

@@ -26,8 +26,6 @@ from robolearn.torch.models import NNMultiVFunction
 # from robolearn.torch.models import AvgNNVFunction
 
 from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
-from robolearn.torch.policies import MixtureTanhGaussianMultiPolicy
-from robolearn.torch.policies import TanhGaussianComposedMultiPolicy
 
 import argparse
 import joblib
@@ -56,7 +54,12 @@ REPARAM_POLICY = True
 SOFTMAX_WEIGHTS = True
 # SOFTMAX_WEIGHTS = False
 
-USE_Q2 = True
+USE_Q2 = False
+
+OPTIMIZER = 'adam'
+# OPTIMIZER = 'rmsprop'
+
+NORMALIZE_OBS = False
 
 expt_params = dict(
     algo_name=IUWeightedMultiSAC.__name__,
@@ -64,7 +67,7 @@ expt_params = dict(
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=1000,  # n_epochs
+        num_epochs=5000,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
@@ -77,21 +80,23 @@ expt_params = dict(
         action_prior='uniform',
         i_entropy_scale=1.0e-0,
         u_entropy_scale=[1.0e-0, 1.0e-0],
-
-        i_policy_lr=1.e-4,
-        u_policies_lr=1.e-4,
-        u_mixing_lr=1.e-4,
-        i_qf_lr=1.e-4,
-        i_vf_lr=1.e-4,
-        u_qf_lr=1.e-4,
-        u_vf_lr=1.e-4,
+        # Learning rates
+        optimizer=OPTIMIZER,
+        i_policy_lr=1.e-3,
+        u_policies_lr=1.e-3,
+        u_mixing_lr=1.e-3,
+        i_qf_lr=1.e-3,
+        i_vf_lr=1.e-3,
+        u_qf_lr=1.e-3,
+        u_vf_lr=1.e-3,
+        # Soft target update
         i_soft_target_tau=1.e-3,
         u_soft_target_tau=1.e-3,
+        # Regularization terms
         i_policy_mean_regu_weight=1.e-3,
         i_policy_std_regu_weight=1.e-3,
         i_policy_pre_activation_weight=0.e-3,
-        i_policy_mixing_coeff_weight=0.e-3,
-
+        i_policy_mixing_coeff_weight=1.e-3,
         u_policy_mean_regu_weight=[1.e-3, 1.e-3],
         u_policy_std_regu_weight=[1.e-3, 1.e-3],
         u_policy_pre_activation_weight=[0.e-3, 0.e-3],
@@ -106,27 +111,31 @@ expt_params = dict(
         discount=0.99,
         reward_scale=1.0e+1,
         u_reward_scales=[1.0e+1, 1.0e+1],
+
+        normalize_obs=NORMALIZE_OBS,
     ),
-    net_size=64,
-    replay_buffer_size=1e4,
+    net_size=128,
+    replay_buffer_size=1e6,
     shared_layer_norm=False,
     policies_layer_norm=False,
     mixture_layer_norm=False,
     # shared_layer_normTrue,
     # policies_layer_norm=True,
     # mixture_layer_norm=True,
+    # hidden_activation='relu',
+    # hidden_activation='tanh',
+    hidden_activation='elu',
 )
-
 
 env_params = dict(
     is_render=False,
-    obs_distances=False,  # If True obs contain 'distance' vectors instead poses
     # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
+    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
     obs_with_img=False,
     obs_with_ori=False,
-    goal_poses=None,  # It will be setted later
+    goal_pose=(0.65, 0.65),
     rdn_goal_pose=True,
-    tgt_pose=None,  # It will be setted later
+    tgt_pose=(0.5, 0.25, 1.4660),
     rdn_tgt_object_pose=True,
     robot_config=None,
     rdn_robot_config=True,
@@ -152,11 +161,6 @@ def experiment(variant):
     ptu.set_gpu_mode(variant['gpu'])
     ptu.seed(SEED)
 
-    goal = variant['env_params'].get('goal')
-    variant['env_params']['goal_poses'] = \
-        [goal, (goal[0], 'any'), ('any', goal[1])]
-    variant['env_params'].pop('goal')
-
     env = NormalizedBoxEnv(
         Pusher2D3DofGoalCompoEnv(**variant['env_params']),
         # normalize_obs=True,
@@ -178,9 +182,9 @@ def experiment(variant):
         start_epoch = data['epoch']
         u_qf = data['u_qf']
         u_qf2 = data['u_qf2']
+        u_vf = data['u_vf']
         i_qf = data['qf']
         i_qf2 = data['qf2']
-        u_vf = data['u_vf']
         i_vf = data['vf']
         policy = data['policy']
         env._obs_mean = data['obs_mean']
@@ -191,16 +195,19 @@ def experiment(variant):
         u_qf = NNMultiQFunction(obs_dim=obs_dim,
                                 action_dim=action_dim,
                                 n_qs=n_unintentional,
+                                hidden_activation=variant['hidden_activation'],
                                 # shared_hidden_sizes=[net_size, net_size],
                                 shared_hidden_sizes=[],
                                 unshared_hidden_sizes=[net_size, net_size])
         i_qf = NNQFunction(obs_dim=obs_dim,
                            action_dim=action_dim,
+                           hidden_activation=variant['hidden_activation'],
                            hidden_sizes=[net_size, net_size])
         if USE_Q2:
             u_qf2 = NNMultiQFunction(obs_dim=obs_dim,
                                      action_dim=action_dim,
                                      n_qs=n_unintentional,
+                                     hidden_activation=variant['hidden_activation'],
                                      # shared_hidden_sizes=[net_size, net_size],
                                      shared_hidden_sizes=[],
                                      unshared_hidden_sizes=[net_size, net_size])
@@ -214,9 +221,11 @@ def experiment(variant):
         u_vf = NNMultiVFunction(obs_dim=obs_dim,
                                 n_vs=n_unintentional,
                                 # shared_hidden_sizes=[net_size, net_size],
+                                hidden_activation=variant['hidden_activation'],
                                 shared_hidden_sizes=[],
                                 unshared_hidden_sizes=[net_size, net_size])
         i_vf = NNVFunction(obs_dim=obs_dim,
+                           hidden_activation=variant['hidden_activation'],
                            hidden_sizes=[net_size, net_size])
 
         policy = POLICY(
@@ -224,6 +233,7 @@ def experiment(variant):
             action_dim=action_dim,
             n_policies=n_unintentional,
             # shared_hidden_sizes=[net_size, net_size],
+            hidden_activation=variant['hidden_activation'],
             shared_hidden_sizes=[],
             unshared_hidden_sizes=[net_size, net_size],
             unshared_mix_hidden_sizes=[net_size, net_size],
@@ -236,20 +246,20 @@ def experiment(variant):
             softmax_weights=SOFTMAX_WEIGHTS,
         )
 
-        # Clamp model parameters
-        policy.clamp_all_params(min=-0.003, max=0.003)
-        u_qf.clamp_all_params(min=-0.003, max=0.003)
-        i_qf.clamp_all_params(min=-0.003, max=0.003)
-        u_vf.clamp_all_params(min=-0.003, max=0.003)
-        i_vf.clamp_all_params(min=-0.003, max=0.003)
-        if USE_Q2:
-            u_qf2.clamp_all_params(min=-0.003, max=0.003)
-            i_qf2.clamp_all_params(min=-0.003, max=0.003)
-
-        if not SOFTMAX_WEIGHTS:
-            set_average_mixing(policy, n_unintentional, obs_dim,
-                               batch_size=50,
-                               total_iters=1000)
+        # # Clamp model parameters
+        # policy.clamp_all_params(min=-0.003, max=0.003)
+        # u_qf.clamp_all_params(min=-0.003, max=0.003)
+        # i_qf.clamp_all_params(min=-0.003, max=0.003)
+        # u_vf.clamp_all_params(min=-0.003, max=0.003)
+        # i_vf.clamp_all_params(min=-0.003, max=0.003)
+        # if USE_Q2:
+        #     u_qf2.clamp_all_params(min=-0.003, max=0.003)
+        #     i_qf2.clamp_all_params(min=-0.003, max=0.003)
+        #
+        # if not SOFTMAX_WEIGHTS:
+        #     set_average_mixing(policy, n_unintentional, obs_dim,
+        #                        batch_size=50,
+        #                        total_iters=1000)
 
     replay_buffer = MultiGoalReplayBuffer(
         max_replay_buffer_size=variant['replay_buffer_size'],
@@ -341,10 +351,6 @@ if __name__ == "__main__":
 
     expt_variant['env_params'] = env_params
     expt_variant['env_params']['is_render'] = args.render
-
-    # TODO: MAKE THIS A SCRIPT ARGUMENT
-    expt_variant['env_params']['goal'] = (0.65, 0.65)
-    expt_variant['env_params']['tgt_pose'] = (0.5, 0.25, 1.4660)
 
     expt_variant['log_dir'] = args.log_dir
 

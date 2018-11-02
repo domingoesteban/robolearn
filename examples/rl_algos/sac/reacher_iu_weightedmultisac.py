@@ -26,8 +26,6 @@ from robolearn.torch.models import NNMultiVFunction
 # from robolearn.torch.models import AvgNNVFunction
 
 from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
-from robolearn.torch.policies import MixtureTanhGaussianMultiPolicy
-from robolearn.torch.policies import TanhGaussianComposedMultiPolicy
 
 import argparse
 import joblib
@@ -69,7 +67,7 @@ expt_params = dict(
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=10000,  # n_epochs
+        num_epochs=1000,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
@@ -84,13 +82,13 @@ expt_params = dict(
         u_entropy_scale=[1.0e-0, 1.0e-0],
         # Learning rates
         optimizer=OPTIMIZER,
-        i_policy_lr=1.e-3,
-        u_policies_lr=1.e-3,
-        u_mixing_lr=1.e-3,
-        i_qf_lr=1.e-3,
-        i_vf_lr=1.e-3,
-        u_qf_lr=1.e-3,
-        u_vf_lr=1.e-3,
+        i_policy_lr=1.e-4,
+        u_policies_lr=1.e-4,
+        u_mixing_lr=1.e-4,
+        i_qf_lr=1.e-4,
+        i_vf_lr=1.e-4,
+        u_qf_lr=1.e-4,
+        u_vf_lr=1.e-4,
         # Soft target update
         i_soft_target_tau=1.e-3,
         u_soft_target_tau=1.e-3,
@@ -102,13 +100,13 @@ expt_params = dict(
         u_policy_mean_regu_weight=[1.e-3, 1.e-3],
         u_policy_std_regu_weight=[1.e-3, 1.e-3],
         u_policy_pre_activation_weight=[0.e-3, 0.e-3],
-        # Weight decays
-        i_policy_weight_decay=0.e-5,
-        u_policy_weight_decay=0.e-5,
-        i_q_weight_decay=0e-5,
-        u_q_weight_decay=0e-5,
-        i_v_weight_decay=0e-5,
-        u_v_weight_decay=0e-5,
+
+        i_policy_weight_decay=1.e-5,
+        u_policy_weight_decay=1.e-5,
+        i_q_weight_decay=1e-5,
+        u_q_weight_decay=1e-5,
+        i_v_weight_decay=1e-5,
+        u_v_weight_decay=1e-5,
 
         discount=0.99,
         reward_scale=1.0e+1,
@@ -117,32 +115,32 @@ expt_params = dict(
         normalize_obs=NORMALIZE_OBS,
     ),
     net_size=128,
-    replay_buffer_size=1e4,
-    shared_layer_norm=False,
-    policies_layer_norm=False,
-    mixture_layer_norm=False,
+    replay_buffer_size=1e6,
+    # shared_layer_norm=False,
+    # policies_layer_norm=False,
+    # mixture_layer_norm=False,
+    shared_layer_norm=True,
+    policies_layer_norm=True,
+    mixture_layer_norm=True,
     # hidden_activation='relu',
     # hidden_activation='tanh',
     hidden_activation='elu',
-    # shared_layer_normTrue,
-    # policies_layer_norm=True,
-    # mixture_layer_norm=True,
 )
-
 
 env_params = dict(
     is_render=False,
     obs_distances=False,  # If True obs contain 'distance' vectors instead poses
     # obs_distances=True,  # If True obs contain 'distance' vectors instead poses
     obs_with_img=False,
-    obs_with_ori=False,
-    goal_pose=None,
+    # obs_with_ori=False,
+    obs_with_ori=True,
+    goal_pose=(0.65, 0.65),
     rdn_goal_pos=True,
     robot_config=None,
     rdn_robot_config=True,
     goal_cost_weight=1.0e1,
     goal_tolerance=0.05,
-    ctrl_cost_weight=1.0e-2,
+    ctrl_cost_weight=5.0e-0,
     use_log_distances=False,
     log_alpha=1e-6,
     # max_time=PATH_LENGTH*DT,
@@ -164,10 +162,6 @@ def experiment(variant):
     ptu.set_gpu_mode(variant['gpu'])
     ptu.seed(SEED)
 
-    goal = variant['env_params'].get('goal')
-    variant['env_params']['goal_pose'] = goal
-    variant['env_params'].pop('goal')
-
     env = NormalizedBoxEnv(
         Reacher2D3DofGoalCompoEnv(**variant['env_params']),
         # normalize_obs=True,
@@ -187,13 +181,13 @@ def experiment(variant):
         params_file = os.path.join(variant['log_dir'], 'params.pkl')
         data = joblib.load(params_file)
         start_epoch = data['epoch']
-        policy = data['policy']
-        i_qf = data['qf']
-        i_qf2 = data['qf2']
-        i_vf = data['vf']
         u_qf = data['u_qf']
         u_qf2 = data['u_qf2']
         u_vf = data['u_vf']
+        i_qf = data['qf']
+        i_qf2 = data['qf2']
+        i_vf = data['vf']
+        policy = data['policy']
         env._obs_mean = data['obs_mean']
         env._obs_var = data['obs_var']
     else:
@@ -262,12 +256,11 @@ def experiment(variant):
         # if USE_Q2:
         #     u_qf2.clamp_all_params(min=-0.003, max=0.003)
         #     i_qf2.clamp_all_params(min=-0.003, max=0.003)
-
-        if not SOFTMAX_WEIGHTS:
-            pass
-            # set_average_mixing(policy, n_unintentional, obs_dim,
-            #                    batch_size=50,
-            #                    total_iters=5000)
+        #
+        # if not SOFTMAX_WEIGHTS:
+        #     set_average_mixing(policy, n_unintentional, obs_dim,
+        #                        batch_size=50,
+        #                        total_iters=1000)
 
     replay_buffer = MultiGoalReplayBuffer(
         max_replay_buffer_size=variant['replay_buffer_size'],
@@ -359,9 +352,6 @@ if __name__ == "__main__":
 
     expt_variant['env_params'] = env_params
     expt_variant['env_params']['is_render'] = args.render
-
-    # TODO: MAKE THIS A SCRIPT ARGUMENT
-    expt_variant['env_params']['goal'] = (0.65, 0.65)
 
     expt_variant['log_dir'] = args.log_dir
 

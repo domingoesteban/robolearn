@@ -1,6 +1,7 @@
 """
-Based on rllab's logger.
+This file is basically rlkit's logger, with little modifications.
 
+https://github.com/vitchyr/rlkit
 https://github.com/rll/rllab
 """
 from enum import Enum

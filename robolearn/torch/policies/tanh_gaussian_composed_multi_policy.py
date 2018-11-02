@@ -172,9 +172,6 @@ class TanhGaussianComposedMultiPolicy(PyTorchModule, ExplorationPolicy):
             self.add_policies_module("last_efc{}".format(pol_idx), last_efc,
                                      idx=pol_idx)
 
-        print(self)
-        input('wuuu')
-
         # Unshared Mixing-Weights Hidden Layers
         if composition_hidden_sizes is not None:
             for i, next_size in enumerate(composition_hidden_sizes):

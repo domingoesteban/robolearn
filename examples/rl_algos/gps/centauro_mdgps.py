@@ -1,7 +1,5 @@
 import numpy as np
 from robolearn_gym_envs.pybullet import CentauroObstacleEnv
-from robolearn_gym_envs.pybullet.centauro.centauro_params import BODY_PARTS
-import torch
 
 from robolearn.rl_algos.gps.mdgps import MDGPS
 
@@ -21,7 +19,6 @@ from robolearn.utils.launchers.launcher_util import setup_logger
 import robolearn.torch.pytorch_util as ptu
 
 import argparse
-import joblib
 
 # np.set_printoptions(precision=3, suppress=True)
 

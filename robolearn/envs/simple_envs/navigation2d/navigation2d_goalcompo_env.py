@@ -147,9 +147,6 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
 
     def step(self, action):
         action = np.array(action)
-        # if sum(action) != 0 and action[0] == action[1] and sum(action**2) != 2:
-        #     print(action)
-        #     raise ValueError
 
         action = action.ravel()
 

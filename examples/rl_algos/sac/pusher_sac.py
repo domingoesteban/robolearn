@@ -34,12 +34,11 @@ FRAME_SKIP = 10
 DT = SIM_TIMESTEP * FRAME_SKIP
 
 PATH_LENGTH = int(np.ceil(Tend / DT))
-PATHS_PER_EPOCH = 5 #10
-PATHS_PER_EVAL = 3 #3
+PATHS_PER_EPOCH = 5
+PATHS_PER_EVAL = 3
 PATHS_PER_HARD_UPDATE = 12
-BATCH_SIZE = 256
+BATCH_SIZE = 512
 
-# SEED = 10
 SEED = 110
 # NP_THREADS = 6
 
@@ -50,6 +49,8 @@ USE_Q2 = False
 
 OPTIMIZER = 'adam'
 # OPTIMIZER = 'rmsprop'
+
+NORMALIZE_OBS = False
 
 expt_params = dict(
     algo_name=SAC.__name__,
@@ -93,25 +94,25 @@ expt_params = dict(
 
 env_params = dict(
     is_render=False,
+    obs_distances=False,  # If True obs contain 'distance' vectors instead poses
+    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
     obs_with_img=False,
+    obs_with_ori=False,
     goal_poses=None,  # It will be setted later
     rdn_goal_pose=True,
     tgt_pose=None,  # It will be setted later
     rdn_tgt_object_pose=True,
-    sim_timestep=SIM_TIMESTEP,
-    frame_skip=FRAME_SKIP,
-    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
-    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
-    tgt_cost_weight=2.0,
+    robot_config=None,
+    rdn_robot_config=True,
+    tgt_cost_weight=3.0,
     goal_cost_weight=1.0,
-    ctrl_cost_weight=1.0e-3,
-    use_log_distances=True,
-    # use_log_distances=False,
-    log_alpha=1.e-1,  # In case use_log_distances=True
+    ctrl_cost_weight=1.0e-2,
+    goal_tolerance=0.01,
     # max_time=PATH_LENGTH*DT,
     max_time=None,
-    # subtask=None,
-    subtask=0,
+    sim_timestep=SIM_TIMESTEP,
+    frame_skip=FRAME_SKIP,
+    subtask=None,
     seed=SEED,
 )
 
@@ -185,12 +186,12 @@ def experiment(variant):
             reparameterize=REPARAM_POLICY,
         )
 
-        # Clamp model parameters
-        qf.clamp_all_params(min=-0.003, max=0.003)
-        vf.clamp_all_params(min=-0.003, max=0.003)
-        policy.clamp_all_params(min=-0.003, max=0.003)
-        if USE_Q2:
-            qf2.clamp_all_params(min=-0.003, max=0.003)
+        # # Clamp model parameters
+        # qf.clamp_all_params(min=-0.003, max=0.003)
+        # vf.clamp_all_params(min=-0.003, max=0.003)
+        # policy.clamp_all_params(min=-0.003, max=0.003)
+        # if USE_Q2:
+        #     qf2.clamp_all_params(min=-0.003, max=0.003)
 
     replay_buffer = SimpleReplayBuffer(
         max_replay_buffer_size=variant['replay_buffer_size'],

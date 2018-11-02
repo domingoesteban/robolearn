@@ -1,5 +1,5 @@
 """
-Run PyTorch Reinforce on Pusher2D3DofGoalCompoEnv.
+Run PyTorch SAC on OpenAI-GYM environments.
 
 NOTE: You need PyTorch 0.4
 """
@@ -10,6 +10,7 @@ import robolearn.torch.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management import SimpleReplayBuffer
+
 import gym
 
 from robolearn.torch.rl_algos.sac import SAC
@@ -59,7 +60,7 @@ def experiment(variant):
 
     algorithm = SAC(
         env=env,
-        # training_env=env,
+        training_env=env,
         save_environment=False,
         policy=policy,
         qf=qf,
@@ -74,13 +75,14 @@ def experiment(variant):
 
 
 PATH_LENGTH = 1000
-PATHS_PER_EPOCH = 1
+PATHS_PER_EPOCH = 5
 PATHS_PER_EVAL = 1
 
 SHARED_PARAMS = dict(
+    algo_name=SAC.__name__,
     algo_params=dict(
         # Common RLAlgo params
-        num_epochs=100,  # n_epochs
+        num_epochs=1000,  # n_epochs
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
@@ -129,7 +131,7 @@ def parse_args():
     # parser.add_argument('--expt_name', type=str, default=timestamp())
     # Logging arguments
     parser.add_argument('--snap_mode', type=str, default='gap_and_last')
-    parser.add_argument('--snap_gap', type=int, default=10)
+    parser.add_argument('--snap_gap', type=int, default=50)
     # parser.add_argument('--mode', type=str, default='local')
     parser.add_argument('--log_dir', type=str, default=None)
     parser.add_argument('--render', action="store_true")
