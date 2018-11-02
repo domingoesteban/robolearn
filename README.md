@@ -1,6 +1,6 @@
 # RoboLearn Python package
 
-<img src="robolearn_logo.svg" alt="robolearn_logo" width="100" height="100" class="center" />
+<img src="robolearn_logo2.png" alt="robolearn_logo" width="100" height="100" class="center" />
 
 "A Python package for Robot Learning"
 
@@ -12,7 +12,7 @@ The package is mainly focused on learning control.
 **This package is gradually becoming public**, so the public version is still in 
 development. Sorry for any inconvenience.
 
-![robolearn diagram](robolearn_diagram.svg)
+![robolearn diagram](robolearn_diagram.png)
 
 
 ## Algorithms
