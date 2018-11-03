@@ -1,18 +1,18 @@
 import numpy as np
 from robolearn_gym_envs.pybullet import CentauroObstacleEnv
 
-from robolearn.rl_algos.gps.mdgps import MDGPS
+from robolearn.algorithms.rl_algos import MDGPS
 
-from robolearn.rl_algos.gps.policies.lin_gauss_init import init_pd
+from robolearn.algorithms.rl_algos import init_pd
 from robolearn.torch.policies.gaussian_policy import GaussianPolicy
 
-from robolearn.rl_algos.gps.costs.cost_sum import CostSum
-from robolearn.rl_algos.gps.costs.cost_state import CostState
-from robolearn.rl_algos.gps.costs.cost_initial_state import CostInitialState
-from robolearn.rl_algos.gps.costs.cost_safe_distance import CostSafeDistance
-from robolearn.rl_algos.gps.costs.cost_action import CostAction
-from robolearn.rl_algos.gps.costs.cost_utils import RAMP_CONSTANT
-from robolearn.rl_algos.gps.costs.cost_utils import RAMP_FINAL_ONLY
+from robolearn.algorithms.rl_algos import CostSum
+from robolearn.algorithms.rl_algos import CostState
+from robolearn.algorithms.rl_algos import CostInitialState
+from robolearn.algorithms.rl_algos import CostSafeDistance
+from robolearn.algorithms.rl_algos import CostAction
+from robolearn.algorithms.rl_algos import RAMP_CONSTANT
+from robolearn.algorithms.rl_algos import RAMP_FINAL_ONLY
 
 from robolearn_gym_envs.utils.transformations_utils import create_quat_pose
 from robolearn.utils.launchers.launcher_util import setup_logger

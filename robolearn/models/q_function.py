@@ -5,8 +5,8 @@ from future.utils import with_metaclass
 class QFunction(with_metaclass(abc.ABCMeta, object)):
     """
     General state-action value function (Q-function) interface.
+    :math:`Q(s_t,a_t)`
     """
-
     def __init__(self, obs_dim, action_dim):
         self._obs_dim = obs_dim
         self._action_dim = action_dim

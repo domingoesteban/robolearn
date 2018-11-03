@@ -5,6 +5,7 @@ from future.utils import with_metaclass
 class Policy(with_metaclass(abc.ABCMeta, object)):
     """
     General policy superclass.
+    :math:`a_t = pi(s_t)`
     """
     def __init__(self, action_dim):
         self._action_dim = action_dim

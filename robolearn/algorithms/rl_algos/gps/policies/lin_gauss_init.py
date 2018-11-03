@@ -1,6 +1,6 @@
 import numpy as np
 import scipy as sp
-from robolearn.rl_algos.gps.policies.lin_gauss_policy import LinearGaussianPolicy
+from robolearn.algorithms.rl_algos import LinearGaussianPolicy
 
 
 def init_pd(dU, dX, T, x0,

@@ -29,8 +29,7 @@ class Normalizer(Module):
             self.bias.data.zero_()
 
     def forward(self, input):
-        return F.layer_norm(
-            input, self.normalized_shape, self.weight, self.bias, self.eps)
+        return torch.batch_norm(input, self.normalized_shape, self.weight, self.bias, self.eps)
 
     def extra_repr(self):
         return '{normalized_shape}, eps={eps}, ' \

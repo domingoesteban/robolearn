@@ -1,13 +1,13 @@
 import numpy as np
-from robolearn.rl_algos.gps.costs.cost_utils import evall1l2term
-from robolearn.rl_algos.gps.costs.cost_utils import evallogl2term
-from robolearn.rl_algos.gps.costs.cost_utils import get_ramp_multiplier
+from robolearn.algorithms.rl_algos import evall1l2term
+from robolearn.algorithms.rl_algos import evallogl2term
+from robolearn.algorithms.rl_algos import get_ramp_multiplier
 
-from robolearn.rl_algos.gps.costs.cost_utils import RAMP_CONSTANT
+from robolearn.algorithms.rl_algos import RAMP_CONSTANT
 
 
 class CostState(object):
-    def __init__(self, env, state_idxs, target_states=None, wps=None,
+    def __init__(self, state_idxs, target_states=None, wps=None,
                  ramp_option=RAMP_CONSTANT, wp_final_multiplier=1.0,
                  cost_type='logl2', l1_weight=0., l2_weight=1., alpha=1e-2,
                  ):

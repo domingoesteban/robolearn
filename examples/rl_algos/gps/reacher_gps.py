@@ -7,14 +7,11 @@ NOTE: You need PyTorch 0.4
 import numpy as np
 
 import robolearn.torch.pytorch_util as ptu
-from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
-from robolearn.utils.data_management import FakeReplayBuffer
 from robolearn_gym_envs.pybullet import Reacher2D3DofBulletEnv
 
-from robolearn.rl_algos.gps.mdgps import MDGPS
+from robolearn.algorithms.rl_algos import MDGPS
 
-from robolearn.torch.policies import TanhGaussianPolicy
 from robolearn.torch.policies import MlpPolicy
 from robolearn.torch.policies import LinearGaussianPolicy
 

@@ -527,9 +527,10 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         total_u_policy_loss = torch.sum(u_policy_loss)
 
         # Update Unintentional Policies
-        self._policy_optimizer.zero_grad()
-        total_u_policy_loss.backward()
-        self._policy_optimizer.step()
+        # self._policy_optimizer.zero_grad()
+        # total_u_policy_loss.backward()
+        # total_u_policy_loss.backward(retain_graph=True)
+        # self._policy_optimizer.step()
         # self._policies_optimizer.zero_grad()
         # total_u_policy_loss.backward()
         # self._policies_optimizer.step()
@@ -608,12 +609,18 @@ class IUWeightedMultiSAC(TorchIncrementalRLAlgorithm):
         i_policy_loss = (i_policy_kl_loss + i_policy_regu_loss)
 
         # Update Intentional Policies
-        self._policy_optimizer.zero_grad()
+        # self._policy_optimizer.zero_grad()
         # i_policy_loss.backward()
         # self._policy_optimizer.step()
-        self._mixing_optimizer.zero_grad()
-        i_policy_loss.backward()
-        self._mixing_optimizer.step()
+        # self._mixing_optimizer.zero_grad()
+        # i_policy_loss.backward()
+        # self._mixing_optimizer.step()
+
+        # Update both Intentional and Unintentional Policies at the same time
+        self._policy_optimizer.zero_grad()
+        total_iu_loss = total_u_policy_loss + i_policy_loss
+        total_iu_loss.backward()
+        self._policy_optimizer.step()
 
         # ########################### #
         # Intentional V-function Step #

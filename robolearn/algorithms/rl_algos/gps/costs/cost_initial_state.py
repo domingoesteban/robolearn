@@ -1,12 +1,12 @@
 import numpy as np
-from robolearn.rl_algos.gps.costs.cost_utils import evall1l2term
-from robolearn.rl_algos.gps.costs.cost_utils import evallogl2term
-from robolearn.rl_algos.gps.costs.cost_utils import get_ramp_multiplier
+from robolearn.algorithms.rl_algos import evall1l2term
+from robolearn.algorithms.rl_algos import evallogl2term
+from robolearn.algorithms.rl_algos import get_ramp_multiplier
 
-from robolearn.rl_algos.gps.costs.cost_utils import RAMP_CONSTANT
+from robolearn.algorithms.rl_algos import RAMP_CONSTANT
 
 
-class CostState(object):
+class CostInitialState(object):
     def __init__(self, state_idxs, target_states=None, wps=None,
                  ramp_option=RAMP_CONSTANT, wp_final_multiplier=1.0,
                  cost_type='logl2', l1_weight=0., l2_weight=1., alpha=1e-2,
@@ -59,7 +59,7 @@ class CostState(object):
             wp = wp * np.expand_dims(wpm, axis=-1)
 
             # Compute state penalty.
-            dist = x - tgt
+            dist = (x - x[0, :]) - tgt
 
             jx = np.tile(np.eye(dim_sensor), [T, 1, 1])
             jxx = np.zeros((T, dim_sensor, dim_sensor, dim_sensor))

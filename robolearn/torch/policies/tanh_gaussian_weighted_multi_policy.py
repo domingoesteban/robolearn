@@ -62,6 +62,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
             output_b_init_val=1e-2,
             pol_output_activation='linear',
             mix_output_activation='linear',
+            input_norm=False,
             shared_layer_norm=False,
             policies_layer_norm=False,
             mixture_layer_norm=False,
@@ -98,10 +99,6 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
         self._mixing_temperature = mixing_temperature  # Hyperparameter for exp.
         self._softmax_weights = softmax_weights
-        if softmax_weights:
-            self._softmax_fcn = nn.Softmax(dim=1)
-        else:
-            self._softmax_fcn = None
 
         # Initial size = Obs size
         in_size = self._input_size
@@ -117,6 +114,13 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         # ############# #
         # Shared Layers #
         # ############# #
+        if input_norm:
+            ln = nn.BatchNorm1d(in_size)
+            self.sfc_input = ln
+            self.add_shared_module("sfc_input", ln)
+        else:
+            self.sfc_input = None
+
         if shared_hidden_sizes is not None:
             for ii, next_size in enumerate(shared_hidden_sizes):
                 sfc = nn.Linear(in_size, next_size)
@@ -231,6 +235,11 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         # Add it to specific dictionaries
         self.add_mixing_module("mfc_last", mfc_last)
 
+        if softmax_weights:
+            self.mfc_softmax = nn.Softmax(dim=1)
+        else:
+            self.mfc_softmax = None
+
         self._reparameterize = reparameterize
 
         self._normal_dist = Normal(loc=ptu.zeros(action_dim),
@@ -288,6 +297,23 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         # ############# #
         # Shared Layers #
         # ############# #
+        if self.sfc_input is not None:
+            # # h = self.sfc_input(h)
+            if nbatch > 1:
+                h = self.sfc_input(h)
+            else:
+                h = torch.batch_norm(
+                    h,
+                    self.sfc_input.weight,
+                    self.sfc_input.bias,
+                    self.sfc_input.running_mean,
+                    self.sfc_input.running_var,
+                    True,  # TODO: True or False??
+                    self.sfc_input.momentum,
+                    self.sfc_input.eps,
+                    torch.backends.cudnn.enabled
+                )
+
         for ss, fc in enumerate(self._sfcs):
             h = fc(h)
 
@@ -364,8 +390,8 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
         mixture_coeff = \
             self.mfc_last(mh).reshape(-1, self._n_subpolicies, self.action_dim)
 
-        if self._softmax_fcn is not None:
-            mixture_coeff = self._softmax_fcn(mixture_coeff)
+        if self.mfc_softmax is not None:
+            mixture_coeff = self.mfc_softmax(mixture_coeff)
 
         # log_mixture_coeff = self.mix_output_activation(self.mfc_last(mh))
 

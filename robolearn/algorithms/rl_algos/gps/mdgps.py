@@ -8,30 +8,24 @@ import logging
 
 from robolearn.core.iterative_rl_algorithm import IterativeRLAlgorithm
 from robolearn.core import logger
-from robolearn.core import eval_util
-from robolearn.policies import ExplorationPolicy
 import robolearn.torch.pytorch_util as ptu
 
-import matplotlib.pyplot as plt
 # from robolearn.utils.plots.core import subplots
-from robolearn.utils.plots import plt_pause
 
 from collections import OrderedDict
 
-from robolearn.rl_algos.gps.policies.policy_prior import ConstantPolicyPrior
+from robolearn.algorithms.rl_algos import ConstantPolicyPrior
 
-from robolearn.utils.data_management import PathBuilder
-from robolearn.utils.samplers.exploration_rollout import exploration_rollout
-from robolearn.rl_algos.gps.utils import generate_noise
-from robolearn.rl_algos.gps.utils import IterationData
-from robolearn.rl_algos.gps.utils import TrajectoryInfo
-from robolearn.rl_algos.gps.utils import PolicyInfo
+from robolearn.algorithms.rl_algos import generate_noise
+from robolearn.algorithms.rl_algos import IterationData
+from robolearn.algorithms.rl_algos import TrajectoryInfo
+from robolearn.algorithms.rl_algos import PolicyInfo
 
 
-from robolearn.rl_algos.gps.dynamics.dynamics_lr_prior import DynamicsLRPrior
-from robolearn.rl_algos.gps.dynamics.dynamics_prior_gmm import DynamicsPriorGMM
+from robolearn.algorithms.rl_algos import DynamicsLRPrior
+from robolearn.algorithms.rl_algos import DynamicsPriorGMM
 
-from robolearn.rl_algos.gps.traj_opt.traj_opt_lqr import TrajOptLQR
+from robolearn.algorithms.rl_algos import TrajOptLQR
 
 
 class MDGPS(IterativeRLAlgorithm):

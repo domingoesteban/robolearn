@@ -5,6 +5,7 @@ from future.utils import with_metaclass
 class Transition(with_metaclass(abc.ABCMeta, object)):
     """
     General transition function interface.
+    :math:`s_{t+1} = T(s_t, a_t)`
     """
 
     def __init__(self, obs_dim, action_dim):

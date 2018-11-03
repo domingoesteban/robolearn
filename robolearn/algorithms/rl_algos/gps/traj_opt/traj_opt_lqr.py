@@ -3,7 +3,7 @@ from numpy.linalg import LinAlgError
 import scipy as sp
 import logging
 
-from robolearn.rl_algos.gps.traj_opt.traj_opt_utils import traj_distr_kl, traj_distr_kl_alt
+from robolearn.algorithms.rl_algos import traj_distr_kl, traj_distr_kl_alt
 
 print_DGD_log = False
 

@@ -5,6 +5,7 @@ from future.utils import with_metaclass
 class VFunction(with_metaclass(abc.ABCMeta, object)):
     """
     General state value function (V-function) interface.
+    :math:`V(s_t)`
     """
 
     def __init__(self, obs_dim):

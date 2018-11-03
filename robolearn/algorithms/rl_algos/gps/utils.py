@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.ndimage as sp_ndimage
-from robolearn.rl_algos.gps.policies.lin_gauss_policy import LinearGaussianPolicy
+from robolearn.algorithms.rl_algos import LinearGaussianPolicy
 
 
 def gauss_fit_joint_prior(pts, mu0, Phi, m, n0, dwts, dX, dU, sig_reg,
