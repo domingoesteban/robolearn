@@ -7,14 +7,14 @@ NOTE: You need PyTorch 0.4
 import os
 import numpy as np
 
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management import SimpleReplayBuffer
 
 from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
 
-from robolearn.torch.rl_algos.sac import SAC
+from robolearn.torch.algorithms.rl_algos import SAC
 
 from robolearn.torch.models import NNQFunction
 from robolearn.torch.models import NNVFunction

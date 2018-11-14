@@ -4,7 +4,7 @@ from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
 from robolearn.torch.models.values import NNMultiQFunction
 from robolearn_gym_envs.pybullet import CentauroTrayEnv
 from robolearn.utils.data_management import MultiGoalReplayBuffer
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 from torch.autograd import Variable
 
 

@@ -2,7 +2,7 @@ import numpy as np
 import numpy.random as nr
 
 from robolearn.utils.exploration_strategies.base import RawExplorationStrategy
-from robolearn.core.serializable import Serializable
+from robolearn.utils.serializable import Serializable
 
 
 class OUStrategy(RawExplorationStrategy, Serializable):

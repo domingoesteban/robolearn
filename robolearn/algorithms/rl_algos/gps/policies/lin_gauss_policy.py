@@ -1,5 +1,5 @@
 import numpy as np
-from robolearn.policies.base import Policy
+from robolearn.models.policies import Policy
 
 
 class LinearGaussianPolicy(Policy):

@@ -1,15 +1,12 @@
 import math
-import numpy as np
 import torch
 from torch import nn as nn
-from torch.distributions import Multinomial
 from torch.distributions import Normal
 from robolearn.torch.core import PyTorchModule
 from robolearn.torch.core import np_ify
 from torch.nn.modules.normalization import LayerNorm
-import robolearn.torch.pytorch_util as ptu
-from robolearn.policies.base import ExplorationPolicy
-from robolearn.torch.distributions import TanhNormal
+import robolearn.torch.utils.pytorch_util as ptu
+from robolearn.models.policies import ExplorationPolicy
 from collections import OrderedDict
 from itertools import chain
 

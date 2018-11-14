@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from robolearn.utils.plots import plt_pause
 
-from robolearn.core.serializable import Serializable
+from robolearn.utils.serializable import Serializable
 from gym.spaces.box import Box
 
 

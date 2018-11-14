@@ -6,13 +6,13 @@ NOTE: You need PyTorch 0.4
 
 import numpy as np
 
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management.simple_replay_buffer import SimpleReplayBuffer
 from robolearn_gym_envs.pybullet import Pusher2D3DofMultiGoalEnv
 
-from robolearn.torch.rl_algos.reinforce import Reinforce
+from robolearn.torch.algorithms.rl_algos.reinforce import Reinforce
 
 from robolearn.torch.policies import TanhGaussianPolicy
 

@@ -1,5 +1,5 @@
 from gym import Env
-from robolearn.core.serializable import Serializable
+from robolearn.utils.serializable import Serializable
 
 
 class ProxyEnv(Serializable, Env):

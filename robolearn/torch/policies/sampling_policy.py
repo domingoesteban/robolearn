@@ -2,9 +2,9 @@ import numpy as np
 import torch
 from torch.distributions import Normal
 
-from robolearn.torch.nn import Mlp
-from robolearn.policies.base import ExplorationPolicy
-import robolearn.torch.pytorch_util as ptu
+from robolearn.torch.utils.nn import Mlp
+from robolearn.models.policies import ExplorationPolicy
+import robolearn.torch.utils.pytorch_util as ptu
 
 
 class SamplingPolicy(Mlp, ExplorationPolicy):

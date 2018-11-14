@@ -5,9 +5,9 @@ import numpy as np
 import torch
 from torch import nn as nn
 
-import robolearn.torch.pytorch_util as ptu
-from robolearn.torch.nn import Mlp
-from robolearn.policies.base import ExplorationPolicy
+import robolearn.torch.utils.pytorch_util as ptu
+from robolearn.torch.utils.nn import Mlp
+from robolearn.models.policies import ExplorationPolicy
 from torch.distributions import Normal
 
 LOG_SIG_MAX = 2

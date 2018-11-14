@@ -8,14 +8,14 @@ import os
 import numpy as np
 import torch
 
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management import MultiGoalReplayBuffer
 
 from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
 
-from robolearn.torch.rl_algos.sac.iu_weightedmultisac \
+from robolearn.torch.algorithms.rl_algos.sac.iu_weightedmultisac \
     import IUWeightedMultiSAC
 
 from robolearn.torch.models import NNQFunction

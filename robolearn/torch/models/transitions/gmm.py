@@ -1,8 +1,8 @@
 import torch
 import numpy as np
 from robolearn.torch.core import PyTorchModule
-from robolearn.core.serializable import Serializable
-import robolearn.torch.pytorch_util as ptu
+from robolearn.utils.serializable import Serializable
+import robolearn.torch.utils.pytorch_util as ptu
 
 
 class GMM(PyTorchModule):

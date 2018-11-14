@@ -1,16 +1,15 @@
 from robolearn.utils.samplers import rollout
 from robolearn.torch.core import PyTorchModule
-from robolearn.torch.pytorch_util import set_gpu_mode
+from robolearn.torch.utils.pytorch_util import set_gpu_mode
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 
 from robolearn.envs.simple_envs.navigation2d.navigation2d_goalcompo_env import Navigation2dGoalCompoEnv
-from robolearn.torch.policies import MultiPolicySelector
 from robolearn.torch.policies import WeightedMultiPolicySelector
-from robolearn.policies import MakeDeterministic
+from robolearn.models.policies import MakeDeterministic
 import argparse
 import joblib
 import uuid
-from robolearn.core import logger
+from robolearn.utils.logging import logger
 import json
 
 filename = str(uuid.uuid4())

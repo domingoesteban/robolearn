@@ -6,7 +6,7 @@ NOTE: You need PyTorch 0.4
 
 import numpy as np
 
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn_gym_envs.pybullet import Reacher2D3DofBulletEnv
 

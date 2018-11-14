@@ -4,17 +4,16 @@ Run PyTorch IU Multi Soft Actor Critic on CentauroTrayEnv.
 NOTE: You need PyTorch 0.4
 """
 
-import os
 import numpy as np
 
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management import MultiGoalReplayBuffer
 
 from robolearn_gym_envs.pybullet import CentauroTrayEnv
 
-from robolearn.torch.rl_algos.sac.iu_multisac import IUMultiSAC
+from robolearn.torch.algorithms.rl_algos.sac.iu_multisac import IUMultiSAC
 
 
 from robolearn.torch.models import NNQFunction, NNVFunction
@@ -24,7 +23,6 @@ from robolearn.torch.policies import TanhGaussianMultiPolicy
 from robolearn.torch.policies import MixtureTanhGaussianMultiPolicy
 
 import argparse
-import joblib
 
 # np.seterr(all='raise')  # WARNING RAISE ERROR IN NUMPY
 

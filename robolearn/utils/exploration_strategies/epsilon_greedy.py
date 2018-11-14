@@ -3,7 +3,7 @@ import random
 from gym.spaces import Discrete
 
 from robolearn.utils.exploration_strategies.base import RawExplorationStrategy
-from robolearn.core.serializable import Serializable
+from robolearn.utils.serializable import Serializable
 
 
 class EpsilonGreedy(RawExplorationStrategy, Serializable):

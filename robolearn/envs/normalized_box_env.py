@@ -1,7 +1,7 @@
 import numpy as np
 from gym.spaces import Box
 
-from robolearn.core.serializable import Serializable
+from robolearn.utils.serializable import Serializable
 from robolearn.envs.proxy_env import ProxyEnv
 
 

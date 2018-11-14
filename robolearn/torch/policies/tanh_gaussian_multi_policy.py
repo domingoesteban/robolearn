@@ -4,11 +4,11 @@ from torch import nn as nn
 from torch.nn import functional as F
 from robolearn.torch.core import PyTorchModule
 from robolearn.torch.core import np_ify
-from robolearn.torch.nn import LayerNorm
-import robolearn.torch.pytorch_util as ptu
-from robolearn.policies.base import ExplorationPolicy
-from robolearn.torch.nn import identity
-from robolearn.torch.distributions import TanhNormal
+from robolearn.torch.utils.nn import LayerNorm
+import robolearn.torch.utils.pytorch_util as ptu
+from robolearn.models.policies import ExplorationPolicy
+from robolearn.torch.utils.nn import identity
+from robolearn.torch.utils.distributions import TanhNormal
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20

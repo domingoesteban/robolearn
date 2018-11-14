@@ -5,11 +5,11 @@ import numpy as np
 import torch
 from torch import nn as nn
 
-import robolearn.torch.pytorch_util as ptu
-from robolearn.torch.nn import Mlp
-from robolearn.policies.base import ExplorationPolicy
-from robolearn.torch.distributions import TanhNormal
-from robolearn.torch.distributions import TanhMultivariateNormal
+import robolearn.torch.utils.pytorch_util as ptu
+from robolearn.torch.utils.nn import Mlp
+from robolearn.models.policies import ExplorationPolicy
+from robolearn.torch.utils.distributions import TanhNormal
+from robolearn.torch.utils.distributions import TanhMultivariateNormal
 
 LOG_SIG_MAX = 0.0  # 2
 LOG_SIG_MIN = -3.0  # 20

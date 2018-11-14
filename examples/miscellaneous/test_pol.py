@@ -1,10 +1,9 @@
 import torch
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 
 from robolearn.torch.policies import TanhGaussianPolicy
-from robolearn.torch.policies import MlpPolicy
 from robolearn.torch.policies import TanhMlpPolicy
-from robolearn.policies import ExplorationPolicy
+from robolearn.models.policies import ExplorationPolicy
 
 
 obs_dim = 3

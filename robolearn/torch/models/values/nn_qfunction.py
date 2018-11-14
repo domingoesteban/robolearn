@@ -1,6 +1,6 @@
 import numpy as np
-from robolearn.torch.nn import FlattenMlp
-from robolearn.core.serializable import Serializable
+from robolearn.torch.utils.nn import FlattenMlp
+from robolearn.utils.serializable import Serializable
 from robolearn.models import QFunction
 
 

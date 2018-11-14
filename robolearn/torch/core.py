@@ -1,14 +1,15 @@
 import abc
+from future.utils import with_metaclass
 import numpy as np
 from collections import OrderedDict
 
 from torch import nn as nn
 
-from robolearn.torch import pytorch_util as ptu
-from robolearn.core.serializable import Serializable
+from robolearn.torch.utils import pytorch_util as ptu
+from robolearn.utils.serializable import Serializable
 
 
-class PyTorchModule(nn.Module, Serializable, metaclass=abc.ABCMeta):
+class PyTorchModule(with_metaclass(abc.ABCMeta, nn.Module, Serializable)):
 
     def get_param_values(self):
         return self.state_dict()

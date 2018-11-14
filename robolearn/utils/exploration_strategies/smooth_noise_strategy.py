@@ -3,7 +3,7 @@ import numpy.random as nr
 import scipy.ndimage as sp_ndimage
 
 from robolearn.utils.exploration_strategies.base import ExplorationStrategy
-from robolearn.core.serializable import Serializable
+from robolearn.utils.serializable import Serializable
 
 
 class SmoothNoiseStrategy(ExplorationStrategy, Serializable):

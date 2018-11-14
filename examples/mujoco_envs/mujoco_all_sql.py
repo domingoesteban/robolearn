@@ -6,12 +6,12 @@ NOTE: You need PyTorch 0.4
 import gym
 import numpy as np
 
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 
 from robolearn.torch.policies import SamplingPolicy
-from robolearn.torch.rl_algos.sql import SQL
+from robolearn.torch.algorithms.rl_algos import SQL
 from robolearn.torch.models import NNQFunction
 
 import argparse

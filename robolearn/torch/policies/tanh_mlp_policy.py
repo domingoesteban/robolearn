@@ -1,5 +1,4 @@
-import torch
-from robolearn.core.serializable import Serializable
+from robolearn.utils.serializable import Serializable
 from robolearn.torch.policies.mlp_policy import MlpPolicy
 
 

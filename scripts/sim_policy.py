@@ -1,10 +1,10 @@
 from robolearn.utils.samplers import rollout
 from robolearn.torch.core import PyTorchModule
-from robolearn.torch.pytorch_util import set_gpu_mode
+from robolearn.torch.utils.pytorch_util import set_gpu_mode
 import argparse
 import joblib
 import uuid
-from robolearn.core import logger
+from robolearn.utils.logging import logger
 
 filename = str(uuid.uuid4())
 

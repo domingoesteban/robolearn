@@ -1,11 +1,11 @@
 import numpy as np
 from robolearn.torch.core import PyTorchModule
-from robolearn.policies.base import Policy
+from robolearn.models.policies import Policy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from robolearn.core.serializable import Serializable
-import robolearn.torch.pytorch_util as ptu
+from robolearn.utils.serializable import Serializable
+import robolearn.torch.utils.pytorch_util as ptu
 
 
 class LinearGaussianPolicy(PyTorchModule, Serializable, Policy):

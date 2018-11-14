@@ -12,7 +12,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib.colors as mcolors
 import gym
 
-from robolearn.core.serializable import Serializable
+from robolearn.utils.serializable import Serializable
 from robolearn.utils.plots import plt_pause
 
 COLOR_DICT = dict(zip(mcolors.CSS4_COLORS.keys(),

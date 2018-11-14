@@ -6,7 +6,7 @@ NOTE: You need PyTorch 0.4
 
 import numpy as np
 
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management import MultiGoalReplayBuffer
@@ -14,14 +14,13 @@ from robolearn.utils.data_management import MultiGoalReplayBuffer
 from robolearn.envs.simple_envs.navigation2d import Navigation2dGoalCompoEnv
 from robolearn.envs.simple_envs.navigation2d import MultiQFPolicyPlotter
 
-from robolearn.torch.rl_algos.sac.iu_weightedmultisac import IUWeightedMultiSAC
+from robolearn.torch.algorithms.rl_algos.sac.iu_weightedmultisac import IUWeightedMultiSAC
 
 from robolearn.torch.models import NNQFunction, NNVFunction
 from robolearn.torch.models import NNMultiQFunction, NNMultiVFunction
 
 from robolearn.torch.policies import TanhGaussianMultiPolicy
 from robolearn.torch.policies import MixtureTanhGaussianMultiPolicy
-from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
 
 # from robolearn.torch.sac.policies import WeightedTanhGaussianMultiPolicy
 # from robolearn.torch.sac.policies import MultiPolicySelector

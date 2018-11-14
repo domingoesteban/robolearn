@@ -1,10 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button, RadioButtons
+from matplotlib.widgets import RadioButtons
 import os
-import torch
 # from torch.autograd import Variable
-import robolearn.torch.pytorch_util as ptu
 from robolearn.utils.plots import canvas_draw
 
 

@@ -1,8 +1,7 @@
 import numpy as np
-from robolearn.torch.nn import Mlp
-from robolearn.policies.base import Policy
-from robolearn.core.serializable import Serializable
-import robolearn.torch.pytorch_util as ptu
+from robolearn.torch.utils.nn import Mlp
+from robolearn.models.policies import Policy
+from robolearn.utils.serializable import Serializable
 
 
 class MlpPolicy(Mlp, Serializable, Policy):

@@ -6,7 +6,7 @@ NOTE: You need PyTorch 0.4
 
 import numpy as np
 
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.utils.data_management.multigoal_replay_buffer import MultiGoalReplayBuffer
@@ -17,7 +17,6 @@ from robolearn.torch.sql.iu_sql import IUSQL
 
 from robolearn.torch.sql.value_functions import NNQFunction
 from robolearn.torch.sql.value_functions import AvgNNQFunction
-from robolearn.torch.sql.value_functions import SumNNQFunction
 # from robolearn.torch.policies import TanhGaussianPolicy
 from robolearn.torch.sql.policies import StochasticPolicy
 

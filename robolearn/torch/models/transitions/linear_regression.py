@@ -1,11 +1,10 @@
 import torch
 import torch.nn as nn
-from torch.distributions.normal import Normal
 from robolearn.torch.core import PyTorchModule
-from robolearn.core.serializable import Serializable
-import robolearn.torch.pytorch_util as ptu
+from robolearn.utils.serializable import Serializable
+import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.models import Transition
-from robolearn.torch.ops.gauss_fit_joint_prior import gauss_fit_joint_prior
+from robolearn.torch.utils.ops.gauss_fit_joint_prior import gauss_fit_joint_prior
 
 
 class TVLGDynamics(PyTorchModule, Transition):

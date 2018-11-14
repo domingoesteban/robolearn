@@ -4,18 +4,15 @@ import os.path as osp
 import pickle
 import random
 import sys
-import time
-import uuid
 from collections import namedtuple
 
-import __main__ as main
 import datetime
 import dateutil.tz
 import numpy as np
 
-from robolearn.core import logger
+from robolearn.utils.logging import logger
 from robolearn.utils.launchers import config
-from robolearn.torch.pytorch_util import set_gpu_mode
+from robolearn.torch.utils.pytorch_util import set_gpu_mode
 
 GitInfo = namedtuple('GitInfo', ['code_diff', 'commit_hash', 'branch_name'])
 

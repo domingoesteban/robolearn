@@ -1,6 +1,6 @@
 import numpy as np
-from robolearn.torch.nn import Mlp
-from robolearn.core.serializable import Serializable
+from robolearn.torch.utils.nn import Mlp
+from robolearn.utils.serializable import Serializable
 from robolearn.models import VFunction
 
 

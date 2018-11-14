@@ -6,9 +6,9 @@ import math
 import copy
 import logging
 
-from robolearn.core.iterative_rl_algorithm import IterativeRLAlgorithm
-from robolearn.core import logger
-import robolearn.torch.pytorch_util as ptu
+from robolearn.algorithms.rl_algos.iterative_rl_algorithm import IterativeRLAlgorithm
+from robolearn.utils.logging import logger
+import robolearn.torch.utils.pytorch_util as ptu
 
 # from robolearn.utils.plots.core import subplots
 

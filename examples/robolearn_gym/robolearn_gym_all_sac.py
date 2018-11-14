@@ -4,16 +4,15 @@ Run PyTorch Soft Actor Critic on some Gym Envs.
 NOTE: You need PyTorch 0.3 or more (to have torch.distributions)
 """
 import gym
-import robolearn_gym_envs
 import numpy as np
 
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 
 from robolearn.torch.policies import TanhGaussianPolicy
 from rlkit.torch.sac.sac import SoftActorCritic
-from robolearn.torch.nn import FlattenMlp
+from robolearn.torch.utils.nn import FlattenMlp
 
 import argparse
 

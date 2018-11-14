@@ -1,14 +1,11 @@
-import numpy as np
 import torch
 from torch import nn as nn
 from torch.nn import functional as F
 from torch.distributions import Multinomial
 from robolearn.torch.core import PyTorchModule
 from robolearn.torch.core import np_ify
-import robolearn.torch.pytorch_util as ptu
-from robolearn.policies.base import ExplorationPolicy
-from robolearn.torch.nn import identity
-from robolearn.torch.distributions import TanhNormal
+import robolearn.torch.utils.pytorch_util as ptu
+from robolearn.models.policies import ExplorationPolicy
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20

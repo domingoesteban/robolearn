@@ -1,12 +1,12 @@
 from robolearn.utils.samplers import rollout
 from robolearn.torch.core import PyTorchModule
-from robolearn.torch.pytorch_util import set_gpu_mode
+from robolearn.torch.utils.pytorch_util import set_gpu_mode
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn_gym_envs.pybullet import CentauroTrayEnv
 from robolearn.torch.policies import MultiPolicySelector
 from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.torch.policies import TanhGaussianPolicy
-from robolearn.policies import MakeDeterministic
+from robolearn.models.policies import MakeDeterministic
 from robolearn.utils.plots import plot_reward_composition
 from robolearn.utils.plots import plot_reward_iu
 from robolearn.utils.plots import plot_weigths_unintentionals
@@ -15,10 +15,10 @@ from robolearn.utils.plots import plot_q_vals
 import argparse
 import joblib
 import uuid
-from robolearn.core import logger
+from robolearn.utils.logging import logger
 import json
 import numpy as np
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 
 filename = str(uuid.uuid4())
 SEED = 110

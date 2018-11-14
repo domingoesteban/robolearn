@@ -16,7 +16,7 @@ from robolearn.algorithms.rl_algos import RAMP_FINAL_ONLY
 
 from robolearn_gym_envs.utils.transformations_utils import create_quat_pose
 from robolearn.utils.launchers.launcher_util import setup_logger
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 
 import argparse
 

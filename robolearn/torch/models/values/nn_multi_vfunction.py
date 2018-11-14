@@ -1,11 +1,11 @@
 import numpy as np
 from robolearn.torch.core import PyTorchModule
-from robolearn.core.serializable import Serializable
+from robolearn.utils.serializable import Serializable
 from robolearn.torch.core import np_ify
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 import torch.nn as nn
 
-from robolearn.torch.nn import LayerNorm
+from robolearn.torch.utils.nn import LayerNorm
 from robolearn.models import VFunction
 
 

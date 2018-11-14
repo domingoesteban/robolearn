@@ -1,15 +1,13 @@
-import gym
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 
 from robolearn.utils.samplers import rollout
 from robolearn.torch.core import PyTorchModule
-from robolearn.torch.pytorch_util import set_gpu_mode
+from robolearn.torch.utils.pytorch_util import set_gpu_mode
 import argparse
 import joblib
 import uuid
 import json
-from robolearn.core import logger
-import robolearn_gym_envs
+from robolearn.utils.logging import logger
 from robolearn_gym_envs.pybullet import Pusher2D3DofGoalCompoEnv
 from robolearn_gym_envs.pybullet import CogimonLocomotionBulletEnv
 

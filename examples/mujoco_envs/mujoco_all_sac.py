@@ -6,12 +6,12 @@ NOTE: You need PyTorch 0.3 or more (to have torch.distributions)
 import gym
 import numpy as np
 
-import robolearn.torch.pytorch_util as ptu
+import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.torch.policies import TanhGaussianPolicy
-from robolearn.torch.rl_algos.sac import SAC
-from robolearn.torch.nn import FlattenMlp
+from robolearn.torch.algorithms.rl_algos import SAC
+from robolearn.torch.utils.nn import FlattenMlp
 
 import argparse
 
