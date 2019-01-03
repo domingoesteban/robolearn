@@ -3,9 +3,15 @@ import matplotlib.pyplot as plt
 import argparse
 import joblib
 import json
+import os
 
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.envs.simple_envs.navigation2d import Navigation2dGoalCompoEnv
+from robolearn.utils.plots.core import subplots
+
+from robolearn.utils.plots.core import set_latex_plot
+
+set_latex_plot()
 
 
 def plot_v_fcn(i_vf, u_vf):
@@ -30,10 +36,12 @@ def plot_v_fcn(i_vf, u_vf):
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
 
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
+        ax.set_xlabel('X', fontweight='bold')
+        ax.set_ylabel('Y', fontweight='bold')
         ax.axis('equal')
         ax.set_aspect('equal', 'box')
+
+        ax.set_frame_on(False)
 
     # Compute and ploy Sub-tasks Value-Fcn
     n_unintentions = u_vf.n_heads if u_vf is not None else 0
@@ -45,24 +53,26 @@ def plot_v_fcn(i_vf, u_vf):
     subgoals_fig.suptitle('V-values')
 
     # Compute and plot Main Task Value-fcn
-    values, _ = i_vf.get_values(all_obs)
-    plot_v_contours(subgoals_axs[0, 0], values)
-    subgoals_axs[0, 0].set_title("Main Task")
+    if i_vf is not None:
+        values, _ = i_vf.get_values(all_obs)
+        plot_v_contours(subgoals_axs[0, 0], values)
+        subgoals_axs[0, 0].set_title("Main Task")
 
-    for aa in range(n_unintentions):
-        row = (aa+1) // n_cols
-        col = (aa+1) % n_cols
-        subgo_ax = subgoals_axs[row, col]
-        values, _ = u_vf.get_values(all_obs, val_idxs=[aa])
-        values = values[0]
+        for aa in range(n_unintentions):
+            row = (aa+1) // n_cols
+            col = (aa+1) % n_cols
+            subgo_ax = subgoals_axs[row, col]
+            values, _ = u_vf.get_values(all_obs, val_idxs=[aa])
+            values = values[0]
 
-        subgo_ax.set_title("Sub-Task %02d" % aa)
-        plot_v_contours(subgo_ax, values)
+            subgo_ax.set_title("Sub-Task %02d" % aa)
+            plot_v_contours(subgo_ax, values)
 
 
 def plot_q_fcn(i_qf, i_qf2, u_qf, u_qf2, obs, policy):
     # Load environment
-    with open('variant.json') as json_data:
+    dirname = os.path.dirname(args.file)
+    with open(os.path.join(dirname, 'variant.json')) as json_data:
         env_params = json.load(json_data)['env_params']
 
     env = NormalizedBoxEnv(
@@ -74,16 +84,18 @@ def plot_q_fcn(i_qf, i_qf2, u_qf, u_qf2, obs, policy):
         obs_var=None,
         obs_alpha=0.001,
     )
-    env.reset()
-    env.render()
+    # env.reset()
+    # env.render()
 
     obs = np.array(obs)
     n_action_samples = 100
     x_min, y_min = env.action_space.low
     x_max, y_max = env.action_space.high
     delta = 0.05
-    xlim = (1.1*x_min, 1.1*x_max)
-    ylim = (1.1*y_min, 1.1*y_max)
+    # xlim = (1.1*x_min, 1.1*x_max)
+    # ylim = (1.1*y_min, 1.1*y_max)
+    xlim = (1.0*x_min, 1.0*x_max)
+    ylim = (1.0*y_min, 1.0*y_max)
     all_x = np.arange(x_min, x_max, delta)
     all_y = np.arange(y_min, y_max, delta)
     xy_mesh = np.meshgrid(all_x, all_y)
@@ -106,10 +118,11 @@ def plot_q_fcn(i_qf, i_qf2, u_qf, u_qf2, obs, policy):
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
 
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
+        ax.set_xlabel('Vel. X', fontweight='bold', fontsize=18)
+        ax.set_ylabel('Vel. Y', fontweight='bold', fontsize=18)
         ax.axis('equal')
         ax.set_aspect('equal', 'box')
+        ax.grid(False)
 
     def plot_action_samples(ax, actions):
         x, y = actions[:, 0], actions[:, 1]
@@ -120,12 +133,17 @@ def plot_q_fcn(i_qf, i_qf2, u_qf, u_qf2, obs, policy):
     for ob in obs:
         all_obs = np.broadcast_to(ob, (all_acts.shape[0], 2))
 
-        fig, all_axs = plt.subplots(1, n_unintentions + 1)
-        fig.suptitle('Q-val Observation: ' + str(ob))
+        fig, all_axs = \
+            subplots(1, n_unintentions + 1,
+                         gridspec_kw={'wspace': 0, 'hspace': 0},
+        )
+        # fig.suptitle('Q-val Observation: ' + str(ob))
+        fig.tight_layout()
+        fig.canvas.set_window_title('q_vals_%1d_%1d' % (ob[0], ob[1]))
 
         all_axs = np.atleast_1d(all_axs)
 
-        all_axs[0].set_title('Main Task')
+        all_axs[0].set_title('Main Task', fontdict={'fontsize': 30, 'fontweight': 'medium'})
         q_vals = i_qf.get_values(all_obs, all_acts)[0]
         if i_qf2 is not None:
             q2_vals = i_qf2.get_values(all_obs, all_acts)[0]
@@ -148,13 +166,16 @@ def plot_q_fcn(i_qf, i_qf2, u_qf, u_qf2, obs, policy):
                                             **pol_kwargs
                                             )[0]
         plot_action_samples(all_axs[0], action_samples)
+        all_axs[0].set_xticklabels([])
+        all_axs[0].set_yticklabels([])
 
         for aa in range(n_unintentions):
             subgo_ax = all_axs[aa + 1]
-            subgo_ax.set_title('Sub-Task %02d' % aa)
+            subgo_ax.set_title('Sub-Task %02d' % (aa+1), fontdict={'fontsize': 30, 'fontweight': 'medium'} )
 
             q_vals = u_qf.get_values(all_obs, all_acts, val_idxs=[aa])[0]
             q_vals = q_vals[0]
+
             if u_qf2 is not None:
                 q2_vals = u_qf2.get_values(all_obs, all_acts)[0]
                 q2_vals = q2_vals[0]
@@ -178,6 +199,11 @@ def plot_q_fcn(i_qf, i_qf2, u_qf, u_qf2, obs, policy):
                                                 )[0]
             plot_action_samples(subgo_ax, action_samples)
 
+            subgo_ax.get_yaxis().set_visible(False)
+            subgo_ax.set_xticklabels([])
+
+    # plt.subplots_adjust(wspace=0, hspace=0)
+
 
 def main(args):
     data = joblib.load(args.file)
@@ -197,13 +223,17 @@ def main(args):
         u_vf = None
     i_qf = data['qf']
     i_qf2 = data['qf2']
-    i_vf = data['vf']
+    if 'vf' in data.keys():
+        i_vf = data['vf']
+    else:
+        i_vf = None
 
     q_fcn_obs = [
-        (-2.0, 4),
-        (-2.0, -2.0),
-        (4, -2.0),
-        (-7, -7.00),
+        (4, 4),
+        (-2, 4),
+        (4, -2),
+        (-6, -6),
+        (-2, -2),
     ]
 
     # QF Plot

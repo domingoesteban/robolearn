@@ -1,8 +1,7 @@
 import numpy as np
 
 
-# TODO: CHANGE NAME TO STACK_PATHS
-def split_paths(paths):
+def stack_paths(paths):
     """
     Stack multiples obs/actions/etc. from different paths
     :param paths: List of paths, where one path is something returned from
@@ -28,8 +27,8 @@ def split_paths(paths):
     return rewards, terminals, obs, actions, next_obs
 
 
-def split_paths_to_dict(paths):
-    rewards, terminals, obs, actions, next_obs = split_paths(paths)
+def stack_paths_to_dict(paths):
+    rewards, terminals, obs, actions, next_obs = stack_paths(paths)
     return dict(
         rewards=rewards,
         terminals=terminals,

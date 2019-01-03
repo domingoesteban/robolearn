@@ -167,6 +167,49 @@ def plot_process_iu_values_errors(csv_file, n_unintentional=None, block=False):
     plt.show(block=block)
 
 
+def plot_process_iu_alphas(csv_file, n_unintentional=None, block=False):
+    labels_to_plot = ['Alphas']
+
+    if n_unintentional is None:
+        n_unintentional = 0
+    else:
+        n_unintentional += 1
+
+    # Add Intentional-Unintentional Label
+    new_labels = list()
+    for label in labels_to_plot:
+        for uu in range(n_unintentional):
+            new_string = ('[U-%02d] ' % uu) + label
+            new_labels.append(new_string)
+
+        new_string = '[I] ' + label
+        new_labels.append(new_string)
+
+    n_subplots = len(labels_to_plot) * (n_unintentional + 1)
+
+    try:
+        data = get_csv_data(csv_file, new_labels)
+    except:
+        print("There is no alphas data to show!!")
+        return
+
+    fig, axs = subplots(n_subplots)
+    if not isinstance(axs, np.ndarray):
+        axs = np.array([axs])
+    fig.subplots_adjust(hspace=0)
+    fig.suptitle('Alphas', fontweight='bold')
+
+    for aa, ax in enumerate(axs):
+        ax.plot(data[aa])
+        ax.set_ylabel(new_labels[aa])
+        plt.setp(ax.get_xticklabels(), visible=False)
+
+    axs[-1].set_xlabel('Episodes')
+    plt.setp(axs[-1].get_xticklabels(), visible=True)
+
+    plt.show(block=block)
+
+
 def plot_process_general_data(csv_file, block=False):
     labels_to_plot = [
         # 'mean-sq-bellman-error',

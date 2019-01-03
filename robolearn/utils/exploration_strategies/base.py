@@ -1,6 +1,7 @@
 import abc
 
-from rlkit.policies.base import ExplorationPolicy, SerializablePolicy
+from robolearn.models.policies.base import ExplorationPolicy
+from robolearn.models.policies.base import SerializablePolicy
 
 
 class ExplorationStrategy(object):

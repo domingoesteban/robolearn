@@ -15,9 +15,9 @@ def seed(seed):
 
 
 def soft_update_from_to(source, target, tau):
-    for target_param, param in zip(target.parameters(), source.parameters()):
+    for target_param, source_param in zip(target.parameters(), source.parameters()):
         target_param.data.copy_(
-            target_param.data * (1.0 - tau) + param.data * tau
+            target_param.data * (1.0 - tau) + source_param.data * tau
         )
 
 
@@ -79,7 +79,7 @@ def fanin_init_weights_like(tensor):
     return new_tensor
 
 
-def xavier_init(tensor, gain=1, uniform=True):
+def xavier_initOLD(tensor, gain=1, uniform=True):
     if uniform:
         return xavier_uniform_init(tensor, gain)
     else:
@@ -94,56 +94,92 @@ def xavier_uniform_init(tensor, gain=1):
     return torch.nn.init.xavier_uniform_(tensor, gain=gain)
 
 
-def layer_init_xavier_normal(layer, activation='relu', b=0.01):
-    if activation.lower() in ['relu']:
-        nn.init.xavier_normal_(layer.weight,
-                               gain=nn.init.calculate_gain('relu')
-                               )
-    elif activation in ['leaky_relu']:
-        nn.init.xavier_normal_(layer.weight,
-                               gain=nn.init.calculate_gain('leaky_relu')
-                               )
-    elif activation.lower() in ['tanh']:
-        nn.init.xavier_normal_(layer.weight,
-                               gain=nn.init.calculate_gain('tanh')
-                               )
-    elif activation.lower() in ['sigmoid']:
-        nn.init.xavier_normal_(layer.weight,
-                               gain=nn.init.calculate_gain('sigmoid')
-                               )
-    elif activation.lower() in ['linear']:
-        nn.init.xavier_normal_(layer.weight,
-                               gain=nn.init.calculate_gain('linear')
-                               )
-    elif activation.lower() in ['elu']:
-        nn.init.xavier_normal_(layer.weight,
-                               gain=nn.init.calculate_gain('relu')
-                               )
-    elif activation.lower() in ['selu']:
-        nn.init.xavier_normal_(layer.weight,
-                               gain=nn.init.calculate_gain('relu')
-                               )
-    elif activation.lower() in ['0.1']:
-        nn.init.xavier_normal_(layer.weight,
-                               gain=0.1,
-                               )
-    elif activation.lower() in ['0.01']:
-        nn.init.xavier_normal_(layer.weight,
-                               gain=0.01,
-                               )
-    elif activation.lower() in ['0.001']:
-        nn.init.xavier_normal_(layer.weight,
-                               gain=0.001,
-                               )
-    elif activation.lower() in ['0.003']:
-        nn.init.xavier_normal_(layer.weight,
-                               gain=0.001,
-                               )
+def layer_init(layer, option='xavier_normal', activation='relu', b=0.01):
+    if option.lower().startswith('xavier'):
+        init_weight_xavier(layer=layer, option=option, activation=activation)
+    elif option.lower().startswith('uniform'):
+        init_weight_uniform(layer=layer, activation=activation)
+    elif option.lower().startswith('normal'):
+        init_weight_normal(layer=layer, activation=activation)
     else:
-        raise AttributeError('Wrong option')
+        raise ValueError("Wrong init option")
 
     if hasattr(layer, 'bias'):
         fill(layer.bias, b)
+
+
+def init_weight_uniform(layer, activation='1e-3'):
+    if isinstance(activation, float):
+        a = -activation
+        b = activation
+    else:
+        a = -1.e-3
+        b = 1.e-3
+    nn.init.uniform_(layer.weight, a=a, b=b)
+
+
+def init_weight_normal(layer, activation='1e2'):
+    if isinstance(activation, float):
+        std = activation
+    else:
+        std = 1.e-3
+    nn.init.normal_(layer.weight, mean=0., std=std)
+
+
+def init_weight_xavier(layer, option='xavier_normal', activation='relu'):
+    if option == 'xavier_normal':
+        xavier_fcn = nn.init.xavier_normal_
+    elif option == 'xavier_normal':
+        xavier_fcn = nn.init.xavier_uniform_
+    else:
+        raise ValueError("Wrong init option")
+
+    if activation.lower() in ['relu']:
+        xavier_fcn(layer.weight,
+                   gain=nn.init.calculate_gain('relu')
+                   )
+    elif activation in ['leaky_relu']:
+        xavier_fcn(layer.weight,
+                   gain=nn.init.calculate_gain('leaky_relu')
+                   )
+    elif activation.lower() in ['tanh']:
+        xavier_fcn(layer.weight,
+                   gain=nn.init.calculate_gain('tanh')
+                   )
+    elif activation.lower() in ['sigmoid']:
+        xavier_fcn(layer.weight,
+                   gain=nn.init.calculate_gain('sigmoid')
+                   )
+    elif activation.lower() in ['linear']:
+        xavier_fcn(layer.weight,
+                   gain=nn.init.calculate_gain('linear')
+                   )
+    elif activation.lower() in ['elu']:
+        xavier_fcn(layer.weight,
+                   gain=nn.init.calculate_gain('relu')
+                   )
+    elif activation.lower() in ['selu']:
+        xavier_fcn(layer.weight,
+                   gain=nn.init.calculate_gain('relu')
+                   )
+    elif activation.lower() in ['0.1']:
+        xavier_fcn(layer.weight,
+                   gain=0.1,
+                   )
+    elif activation.lower() in ['0.01']:
+        xavier_fcn(layer.weight,
+                   gain=0.01,
+                   )
+    elif activation.lower() in ['0.001']:
+        xavier_fcn(layer.weight,
+                   gain=0.001,
+                   )
+    elif activation.lower() in ['0.003']:
+        xavier_fcn(layer.weight,
+                   gain=0.001,
+                   )
+    else:
+        raise AttributeError('Wrong option')
 
 
 def get_activation(name):
@@ -206,9 +242,14 @@ def LongTensor(*args, **kwargs):
     return torch.LongTensor(*args, **kwargs).to(device)
 
 
+# noinspection PyPep8Naming
+def IntTensor(*args, **kwargs):
+    return torch.IntTensor(*args, **kwargs).to(device)
+
+
 def Variable(tensor, **kwargs):
     if _use_gpu and not tensor.is_cuda:
-        return TorchVariable(tensor.cuda(), **kwargs)
+        return TorchVariable(tensor.to(device), **kwargs)
     else:
         return TorchVariable(tensor, **kwargs)
 

@@ -16,5 +16,9 @@ from .rollout_plots import plot_q_vals
 from .learning_process_plots import plot_process_iu_returns
 from .learning_process_plots import plot_process_iu_policies
 from .learning_process_plots import plot_process_iu_values_errors
+from .learning_process_plots import plot_process_iu_alphas
 from .learning_process_plots import plot_process_general_data
+
+# Multiple Training plots
+from .multiple_learning_process_plots import plot_multiple_process_iu_returns
 

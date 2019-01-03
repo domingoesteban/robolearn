@@ -39,9 +39,12 @@ class Mlp(PyTorchModule):
         for i, next_size in enumerate(hidden_sizes):
             fc = nn.Linear(in_size, next_size)
             in_size = next_size
-            ptu.layer_init_xavier_normal(layer=fc,
-                                         activation=hidden_activation,
-                                         b=hidden_b_init_val)
+            ptu.layer_init(
+                layer=fc,
+                option=hidden_w_init,
+                activation=hidden_activation,
+                b=hidden_b_init_val
+            )
             self.__setattr__("fc{}".format(i), fc)
             self.fcs.append(fc)
 
@@ -51,28 +54,12 @@ class Mlp(PyTorchModule):
                 self.layer_norms.append(ln)
 
         self.last_fc = nn.Linear(in_size, output_size)
-        if output_w_init == 'xavier_normal':
-            ptu.layer_init_xavier_normal(layer=self.last_fc,
-                                         activation=output_activation,
-                                         b=output_b_init_val)
-        elif output_w_init == 'xavier_normal_0.1':
-            ptu.layer_init_xavier_normal(layer=self.last_fc,
-                                         activation='0.1',
-                                         b=output_b_init_val)
-        elif output_w_init == 'xavier_normal_0.01':
-            ptu.layer_init_xavier_normal(layer=self.last_fc,
-                                         activation='0.01',
-                                         b=output_b_init_val)
-        elif output_w_init == 'xavier_normal_0.001':
-            ptu.layer_init_xavier_normal(layer=self.last_fc,
-                                         activation='0.001',
-                                         b=output_b_init_val)
-        elif output_w_init == 'xavier_normal_0.003':
-            ptu.layer_init_xavier_normal(layer=self.last_fc,
-                                         activation='0.003',
-                                         b=output_b_init_val)
-        else:
-            raise ValueError("Wrong init value:%s" % output_w_init)
+        ptu.layer_init(
+            layer=self.last_fc,
+            option=output_w_init,
+            activation=output_activation,
+            b=output_b_init_val
+        )
 
     def forward(self, nn_input, return_preactivations=False):
         h = nn_input

@@ -2,6 +2,7 @@ import abc
 from typing import Iterable
 
 from robolearn.torch.core import PyTorchModule
+import robolearn.torch.utils.pytorch_util as ptu
 
 
 class TorchAlgorithm(object):
@@ -17,9 +18,9 @@ class TorchAlgorithm(object):
         for model in self.torch_models:
             model.train(mode)
 
-    def cuda(self):
+    def cuda(self, device=None):
         for model in self.torch_models:
-            model.cuda()
+            model.cuda(device)
 
     def cpu(self):
         for model in self.torch_models:

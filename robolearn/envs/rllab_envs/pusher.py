@@ -7,8 +7,6 @@ from rllab.envs.mujoco.mujoco_env import MujocoEnv
 from rllab.misc import logger
 from rllab.misc.overrides import overrides
 
-from softqlearning.misc.utils import PROJECT_PATH
-
 
 class PusherEnv(MujocoEnv, Serializable):
     """Pusher environment
@@ -16,7 +14,11 @@ class PusherEnv(MujocoEnv, Serializable):
     Pusher is a two-dimensional 3-DoF manipulator. Task is to slide a cylinder-
     shaped object, or a 'puck', to a target coordinates.
     """
-    FILE_PATH = osp.abspath(osp.join(PROJECT_PATH, 'models', 'pusher.xml'))
+    # FILE_PATH = osp.abspath(osp.join(PROJECT_PATH, 'models', 'pusher.xml'))
+    FILE_PATH = osp.join(
+        osp.dirname(osp.abspath(__file__)),
+        'pusher.xml'
+    )
 
     JOINT_INDS = list(range(0, 3))
     PUCK_INDS = list(range(3, 5))

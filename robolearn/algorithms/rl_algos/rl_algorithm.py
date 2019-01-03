@@ -78,6 +78,7 @@ class RLAlgorithm(object):
         if eval_policy is None:
             eval_policy = exploration_policy
         self.eval_policy = eval_policy
+
         if eval_sampler is None:
             eval_sampler = InPlacePathSampler(
                 env=eval_env,

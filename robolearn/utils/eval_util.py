@@ -15,7 +15,7 @@ def get_generic_path_information(paths, stat_prefix=''):
     statistics = OrderedDict()
     returns = np.array([sum(path["rewards"]) for path in paths])
 
-    rewards = np.vstack([path["rewards"] for path in paths])
+    rewards = np.vstack([path["rewards"].reshape((-1, 1)) for path in paths])
     statistics.update(create_stats_ordered_dict('Rewards', rewards,
                                                 stat_prefix=stat_prefix,
                                                 always_show_all_stats=True))
@@ -36,13 +36,13 @@ def get_generic_path_information(paths, stat_prefix=''):
 
 
 def get_average_returns(paths):
-    returns = [sum(path["rewards"]) for path in paths]
+    returns = [float(sum(path["rewards"])) for path in paths]
     return np.mean(returns)
 
 
 def get_average_multigoal_returns(paths, multigoal_idx):
-    returns = [sum([r_multi['reward_multigoal'][multigoal_idx]
-                    for r_multi in path['env_infos']])
+    returns = [float(sum([r_multi['reward_multigoal'][multigoal_idx]
+                          for r_multi in path['env_infos']]))
                for path in paths]
     return np.mean(returns)
 
@@ -52,7 +52,7 @@ def get_average_multigoal_rewards(paths, multigoal_idx):
     accum_r = 0
     for path in paths:
         for r_multi in path['env_infos']:
-            accum_r += r_multi['reward_multigoal'][multigoal_idx]
+            accum_r += float(r_multi['reward_multigoal'][multigoal_idx])
             n += 1
     return accum_r/n
 

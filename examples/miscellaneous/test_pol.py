@@ -13,24 +13,24 @@ act_dim = 2
 #                             obs_dim=obs_dim,
 #                             action_dim=act_dim,
 #                             std=None,
-#                             hidden_w_init=ptu.xavier_init,
+#                             hidden_w_init=ptu.xavier_initOLD,
 #                             hidden_b_init_val=0,
-#                             output_w_init=ptu.xavier_init,
+#                             output_w_init=ptu.xavier_initOLD,
 #                             output_b_init_val=0)
 
 nn_pol = TanhMlpPolicy(hidden_sizes=[4],
                        obs_dim=obs_dim,
                        action_dim=act_dim,
-                       hidden_w_init=ptu.xavier_init,
+                       hidden_w_init=ptu.xavier_initOLD,
                        hidden_b_init_val=0,
-                       output_w_init=ptu.xavier_init,
+                       output_w_init=ptu.xavier_initOLD,
                        output_b_init_val=0)
 # nn_pol = MlpPolicy(hidden_sizes=[4],
 #                    obs_dim=obs_dim,
 #                    action_dim=act_dim,
-#                    hidden_w_init=ptu.xavier_init,
+#                    hidden_w_init=ptu.xavier_initOLD,
 #                    hidden_b_init_val=0,
-#                    output_w_init=ptu.xavier_init,
+#                    output_w_init=ptu.xavier_initOLD,
 #                    output_b_init_val=0)
 
 print("Policy: '", TanhGaussianPolicy.__name__, "' parameters:")

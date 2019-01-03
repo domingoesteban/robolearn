@@ -8,6 +8,7 @@ from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.torch.policies import TanhGaussianPolicy
 from robolearn.models.policies import MakeDeterministic
 from robolearn.models.policies import ExplorationPolicy
+import os
 import argparse
 import joblib
 import uuid
@@ -65,8 +66,11 @@ def simulate_policy(args):
     print("Policy loaded!!")
 
     # Load environment
-    with open('variant.json') as json_data:
-        env_params = json.load(json_data)['env_params']
+    dirname = os.path.dirname(args.file)
+    with open(os.path.join(dirname, 'variant.json')) as json_data:
+        log_data = json.load(json_data)
+        env_params = log_data['env_params']
+        H = int(log_data['path_length'])
 
     env_params.pop('goal', None)
     env_params['is_render'] = True
@@ -103,15 +107,19 @@ def simulate_policy(args):
 
         obs_normalizer = data.get('obs_normalizer')
 
+        if args.H != -1:
+            H = args.H
+
         path = rollout(
             env,
             policy,
-            max_path_length=args.H,
+            max_path_length=H,
             animated=True,
             obs_normalizer=obs_normalizer,
             rollout_start_fcn=rollout_start_fcn,
             rollout_end_fcn=rollout_end_fcn,
         )
+        plot_rollout_reward(path)
 
         if hasattr(env, "log_diagnostics"):
             env.log_diagnostics([path])
@@ -122,11 +130,19 @@ def simulate_policy(args):
             break
 
 
+def plot_rollout_reward(path):
+    import matplotlib.pyplot as plt
+    rewards = np.squeeze(path['rewards'])
+
+    plt.plot(rewards)
+    plt.show()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('file', type=str, default='./params.pkl',
                         help='path to the snapshot file')
-    parser.add_argument('--H', type=int, default=500,
+    parser.add_argument('--H', type=int, default=-1,
                         help='Max length of rollout')
     parser.add_argument('--gpu', action='store_true')
     parser.add_argument('--deterministic', action="store_true")

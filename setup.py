@@ -14,5 +14,12 @@ setup(
         'torch',
         'robolearn_gym_envs',
         'tqdm',
+        'python-dateutil',
+        'joblib',
+        'matplotlib',
+        'pandas',
+        'gtimer',
+        'ipython',
+        'tensorboardX',
     ],
 )

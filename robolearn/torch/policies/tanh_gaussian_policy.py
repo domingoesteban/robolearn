@@ -81,9 +81,12 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             if len(hidden_sizes) > 0:
                 last_hidden_size = hidden_sizes[-1]
             self.last_fc_log_std = nn.Linear(last_hidden_size, action_dim)
-            ptu.layer_init_xavier_normal(layer=self.last_fc_log_std,
-                                         activation='linear',
-                                         b=output_b_init_val)
+            ptu.layer_init(
+                layer=self.last_fc_log_std,
+                option=output_w_init,
+                activation='linear',
+                b=output_b_init_val
+            )
         else:
             self.log_std = np.log(std)
             assert LOG_SIG_MIN <= self.log_std <= LOG_SIG_MAX

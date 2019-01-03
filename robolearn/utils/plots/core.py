@@ -1,3 +1,5 @@
+import sys
+import traceback
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
@@ -8,6 +10,9 @@ import pandas as pd
 def get_csv_data(csv_file, labels):
     data, all_labels = get_csv_data_and_labels(csv_file)
 
+    for label in all_labels:
+        print(label)
+    print('***\n'*3)
     n_data = data.shape[0]
 
     new_data = np.zeros((len(labels), n_data))
@@ -18,7 +23,12 @@ def get_csv_data(csv_file, labels):
     for ll, name in enumerate(labels):
         if name in all_labels:
             idx = all_labels.index(name)
-            new_data[ll, :] = data[:, idx]
+            try:
+                new_data[ll, :] = data[:, idx]
+            except Exception:
+                print(traceback.format_exc())
+                print("Error with data in %s" % csv_file)
+                sys.exit(1)
         else:
             raise ValueError("Label '%s' not available in file '%s'"
                              % (name, csv_file))
@@ -28,7 +38,12 @@ def get_csv_data(csv_file, labels):
 
 def get_csv_data_and_labels(csv_file):
     # Read from CSV file
-    series = pd.read_csv(csv_file)
+    try:
+        series = pd.read_csv(csv_file)
+    except Exception:
+        print(traceback.format_exc())
+        print("Error reading %s" % csv_file)
+        sys.exit(1)
 
     data = series.as_matrix()
     labels = list(series)

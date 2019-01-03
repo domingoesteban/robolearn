@@ -7,6 +7,8 @@ from robolearn.torch.policies import MultiPolicySelector
 from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.torch.policies import TanhGaussianPolicy
 from robolearn.models.policies import MakeDeterministic
+from robolearn.models.policies import ExplorationPolicy
+import os
 from robolearn.utils.plots import plot_reward_composition
 from robolearn.utils.plots import plot_reward_iu
 from robolearn.utils.plots import plot_weigths_unintentionals
@@ -48,7 +50,10 @@ def simulate_policy(args):
                     )
         else:
             print('Using the deterministic version of the Intentional policy.')
-            policy = MakeDeterministic(data['policy'])
+            if isinstance(data['policy'], ExplorationPolicy):
+                policy = MakeDeterministic(data['policy'])
+            else:
+                policy = data['policy']
     else:
         if args.un > -1:
             print('Using the UNintentional stochastic policy %02d' % args.un)
@@ -66,9 +71,11 @@ def simulate_policy(args):
     print("Policy loaded!!")
 
     # Load environment
-    with open('variant.json') as json_data:
-        env_params = json.load(json_data)['env_params']
-    # env_params.pop('goal')
+    dirname = os.path.dirname(args.file)
+    with open(os.path.join(dirname, 'variant.json')) as json_data:
+        log_data = json.load(json_data)
+        env_params = log_data['env_params']
+        H = int(log_data['path_length'])
     env_params['is_render'] = True
 
     if 'obs_mean' in data.keys():
@@ -98,11 +105,12 @@ def simulate_policy(args):
         #                     0.1       , 0.1       , 0.1       , 0.1       , 0.1       ,
         #                     0.1       , 0.1       , 0.1       , 0.1       , 0.12320185,
         #                     0.1       , 0.18369523, 0.200373  , 0.11895574, 0.15118493])
+    print(env_params)
 
     if args.task_env and args.un != -1:
         env_params['subtask'] = args.un
-    else:
-        env_params['subtask'] = None
+    # else:
+    #     env_params['subtask'] = None
 
     env = NormalizedBoxEnv(
         CentauroTrayEnv(**env_params),
@@ -135,26 +143,31 @@ def simulate_policy(args):
             rollout_start_fcn = None
             rollout_end_fcn = None
 
+        obs_normalizer = data.get('obs_normalizer')
+
+        if args.H != -1:
+            H = args.H
+
         path = rollout(
             env,
             policy,
-            max_path_length=args.H,
+            max_path_length=H,
             animated=True,
-            obs_normalizer=data['obs_normalizer'],
+            obs_normalizer=obs_normalizer,
             rollout_start_fcn=rollout_start_fcn,
             rollout_end_fcn=rollout_end_fcn,
         )
 
-        plot_reward_composition(path, block=False)
-        plot_reward_iu(path, block=False)
-        plot_weigths_unintentionals(path, block=False)
-
-        q_fcn = data['qf']
-        if isinstance(q_fcn, PyTorchModule):
-            q_fcn.train(False)
-        plot_q_vals(path, q_fcn=q_fcn, block=False)
-
-        input('Press a key to continue...')
+        # plot_reward_composition(path, block=False)
+        # plot_reward_iu(path, block=False)
+        # plot_weigths_unintentionals(path, block=False)
+        #
+        # q_fcn = data['qf']
+        # if isinstance(q_fcn, PyTorchModule):
+        #     q_fcn.train(False)
+        # plot_q_vals(path, q_fcn=q_fcn, block=False)
+        #
+        # input('Press a key to continue...')
 
         if hasattr(env, "log_diagnostics"):
             env.log_diagnostics([path])
@@ -169,7 +182,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('file', type=str, default='./params.pkl',
                         help='path to the snapshot file')
-    parser.add_argument('--H', type=int, default=500,
+    parser.add_argument('--H', type=int, default=-1,
                         help='Max length of rollout')
     parser.add_argument('--gpu', action='store_true')
     parser.add_argument('--deterministic', action="store_true")

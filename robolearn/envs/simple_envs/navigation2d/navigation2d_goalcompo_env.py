@@ -43,9 +43,16 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
             goal_threshold=0.1,
             dynamics_sigma=0,
             horizon=None,
+            subtask=None,
+            seed=None,
     ):
         Serializable.__init__(self)
         Serializable.quick_init(self, locals())
+
+        # Set the seed
+        self.seed(seed)
+
+        self._subtask = subtask
 
         # Point Dynamics
         self._dynamics = PointDynamics(dim=2, sigma=dynamics_sigma)
@@ -159,12 +166,15 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
 
         self._observation = np.copy(next_obs)
 
+        # Compute Done
+        done, done_multigoal = self._check_termination()
+
         # Compute reward
         reward, reward_composition, reward_multigoal = \
             self.compute_reward(self._observation, action)
 
-        # Compute Done
-        done, done_multigoal = self._check_termination()
+        # Update Counter
+        self._t_counter += 1
 
         # print('rewMULTI', reward_multigoal, '|', reward)
         # print('rewardXX', reward)
@@ -174,8 +184,9 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
         # print('OOOBSSS', next_obs)
         # print('**'*20)
 
-        # Update Counter
-        self._t_counter += 1
+        if self._subtask is not None:
+            reward = reward_multigoal[self._subtask]
+            done = done_multigoal[self._subtask]
 
         return next_obs, reward, done, \
             {'pos': next_obs,
@@ -223,16 +234,17 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
             raise NotImplementedError
 
         # Penalize squared dist to goal
-        dist_all_goals = np.array(
-            [np.sum((cur_pos - goal_pos) ** 2, axis=-1)
-             for cur_pos, goal_pos in zip(cur_position_mask,
-                                          goal_position_mask)]
-        )
+        dist_all_goals = np.array([
+            # np.sum((goal_pos - cur_pos) ** 2, axis=-1)
+            np.linalg.norm(goal_pos - cur_pos, axis=-1)
+            for goal_pos, cur_pos in zip(goal_position_mask,
+                                         cur_position_mask)
+        ])
         goal_costs = - self._distance_cost_coeff * dist_all_goals
 
         # Penalize log dist to goal
         log_goal_costs = - self._log_distance_cost_coeff * \
-                         np.log(dist_all_goals + self._alpha)
+            np.log(dist_all_goals + self._alpha)
 
         # Bonus for being inside threshold area
         dist_all_goals = np.array(
@@ -250,7 +262,7 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
             sum([
                 goal_cost,
                 log_goal_cost,
-                action_cost,
+                action_cost*0,
                 bonus_goal_reward,
                 -max_reward,
             ])
@@ -262,7 +274,7 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
         reward_composition = [
             goal_costs[0],
             log_goal_costs[0],
-            action_cost,
+            action_cost*0,
             bonus_goal_rewards[0],
             -self._max_rewards[0]
         ]
@@ -341,7 +353,8 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
                     for aa in range(self.n_subgoals):
                         row = aa // n_cols
                         col = aa % n_cols
-                        ax = self._subgoals_ax[row, col]
+                        # ax = self._subgoals_ax[row, col]  # ESTO PARA 2 SUBFIG
+                        ax = self._subgoals_ax[aa]  # ESTO PARA VARIOS FIG
                         line, = ax.plot(self._observation[0], self._observation[1],
                                         color='b', marker='o', markersize=2)
                         self._dynamic_goals_lines.append(line)
@@ -354,14 +367,19 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
                         line.set_ydata(
                             np.append(line.get_ydata(), self._observation[1])
                         )
-                self._subgoals_fig.canvas.set_window_title(
-                    'Subgoals | t=%03d' % self._t_counter
-                )
+                # self._subgoals_fig.canvas.set_window_title(
+                #     'Subgoals | t=%03d' % self._t_counter
+                # )
+                for aa, fig in enumerate(self._subgoals_figs):
+                    fig.canvas.set_window_title(
+                        'Subgoals %02d | t=%03d' % (aa, self._t_counter)
+                    )
                 for aa in range(self.n_subgoals):
                     n_cols = 2
                     row = aa // n_cols
                     col = aa % n_cols
-                    ax = self._subgoals_ax[row, col]
+                    # ax = self._subgoals_ax[row, col]
+                    ax = self._subgoals_ax[aa]
                     if self._subgoal_markers[aa] is not None:
                         self._subgoal_markers[aa].remove()
                     self._subgoal_markers[aa] = \
@@ -370,7 +388,9 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
                                            zoom=0.015)
 
             self._main_fig.canvas.draw()
-            self._subgoals_fig.canvas.draw()
+            # self._subgoals_fig.canvas.draw()
+            for fig in self._subgoals_figs:
+                fig.canvas.draw()
             plt_pause(0.01)
 
         return None
@@ -403,9 +423,9 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
         self._main_ax.set_xlim(left=self._xlim[0], right=self._xlim[1])
         self._main_ax.set_ylim(bottom=self._ylim[0], top=self._ylim[1])
 
-        self._main_ax.set_title('Navigation2D Goal Composition Environment')
-        self._main_ax.set_xlabel('X')
-        self._main_ax.set_ylabel('Y')
+        # self._main_ax.set_title('Navigation2D Goal Composition Environment')
+        self._main_ax.set_xlabel('X', fontweight='bold', fontsize=14)
+        self._main_ax.set_ylabel('Y', fontweight='bold', fontsize=14)
 
         self._plot_main_cost(self._main_ax)
 
@@ -415,21 +435,37 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
         plt.ion()
         n_cols = 2
         n_rows = int(np.ceil(self.n_subgoals/n_cols))
-        self._subgoals_fig, self._subgoals_ax = plt.subplots(n_rows, n_cols)
+        # self._subgoals_fig, self._subgoals_ax = plt.subplots(n_rows, n_cols)
+        #
+        # self._subgoals_ax = np.atleast_2d(self._subgoals_ax)
+        #
+        # for aa in range(self.n_subgoals):
+        #     row = aa // n_cols
+        #     col = aa % n_cols
+        #     self._subgoals_ax[row, col].set_xlim(self._xlim)
+        #     self._subgoals_ax[row, col].set_ylim(self._ylim)
+        #     self._subgoals_ax[row, col].set_title('Navigation2D GoalCompo '
+        #                                           'Env. | '
+        #                                           'Sub-goal %d' % aa)
+        #     self._subgoals_ax[row, col].set_xlabel('X')
+        #     self._subgoals_ax[row, col].set_ylabel('Y')
+        #     self._subgoals_ax[row, col].set_aspect('equal', 'box')
 
-        self._subgoals_ax = np.atleast_2d(self._subgoals_ax)
+        self._subgoals_figs = list()
+        self._subgoals_ax = list()
 
         for aa in range(self.n_subgoals):
-            row = aa // n_cols
-            col = aa % n_cols
-            self._subgoals_ax[row, col].set_xlim(self._xlim)
-            self._subgoals_ax[row, col].set_ylim(self._ylim)
-            self._subgoals_ax[row, col].set_title('Navigation2D GoalCompo '
-                                                  'Env. | '
-                                                  'Sub-goal %d' % aa)
-            self._subgoals_ax[row, col].set_xlabel('X')
-            self._subgoals_ax[row, col].set_ylabel('Y')
-            self._subgoals_ax[row, col].set_aspect('equal', 'box')
+            self._subgoals_figs.append(plt.figure(figsize=(7, 7)))
+            self._subgoals_ax.append(self._subgoals_figs[-1].add_subplot(111))
+
+            self._subgoals_ax[-1].set_xlim(self._xlim)
+            self._subgoals_ax[-1].set_ylim(self._ylim)
+            # self._subgoals_ax[-1].set_title('Navigation2D GoalCompo '
+            #                                 'Env. | '
+            #                                 'Sub-goal %d' % aa)
+            self._subgoals_ax[-1].set_xlabel('X', fontweight='bold', fontsize=14)
+            self._subgoals_ax[-1].set_ylabel('Y', fontweight='bold', fontsize=14)
+            self._subgoals_ax[-1].set_aspect('equal', 'box')
 
         self._plot_subgoals_cost(self._subgoals_ax)
 
@@ -500,7 +536,9 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
             # Get axis
             row = aa // n_cols
             col = aa % n_cols
-            ax = axs[row, col]
+
+            # ax = axs[row, col]  # ESTO PARA 2 SUBFIG
+            ax = axs[aa]  # ESTO PARA VARIOS FIG
 
             # Get sub-goal costs
             costs = subgoal_costs[aa].reshape(len(all_x), len(all_y))
@@ -570,6 +608,8 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
 
     @staticmethod
     def _robot_marker(axis, x, y, color='red', zoom=0.03):
+        zoom = 0.03
+
         image = plt.imread(os.path.join(os.path.dirname(__file__), 'figures',
                                         'robotio.png'))
 

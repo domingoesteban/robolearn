@@ -8,6 +8,8 @@ from robolearn.utils import eval_util
 from robolearn.algorithms.rl_algos.rl_algorithm import RLAlgorithm
 from robolearn.utils.logging import logger
 from robolearn.utils.stdout.notebook_utils import is_ipython
+from robolearn.utils.samplers.in_place_path_sampler import InPlacePathSampler
+from robolearn.utils.samplers.finite_path_sampler import FinitePathSampler
 
 
 class IncrementalRLAlgorithm(RLAlgorithm):
@@ -15,6 +17,27 @@ class IncrementalRLAlgorithm(RLAlgorithm):
         """
         Base class for Incremental RL Algorithms
         """
+        # Eval Sampler
+        finite_horizon_eval = kwargs.pop('finite_horizon_eval')
+        if finite_horizon_eval:
+            total_paths = \
+                int(kwargs['num_steps_per_eval']/kwargs['max_path_length'])
+            kwargs['eval_sampler'] = FinitePathSampler(
+                env=kwargs['eval_env'],
+                policy=kwargs['eval_policy'],
+                total_paths=total_paths,
+                max_path_length=kwargs['max_path_length'],
+                obs_normalizer=kwargs['obs_normalizer'],
+            )
+        else:
+            kwargs['eval_sampler'] = InPlacePathSampler(
+                env=kwargs['eval_env'],
+                policy=kwargs['eval_policy'],
+                total_samples=kwargs['num_steps_per_eval'],
+                max_path_length=kwargs['max_path_length'],
+                obs_normalizer=kwargs['obs_normalizer'],
+            )
+
         RLAlgorithm.__init__(self, *args, **kwargs)
 
     def train(self, start_epoch=0, train_bar=True):

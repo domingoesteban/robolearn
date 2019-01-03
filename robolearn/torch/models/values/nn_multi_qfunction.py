@@ -54,9 +54,9 @@ class NNMultiQFunction(PyTorchModule, QFunction):
         if shared_hidden_sizes is not None:
             for ii, next_size in enumerate(shared_hidden_sizes):
                 sfc = nn.Linear(in_size, next_size)
-                ptu.layer_init_xavier_normal(layer=sfc,
-                                             activation=hidden_activation,
-                                             b=hidden_b_init_val)
+                ptu.layer_init(layer=sfc,
+                               activation=hidden_activation,
+                               b=hidden_b_init_val)
                 self.__setattr__("sfc{}".format(ii), sfc)
                 self._sfcs.append(sfc)
 
@@ -71,9 +71,9 @@ class NNMultiQFunction(PyTorchModule, QFunction):
             for ii, next_size in enumerate(unshared_hidden_sizes):
                 for q_idx in range(self._n_qs):
                     ufc = nn.Linear(in_size, next_size)
-                    ptu.layer_init_xavier_normal(layer=ufc,
-                                                 activation=hidden_activation,
-                                                 b=hidden_b_init_val)
+                    ptu.layer_init(layer=ufc,
+                                   activation=hidden_activation,
+                                   b=hidden_b_init_val)
                     self.__setattr__("ufc{}_{}".format(q_idx, ii), ufc)
                     self._ufcs[q_idx].append(ufc)
 
@@ -86,9 +86,9 @@ class NNMultiQFunction(PyTorchModule, QFunction):
 
         for q_idx in range(self._n_qs):
             last_ufc = nn.Linear(in_size, 1)
-            ptu.layer_init_xavier_normal(layer=last_ufc,
-                                         activation=output_activation,
-                                         b=output_b_init_val)
+            ptu.layer_init(layer=last_ufc,
+                           activation=output_activation,
+                           b=output_b_init_val)
             self.__setattr__("ufc_last{}".format(q_idx), last_ufc)
             self._ufcs_lasts.append(last_ufc)
 
