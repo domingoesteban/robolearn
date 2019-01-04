@@ -165,6 +165,7 @@ env_params = dict(
     tgt_cost_weight=3.0,
     goal_cost_weight=1.0,
     ctrl_cost_weight=1.0e-3,
+    no_task_weight=1.0,
     goal_tolerance=0.01,
     # max_time=PATH_LENGTH*DT,
     max_time=None,

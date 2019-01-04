@@ -6,7 +6,7 @@
 expt_name='objective_test'
 env_name='pusher'
 algo_name='hiu_sac_new'
-dir_prefix=${algo_name}5
+dir_prefix=${algo_name}5X
 #dir_prefix=${algo_name}
 
 python_script=${env_name}'_'${algo_name}

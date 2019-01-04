@@ -140,7 +140,7 @@ if __name__ == "__main__":
     parser.add_argument('--env', type=str, default='manipulator')
     parser.add_argument('--un', type=int, default=-1,
                         help='Unintentional id')
-    parser.add_argument('--task_env', action='store_true')
+    parser.add_argument('--subtask', action='store_true')
     args = parser.parse_args()
 
     simulate_policy(args)
