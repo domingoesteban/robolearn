@@ -6,7 +6,7 @@
 expt_name='objective_test'
 env_name='centauro_tray'
 algo_name='sac'
-dir_prefix=${algo_name}X_dist
+dir_prefix=${algo_name}B
 
 python_script=${env_name}'_'${algo_name}
 log_dir_path='/home/desteban/logs/'${expt_name}'/'${env_name}'/'
@@ -20,7 +20,7 @@ total_seeds=${#seeds[@]}
 #seeds=("${seeds[@]:${init_index}:${end_index}}")
 
 #default_subtasks=(0 1 -1)
-default_subtasks=(0)
+default_subtasks=(1)
 subtasks=("${@:-${default_subtasks[@]}}")
 total_subtasks=${#subtasks[@]}
 

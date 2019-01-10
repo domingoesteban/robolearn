@@ -1,18 +1,15 @@
 import gtimer as gt
 
-from collections import OrderedDict
-from robolearn.utils import eval_util
-
 from robolearn.algorithms.rl_algos.rl_algorithm import RLAlgorithm
+from robolearn.utils.logging import logger
 from robolearn.utils.data_management import PathBuilder
 from robolearn.utils.samplers.exploration_rollout import exploration_rollout
-from robolearn.utils.logging import logger
 
 
 class IterativeRLAlgorithm(RLAlgorithm):
     def __init__(self, *args, **kwargs):
         """
-        Base class for Iterative RL Algorithms
+        Base class for Iterative(Episodic) RL Algorithms
         """
         self.rollouts_per_epoch = kwargs.pop('rollouts_per_epoch', 1)
         RLAlgorithm.__init__(self, *args, **kwargs)
@@ -57,42 +54,3 @@ class IterativeRLAlgorithm(RLAlgorithm):
 
     def get_exploration_paths(self):
         return self._exploration_paths
-
-    def evaluate(self, epoch):
-        if self.eval_statistics is None:
-            self.eval_statistics = OrderedDict()
-
-        statistics = OrderedDict()
-        statistics.update(self.eval_statistics)
-        self.eval_statistics = None
-
-        logger.log("Collecting samples for evaluation")
-        test_paths = self.eval_sampler.obtain_samples()
-
-        statistics.update(eval_util.get_generic_path_information(
-            test_paths, stat_prefix="Test",
-        ))
-
-        if self._exploration_paths:
-            statistics.update(eval_util.get_generic_path_information(
-                self._exploration_paths, stat_prefix="Exploration",
-            ))
-        else:
-            statistics.update(eval_util.get_generic_path_information(
-                test_paths, stat_prefix="Exploration",
-            ))
-
-        if hasattr(self.env, "log_diagnostics"):
-            self.env.log_diagnostics(test_paths)
-
-        average_returns = eval_util.get_average_returns(test_paths)
-        statistics['AverageReturn'] = average_returns
-        for key, value in statistics.items():
-            logger.record_tabular(key, value)
-
-        if self.render_eval_paths:
-            self.env.render_paths(test_paths)
-
-        if self._epoch_plotter is not None:
-            self._epoch_plotter.draw()
-            self._epoch_plotter.save_figure(epoch)

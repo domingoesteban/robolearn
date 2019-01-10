@@ -10,8 +10,8 @@ from robolearn.utils.plots.learning_process_plots import plot_process_haarnoja
 import json
 
 # SEEDS = [610, 710, 810, 1010]
-SEEDS = [610]#, 710, 1010]
-MAX_ITER = 78
+SEEDS = [610]#, 1010]#, 710, 1010]
+MAX_ITER = 190
 # STEPS_PER_ITER = 3e3
 STEPS_PER_ITER = None
 LOG_PREFIX = '/home/desteban/logs/objective_test/reacher'
@@ -30,100 +30,287 @@ fig_name_prefix = 'Reacher_'
 
 
 hiu_performance_dict = dict()
+"""
 # Subtask 01
 hiu_performance_dict['Subtask 01'] = dict()
-hiu_performance_dict['Subtask 01']['SAC'] = dict(
-    dir='sub0',
-    prefix='sac5_',
-    ius=[-1],
-    r_scales=[1.e-0],
-)
+# hiu_performance_dict['Subtask 01']['SAC'] = dict(
+#     dir='sub0',
+#     prefix='sacD_',
+#     ius=[-1],
+#     r_scales=[1.e-0],
+# )
 hiu_performance_dict['Subtask 01']['HIU-SAC-W'] = dict(
     dir='sub-1',
-    prefix='hiu_sac_new5_5_',
-    ius=[0],
-    r_scales=[1.0e-0],
-)
-hiu_performance_dict['Subtask 01']['HIU-SAC-M'] = dict(
-    dir='sub-1',
-    prefix='hiu_sac_new_mixture5_5_',
+    prefix='hiu_sac_newE_5_',  # i:0, u:1
     ius=[0],
     r_scales=[1.0e-0],
 )
 hiu_performance_dict['Subtask 01']['HIU-SAC-E'] = dict(
     dir='sub-1',
-    prefix='hiu_sac_new_promp5_5_',
+    prefix='hiu_sac_new_prompE_5_',  # i:0, u:1
     ius=[0],
     r_scales=[1.0e-0],
 )
+hiu_performance_dict['Subtask 01']['HIU-SAC-M'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_new_mixtureE_5_',  # i:0, u:1
+    ius=[0],
+    r_scales=[1.0e-0],
+)
+# hiu_performance_dict['Subtask 01']['HIU-SAC-W'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_new5_5_',
+#     ius=[0],
+#     r_scales=[1.0e-0],
+# )
+# hiu_performance_dict['Subtask 01']['HIU-SAC-M'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_new_mixture5_5_',
+#     ius=[0],
+#     r_scales=[1.0e-0],
+# )
+# hiu_performance_dict['Subtask 01']['HIU-SAC-E'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_new_promp5_5_',
+#     ius=[0],
+#     r_scales=[1.0e-0],
+# )
 
 
 # Subtask 02
 hiu_performance_dict['Subtask 02'] = dict()
-hiu_performance_dict['Subtask 02']['SAC'] = dict(
-    dir='sub1',
-    prefix='sac5_',
-    ius=[-1],
-    r_scales=[1.e-0],
-)
+# hiu_performance_dict['Subtask 02']['SAC'] = dict(
+#     dir='sub1',
+#     prefix='sacD_',
+#     ius=[-1],
+#     r_scales=[1.e-0],
+# )
 hiu_performance_dict['Subtask 02']['HIU-SAC-W'] = dict(
     dir='sub-1',
-    prefix='hiu_sac_new5_5_',
-    ius=[1],
-    r_scales=[1.0e-0],
-)
-hiu_performance_dict['Subtask 02']['HIU-SAC-M'] = dict(
-    dir='sub-1',
-    prefix='hiu_sac_new_mixture5_5_',
+    prefix='hiu_sac_newE_5_',  # i:0, u:1
     ius=[1],
     r_scales=[1.0e-0],
 )
 hiu_performance_dict['Subtask 02']['HIU-SAC-E'] = dict(
     dir='sub-1',
-    prefix='hiu_sac_new_promp5_5_',
+    prefix='hiu_sac_new_prompE_5_',  # i:0, u:1
     ius=[1],
     r_scales=[1.0e-0],
 )
+hiu_performance_dict['Subtask 02']['HIU-SAC-M'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_new_mixtureE_5_',  # i:0, u:1
+    ius=[1],
+    r_scales=[1.0e-0],
+)
+# hiu_performance_dict['Subtask 02']['HIU-SAC-W'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_new5_5_',
+#     ius=[1],
+#     r_scales=[1.0e-0],
+# )
+# hiu_performance_dict['Subtask 02']['HIU-SAC-M'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_new_mixture5_5_',
+#     ius=[1],
+#     r_scales=[1.0e-0],
+# )
+# hiu_performance_dict['Subtask 02']['HIU-SAC-E'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_new_promp5_5_',
+#     ius=[1],
+#     r_scales=[1.0e-0],
+# )
 
 
 # Maintask
 hiu_performance_dict['Main Task'] = dict()
-hiu_performance_dict['Main Task']['SAC'] = dict(
-    dir='sub-1',
-    prefix='sac5_',
-    ius=[-1],
-    r_scales=[1.0e-0],
-)
+# hiu_performance_dict['Main Task']['SACC'] = dict(
+#     dir='sub-1',
+#     prefix='sacC_',  # tgt:-2
+#     ius=[-1],
+#     r_scales=[1.0e-0],
+# )
+# hiu_performance_dict['Main Task']['SAC'] = dict(
+#     dir='sub-1',
+#     prefix='sacD_',  # tgt:0
+#     ius=[-1],
+#     r_scales=[1.0e-0],
+# )
+# hiu_performance_dict['Main Task']['SACE'] = dict(
+#     dir='sub-1',
+#     prefix='sacE_',  # tgt:1
+#     ius=[-1],
+#     r_scales=[1.0e-0],
+# )
+# hiu_performance_dict['Main Task']['SACF'] = dict(
+#     dir='sub-1',
+#     prefix='sacF_',  # tgt:2
+#     ius=[-1],
+#     r_scales=[1.0e-0],
+# )
+# # hiu_performance_dict['Main Task']['HIU-SAC-W'] = dict(
+# #     dir='sub-1',
+# #     prefix='hiu_sac_new5_5_',
+# #     ius=[-1],
+# #     r_scales=[1.0e-0],
+# # )
+# hiu_performance_dict['Main Task']['HIU-SAC-Wx'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_new5B_5_',
+#     ius=[-1],
+#     r_scales=[1.0e-0],
+# )
+# hiu_performance_dict['Main Task']['HIU-SAC-WB'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_newB_5_',  # i:2, u:2
+#     ius=[-1],
+#     r_scales=[1.0e-0],
+# )
+# hiu_performance_dict['Main Task']['HIU-SAC-WC'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_newC_5_',  # i:1, u:2
+#     ius=[-1],
+#     r_scales=[1.0e-0],
+# )
+# hiu_performance_dict['Main Task']['HIU-SAC-W'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_newD_5_',  # i:0, u:1
+#     ius=[-1],
+#     r_scales=[1.0e-0],
+# )
 hiu_performance_dict['Main Task']['HIU-SAC-W'] = dict(
     dir='sub-1',
-    prefix='hiu_sac_new5_5_',
+    prefix='hiu_sac_newE_5_',  # i:0, u:1
     ius=[-1],
     r_scales=[1.0e-0],
 )
-# hiu_performance_dict['Main Task']['HIU-SAC-M'] = dict(
-#     dir='sub-1',
-#     prefix='hiu_sac_new_mixture5_5_',
-#     ius=[-1],
-#     r_scales=[1.0e-0],
-# )
-# hiu_performance_dict['Main Task']['HIU-SAC-E'] = dict(
-#     dir='sub-1',
-#     prefix='hiu_sac_new_promp5_5_',
-#     ius=[-1],
-#     r_scales=[1.0e-0],
-# )
-hiu_performance_dict['Main Task']['HIU-SAC-W6'] = dict(
+hiu_performance_dict['Main Task']['HIU-SAC-E'] = dict(
     dir='sub-1',
-    prefix='hiu_sac_new6_5_',
+    prefix='hiu_sac_new_prompE_5_',  # i:0, u:1
     ius=[-1],
     r_scales=[1.0e-0],
 )
-# hiu_performance_dict['Main Task']['DDPG'] = dict(
-#     dir='sub-1',
-#     prefix='ddpg_',
+hiu_performance_dict['Main Task']['HIU-SAC-M'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_new_mixtureE_5_',  # i:0, u:1
+    ius=[-1],
+    r_scales=[1.0e-0],
+)
+# # # hiu_performance_dict['Main Task']['HIU-SAC-M'] = dict(
+# # #     dir='sub-1',
+# # #     prefix='hiu_sac_new_mixture5_5_',
+# # #     ius=[-1],
+# # #     r_scales=[1.0e-0],
+# # # )
+# # # hiu_performance_dict['Main Task']['HIU-SAC-E'] = dict(
+# # #     dir='sub-1',
+# # #     prefix='hiu_sac_new_promp5_5_',
+# # #     ius=[-1],
+# # #     r_scales=[1.0e-0],
+# # # )
+# # hiu_performance_dict['Main Task']['HIU-SAC-W6'] = dict(
+# #     dir='sub-1',
+# #     prefix='hiu_sac_new6_5_',
+# #     ius=[-1],
+# #     r_scales=[1.0e-0],
+# # )
+# # # hiu_performance_dict['Main Task']['DDPG'] = dict(
+# # #     dir='sub-1',
+# # #     prefix='ddpg_',
+# # #     ius=[-1],
+# # #     r_scales=[1.0e-0],
+# # # )
+"""
+# hiu_performance_dict['Sub Task 1'] = dict()
+# hiu_performance_dict['Sub Task 1']['SAC-std_tanh_ini_xav_ind_opt_amsgrad_vf_imp'] = dict(
+#     dir='sub0',
+#     prefix='sac_like_spinningupM_',  # tgt:-2
 #     ius=[-1],
 #     r_scales=[1.0e-0],
 # )
+# hiu_performance_dict['Sub Task 1']['HIUSAC-std_clip_ini_xav_ind_opt_amsgrad_vf_imp5'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_spinningupA_5_',
+#     ius=[0],
+#     r_scales=[1.0e-0],
+# )
+# hiu_performance_dict['Sub Task 1']['HIUSAC-std_clip_ini_xav_ind_opt_amsgrad_vf_imp1'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_spinningupA_1_',
+#     ius=[0],
+#     r_scales=[1.0e-0],
+# )
+# hiu_performance_dict['Sub Task 1']['HIUSAC-std_clip_ini_xav_ind_opt_amsgrad_vf_imp1_newpol'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_spinningupB_1_',
+#     ius=[0],
+#     r_scales=[1.0e-0],
+# )
+#
+hiu_performance_dict['Sub Task 2'] = dict()
+hiu_performance_dict['Sub Task 2']['SAC-std_tanh_ini_xav_ind_opt_amsgrad_vf_imp'] = dict(
+    dir='sub1',
+    prefix='sac_like_spinningupM_',  # tgt:-2
+    ius=[-1],
+    r_scales=[1.0e-0],
+)
+hiu_performance_dict['Sub Task 2']['hiu_sac_spinningupE_1_'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_spinningupE_1_',  # Sin clip variance de compound
+    ius=[-1],
+    r_scales=[1.0e-0],
+)
+hiu_performance_dict['Sub Task 2']['hiu_sac_spinningupF_1_'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_spinningupF_1_',  # Usando tgt_ent
+    ius=[1],
+    r_scales=[1.0e-0],
+)
+
+hiu_performance_dict['Main Task 2'] = dict()
+hiu_performance_dict['Main Task 2']['SAC-std_tanh_ini_xav_ind_opt_amsgrad_vf_imp'] = dict(
+    dir='sub-1',
+    prefix='sac_like_spinningupM_',  # tgt:-2
+    ius=[-1],
+    r_scales=[1.0e-0],
+)
+hiu_performance_dict['Main Task 2']['HIUSAC-std_clip_ini_xav_ind_opt_amsgrad_vf_imp5'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_spinningupA_5_',
+    ius=[-1],
+    r_scales=[1.0e-0],
+)
+hiu_performance_dict['Main Task 2']['HIUSAC-std_clip_ini_xav_ind_opt_amsgrad_vf_imp1'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_spinningupA_1_',
+    ius=[-1],
+    r_scales=[1.0e-0],
+)
+hiu_performance_dict['Main Task 2']['HIUSAC-std_clip_ini_xav_ind_opt_amsgrad_vf_imp1_newpol'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_spinningupB_1_',
+    ius=[-1],
+    r_scales=[1.0e-0],
+)
+hiu_performance_dict['Main Task 2']['hiu_sac_spinningupD_1_'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_spinningupD_1_',  # Con clip variance de compound
+    ius=[-1],
+    r_scales=[1.0e-0],
+)
+hiu_performance_dict['Main Task 2']['hiu_sac_spinningupE_1_'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_spinningupE_1_',  # Sin clip variance de compound
+    ius=[-1],
+    r_scales=[1.0e-0],
+)
+hiu_performance_dict['Main Task 2']['hiu_sac_spinningupF_1_'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_spinningupF_1_',  # Usando tgt_ent
+    ius=[-1],
+    r_scales=[1.0e-0],
+)
 
 
 def get_full_seed_paths(full_dict):

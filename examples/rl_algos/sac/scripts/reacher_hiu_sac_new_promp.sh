@@ -6,14 +6,14 @@
 expt_name='objective_test'
 env_name='reacher'
 algo_name='hiu_sac_new_promp'
-dir_prefix=${algo_name}6
+dir_prefix=${algo_name}E
 #dir_prefix=${algo_name}
 
 python_script=${env_name}'_'${algo_name}
 log_dir_path='/home/desteban/logs/'${expt_name}'/'${env_name}'/'
 
 #default_seeds=(610 710 810 910 1010)
-default_seeds=(610)
+default_seeds=(610 1010)
 seeds=("${@:-${default_seeds[@]}}")
 total_seeds=${#seeds[@]}
 #init_index=0

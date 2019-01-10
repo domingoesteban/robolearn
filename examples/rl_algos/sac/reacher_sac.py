@@ -11,7 +11,7 @@ import numpy as np
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
-from robolearn.utils.data_management import SimpleReplayBuffer
+from robolearn.torch.utils.data_management import SimpleReplayBuffer
 
 from robolearn_gym_envs.pybullet import Reacher2D3DofGoalCompoEnv
 
@@ -49,7 +49,8 @@ SUBTASK = None
 POLICY = TanhGaussianPolicy
 REPARAM_POLICY = True
 
-USE_Q2 = False
+USE_Q2 = True
+EXPLICIT_VF = False
 
 OPTIMIZER = 'adam'
 # OPTIMIZER = 'rmsprop'
@@ -77,9 +78,9 @@ expt_params = dict(
         action_prior='uniform',
         entropy_scale=1.0e+0,
         auto_alpha=True,
-        tgt_entro=2e+0,
+        tgt_entro=1e+0,
         # Learning rates
-        policy_lr=3e-3,
+        policy_lr=3e-4,
         qf_lr=3e-4,
         vf_lr=3e-4,
         # Soft target update
@@ -124,8 +125,8 @@ expt_params = dict(
 
 env_params = dict(
     is_render=False,
-    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
-    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
+    # obs_distances=False,
+    obs_distances=True,
     obs_with_img=False,
     # obs_with_ori=True,
     obs_with_ori=False,
@@ -209,13 +210,16 @@ def experiment(variant):
         else:
             qf2 = None
 
-        vf = NNVFunction(
-            obs_dim=obs_dim,
-            hidden_activation=variant['hidden_activation'],
-            hidden_sizes=[net_size, net_size, net_size],
-            hidden_w_init=variant['v_hidden_w_init'],
-            output_w_init=variant['v_output_w_init'],
-        )
+        if EXPLICIT_VF:
+            vf = NNVFunction(
+                obs_dim=obs_dim,
+                hidden_activation=variant['hidden_activation'],
+                hidden_sizes=[net_size, net_size, net_size],
+                hidden_w_init=variant['v_hidden_w_init'],
+                output_w_init=variant['v_output_w_init'],
+            )
+        else:
+            vf = None
 
         policy = POLICY(
             obs_dim=obs_dim,

@@ -11,7 +11,10 @@ import torch.optim as optim
 from collections import OrderedDict
 
 import robolearn.torch.utils.pytorch_util as ptu
-from robolearn.torch.algorithms.rl_algos.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
+
+from robolearn.algorithms.rl_algos import IncrementalRLAlgorithm
+from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
+
 from robolearn.utils import eval_util
 from robolearn.utils.logging import logger
 from robolearn.utils.samplers import InPlacePathSampler
@@ -28,7 +31,7 @@ def assert_shape(tensor, expected_shape):
     assert all([a == b for a, b in zip(tensor_shape, expected_shape)])
 
 
-class IUSQL(TorchIncrementalRLAlgorithm):
+class IUSQL(IncrementalRLAlgorithm, TorchAlgorithm):
     """Intentional-Unintentional Soft Q-learning (IU-SQL).
 
     """

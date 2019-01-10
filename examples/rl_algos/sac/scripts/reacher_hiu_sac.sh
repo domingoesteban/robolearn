@@ -4,9 +4,9 @@
 # VARS #
 # #### #
 expt_name='objective_test'
-env_name='pusher'
-algo_name='hiu_sac_new'
-dir_prefix=${algo_name}5X
+env_name='reacher'
+algo_name='hiu_sac_spinningup'
+dir_prefix=${algo_name}F
 #dir_prefix=${algo_name}
 
 python_script=${env_name}'_'${algo_name}
@@ -28,7 +28,7 @@ total_subtasks=${#subtasks[@]}
 
 # Mix weights
 #default_mix_weights=(1 5)
-default_mix_weights=(0)
+default_mix_weights=(1)
 mix_weights=("${@:-${default_mix_weights[@]}}")
 total_mix_weights=${#mix_weights[@]}
 

@@ -19,9 +19,9 @@ def convert_to_cpu(args):
     ptu.seed(SEED)
 
     for file in os.listdir(args.dir):
-        if file == "params.pkl":
-            continue
         if file.endswith(".pkl"):
+            if file == "params.pkl" and not args.params:
+                continue
             full_file = os.path.join(args.dir, file)
             data = joblib.load(full_file)
 
@@ -46,6 +46,7 @@ if __name__ == "__main__":
     parser.add_argument('dir', type=str, help='path to the snapshot file')
     parser.add_argument('--gpu', type=int, default=-1,
                         help='GPU id')
+    parser.add_argument('--params', action="store_true")
     args = parser.parse_args()
 
     convert_to_cpu(args)

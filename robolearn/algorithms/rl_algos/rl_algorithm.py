@@ -8,6 +8,10 @@ import numpy as np
 from robolearn.utils.logging import logger
 from robolearn.utils.data_management.path_builder import PathBuilder
 from robolearn.utils.samplers.in_place_path_sampler import InPlacePathSampler
+from robolearn.utils.samplers.finite_path_sampler import FinitePathSampler
+
+from collections import OrderedDict
+from robolearn.utils import eval_util
 
 
 class RLAlgorithm(object):
@@ -21,6 +25,7 @@ class RLAlgorithm(object):
             eval_policy=None,
             eval_sampler=None,
             obs_normalizer=None,
+            finite_horizon_eval=False,
 
             num_epochs=100,
             num_steps_per_epoch=10000,
@@ -80,13 +85,22 @@ class RLAlgorithm(object):
         self.eval_policy = eval_policy
 
         if eval_sampler is None:
-            eval_sampler = InPlacePathSampler(
-                env=eval_env,
-                policy=eval_policy,
-                total_samples=num_steps_per_eval,
-                max_path_length=max_path_length,
-                obs_normalizer=self._obs_normalizer,
-            )
+            if finite_horizon_eval:
+                eval_sampler = FinitePathSampler(
+                    env=eval_env,
+                    policy=eval_policy,
+                    total_paths=int(num_steps_per_eval/max_path_length),
+                    max_path_length=max_path_length,
+                    obs_normalizer=self._obs_normalizer,
+                )
+            else:
+                eval_sampler = InPlacePathSampler(
+                    env=eval_env,
+                    policy=eval_policy,
+                    total_samples=num_steps_per_eval,
+                    max_path_length=max_path_length,
+                    obs_normalizer=self._obs_normalizer,
+                )
         self.eval_sampler = eval_sampler
 
         # RL algorithm hyperparameters
@@ -306,14 +320,49 @@ class RLAlgorithm(object):
                 and self._n_epoch_train_steps >= self._min_steps_start_eval
         )
 
-    @abc.abstractmethod
     def evaluate(self, epoch):
         """
         Evaluate the policy, e.g. save/print progress.
         :param epoch:
         :return:
         """
-        pass
+        if self.eval_statistics is None:
+            self.eval_statistics = OrderedDict()
+
+        statistics = OrderedDict()
+        statistics.update(self.eval_statistics)
+        self.eval_statistics = None
+
+        logger.log("Collecting samples for evaluation")
+        test_paths = self.eval_sampler.obtain_samples()
+
+        statistics.update(eval_util.get_generic_path_information(
+            test_paths, stat_prefix="Test",
+        ))
+
+        if self._exploration_paths:
+            statistics.update(eval_util.get_generic_path_information(
+                self._exploration_paths, stat_prefix="Exploration",
+            ))
+        else:
+            statistics.update(eval_util.get_generic_path_information(
+                test_paths, stat_prefix="Exploration",
+            ))
+
+        if hasattr(self.env, "log_diagnostics"):
+            self.env.log_diagnostics(test_paths)
+
+        average_returns = eval_util.get_average_returns(test_paths)
+        statistics['AverageReturn'] = average_returns
+        for key, value in statistics.items():
+            logger.record_tabular(key, value)
+
+        if self.render_eval_paths:
+            self.env.render_paths(test_paths)
+
+        if self._epoch_plotter is not None:
+            self._epoch_plotter.draw()
+            self._epoch_plotter.save_figure(epoch)
 
     def get_epoch_snapshot(self, epoch):
         """

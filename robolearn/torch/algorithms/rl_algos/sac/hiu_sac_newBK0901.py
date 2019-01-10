@@ -7,7 +7,6 @@ https://github.com/vitchyr/rlkit
 import numpy as np
 import torch
 import torch.optim as optim
-from torch import nn as nn
 
 from collections import OrderedDict
 from itertools import chain
@@ -16,18 +15,20 @@ import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.logging import logger
 from robolearn.utils import eval_util
 from robolearn.utils.samplers import InPlacePathSampler
-from robolearn.torch.algorithms.rl_algos.torch_incremental_rl_algorithm \
-    import TorchIncrementalRLAlgorithm
+
+from robolearn.algorithms.rl_algos import IncrementalRLAlgorithm
+from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
+
 from robolearn.models.policies import MakeDeterministic
 from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.utils.data_management.normalizer import RunningNormalizer
 
-from tensorboardX import SummaryWriter
+import tensorboardX
 
-MAX_LOG_ALPHA = 9.21034037  # Alpha=10000
+MAX_LOG_ALPHA = 9.21034037  # Alpha=10000  Before 01/07
 
 
-class HIUSACNEW(TorchIncrementalRLAlgorithm):
+class HIUSACNEW(IncrementalRLAlgorithm, TorchAlgorithm):
     """
     Hierarchical Intentional-Unintentional Soft Actor Critic (HIU-SAC).
     Incremental Version.
@@ -40,10 +41,10 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
 
             replay_buffer,
             batch_size=1024,
-            normalize_obs=True,
-            i_qf1=None,
+            normalize_obs=False,
             eval_env=None,
 
+            i_qf1=None,
             u_qf2=None,
             i_qf2=None,
             reparameterize=True,
@@ -55,14 +56,12 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
             i_tgt_entro=None,
             u_tgt_entros=None,
 
-            i_policy_lr=1e-3,
-            u_policies_lr=1e-3,
-            u_mixing_lr=1e-3,
+            i_policy_lr=3e-4,
 
-            i_qf_lr=1e-3,
-            i_qf2_lr=1e-3,
-            u_qf_lr=1e-3,
-            u_qf2_lr=1e-3,
+            i_qf_lr=3e-4,
+            i_qf2_lr=3e-4,
+            u_qf_lr=3e-4,
+            u_qf2_lr=3e-4,
 
             i_policy_mean_regu_weight=1e-3,
             i_policy_std_regu_weight=1e-3,
@@ -74,17 +73,16 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
             u_policy_pre_activation_weight=None,
 
             i_policy_weight_decay=0.,
-            u_policy_weight_decay=0.,
             i_q_weight_decay=0.,
             u_q_weight_decay=0.,
 
-            # optimizer='adam',
-            optimizer='rmsprop',
+            optimizer='adam',
+            # optimizer='rmsprop',
             # optimizer='sgd',
-            amsgrad=True,
+            optimizer_kwargs=None,
 
-            i_soft_target_tau=1e-2,
-            u_soft_target_tau=1e-2,
+            i_soft_target_tau=5e-3,
+            u_soft_target_tau=5e-3,
             i_target_update_interval=1,
             u_target_update_interval=1,
 
@@ -115,7 +113,7 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
         else:
             self._obs_normalizer = None
 
-        TorchIncrementalRLAlgorithm.__init__(
+        IncrementalRLAlgorithm.__init__(
             self,
             env=env,
             exploration_policy=self._policy,
@@ -198,14 +196,17 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
         # ########## #
         if optimizer.lower() == 'adam':
             optimizer_class = optim.Adam
-            optimizer_params = dict(
-                amsgrad=amsgrad,
-            )
+            if optimizer_kwargs is None:
+                optimizer_kwargs = dict(
+                    amsgrad=True,
+                    # amsgrad=False,
+                )
         elif optimizer.lower() == 'rmsprop':
             optimizer_class = optim.RMSprop
-            optimizer_params = dict(
+            if optimizer_kwargs is None:
+                optimizer_kwargs = dict(
 
-            )
+                )
         else:
             raise ValueError('Wrong optimizer')
 
@@ -214,70 +215,50 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
             self._u_qf1.parameters(),
             lr=u_qf_lr,
             weight_decay=u_q_weight_decay,
-            **optimizer_params
-        )
-        self._i_qf1_optimizer = optimizer_class(
-            self._i_qf1.parameters(),
-            lr=i_qf_lr,
-            weight_decay=i_q_weight_decay,
-            **optimizer_params
+            **optimizer_kwargs
         )
         self._u_qf2_optimizer = optimizer_class(
             self._u_qf2.parameters(),
             lr=u_qf2_lr,
             weight_decay=u_q_weight_decay,
-            **optimizer_params
+            **optimizer_kwargs
+        )
+        u_vals_params = chain(self._u_qf1.parameters(),
+                              self._u_qf2.parameters())
+        self._i_qf1_optimizer = optimizer_class(
+            self._i_qf1.parameters(),
+            lr=i_qf_lr,
+            weight_decay=i_q_weight_decay,
+            **optimizer_kwargs
         )
         self._i_qf2_optimizer = optimizer_class(
             self._i_qf2.parameters(),
             lr=i_qf2_lr,
             weight_decay=i_q_weight_decay,
-            **optimizer_params
+            **optimizer_kwargs
         )
 
         # Policy optimizer
-        # self._policy_optimizer = optimizer_class([
-        #     {'params': self._policy.shared_parameters(),
-        #      'lr': i_policy_lr},
-        #     {'params': self._policy.policies_parameters(),
-        #      'lr': i_policy_lr},
-        #     {'params': self._policy.mixing_parameters(),
-        #      'lr': i_policy_lr},
-        # ])
         self._policy_optimizer = optimizer_class(
             self._policy.parameters(),
             lr=i_policy_lr,
             weight_decay=i_policy_weight_decay,
-            **optimizer_params
+            **optimizer_kwargs
         )
-        # self._mixing_optimizer = optimizer_class(
-        #     chain(self._policy.shared_parameters(),
-        #           self._policy.mixing_parameters()),
-        #     lr=u_mixing_lr,
-        #     weight_decay=i_policy_weight_decay,
-        #     **optimizer_params
-        # )
-        # self._policies_optimizer = optimizer_class(
-        #     chain(self._policy.shared_parameters(),
-        #           self._policy.policies_parameters()),
-        #     lr=u_policies_lr,
-        #     weight_decay=u_policy_weight_decay,
-        #     **optimizer_params
-        # )
 
         # Alpha optimizers
         self._u_alpha_optimizer = optimizer_class(
             [self._u_log_alphas],
             lr=i_policy_lr,
-            **optimizer_params
+            **optimizer_kwargs
         )
         self._i_alpha_optimizer = optimizer_class(
             [self._i_log_alpha],
             lr=i_policy_lr,
-            **optimizer_params
+            **optimizer_kwargs
         )
 
-        # Policy regularization coefficients (weights)
+        # Weights for policy regularization coefficients
         self._i_pol_mean_regu_weight = i_policy_mean_regu_weight
         self._i_pol_std_regu_weight = i_policy_std_regu_weight
         self._i_pol_pre_activ_weight = i_policy_pre_activation_weight
@@ -347,8 +328,13 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
             self._n_unintentional + 1,
         ))
 
+        # Tensorboard-like Logging
         self._log_tensorboard = log_tensorboard
-        self._summary_writer = SummaryWriter(log_dir=logger.get_snapshot_dir())
+        if log_tensorboard:
+            self._summary_writer = \
+                tensorboardX.SummaryWriter(log_dir=logger.get_snapshot_dir())
+        else:
+            self._summary_writer = None
 
     def pretrain(self, n_pretrain_samples):
         # We do not require any pretrain (I think...)
@@ -356,7 +342,7 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
         for ii in range(n_pretrain_samples):
             action = self.env.action_space.sample()
             # Interact with environment
-            next_ob, raw_reward, terminal, env_info = (
+            next_ob, reward, terminal, env_info = (
                 self.env.step(action)
             )
             agent_info = None
@@ -364,7 +350,7 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
             # Increase counter
             self._n_env_steps_total += 1
             # Create np.array of obtained terminal and reward
-            reward = raw_reward * self.reward_scale
+            reward = reward * self.reward_scale
             terminal = np.array([terminal])
             reward = np.array([reward])
             # Add to replay buffer
@@ -859,7 +845,7 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
             self._epoch_plotter.draw()
             self._epoch_plotter.save_figure(epoch)
 
-        snapshot = TorchIncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
+        snapshot = IncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
 
         snapshot.update(
             policy=self._policy,
@@ -1096,7 +1082,7 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
             batch['next_observations'] = \
                 self._obs_normalizer.normalize(batch['next_observations'])
 
-        return ptu.np_to_pytorch_batch(batch)
+        return batch
 
     def _handle_step(
             self,
@@ -1127,7 +1113,7 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
         if self._obs_normalizer is not None:
             self._obs_normalizer.update(np.array([observation]))
 
-        TorchIncrementalRLAlgorithm._handle_step(
+        IncrementalRLAlgorithm._handle_step(
             self,
             observation=observation,
             action=action,
@@ -1145,4 +1131,4 @@ class HIUSACNEW(TorchIncrementalRLAlgorithm):
 
         self.replay_buffer.terminate_episode()
 
-        TorchIncrementalRLAlgorithm._handle_rollout_ending(self)
+        IncrementalRLAlgorithm._handle_rollout_ending(self)

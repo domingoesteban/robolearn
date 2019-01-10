@@ -1,5 +1,5 @@
 """
-Run PyTorch HIU-SAC on Reacher2D3DofEnv.
+Run PyTorch SAC on Reacher2D3DofEnv.
 
 NOTE: You need PyTorch 0.4
 """
@@ -7,22 +7,21 @@ NOTE: You need PyTorch 0.4
 import os
 from shutil import copyfile
 import numpy as np
-import torch
 
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
-from robolearn.utils.data_management import MultiGoalReplayBuffer
+from robolearn.torch.utils.data_management import SimpleReplayBuffer
 
 from robolearn_gym_envs.pybullet import Reacher2D3DofGoalCompoEnv
 
-from robolearn.torch.algorithms.rl_algos.sac.hiu_sac_new \
-    import HIUSACNEW
+from robolearn.torch.algorithms.rl_algos.sac.sac_episodic \
+    import SAC
 
 from robolearn.torch.models import NNQFunction
-from robolearn.torch.models import NNMultiQFunction
+from robolearn.torch.models import NNVFunction
 
-from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
+from robolearn.torch.policies import TanhGaussianPolicy
 
 import argparse
 import joblib
@@ -47,13 +46,11 @@ SEED = 110
 
 SUBTASK = None
 
-POLICY = TanhGaussianWeightedMultiPolicy
+POLICY = TanhGaussianPolicy
 REPARAM_POLICY = True
 
-SOFTMAX_WEIGHTS = True
-# SOFTMAX_WEIGHTS = False
-# INIT_AVG_MIXING = True
-INIT_AVG_MIXING = False
+USE_Q2 = True
+EXPLICIT_VF = False
 
 OPTIMIZER = 'adam'
 # OPTIMIZER = 'rmsprop'
@@ -61,17 +58,18 @@ OPTIMIZER = 'adam'
 NORMALIZE_OBS = False
 
 expt_params = dict(
-    algo_name=HIUSACNEW.__name__,
+    algo_name=SAC.__name__,
     policy_name=POLICY.__name__,
     path_length=PATH_LENGTH,
     algo_params=dict(
         # Common RL algorithm params
+        rollouts_per_epoch=PATHS_PER_EPOCH,
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=500,  # n_epochs
-        num_updates_per_train_call=1,  # How to many run algorithm train fcn
+        num_epochs=300,  # n_epochs
+        num_updates_per_train_call=PATHS_PER_EPOCH * PATH_LENGTH,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
-        min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
+        min_start_eval=1,  # Min nsteps to start to eval
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
@@ -79,79 +77,63 @@ expt_params = dict(
         # SAC params
         reparameterize=REPARAM_POLICY,
         action_prior='uniform',
-        i_entropy_scale=1.0e-0,
-        u_entropy_scale=[1.0e-0, 1.0e-0],
-        auto_alphas=True,
-        i_tgt_entro=1.0e-0,
-        u_tgt_entros=[2.0e-0, 2.0e-0],
+        entropy_scale=2.0e-1,
+        auto_alpha=False,
+        tgt_entro=1e+0,
         # Learning rates
-        optimizer=OPTIMIZER,
-        i_policy_lr=3.e-3,
-        u_policies_lr=3.e-3,
-        u_mixing_lr=3.e-3,
-        i_qf_lr=3.e-4,
-        u_qf_lr=3.e-4,
+        policy_lr=1e-3,
+        qf_lr=1e-3,
+        vf_lr=1e-3,
         # Soft target update
-        i_soft_target_tau=5.e-3,
-        u_soft_target_tau=5.e-3,
+        soft_target_tau=5.e-3,
         # Regularization terms
-        i_policy_mean_regu_weight=1.e-3,
-        i_policy_std_regu_weight=1.e-3,
-        i_policy_pre_activation_weight=0.e-3,
-        i_policy_mixing_coeff_weight=1.e+0,
-        u_policy_mean_regu_weight=[1.e-3, 1.e-3],
-        u_policy_std_regu_weight=[1.e-3, 1.e-3],
-        u_policy_pre_activation_weight=[0.e-3, 0.e-3],
+        policy_mean_regu_weight=0e-3,
+        policy_std_regu_weight=0e-3,
+        policy_pre_activation_weight=0.e-3,
         # Weight decays
-        i_policy_weight_decay=1.e-5,
-        u_policy_weight_decay=1.e-5,
-        i_q_weight_decay=1e-5,
-        u_q_weight_decay=1e-5,
+        policy_weight_decay=0.e-5,
+        q_weight_decay=0.e-5,
+        v_weight_decay=0.e-5,
 
         discount=0.99,
         reward_scale=1.0e-0,
-        u_reward_scales=[1.0e-0, 1.0e-0],
-
-        normalize_obs=NORMALIZE_OBS,
     ),
     replay_buffer_size=1e6,
     net_size=128,
-    softmax_weights=SOFTMAX_WEIGHTS,
     # NN Normalizations
     # -----------------
-    # input_norm=True,
-    input_norm=False,
     shared_layer_norm=False,
-    policies_layer_norm=False,
-    mixture_layer_norm=False,
-    # shared_layer_norm=True,
-    # policies_layer_norm=True,
-    # mixture_layer_norm=True,
     # NN Activations
     # --------------
-    # hidden_activation='relu',
+    hidden_activation='relu',
     # hidden_activation='tanh',
-    hidden_activation='elu',
+    # hidden_activation='elu',
     # NN Initialization
     # -----------------
     # pol_hidden_w_init='xavier_normal',
     # pol_output_w_init='xavier_normal',
-    pol_hidden_w_init='uniform',
-    pol_output_w_init='uniform',
+    pol_hidden_w_init='xavier_uniform',
+    pol_output_w_init='xavier_uniform',
+    # pol_hidden_w_init='uniform',
+    # pol_output_w_init='uniform',
     # q_hidden_w_init='xavier_normal',
     # q_output_w_init='xavier_normal',
-    q_hidden_w_init='uniform',
-    q_output_w_init='uniform',
+    q_hidden_w_init='xavier_uniform',
+    q_output_w_init='xavier_uniform',
+    # q_hidden_w_init='uniform',
+    # q_output_w_init='uniform',
     # v_hidden_w_init='xavier_normal',
     # v_output_w_init='xavier_normal',
-    v_hidden_w_init='uniform',
-    v_output_w_init='uniform',
+    v_hidden_w_init='xavier_uniform',
+    v_output_w_init='xavier_uniform',
+    # v_hidden_w_init='uniform',
+    # v_output_w_init='uniform',
 )
 
 env_params = dict(
     is_render=False,
-    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
-    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
+    # obs_distances=False,
+    obs_distances=True,
     obs_with_img=False,
     # obs_with_ori=True,
     obs_with_ori=False,
@@ -201,16 +183,13 @@ def experiment(variant):
     obs_dim = env.obs_dim
     action_dim = env.action_dim
 
-    n_unintentional = 2
-
     if variant['load_dir']:
         params_file = os.path.join(variant['log_dir'], 'params.pkl')
         data = joblib.load(params_file)
         start_epoch = data['epoch']
-        i_qf = data['qf']
-        i_qf2 = data['qf2']
-        u_qf = data['u_qf']
-        u_qf2 = data['u_qf2']
+        qf = data['qf']
+        qf2 = data['qf2']
+        vf = data['vf']
         policy = data['policy']
         env._obs_mean = data['obs_mean']
         env._obs_var = data['obs_var']
@@ -218,91 +197,61 @@ def experiment(variant):
         start_epoch = 0
         net_size = variant['net_size']
 
-        u_qf = NNMultiQFunction(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            n_qs=n_unintentional,
-            hidden_activation=variant['hidden_activation'],
-            # shared_hidden_sizes=[net_size, net_size],
-            shared_hidden_sizes=[net_size],
-            # shared_hidden_sizes=[],
-            unshared_hidden_sizes=[net_size, net_size],
-            hidden_w_init=variant['q_hidden_w_init'],
-            output_w_init=variant['q_output_w_init'],
-        )
-        i_qf = NNQFunction(
+        qf = NNQFunction(
             obs_dim=obs_dim,
             action_dim=action_dim,
             hidden_activation=variant['hidden_activation'],
-            hidden_sizes=[net_size, net_size],
+            hidden_sizes=[net_size, net_size, net_size],
             hidden_w_init=variant['q_hidden_w_init'],
             output_w_init=variant['q_output_w_init'],
         )
-        u_qf2 = NNMultiQFunction(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            n_qs=n_unintentional,
-            hidden_activation=variant['hidden_activation'],
-            # shared_hidden_sizes=[net_size, net_size],
-            shared_hidden_sizes=[net_size],
-            # shared_hidden_sizes=[],
-            unshared_hidden_sizes=[net_size, net_size],
-            hidden_w_init=variant['q_hidden_w_init'],
-            output_w_init=variant['q_output_w_init'],
-        )
-        i_qf2 = NNQFunction(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            hidden_sizes=[net_size, net_size],
-            hidden_w_init=variant['q_hidden_w_init'],
-            output_w_init=variant['q_output_w_init'],
-        )
+        if USE_Q2:
+            qf2 = NNQFunction(
+                obs_dim=obs_dim,
+                action_dim=action_dim,
+                hidden_activation=variant['hidden_activation'],
+                hidden_sizes=[net_size, net_size, net_size],
+                hidden_w_init=variant['q_hidden_w_init'],
+                output_w_init=variant['q_output_w_init'],
+            )
+        else:
+            qf2 = None
+
+        if EXPLICIT_VF:
+            vf = NNVFunction(
+                obs_dim=obs_dim,
+                hidden_activation=variant['hidden_activation'],
+                hidden_sizes=[net_size, net_size, net_size],
+                hidden_w_init=variant['v_hidden_w_init'],
+                output_w_init=variant['v_output_w_init'],
+            )
+        else:
+            vf = None
 
         policy = POLICY(
             obs_dim=obs_dim,
             action_dim=action_dim,
-            n_policies=n_unintentional,
             hidden_activation=variant['hidden_activation'],
-            # shared_hidden_sizes=[net_size, net_size],
-            shared_hidden_sizes=[net_size],
-            # shared_hidden_sizes=[],
-            unshared_hidden_sizes=[net_size, net_size],
-            unshared_mix_hidden_sizes=[net_size, net_size],
-            stds=None,
-            input_norm=variant['input_norm'],
-            shared_layer_norm=variant['shared_layer_norm'],
-            policies_layer_norm=variant['policies_layer_norm'],
-            mixture_layer_norm=variant['mixture_layer_norm'],
-            mixing_temperature=1.,
+            hidden_sizes=[net_size, net_size, net_size],
             reparameterize=REPARAM_POLICY,
-            softmax_weights=variant['softmax_weights'],
             hidden_w_init=variant['pol_hidden_w_init'],
             output_w_init=variant['pol_output_w_init'],
         )
 
-        if INIT_AVG_MIXING:
-            set_average_mixing(
-                policy, n_unintentional, obs_dim,
-                batch_size=50,
-                total_iters=1000,
-            )
-
-    replay_buffer = MultiGoalReplayBuffer(
+    replay_buffer = SimpleReplayBuffer(
         max_replay_buffer_size=variant['replay_buffer_size'],
         obs_dim=obs_dim,
         action_dim=action_dim,
-        reward_vector_size=n_unintentional,
     )
 
-    algorithm = HIUSACNEW(
+    algorithm = SAC(
         env=env,
         policy=policy,
-        u_qf1=u_qf,
+        qf=qf,
+        vf=vf,
+        qf2=qf2,
         replay_buffer=replay_buffer,
         batch_size=BATCH_SIZE,
-        i_qf1=i_qf,
-        u_qf2=u_qf2,
-        i_qf2=i_qf2,
         eval_env=env,
         save_environment=False,
         **variant['algo_params']
@@ -310,31 +259,10 @@ def experiment(variant):
     if ptu.gpu_enabled():
         algorithm.cuda()
 
-    # algorithm.pretrain(PATH_LENGTH*2)
+    algorithm.pretrain(10000)
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm
-
-
-def set_average_mixing(policy, n_unintentional, obs_dim, batch_size=50,
-                       total_iters=1000):
-    mixing_optimizer = torch.optim.Adam(
-        policy.mixing_parameters(),
-        lr=1.0e-4,
-        amsgrad=True,
-        weight_decay=1e-5,
-    )
-    loss_fn = torch.nn.MSELoss(size_average=False)
-    for ii in range(total_iters):
-        dummy_obs = torch.randn((batch_size, obs_dim))
-        mix_pred = policy(dummy_obs, deterministic=True)[1]['mixing_coeff']
-        mix_des = torch.ones_like(mix_pred) * 1./n_unintentional
-        loss = loss_fn(mix_pred, mix_des)
-        mixing_optimizer.zero_grad()
-        loss.backward()
-        mixing_optimizer.step()
-    # Set gradient to zero again
-    mixing_optimizer.zero_grad()
 
 
 def parse_args():
@@ -353,8 +281,6 @@ def parse_args():
     parser.add_argument('--gpu', action="store_true")
     # Other arguments
     parser.add_argument('--render', action="store_true")
-    # Algo arguments
-    parser.add_argument('--mix_weight', type=float, default=1.e+1)
     args = parser.parse_args()
 
     return args
@@ -393,7 +319,6 @@ if __name__ == "__main__":
 
     # Algo params
     expt_variant['algo_params']['render'] = args.render
-    expt_variant['algo_params']['i_policy_mixing_coeff_weight'] = args.mix_weight
 
     log_dir = setup_logger(expt_name,
                            variant=expt_variant,

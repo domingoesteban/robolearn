@@ -400,7 +400,9 @@ class TanhGaussianMixtureMultiPolicy(PyTorchModule, ExplorationPolicy):
         if pol_idx is None:
             # TODO: CHECK IF NOT PROPAGATING GRADIENTS HERE IS A PROBLEM
             # Sample latent variables
-            z = Multinomial(logits=log_mixture_coeff.transpose(-2, -1)).sample().transpose(-2, -1)  # NxK
+            z = Multinomial(
+                logits=log_mixture_coeff.transpose(-2, -1)
+            ).sample().transpose(-2, -1)  # NxK
 
             # Choose mixture component corresponding
 

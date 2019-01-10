@@ -16,8 +16,8 @@ from robolearn.utils.data_management import MultiGoalReplayBuffer
 
 from robolearn_gym_envs.pybullet import Reacher2D3DofGoalCompoEnv
 
-from robolearn.torch.algorithms.rl_algos.sac.hiu_sac_new \
-    import HIUSACNEW
+from robolearn.torch.algorithms.rl_algos.sac.hiu_sac \
+    import HIUSAC
 
 from robolearn.torch.models import NNQFunction
 from robolearn.torch.models import NNVFunction
@@ -65,7 +65,7 @@ OPTIMIZER = 'adam'
 NORMALIZE_OBS = False
 
 expt_params = dict(
-    algo_name=HIUSACNEW.__name__,
+    algo_name=HIUSAC.__name__,
     policy_name=POLICY.__name__,
     path_length=PATH_LENGTH,
     algo_params=dict(
@@ -298,7 +298,7 @@ def experiment(variant):
         reward_vector_size=n_unintentional,
     )
 
-    algorithm = HIUSACNEW(
+    algorithm = HIUSAC(
         env=env,
         policy=policy,
         u_qf1=u_qf,

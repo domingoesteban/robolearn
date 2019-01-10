@@ -16,8 +16,10 @@ import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.logging import logger
 from robolearn.utils import eval_util
 from robolearn.utils.samplers import InPlacePathSampler
-from robolearn.torch.algorithms.rl_algos.torch_iterative_rl_algorithm \
-    import TorchIterativeRLAlgorithm
+
+from robolearn.algorithms.rl_algos import IterativeRLAlgorithm
+from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
+
 from robolearn.models.policies import MakeDeterministic
 from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.utils.data_management.normalizer import RunningNormalizer
@@ -25,7 +27,7 @@ from robolearn.utils.data_management.normalizer import RunningNormalizer
 from tensorboardX import SummaryWriter
 
 
-class HIUSACEpisodic(TorchIterativeRLAlgorithm):
+class HIUSACEpisodic(IterativeRLAlgorithm, TorchAlgorithm):
     """
     Hierarchical Intentional-Unintentional Soft Actor Critic (HIU-SAC).
     Iterative (Episodic) Version.
@@ -116,7 +118,7 @@ class HIUSACEpisodic(TorchIterativeRLAlgorithm):
         else:
             self._obs_normalizer = None
 
-        TorchIterativeRLAlgorithm.__init__(
+        IterativeRLAlgorithm.__init__(
             self,
             env=env,
             exploration_policy=self._policy,
@@ -792,7 +794,7 @@ class HIUSACEpisodic(TorchIterativeRLAlgorithm):
             self._epoch_plotter.draw()
             self._epoch_plotter.save_figure(epoch)
 
-        snapshot = TorchIterativeRLAlgorithm.get_epoch_snapshot(self, epoch)
+        snapshot = IterativeRLAlgorithm.get_epoch_snapshot(self, epoch)
 
         snapshot.update(
             policy=self._policy,
@@ -1024,7 +1026,7 @@ class HIUSACEpisodic(TorchIterativeRLAlgorithm):
             batch['next_observations'] = \
                 self._obs_normalizer.normalize(batch['next_observations'])
 
-        return ptu.np_to_pytorch_batch(batch)
+        return batch
 
     def _handle_step(
             self,
@@ -1055,7 +1057,7 @@ class HIUSACEpisodic(TorchIterativeRLAlgorithm):
         if self._obs_normalizer is not None:
             self._obs_normalizer.update(np.array([observation]))
 
-        TorchIterativeRLAlgorithm._handle_step(
+        IterativeRLAlgorithm._handle_step(
             self,
             observation=observation,
             action=action,
@@ -1073,5 +1075,5 @@ class HIUSACEpisodic(TorchIterativeRLAlgorithm):
 
         self.replay_buffer.terminate_episode()
 
-        TorchIterativeRLAlgorithm._handle_rollout_ending(self)
+        IterativeRLAlgorithm._handle_rollout_ending(self)
 

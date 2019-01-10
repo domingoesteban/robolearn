@@ -41,6 +41,47 @@ def plot_process_iu_returns(csv_file, n_unintentional=None, block=False):
     axs[-1].set_xlabel('Episodes')
     plt.setp(axs[-1].get_xticklabels(), visible=True)
 
+    print('total_iters:', len(data[-1]))
+    plt.show(block=block)
+
+
+def plot_process_iu_avg_rewards(csv_file, n_unintentional=None, block=False):
+    labels_to_plot = ['Test Rewards Mean']
+
+    if n_unintentional is None:
+        n_unintentional = 0
+    else:
+        n_unintentional += 1
+
+    # Add Intentional-Unintentional Label
+    new_labels = list()
+    for label in labels_to_plot:
+        for uu in range(n_unintentional):
+            new_string = ('[U-%02d] ' % uu) + label
+            new_labels.append(new_string)
+
+        new_string = '[I] ' + label
+        new_labels.append(new_string)
+
+    n_subplots = len(labels_to_plot) * (n_unintentional + 1)
+
+    data = get_csv_data(csv_file, new_labels)
+
+    fig, axs = subplots(n_subplots)
+    if not isinstance(axs, np.ndarray):
+        axs = np.array([axs])
+    fig.subplots_adjust(hspace=0)
+    fig.suptitle('Rewards Mean', fontweight='bold')
+
+    for aa, ax in enumerate(axs):
+        ax.plot(data[aa])
+        ax.set_ylabel(new_labels[aa])
+        plt.setp(ax.get_xticklabels(), visible=False)
+
+    axs[-1].set_xlabel('Episodes')
+    plt.setp(axs[-1].get_xticklabels(), visible=True)
+
+    print('total_iters:', len(data[-1]))
     plt.show(block=block)
 
 

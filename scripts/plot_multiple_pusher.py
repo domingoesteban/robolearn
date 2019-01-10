@@ -12,8 +12,8 @@ import json
 # SEEDS = [610, 710, 810, 1010]
 SEEDS = [610]
 # MAX_ITER = 590
-# MAX_ITER = 1000
-MAX_ITER = 50
+MAX_ITER = 1000
+# MAX_ITER = 50
 # STEPS_PER_ITER = 3e3
 STEPS_PER_ITER = None
 LOG_PREFIX = '/home/desteban/logs/objective_test/pusher'
@@ -82,12 +82,12 @@ hiu_performance_dict['Main Task']['W1-0'] = dict(
     ius=[-1],
     r_scales=[1.e-0],
 )
-hiu_performance_dict['Main Task']['W1-5'] = dict(
-    dir='sub-1',
-    prefix='hiu_sac_new5_0_',
-    ius=[-1],
-    r_scales=[1.e-0],
-)
+# hiu_performance_dict['Main Task']['W1-5'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_new5_0_',
+#     ius=[-1],
+#     r_scales=[1.e-0],
+# )
 hiu_performance_dict['Main Task']['E1-0'] = dict(
     dir='sub-1',
     prefix='hiu_sac_new_promp_0_',
@@ -106,24 +106,24 @@ hiu_performance_dict['Main Task']['M2-5'] = dict(
 #     ius=[-1],
 #     r_scales=[1.e-0],
 # )
-# hiu_performance_dict['Main Task']['M1-0'] = dict(
-#     dir='sub-1',
-#     prefix='hiu_sac_new_mixture1_0_',
-#     ius=[-1],
-#     r_scales=[1.e-0],
-# )
+hiu_performance_dict['Main Task']['M1-0'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_new_mixture1_0_',
+    ius=[-1],
+    r_scales=[1.e-0],
+)
 # hiu_performance_dict['Main Task']['M1-10'] = dict(
 #     dir='sub-1',
 #     prefix='hiu_sac_new_mixture1_10_',
 #     ius=[-1],
 #     r_scales=[1.e-0],
 # )
-# hiu_performance_dict['Main Task']['M3-0'] = dict(
-#     dir='sub-1',
-#     prefix='hiu_sac_new_mixture3_0_',
-#     ius=[-1],
-#     r_scales=[1.e-0],
-# )
+hiu_performance_dict['Main Task']['M3-0'] = dict(
+    dir='sub-1',
+    prefix='hiu_sac_new_mixture3_0_',
+    ius=[-1],
+    r_scales=[1.e-0],
+)
 
 
 def get_full_seed_paths(full_dict):

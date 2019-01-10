@@ -14,12 +14,15 @@ import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils import eval_util
 from robolearn.utils.logging import logger
 from robolearn.utils.samplers import InPlacePathSampler
-from robolearn.torch.algorithms.rl_algos.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
+
+from robolearn.algorithms.rl_algos import IncrementalRLAlgorithm
+from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
+
 from robolearn.models.policies import MakeDeterministic
 from robolearn.torch.policies import MultiPolicySelector
 
 
-class IUMultiSAC(TorchIncrementalRLAlgorithm):
+class IUMultiSAC(IncrementalRLAlgorithm, TorchAlgorithm):
     """Intentional-Unintentional Soft Actor Critic (IU-SAC)
     with MultiHead Networks.
 
@@ -84,7 +87,8 @@ class IUMultiSAC(TorchIncrementalRLAlgorithm):
 
         self._iu_mode = iu_mode
 
-        super(IUMultiSAC, self).__init__(
+        IncrementalRLAlgorithm.__init__(
+            self,
             env=env,
             exploration_policy=self._i_policy,
             eval_policy=eval_policy,

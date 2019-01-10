@@ -6,11 +6,14 @@ from torch import nn as nn
 
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.eval_util import create_stats_ordered_dict
-from robolearn.torch.algorithms.rl_algos.torch_incremental_rl_algorithm import TorchIncrementalRLAlgorithm
+
+from robolearn.algorithms.rl_algos import IncrementalRLAlgorithm
+from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
+
 from robolearn.models.policies import MakeDeterministic
 
 
-class MultiSoftActorCritic(TorchIncrementalRLAlgorithm):
+class MultiSoftActorCritic(IncrementalRLAlgorithm, TorchAlgorithm):
     def __init__(
             self,
             env,
@@ -41,7 +44,8 @@ class MultiSoftActorCritic(TorchIncrementalRLAlgorithm):
             eval_policy = MakeDeterministic(policy)
         else:
             eval_policy = policy
-        super().__init__(
+        IncrementalRLAlgorithm.__init__(
+            self,
             env=env,
             exploration_policy=policy,
             eval_policy=eval_policy,

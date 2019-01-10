@@ -6,26 +6,27 @@ https://github.com/vitchyr/rlkit
 import numpy as np
 import torch
 import torch.optim as optim
-from torch import nn as nn
+from itertools import chain
 
 from collections import OrderedDict
-
+from itertools import chain
 
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.logging import logger
 from robolearn.utils import eval_util
 
-from robolearn.torch.algorithms.rl_algos.torch_incremental_rl_algorithm \
-    import TorchIncrementalRLAlgorithm
+from robolearn.algorithms.rl_algos import IncrementalRLAlgorithm
+from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
+
 from robolearn.models.policies import MakeDeterministic
 from robolearn.utils.data_management.normalizer import RunningNormalizer
 
-from tensorboardX import SummaryWriter
+import tensorboardX
 
 MAX_LOG_ALPHA = 9.21034037  # Alpha=10000
 
 
-class SAC(TorchIncrementalRLAlgorithm):
+class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
     """
     Soft Actor Critic (SAC)
     """
@@ -34,13 +35,13 @@ class SAC(TorchIncrementalRLAlgorithm):
             env,
             policy,
             qf,
-            vf,
 
             replay_buffer,
             batch_size=1024,
             normalize_obs=False,
             eval_env=None,
 
+            vf=None,
             qf2=None,
             reparameterize=True,
             action_prior='uniform',
@@ -49,9 +50,9 @@ class SAC(TorchIncrementalRLAlgorithm):
             auto_alpha=True,
             tgt_entro=None,
 
-            policy_lr=1e-3,
-            qf_lr=1e-3,
-            vf_lr=1e-3,
+            policy_lr=3e-4,
+            qf_lr=3e-4,
+            vf_lr=3e-4,
 
             policy_mean_regu_weight=1e-3,
             policy_std_regu_weight=1e-3,
@@ -64,9 +65,9 @@ class SAC(TorchIncrementalRLAlgorithm):
             optimizer='adam',
             # optimizer='rmsprop',
             # optimizer='sgd',
-            amsgrad=True,
+            optimizer_kwargs=None,
 
-            soft_target_tau=1e-2,
+            soft_target_tau=5e-3,
             target_update_interval=1,
 
             save_replay_buffer=False,
@@ -121,7 +122,7 @@ class SAC(TorchIncrementalRLAlgorithm):
 
             optimizer (string): Optimizer name
 
-            amsgrad:
+            optimizer_kwargs: Optimizer parameters
 
             soft_target_tau: Interpolation factor in polyak averaging for
                 target networks.
@@ -156,7 +157,7 @@ class SAC(TorchIncrementalRLAlgorithm):
         else:
             self._obs_normalizer = None
 
-        TorchIncrementalRLAlgorithm.__init__(
+        IncrementalRLAlgorithm.__init__(
             self,
             env=env,
             exploration_policy=self._policy,
@@ -165,6 +166,30 @@ class SAC(TorchIncrementalRLAlgorithm):
             obs_normalizer=self._obs_normalizer,
             **kwargs
         )
+
+        # Q-function(s) and V-function
+        self._qf = qf
+        self._qf2 = qf2
+
+        if vf is None:
+            self._vf = None
+            self._target_vf = None
+            self._target_qf1 = qf.copy()
+            self._target_qf2 = None if qf2 is None else qf2.copy()
+        else:
+            self._vf = vf
+            self._target_vf = vf.copy()
+            self._target_qf1 = None
+            self._target_qf2 = None
+
+        # Replay Buffer
+        self.replay_buffer = replay_buffer
+        self.batch_size = batch_size
+        self.save_replay_buffer = save_replay_buffer
+
+        # Soft-update rate for target V-function
+        self._soft_target_tau = soft_target_tau
+        self._target_update_interval = target_update_interval
 
         # Important algorithm hyperparameters
         self._reparameterize = reparameterize
@@ -179,34 +204,22 @@ class SAC(TorchIncrementalRLAlgorithm):
         self._tgt_entro = ptu.FloatTensor([tgt_entro])
         self._log_alpha = ptu.zeros(1, requires_grad=True, device=ptu.device)
 
-        # Q-function and V-function
-        self._qf = qf
-        self._qf2 = qf2
-        self._vf = vf
-        self._target_vf = vf.copy()
-
-        # Soft-update rate for target V-function
-        self._soft_target_tau = soft_target_tau
-        self._target_update_interval = target_update_interval
-
-        # Replay Buffer
-        self.replay_buffer = replay_buffer
-        self.batch_size = batch_size
-        self.save_replay_buffer = save_replay_buffer
-
         # ########## #
         # Optimizers #
         # ########## #
         if optimizer.lower() == 'adam':
             optimizer_class = optim.Adam
-            optimizer_params = dict(
-                amsgrad=amsgrad,
-            )
+            if optimizer_kwargs is None:
+                optimizer_kwargs = dict(
+                    amsgrad=True,
+                    # amsgrad=False,
+                )
         elif optimizer.lower() == 'rmsprop':
             optimizer_class = optim.RMSprop
-            optimizer_params = dict(
+            if optimizer_kwargs is None:
+                optimizer_kwargs = dict(
 
-            )
+                )
         else:
             raise ValueError('Wrong optimizer')
 
@@ -215,8 +228,9 @@ class SAC(TorchIncrementalRLAlgorithm):
             self._qf.parameters(),
             lr=qf_lr,
             weight_decay=q_weight_decay,
-            **optimizer_params
+            **optimizer_kwargs
         )
+        values_parameters = self._qf.parameters()
         if self._qf2 is None:
             self._qf2_optimizer = None
         else:
@@ -224,15 +238,26 @@ class SAC(TorchIncrementalRLAlgorithm):
                 self._qf2.parameters(),
                 lr=qf_lr,
                 weight_decay=q_weight_decay,
-                **optimizer_params
+                **optimizer_kwargs
             )
+            values_parameters = chain(values_parameters, self._qf2.parameters())
 
         # V-function optimizer
-        self._vf_optimizer = optimizer_class(
-            self._vf.parameters(),
-            lr=vf_lr,
-            weight_decay=v_weight_decay,
-            **optimizer_params
+        if self._vf is None:
+            self._vf_optimizer = None
+        else:
+            self._vf_optimizer = optimizer_class(
+                self._vf.parameters(),
+                lr=vf_lr,
+                weight_decay=v_weight_decay,
+                **optimizer_kwargs
+            )
+            values_parameters = chain(values_parameters, self._vf.parameters())
+        self._values_optimizer = optimizer_class(
+            values_parameters,
+            lr=qf_lr,
+            weight_decay=q_weight_decay,
+            **optimizer_kwargs
         )
 
         # Policy optimizer
@@ -240,18 +265,17 @@ class SAC(TorchIncrementalRLAlgorithm):
             self._policy.parameters(),
             lr=policy_lr,
             weight_decay=policy_weight_decay,
-            **optimizer_params
+            **optimizer_kwargs
         )
 
         # Alpha optimizer
         self._alpha_optimizer = optimizer_class(
             [self._log_alpha],
             lr=policy_lr,
-            weight_decay=policy_weight_decay,
-            **optimizer_params
+            **optimizer_kwargs
         )
 
-        # Policy regularization coefficients (weights)
+        # Weights for policy regularization coefficients
         self.pol_mean_regu_weight = policy_mean_regu_weight
         self.pol_std_regu_weight = policy_std_regu_weight
         self.pol_pre_activation_weight = policy_pre_activation_weight
@@ -276,8 +300,13 @@ class SAC(TorchIncrementalRLAlgorithm):
         ))
         self.log_data['Alphas'] = np.zeros(self.num_train_steps_per_epoch)
 
+        # Tensorboard-like Logging
         self._log_tensorboard = log_tensorboard
-        self._summary_writer = SummaryWriter(log_dir=logger.get_snapshot_dir())
+        if log_tensorboard:
+            self._summary_writer = \
+                tensorboardX.SummaryWriter(log_dir=logger.get_snapshot_dir())
+        else:
+            self._summary_writer = None
 
     def pretrain(self, n_pretrain_samples):
         # We do not require any pretrain (I think...)
@@ -285,7 +314,7 @@ class SAC(TorchIncrementalRLAlgorithm):
         for ii in range(n_pretrain_samples):
             action = self.env.action_space.sample()
             # Interact with environment
-            next_ob, raw_reward, terminal, env_info = (
+            next_ob, reward, terminal, env_info = (
                 self.env.step(action)
             )
             agent_info = None
@@ -293,7 +322,7 @@ class SAC(TorchIncrementalRLAlgorithm):
             # Increase counter
             self._n_env_steps_total += 1
             # Create np.array of obtained terminal and reward
-            reward = raw_reward * self.reward_scale
+            reward = reward * self.reward_scale
             terminal = np.array([terminal])
             reward = np.array([reward])
             # Add to replay buffer
@@ -326,7 +355,7 @@ class SAC(TorchIncrementalRLAlgorithm):
         # Get the idx for logging
         step_idx = self._n_epoch_train_steps
 
-        # Alpha
+        # Alpha (Entropy weight in Maximum Entropy objective)
         alpha = self._entropy_scale*torch.clamp(self._log_alpha,
                                                 max=MAX_LOG_ALPHA).exp()
 
@@ -336,39 +365,61 @@ class SAC(TorchIncrementalRLAlgorithm):
         rewards = batch['rewards']
         terminals = batch['terminals']
 
-        # Vtarget(s')
-        v_value_next = self._target_vf(next_obs)[0]
+        if self._target_vf is None:
+            # Get next actions
+            next_actions, next_policy_info = self._policy(
+                next_obs, return_log_prob=True
+            )
+            # Get next log pol
+            next_log_pi = next_policy_info['log_prob']
+            # Intentional Q1(s', a')
+            next_q1 = self._target_qf1(next_obs, next_actions)[0]
+            if self._qf2 is not None:
+                # Intentional Q2(s', a')
+                next_q2 = self._target_qf2(next_obs, next_actions)[0]
+                # Minimum Unintentional Double-Q
+                next_q = torch.min(next_q1, next_q2)
+            else:
+                next_q = next_q1
+            # Vtarget(s')
+            v_value_next = next_q - alpha*next_log_pi
+        else:
+            # Vtarget(s')
+            v_value_next = self._target_vf(next_obs)[0]
 
         # Calculate Bellman Backup for Q-value
         q_backup = rewards + (1. - terminals) * self.discount * v_value_next
+        q_backup = q_backup.detach()  # Detach gradient computations
 
         # Q1(s, a)
-        q_pred = self._qf(obs, actions)[0]
+        q1_pred = self._qf(obs, actions)[0]
 
         # QF1 Loss: Mean Squared Bellman Equation (MSBE)
-        qf1_loss = 0.5*torch.mean((q_backup.detach() - q_pred)**2)
+        qf1_loss = 0.5 * torch.mean((q_backup - q1_pred)**2)
 
-        # Update Q1-value function
-        self._qf1_optimizer.zero_grad()
-        qf1_loss.backward()
-        self._qf1_optimizer.step()
+        # # Update Q1-value function
+        # self._qf1_optimizer.zero_grad()
+        # qf1_loss.backward()
+        # self._qf1_optimizer.step()
 
         if self._qf2 is not None:
             # Q2(s, a)
             q2_pred = self._qf2(obs, actions)[0]
 
             # QF2 Loss: Mean Squared Bellman Equation (MSBE)
-            qf2_loss = 0.5*torch.mean((q_backup.detach() - q2_pred)**2)
+            qf2_loss = 0.5 * torch.mean((q_backup - q2_pred)**2)
 
-            # Update Q2-value function
-            self._qf2_optimizer.zero_grad()
-            qf2_loss.backward()
-            self._qf2_optimizer.step()
+            # # Update Q2-value function
+            # self._qf2_optimizer.zero_grad()
+            # qf2_loss.backward()
+            # self._qf2_optimizer.step()
+        else:
+            qf2_loss = 0
 
         # ########## #
         # Actor Step #
         # ########## #
-        # Calculate Intentional Policy Loss
+        # Calculate Policy Loss
         new_actions, policy_info = self._policy(
             obs, return_log_prob=True
         )
@@ -376,15 +427,11 @@ class SAC(TorchIncrementalRLAlgorithm):
         policy_mean = policy_info['mean']
         policy_log_std = policy_info['log_std']
         pre_tanh_value = policy_info['pre_tanh_value']
-        # alpha = self._entropy_scale
 
         if self._action_prior == 'normal':
             raise NotImplementedError
         else:
             policy_prior_log_probs = 0.0
-
-        # V(s)
-        v_pred = self._vf(obs)[0]
 
         # Q1(s, a)
         q1_new_actions = self._qf(obs, new_actions)[0]
@@ -397,19 +444,21 @@ class SAC(TorchIncrementalRLAlgorithm):
         else:
             q_new_actions = q1_new_actions
 
-        advantages_new_actions = q_new_actions - v_pred.detach()
-
         # Policy KL loss
         if self._reparameterize:
-            # TODO: In Haarnoja code it does not use the min, but the one from self._qf
-            # policy_kl_loss = torch.mean(log_pi*alpha - q_new_actions)
-            policy_kl_loss = -torch.mean(q_new_actions - alpha*log_pi)
-            # policy_kl_loss = - torch.mean(advantages_new_actions - alpha*log_pi)
+            # policy_kl_losses = (
+            #     alpha*log_pi - q_new_actions - policy_prior_log_probs
+            # )
+            policy_kl_losses = -(
+                q_new_actions - alpha*log_pi + policy_prior_log_probs
+            )
         else:
-            policy_kl_loss = (
-                    alpha*log_pi * (alpha*log_pi - q_new_actions + v_pred
-                                    - policy_prior_log_probs).detach()
-            ).mean()
+            raise NotImplementedError
+            # policy_kl_losses = (
+            #         alpha*log_pi * (alpha*log_pi - q_new_actions + v_pred
+            #                         - policy_prior_log_probs).detach()
+            # )
+        policy_kl_loss = torch.mean(policy_kl_losses)
 
         # Policy regularization loss
         mean_reg_loss = self.pol_mean_regu_weight * (policy_mean ** 2).mean()
@@ -429,27 +478,65 @@ class SAC(TorchIncrementalRLAlgorithm):
         # ############### #
         # V-function Step #
         # ############### #
-        # Calculate Bellman Backup for V-value
-        v_backup = q_new_actions - alpha*log_pi + policy_prior_log_probs
-        # Calculate Intentional Vf Loss
-        vf_loss = 0.5*torch.mean((v_backup.detach() - v_pred)**2)
+        # V(s)
+        if self._vf is None:
+            v_pred = q_new_actions - alpha*log_pi
+            vf_loss = 0
+        else:
+            v_pred = self._vf(obs)[0]
+            # Calculate Bellman Backup for V-value
+            v_backup = q_new_actions - alpha*log_pi + policy_prior_log_probs
+            v_backup = v_backup.detach()
+            # Calculate Intentional Vf Loss
+            vf_loss = 0.5*torch.mean((v_backup - v_pred)**2)
 
-        # Update V-value function
-        self._vf_optimizer.zero_grad()
-        vf_loss.backward()
-        self._vf_optimizer.step()
+            # # Update V-value function
+            # self._vf_optimizer.zero_grad()
+            # vf_loss.backward()
+            # self._vf_optimizer.step()
 
-        # Update V-value Target Network
+        # TODO: New all values optimizer
+        values_loss = qf1_loss + qf2_loss + vf_loss
+        self._values_optimizer.zero_grad()
+        values_loss.backward()
+        self._values_optimizer.step()
+
+        # ###################### #
+        # Update Target Networks #
+        # ###################### #
+
         if self._n_train_steps_total % self._target_update_interval == 0:
-            self._update_v_target_network()
+            if self._target_vf is None:
+                # Update Q-value Target Network(s)
+                ptu.soft_update_from_to(
+                    self._qf,
+                    self._target_qf1,
+                    self._soft_target_tau
+                )
+                if self._target_qf2 is not None:
+                    ptu.soft_update_from_to(
+                        self._qf2,
+                        self._target_qf2,
+                        self._soft_target_tau
+                    )
+            else:
+                # Update V-value Target Network
+                ptu.soft_update_from_to(
+                    self._vf,
+                    self._target_vf,
+                    self._soft_target_tau
+                )
+
+        advantages_new_actions = q_new_actions - v_pred.detach()
 
         # ##### #
         # Alpha #
         # ##### #
         if self._auto_alpha:
             log_alpha = self._log_alpha.clamp(max=MAX_LOG_ALPHA)
-            alpha_loss = -(log_alpha * (
-                log_pi + self._tgt_entro).detach()).mean()
+            alpha_loss = -torch.mean(log_alpha *
+                                     (log_pi + self._tgt_entro).detach()
+                                     )
             self._alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self._alpha_optimizer.step()
@@ -589,25 +676,19 @@ class SAC(TorchIncrementalRLAlgorithm):
         networks_list = [
             self._policy,
             self._qf,
-            self._vf,
-            self._target_vf,
         ]
         if self._qf2 is not None:
             networks_list.append(self._qf2)
 
+        if self._vf is not None:
+            networks_list.append(self._vf)
+            networks_list.append(self._target_vf)
+        else:
+            networks_list.append(self._target_qf1)
+            if self._qf2 is not None:
+                networks_list.append(self._target_qf2)
+
         return networks_list
-
-    def _update_v_target_network(self):
-        """
-        Applies Soft update (polyak averaging) for V-value target function.
-        Returns:
-
-        """
-        ptu.soft_update_from_to(
-            self._vf,
-            self._target_vf,
-            self._soft_target_tau
-        )
 
     def get_epoch_snapshot(self, epoch):
         """
@@ -622,7 +703,7 @@ class SAC(TorchIncrementalRLAlgorithm):
             self._epoch_plotter.draw()
             self._epoch_plotter.save_figure(epoch)
 
-        snapshot = TorchIncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
+        snapshot = IncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
 
         snapshot.update(
             policy=self._policy,
@@ -630,6 +711,8 @@ class SAC(TorchIncrementalRLAlgorithm):
             qf2=self._qf2,  # It could be None
             vf=self._vf,
             target_vf=self._target_vf,
+            target_qf1=self._target_qf1,
+            target_qf2=self._target_qf2,
         )
 
         if self.env.online_normalization or self.env.normalize_obs:
@@ -762,7 +845,8 @@ class SAC(TorchIncrementalRLAlgorithm):
             batch['next_observations'] = \
                 self._obs_normalizer.normalize(batch['next_observations'])
 
-        return ptu.np_to_pytorch_batch(batch)
+        # return ptu.np_to_pytorch_batch(batch)
+        return batch
 
     def _handle_step(
             self,
@@ -793,7 +877,7 @@ class SAC(TorchIncrementalRLAlgorithm):
         if self._obs_normalizer is not None:
             self._obs_normalizer.update(np.array([observation]))
 
-        TorchIncrementalRLAlgorithm._handle_step(
+        IncrementalRLAlgorithm._handle_step(
             self,
             observation=observation,
             action=action,
@@ -811,4 +895,4 @@ class SAC(TorchIncrementalRLAlgorithm):
 
         self.replay_buffer.terminate_episode()
 
-        TorchIncrementalRLAlgorithm._handle_rollout_ending(self)
+        IncrementalRLAlgorithm._handle_rollout_ending(self)

@@ -74,6 +74,10 @@ def simulate_policy(args):
 
     env_params.pop('goal', None)
     env_params['is_render'] = True
+
+    if args.subtask and args.un != -1:
+        env_params['subtask'] = args.un
+
     env = NormalizedBoxEnv(
         Pusher2D3DofGoalCompoEnv(**env_params),
         # normalize_obs=True,

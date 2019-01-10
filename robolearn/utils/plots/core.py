@@ -7,8 +7,9 @@ import numpy as np
 import pandas as pd
 
 
-def get_csv_data(csv_file, labels):
-    data, all_labels = get_csv_data_and_labels(csv_file)
+def get_csv_data(csv_file, labels, space_separated=False):
+    data, all_labels = get_csv_data_and_labels(csv_file,
+                                               space_separated=space_separated)
 
     for label in all_labels:
         print(label)
@@ -36,10 +37,13 @@ def get_csv_data(csv_file, labels):
     return new_data
 
 
-def get_csv_data_and_labels(csv_file):
+def get_csv_data_and_labels(csv_file, space_separated=False):
     # Read from CSV file
     try:
-        series = pd.read_csv(csv_file)
+        if space_separated:
+            series = pd.read_csv(csv_file, delim_whitespace=True)
+        else:
+            series = pd.read_csv(csv_file)
     except Exception:
         print(traceback.format_exc())
         print("Error reading %s" % csv_file)

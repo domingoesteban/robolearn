@@ -4,16 +4,15 @@
 # VARS #
 # #### #
 expt_name='objective_test'
-env_name='reacher'
-algo_name='hiu_sac_new'
-dir_prefix=${algo_name}6
-#dir_prefix=${algo_name}
+env_name='centauro_tray'
+algo_name='hiu_sac'
+dir_prefix=${algo_name}H
 
 python_script=${env_name}'_'${algo_name}
 log_dir_path='/home/desteban/logs/'${expt_name}'/'${env_name}'/'
 
 #default_seeds=(610 710 810 910 1010)
-default_seeds=(610 1010)
+default_seeds=(610)
 seeds=("${@:-${default_seeds[@]}}")
 total_seeds=${#seeds[@]}
 #init_index=0
@@ -28,7 +27,7 @@ total_subtasks=${#subtasks[@]}
 
 # Mix weights
 #default_mix_weights=(1 5)
-default_mix_weights=(5)
+default_mix_weights=(1)
 mix_weights=("${@:-${default_mix_weights[@]}}")
 total_mix_weights=${#mix_weights[@]}
 

@@ -14,12 +14,14 @@ import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.eval_util import create_stats_ordered_dict
 from robolearn.models.policies import RandomPolicy
 from robolearn.utils.samplers import rollout
-from robolearn.torch.algorithms.rl_algos.torch_incremental_rl_algorithm \
-    import TorchIncrementalRLAlgorithm
+
+from robolearn.algorithms.rl_algos import IncrementalRLAlgorithm
+from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
+
 from robolearn.torch.utils.data_management import TorchFixedNormalizer
 
 
-class DDPG(TorchIncrementalRLAlgorithm):
+class DDPG(IncrementalRLAlgorithm, TorchAlgorithm):
     """
     Deep Deterministic Policy Gradient
     """
@@ -312,7 +314,7 @@ class DDPG(TorchIncrementalRLAlgorithm):
 
     def evaluate(self, epoch):
         self._update_logging_data()
-        TorchIncrementalRLAlgorithm.evaluate(self, epoch)
+        IncrementalRLAlgorithm.evaluate(self, epoch)
 
         # Reset log values
         self.logging_qf_loss.fill(0)
@@ -388,7 +390,7 @@ class DDPG(TorchIncrementalRLAlgorithm):
             env_info=env_info,
         )
 
-        TorchIncrementalRLAlgorithm._handle_step(
+        IncrementalRLAlgorithm._handle_step(
             self,
             observation=observation,
             action=action,

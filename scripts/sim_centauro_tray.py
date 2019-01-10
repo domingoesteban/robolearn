@@ -107,7 +107,7 @@ def simulate_policy(args):
         #                     0.1       , 0.18369523, 0.200373  , 0.11895574, 0.15118493])
     print(env_params)
 
-    if args.task_env and args.un != -1:
+    if args.subtask and args.un != -1:
         env_params['subtask'] = args.un
     # else:
     #     env_params['subtask'] = None
@@ -157,17 +157,7 @@ def simulate_policy(args):
             rollout_start_fcn=rollout_start_fcn,
             rollout_end_fcn=rollout_end_fcn,
         )
-
-        # plot_reward_composition(path, block=False)
-        # plot_reward_iu(path, block=False)
-        # plot_weigths_unintentionals(path, block=False)
-        #
-        # q_fcn = data['qf']
-        # if isinstance(q_fcn, PyTorchModule):
-        #     q_fcn.train(False)
-        # plot_q_vals(path, q_fcn=q_fcn, block=False)
-        #
-        # input('Press a key to continue...')
+        plot_rollout_reward(path)
 
         if hasattr(env, "log_diagnostics"):
             env.log_diagnostics([path])
@@ -176,6 +166,14 @@ def simulate_policy(args):
 
         if args.record:
             break
+
+
+def plot_rollout_reward(path):
+    import matplotlib.pyplot as plt
+    rewards = np.squeeze(path['rewards'])
+
+    plt.plot(rewards)
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -190,7 +188,7 @@ if __name__ == "__main__":
     parser.add_argument('--env', type=str, default='manipulator')
     parser.add_argument('--un', type=int, default=-1,
                         help='Unintentional id')
-    parser.add_argument('--task_env', action='store_true')
+    parser.add_argument('--subtask', action='store_true')
     args = parser.parse_args()
 
     simulate_policy(args)

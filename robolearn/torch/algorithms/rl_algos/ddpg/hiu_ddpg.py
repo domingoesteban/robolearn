@@ -16,15 +16,17 @@ import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.logging import logger
 from robolearn.utils import eval_util
 from robolearn.utils.samplers import InPlacePathSampler
-from robolearn.torch.algorithms.rl_algos.torch_incremental_rl_algorithm \
-    import TorchIncrementalRLAlgorithm
+
+from robolearn.algorithms.rl_algos import IncrementalRLAlgorithm
+from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
+
 from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.utils.data_management.normalizer import RunningNormalizer
 
 from tensorboardX import SummaryWriter
 
 
-class HIUDDPG(TorchIncrementalRLAlgorithm):
+class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
     """
     Hierarchical Intentional-Unintentional Deep Deterministic Policy Gradient
     (HIU-DDPG). Incremental Version.
@@ -108,7 +110,7 @@ class HIUDDPG(TorchIncrementalRLAlgorithm):
         else:
             self._obs_normalizer = None
 
-        TorchIncrementalRLAlgorithm.__init__(
+        IncrementalRLAlgorithm.__init__(
             self,
             env=env,
             exploration_policy=self._exploration_policy,
@@ -578,7 +580,7 @@ class HIUDDPG(TorchIncrementalRLAlgorithm):
             self._epoch_plotter.draw()
             self._epoch_plotter.save_figure(epoch)
 
-        snapshot = TorchIncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
+        snapshot = IncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
 
         snapshot.update(
             policy=self._policy,
@@ -805,7 +807,7 @@ class HIUDDPG(TorchIncrementalRLAlgorithm):
         if self._obs_normalizer is not None:
             self._obs_normalizer.update(np.array([observation]))
 
-        TorchIncrementalRLAlgorithm._handle_step(
+        IncrementalRLAlgorithm._handle_step(
             self,
             observation=observation,
             action=action,
@@ -823,4 +825,4 @@ class HIUDDPG(TorchIncrementalRLAlgorithm):
 
         self.replay_buffer.terminate_episode()
 
-        TorchIncrementalRLAlgorithm._handle_rollout_ending(self)
+        IncrementalRLAlgorithm._handle_rollout_ending(self)

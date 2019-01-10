@@ -1,15 +1,8 @@
 import numpy as np
 import gtimer as gt
-from tqdm import tqdm, tqdm_notebook
-
-from collections import OrderedDict
-from robolearn.utils import eval_util
 
 from robolearn.algorithms.rl_algos.rl_algorithm import RLAlgorithm
 from robolearn.utils.logging import logger
-from robolearn.utils.stdout.notebook_utils import is_ipython
-from robolearn.utils.samplers.in_place_path_sampler import InPlacePathSampler
-from robolearn.utils.samplers.finite_path_sampler import FinitePathSampler
 
 
 class IncrementalRLAlgorithm(RLAlgorithm):
@@ -17,30 +10,9 @@ class IncrementalRLAlgorithm(RLAlgorithm):
         """
         Base class for Incremental RL Algorithms
         """
-        # Eval Sampler
-        finite_horizon_eval = kwargs.pop('finite_horizon_eval')
-        if finite_horizon_eval:
-            total_paths = \
-                int(kwargs['num_steps_per_eval']/kwargs['max_path_length'])
-            kwargs['eval_sampler'] = FinitePathSampler(
-                env=kwargs['eval_env'],
-                policy=kwargs['eval_policy'],
-                total_paths=total_paths,
-                max_path_length=kwargs['max_path_length'],
-                obs_normalizer=kwargs['obs_normalizer'],
-            )
-        else:
-            kwargs['eval_sampler'] = InPlacePathSampler(
-                env=kwargs['eval_env'],
-                policy=kwargs['eval_policy'],
-                total_samples=kwargs['num_steps_per_eval'],
-                max_path_length=kwargs['max_path_length'],
-                obs_normalizer=kwargs['obs_normalizer'],
-            )
-
         RLAlgorithm.__init__(self, *args, **kwargs)
 
-    def train(self, start_epoch=0, train_bar=True):
+    def train(self, start_epoch=0):
         self.training_mode(False)
 
         # Get snapshot of initial stuff
@@ -54,17 +26,8 @@ class IncrementalRLAlgorithm(RLAlgorithm):
         gt.reset()
         gt.set_def_unique(False)
 
-        epoch_range = range(start_epoch, self.num_epochs)
-        if train_bar:
-            if is_ipython():
-                epoch_range = tqdm_notebook(epoch_range)
-            else:
-                epoch_range = tqdm(epoch_range)
-
-        # self._current_path_builder = PathBuilder()
-        # observation = self._start_new_rollout()
         for epoch in gt.timed_for(
-                epoch_range,
+                range(start_epoch, self.num_epochs),
                 save_itrs=True,
         ):
             self._start_epoch(epoch)
@@ -143,43 +106,3 @@ class IncrementalRLAlgorithm(RLAlgorithm):
 
         logger.dump_tabular(with_prefix=False, with_timestamp=False,
                             write_header=self._print_log_header)
-
-    def evaluate(self, epoch):
-        if self.eval_statistics is None:
-            self.eval_statistics = OrderedDict()
-
-        statistics = OrderedDict()
-        statistics.update(self.eval_statistics)
-        self.eval_statistics = None
-
-        logger.log("Collecting samples for evaluation")
-        test_paths = self.eval_sampler.obtain_samples()
-
-        statistics.update(eval_util.get_generic_path_information(
-            test_paths, stat_prefix="Test",
-        ))
-
-        if self._exploration_paths:
-            statistics.update(eval_util.get_generic_path_information(
-                self._exploration_paths, stat_prefix="Exploration",
-            ))
-        else:
-            statistics.update(eval_util.get_generic_path_information(
-                test_paths, stat_prefix="Exploration",
-            ))
-
-        if hasattr(self.env, "log_diagnostics"):
-            self.env.log_diagnostics(test_paths)
-
-        average_returns = eval_util.get_average_returns(test_paths)
-        statistics['AverageReturn'] = average_returns
-        for key, value in statistics.items():
-            logger.record_tabular(key, value)
-
-        if self.render_eval_paths:
-            self.env.render_paths(test_paths)
-
-        if self._epoch_plotter is not None:
-            self._epoch_plotter.draw()
-            self._epoch_plotter.save_figure(epoch)
-

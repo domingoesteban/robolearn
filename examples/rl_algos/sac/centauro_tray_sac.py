@@ -11,11 +11,12 @@ import numpy as np
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
-from robolearn.utils.data_management import SimpleReplayBuffer
+from robolearn.torch.utils.data_management import SimpleReplayBuffer
 
 from robolearn_gym_envs.pybullet import CentauroTrayEnv
 
-from robolearn.torch.algorithms.rl_algos import SAC
+from robolearn.torch.algorithms.rl_algos.sac \
+    import SAC
 
 from robolearn.torch.models import NNQFunction
 from robolearn.torch.models import NNVFunction
@@ -28,7 +29,7 @@ import joblib
 np.set_printoptions(suppress=True, precision=4)
 # np.seterr(all='raise')  # WARNING RAISE ERROR IN NUMPY
 
-Tend = 5.0  # Seconds
+Tend = 10.0  # Seconds
 
 SIM_TIMESTEP = 0.01
 FRAME_SKIP = 1
@@ -38,18 +39,18 @@ PATH_LENGTH = int(np.ceil(Tend / DT))
 PATHS_PER_EPOCH = 3
 PATHS_PER_EVAL = 2
 PATHS_PER_HARD_UPDATE = 12
-BATCH_SIZE = 512
+BATCH_SIZE = 256
 
 SEED = 110
 # NP_THREADS = 6
 
 SUBTASK = None
 
-
 POLICY = TanhGaussianPolicy
 REPARAM_POLICY = True
 
-USE_Q2 = False
+USE_Q2 = True
+EXPLICIT_VF = False
 
 OPTIMIZER = 'adam'
 # OPTIMIZER = 'rmsprop'
@@ -63,7 +64,7 @@ expt_params = dict(
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=5000,  # n_epochs
+        num_epochs=500,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
@@ -71,29 +72,30 @@ expt_params = dict(
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
+        finite_horizon_eval=True,
         # SAC params
         reparameterize=REPARAM_POLICY,
         action_prior='uniform',
-        entropy_scale=1.0e-2,
+        entropy_scale=1.0e+0,
+        auto_alpha=True,
+        tgt_entro=1e+0,
         # Learning rates
-        policy_lr=1e-4,
-        qf_lr=1e-4,
-        vf_lr=1e-4,
+        policy_lr=3e-4,
+        qf_lr=3e-4,
+        vf_lr=3e-4,
         # Soft target update
-        soft_target_tau=1.e-3,
+        soft_target_tau=5.e-3,
         # Regularization terms
         policy_mean_regu_weight=1e-3,
         policy_std_regu_weight=1e-3,
         policy_pre_activation_weight=0.e-3,
         # Weight decays
-        policy_weight_decay=0.e-5,
-        q_weight_decay=0.e-5,
-        v_weight_decay=0.e-5,
+        policy_weight_decay=1.e-5,
+        q_weight_decay=1.e-5,
+        v_weight_decay=1.e-5,
 
         discount=0.99,
         reward_scale=1.0e-0,
-
-        normalize_obs=NORMALIZE_OBS,
     ),
     replay_buffer_size=1e6,
     net_size=128,
@@ -130,13 +132,13 @@ env_params = dict(
     active_joints='RA',
     control_type='joint_tasktorque',
     # _control_type='torque',
-    balance_cost_weight=2.0,
-    fall_cost_weight=0.5,
-    tgt_cost_weight=20.0,
+    balance_cost_weight=1.0,
+    fall_cost_weight=1.0,
+    tgt_cost_weight=3.0,
     # tgt_cost_weight=50.0,
     balance_done_cost=0.,  # 2.0*PATH_LENGTH,  # TODO: dont forget same balance weight
     tgt_done_reward=0.,  # 20.0,
-    ctrl_cost_weight=1.0e-2,
+    ctrl_cost_weight=1.0e-1,
     use_log_distances=True,
     log_alpha_pos=1e-4,
     log_alpha_ori=1e-4,
@@ -148,6 +150,7 @@ env_params = dict(
     sim_timestep=SIM_TIMESTEP,
     frame_skip=FRAME_SKIP,
     subtask=SUBTASK,
+    random_init=True,
     seed=SEED,
 )
 
@@ -158,7 +161,7 @@ def experiment(variant):
 
     # Set seeds
     np.random.seed(variant['seed'])
-    ptu.set_gpu_mode(variant['gpu'])
+    ptu.set_gpu_mode(variant['gpu'], gpu_id=0)
     ptu.seed(variant['seed'])
     variant['env_params']['seed'] = variant['seed']
 
@@ -193,7 +196,7 @@ def experiment(variant):
             obs_dim=obs_dim,
             action_dim=action_dim,
             hidden_activation=variant['hidden_activation'],
-            hidden_sizes=[net_size, net_size],
+            hidden_sizes=[net_size, net_size, net_size],
             hidden_w_init=variant['q_hidden_w_init'],
             output_w_init=variant['q_output_w_init'],
         )
@@ -202,26 +205,29 @@ def experiment(variant):
                 obs_dim=obs_dim,
                 action_dim=action_dim,
                 hidden_activation=variant['hidden_activation'],
-                hidden_sizes=[net_size, net_size],
+                hidden_sizes=[net_size, net_size, net_size],
                 hidden_w_init=variant['q_hidden_w_init'],
                 output_w_init=variant['q_output_w_init'],
             )
         else:
             qf2 = None
 
-        vf = NNVFunction(
-            obs_dim=obs_dim,
-            hidden_activation=variant['hidden_activation'],
-            hidden_sizes=[net_size, net_size],
-            hidden_w_init=variant['v_hidden_w_init'],
-            output_w_init=variant['v_output_w_init'],
-        )
+        if EXPLICIT_VF:
+            vf = NNVFunction(
+                obs_dim=obs_dim,
+                hidden_activation=variant['hidden_activation'],
+                hidden_sizes=[net_size, net_size, net_size],
+                hidden_w_init=variant['v_hidden_w_init'],
+                output_w_init=variant['v_output_w_init'],
+            )
+        else:
+            vf = None
 
         policy = POLICY(
             obs_dim=obs_dim,
             action_dim=action_dim,
             hidden_activation=variant['hidden_activation'],
-            hidden_sizes=[net_size, net_size],
+            hidden_sizes=[net_size, net_size, net_size],
             reparameterize=REPARAM_POLICY,
             hidden_w_init=variant['pol_hidden_w_init'],
             output_w_init=variant['pol_output_w_init'],
@@ -238,9 +244,9 @@ def experiment(variant):
         policy=policy,
         qf=qf,
         vf=vf,
+        qf2=qf2,
         replay_buffer=replay_buffer,
         batch_size=BATCH_SIZE,
-        qf2=qf2,
         eval_env=env,
         save_environment=False,
         **variant['algo_params']

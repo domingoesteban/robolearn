@@ -35,6 +35,10 @@ def fill(tensor, value):
         return tensor.fill_(value)
 
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
 """
 Tensor initialization
 """
@@ -129,7 +133,7 @@ def init_weight_normal(layer, activation='1e2'):
 def init_weight_xavier(layer, option='xavier_normal', activation='relu'):
     if option == 'xavier_normal':
         xavier_fcn = nn.init.xavier_normal_
-    elif option == 'xavier_normal':
+    elif option == 'xavier_uniform':
         xavier_fcn = nn.init.xavier_uniform_
     else:
         raise ValueError("Wrong init option")
@@ -259,7 +263,10 @@ def from_numpy(*args, **kwargs):
 
 
 def get_numpy(tensor):
-    return tensor.to('cpu').detach().numpy()
+    if isinstance(tensor, torch.Tensor):
+        return tensor.to('cpu').detach().numpy()
+    else:
+        return np.array(tensor)
 
 
 def np_to_var(np_array, **kwargs):
@@ -409,7 +416,7 @@ def np_to_pytorch_batch(np_batch):
     return {
         k: elem_or_tuple_to_variable(x)
         for k, x in filter_batch(np_batch)
-        if x.dtype != np.dtype('O')  # ignore object (e.g. dictionaries)
+        if isinstance(x, np.ndarray) and x.dtype != np.dtype('O')  # ignore object (e.g. dictionaries)
     }
 
 

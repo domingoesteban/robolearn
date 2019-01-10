@@ -64,6 +64,12 @@ def simulate_policy(args):
             policy = data['policy']
 
     print("Policy loaded!!")
+    # print('qf', ptu.count_parameters(data['qf']))
+    # print('qf2', ptu.count_parameters(data['qf2']))
+    # print('vf', ptu.count_parameters(data['vf']))
+    # print('target_vf', ptu.count_parameters(data['target_vf']))
+    # print('pol', ptu.count_parameters(policy.stochastic_policy))
+    # input('Number of parameters...')
 
     # Load environment
     dirname = os.path.dirname(args.file)
@@ -74,6 +80,10 @@ def simulate_policy(args):
 
     env_params.pop('goal', None)
     env_params['is_render'] = True
+
+    if args.subtask and args.un != -1:
+        env_params['subtask'] = args.un
+
     env = NormalizedBoxEnv(
         Reacher2D3DofGoalCompoEnv(**env_params),
         # normalize_obs=True,

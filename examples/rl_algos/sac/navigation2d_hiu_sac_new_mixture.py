@@ -12,12 +12,12 @@ import torch
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
-from robolearn.utils.data_management import MultiGoalReplayBuffer
+from robolearn.torch.utils.data_management import MultiGoalReplayBuffer
 
 from robolearn.envs.simple_envs.navigation2d import Navigation2dGoalCompoEnv
 
-from robolearn.torch.algorithms.rl_algos.sac.hiu_sac_new \
-    import HIUSACNEW
+from robolearn.torch.algorithms.rl_algos.sac.hiu_sac \
+    import HIUSAC
 
 from robolearn.torch.models import NNQFunction
 from robolearn.torch.models import NNMultiQFunction
@@ -56,7 +56,7 @@ OPTIMIZER = 'adam'
 NORMALIZE_OBS = False
 
 expt_params = dict(
-    algo_name=HIUSACNEW.__name__,
+    algo_name=HIUSAC.__name__,
     policy_name=POLICY.__name__,
     path_length=PATH_LENGTH,
     algo_params=dict(
@@ -282,7 +282,7 @@ def experiment(variant):
     # date_now = time.strftime("%Y_%m_%d_%H_%M_%S")
     # save_q_path = '/home/desteban/logs/goalcompo_q_plots/goalcompo_'+date_now
 
-    algorithm = HIUSACNEW(
+    algorithm = HIUSAC(
         env=env,
         policy=policy,
         u_qf1=u_qf,

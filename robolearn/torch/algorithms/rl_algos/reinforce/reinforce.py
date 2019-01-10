@@ -12,8 +12,10 @@ import torch.optim as optim
 from collections import OrderedDict
 
 import robolearn.torch.utils.pytorch_util as ptu
-from robolearn.torch.algorithms.rl_algos.torch_iterative_rl_algorithm \
-    import TorchIterativeRLAlgorithm
+
+from robolearn.algorithms.rl_algos import IterativeRLAlgorithm
+from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
+
 from robolearn.utils import eval_util
 from robolearn.utils.logging import logger
 from robolearn.models.policies import MakeDeterministic
@@ -27,7 +29,7 @@ def assert_shape(tensor, expected_shape):
     assert all([a == b for a, b in zip(tensor_shape, expected_shape)])
 
 
-class Reinforce(TorchIterativeRLAlgorithm):
+class Reinforce(IterativeRLAlgorithm, TorchAlgorithm):
     """Reinforce Algorithm
 
     """

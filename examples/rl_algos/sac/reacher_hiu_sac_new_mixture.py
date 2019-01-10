@@ -1,5 +1,5 @@
 """
-Run PyTorch HIU-SAC on Reacher2D3DofGoalCompoEnv.
+Run PyTorch HIU-SAC on Reacher2D3DofEnv.
 
 NOTE: You need PyTorch 0.4
 """
@@ -12,12 +12,12 @@ import torch
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
-from robolearn.utils.data_management import MultiGoalReplayBuffer
+from robolearn.torch.utils.data_management import MultiGoalReplayBuffer
 
 from robolearn_gym_envs.pybullet import Reacher2D3DofGoalCompoEnv
 
-from robolearn.torch.algorithms.rl_algos.sac.hiu_sac_new \
-    import HIUSACNEW
+from robolearn.torch.algorithms.rl_algos.sac.hiu_sac \
+    import HIUSAC
 
 from robolearn.torch.models import NNQFunction
 from robolearn.torch.models import NNMultiQFunction
@@ -61,7 +61,7 @@ OPTIMIZER = 'adam'
 NORMALIZE_OBS = False
 
 expt_params = dict(
-    algo_name=HIUSACNEW.__name__,
+    algo_name=HIUSAC.__name__,
     policy_name=POLICY.__name__,
     path_length=PATH_LENGTH,
     algo_params=dict(
@@ -79,16 +79,16 @@ expt_params = dict(
         # SAC params
         reparameterize=REPARAM_POLICY,
         action_prior='uniform',
-        i_entropy_scale=1.0e-0,
-        u_entropy_scale=[1.0e-0, 1.0e-0],
+        i_entropy_scale=1.0e+0,
+        u_entropy_scale=[1.0e+0, 1.0e+0],
         auto_alphas=True,
-        i_tgt_entro=2.0e-0,
-        u_tgt_entros=[2.0e-0, 2.0e-0],
+        i_tgt_entro=0.0e-0,
+        u_tgt_entros=[1.0e-0, 1.0e-0],
         # Learning rates
         optimizer=OPTIMIZER,
-        i_policy_lr=3.e-3,
-        u_policies_lr=3.e-3,
-        u_mixing_lr=3.e-3,
+        i_policy_lr=3.e-4,
+        u_policies_lr=3.e-4,
+        u_mixing_lr=3.e-4,
         i_qf_lr=3.e-4,
         u_qf_lr=3.e-4,
         # Soft target update
@@ -150,8 +150,8 @@ expt_params = dict(
 
 env_params = dict(
     is_render=False,
-    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
-    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
+    # obs_distances=False,
+    obs_distances=True,
     obs_with_img=False,
     # obs_with_ori=True,
     obs_with_ori=False,
@@ -292,7 +292,7 @@ def experiment(variant):
         reward_vector_size=n_unintentional,
     )
 
-    algorithm = HIUSACNEW(
+    algorithm = HIUSAC(
         env=env,
         policy=policy,
         u_qf1=u_qf,
@@ -306,7 +306,7 @@ def experiment(variant):
         **variant['algo_params']
     )
     if ptu.gpu_enabled():
-        algorithm.cuda()
+        algorithm.cuda(ptu.device)
 
     # algorithm.pretrain(PATH_LENGTH*2)
     algorithm.train(start_epoch=start_epoch)

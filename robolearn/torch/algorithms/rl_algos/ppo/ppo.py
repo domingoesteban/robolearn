@@ -9,15 +9,17 @@ from torch import nn as nn
 from collections import OrderedDict
 
 from robolearn.utils.logging import logger
-from robolearn.torch.algorithms.rl_algos.torch_iterative_rl_algorithm \
-    import TorchIterativeRLAlgorithm
+
+from robolearn.algorithms.rl_algos import IterativeRLAlgorithm
+from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
+
 from robolearn.models.policies import MakeDeterministic
 from robolearn.utils.data_management.normalizer import RunningNormalizer
 
 from tensorboardX import SummaryWriter
 
 
-class PPO(TorchIterativeRLAlgorithm):
+class PPO(IterativeRLAlgorithm, TorchAlgorithm):
     """
     Proximal Policy Optimization
     """
@@ -80,7 +82,7 @@ class PPO(TorchIterativeRLAlgorithm):
         else:
             self._obs_normalizer = None
 
-        TorchIterativeRLAlgorithm.__init__(
+        IterativeRLAlgorithm.__init__(
             self,
             env=env,
             exploration_policy=self._policy,
@@ -178,7 +180,7 @@ class PPO(TorchIterativeRLAlgorithm):
             self._epoch_plotter.draw()
             self._epoch_plotter.save_figure(epoch)
 
-        snapshot = TorchIterativeRLAlgorithm.get_epoch_snapshot(self, epoch)
+        snapshot = IterativeRLAlgorithm.get_epoch_snapshot(self, epoch)
 
         snapshot.update(
             policy=self._policy,
@@ -215,7 +217,7 @@ class PPO(TorchIterativeRLAlgorithm):
             self.eval_statistics = OrderedDict()
 
     def evaluate(self, epoch):
-        TorchIterativeRLAlgorithm.evaluate(self, epoch)
+        IterativeRLAlgorithm.evaluate(self, epoch)
 
     def get_batch(self):
         pass
@@ -258,7 +260,7 @@ class PPO(TorchIterativeRLAlgorithm):
         if self._obs_normalizer is not None:
             self._obs_normalizer.update(np.array([observation]))
 
-        TorchIterativeRLAlgorithm._handle_step(
+        IterativeRLAlgorithm._handle_step(
             self,
             observation=observation,
             action=action,
@@ -276,5 +278,5 @@ class PPO(TorchIterativeRLAlgorithm):
 
         # self.replay_buffer.terminate_episode()
 
-        TorchIterativeRLAlgorithm._handle_rollout_ending(self)
+        IterativeRLAlgorithm._handle_rollout_ending(self)
 

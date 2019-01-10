@@ -16,7 +16,7 @@ from robolearn.utils.data_management import MultiGoalReplayBuffer
 
 from robolearn.envs.simple_envs.navigation2d import Navigation2dGoalCompoEnv
 
-from robolearn.torch.algorithms.rl_algos.sac.hiu_sac \
+from robolearn.torch.algorithms.rl_algos.sac.hiu_sacBK0901 \
     import HIUSAC
 
 from robolearn.torch.models import NNQFunction

@@ -11,8 +11,9 @@ import gtimer as gt
 
 from collections import OrderedDict
 
-from robolearn.torch.algorithms.rl_algos.torch_iterative_rl_algorithm \
-    import TorchIterativeRLAlgorithm
+from robolearn.algorithms.rl_algos import IterativeRLAlgorithm
+from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
+
 from robolearn.utils import eval_util
 from robolearn.utils.logging import logger
 from robolearn.utils.samplers.exploration_rollout import exploration_rollout
@@ -29,7 +30,7 @@ def assert_shape(tensor, expected_shape):
     assert all([a == b for a, b in zip(tensor_shape, expected_shape)])
 
 
-class MDGPS(TorchIterativeRLAlgorithm):
+class MDGPS(IterativeRLAlgorithm, TorchAlgorithm):
     """MDGPS Algorithm
 
     """

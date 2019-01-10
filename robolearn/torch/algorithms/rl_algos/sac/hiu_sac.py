@@ -7,7 +7,6 @@ https://github.com/vitchyr/rlkit
 import numpy as np
 import torch
 import torch.optim as optim
-from torch import nn as nn
 
 from collections import OrderedDict
 from itertools import chain
@@ -16,16 +15,21 @@ import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.logging import logger
 from robolearn.utils import eval_util
 from robolearn.utils.samplers import InPlacePathSampler
-from robolearn.torch.algorithms.rl_algos.torch_incremental_rl_algorithm \
-    import TorchIncrementalRLAlgorithm
+
+from robolearn.algorithms.rl_algos import IncrementalRLAlgorithm
+from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
+
 from robolearn.models.policies import MakeDeterministic
 from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.utils.data_management.normalizer import RunningNormalizer
 
-from tensorboardX import SummaryWriter
+import tensorboardX
+
+# MAX_LOG_ALPHA = 9.21034037  # Alpha=10000  Before 01/07
+MAX_LOG_ALPHA = 6.2146080984  # Alpha=500  From 09/07
 
 
-class HIUSAC(TorchIncrementalRLAlgorithm):
+class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
     """
     Hierarchical Intentional-Unintentional Soft Actor Critic (HIU-SAC).
     Incremental Version.
@@ -34,34 +38,29 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
             self,
             env,
             policy,
-            u_qf,
-            u_vf,
+            u_qf1,
 
             replay_buffer,
             batch_size=1024,
-            normalize_obs=True,
-            i_qf=None,
-            i_vf=None,
+            normalize_obs=False,
             eval_env=None,
 
+            i_qf1=None,
             u_qf2=None,
             i_qf2=None,
+            i_vf=None,
+            u_vf=None,
             reparameterize=True,
             action_prior='uniform',
 
             i_entropy_scale=1.,
             u_entropy_scale=None,
+            auto_alphas=True,
+            i_tgt_entro=None,
+            u_tgt_entros=None,
 
-            i_policy_lr=1e-3,
-            u_policies_lr=1e-3,
-            u_mixing_lr=1e-3,
-
-            i_qf_lr=1e-3,
-            i_qf2_lr=1e-3,
-            i_vf_lr=1e-3,
-            u_qf_lr=1e-3,
-            u_qf2_lr=1e-3,
-            u_vf_lr=1e-3,
+            policy_lr=3e-4,
+            qf_lr=3e-4,
 
             i_policy_mean_regu_weight=1e-3,
             i_policy_std_regu_weight=1e-3,
@@ -72,20 +71,16 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
             u_policy_std_regu_weight=None,
             u_policy_pre_activation_weight=None,
 
-            i_policy_weight_decay=0.,
-            u_policy_weight_decay=0.,
-            i_q_weight_decay=0.,
-            u_q_weight_decay=0.,
-            i_v_weight_decay=0.,
-            u_v_weight_decay=0.,
+            policy_weight_decay=0.,
+            q_weight_decay=0.,
 
-            # optimizer='adam',
-            optimizer='rmsprop',
+            optimizer='adam',
+            # optimizer='rmsprop',
             # optimizer='sgd',
-            amsgrad=True,
+            optimizer_kwargs=None,
 
-            i_soft_target_tau=1e-2,
-            u_soft_target_tau=1e-2,
+            i_soft_target_tau=5e-3,
+            u_soft_target_tau=5e-3,
             i_target_update_interval=1,
             u_target_update_interval=1,
 
@@ -116,7 +111,7 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
         else:
             self._obs_normalizer = None
 
-        TorchIncrementalRLAlgorithm.__init__(
+        IncrementalRLAlgorithm.__init__(
             self,
             env=env,
             exploration_policy=self._policy,
@@ -131,14 +126,55 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
 
         # Evaluation Sampler (One for each unintentional)
         self.eval_u_samplers = [
-            InPlacePathSampler(env=env,
-                               policy=WeightedMultiPolicySelector(self._policy,
-                                                                  idx),
-                               total_samples=self.num_steps_per_eval,
-                               max_path_length=self.max_path_length,
-                               deterministic=True)
+            InPlacePathSampler(
+                env=env,
+                policy=WeightedMultiPolicySelector(self._policy, idx),
+                total_samples=self.num_steps_per_eval,
+                max_path_length=self.max_path_length,
+                deterministic=True,
+            )
             for idx in range(self._n_unintentional)
         ]
+
+        # Intentional (Main Task) Q-functions
+        self._i_qf1 = i_qf1
+        self._i_qf2 = i_qf2
+        if i_vf is None:
+            self._i_vf = None
+            self._i_target_vf = None
+            self._i_target_qf1 = self._i_qf1.copy()
+            self._i_target_qf2 = \
+                None if self._i_qf2 is None else self._i_qf2.copy()
+        else:
+            self._i_vf = i_vf
+            self._i_target_vf = self._i_vf.copy()
+            self._i_target_qf1 = None
+            self._i_target_qf2 = None
+
+        # Unintentional (Composable Tasks) Q-functions
+        self._u_qf1 = u_qf1
+        self._u_qf2 = u_qf2
+        if u_vf is None:
+            self._u_vf = None
+            self._u_target_vf = None
+            self._u_target_qf1 = self._u_qf1.copy()
+            self._u_target_qf2 = self._u_qf2.copy()
+        else:
+            self._u_vf = u_vf
+            self._u_target_vf = self._u_vf.copy()
+            self._u_target_qf1 = None
+            self._u_target_qf2 = None
+
+        # Replay Buffer
+        self.replay_buffer = replay_buffer
+        self.batch_size = batch_size
+        self.save_replay_buffer = save_replay_buffer
+
+        # Soft-update rate for target V-functions
+        self._i_soft_target_tau = i_soft_target_tau
+        self._u_soft_target_tau = u_soft_target_tau
+        self._i_target_update_interval = i_target_update_interval
+        self._u_target_update_interval = u_target_update_interval
 
         # Important algorithm hyperparameters
         self._reparameterize = reparameterize
@@ -150,23 +186,16 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
                                for _ in range(self._n_unintentional)]
         self._u_entropy_scale = ptu.FloatTensor(u_entropy_scale)
 
-        # Intentional (Main Task) Q-function and V-function
-        self._i_qf = i_qf
-        self._i_qf2 = i_qf2
-        self._i_vf = i_vf
-        self._i_target_vf = self._i_vf.copy()
-
-        # Unintentional (Composable Tasks) Q-function and V-function
-        self._u_qf = u_qf
-        self._u_qf2 = u_qf2
-        self._u_vf = u_vf
-        self._u_target_vf = self._u_vf.copy()
-
-        # Soft-update rate for target V-functions
-        self._i_soft_target_tau = i_soft_target_tau
-        self._u_soft_target_tau = u_soft_target_tau
-        self._i_target_update_interval = i_target_update_interval
-        self._u_target_update_interval = u_target_update_interval
+        # Desired Alphas
+        self._auto_alphas = auto_alphas
+        if i_tgt_entro is None:
+            i_tgt_entro = -env.action_dim
+        self._i_tgt_entro = ptu.FloatTensor([i_tgt_entro])
+        if u_tgt_entros is None:
+            u_tgt_entros = [i_tgt_entro for _ in range(self._n_unintentional)]
+        self._u_tgt_entros = ptu.FloatTensor(u_tgt_entros)
+        self._u_log_alphas = ptu.zeros(2, requires_grad=True, device=ptu.device)
+        self._i_log_alpha = ptu.zeros(1, requires_grad=True, device=ptu.device)
 
         # Unintentional Reward Scales
         if u_reward_scales is None:
@@ -175,104 +204,60 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
                                for _ in range(self._n_unintentional)]
         self._u_reward_scales = ptu.FloatTensor(u_reward_scales)
 
-        # Replay Buffer
-        self.replay_buffer = replay_buffer
-        self.batch_size = batch_size
-        self.save_replay_buffer = save_replay_buffer
-
         # ########## #
         # Optimizers #
         # ########## #
         if optimizer.lower() == 'adam':
             optimizer_class = optim.Adam
-            optimizer_params = dict(
-                amsgrad=amsgrad,
-            )
+            if optimizer_kwargs is None:
+                optimizer_kwargs = dict(
+                    amsgrad=True,
+                    # amsgrad=False,
+                )
         elif optimizer.lower() == 'rmsprop':
             optimizer_class = optim.RMSprop
-            optimizer_params = dict(
+            if optimizer_kwargs is None:
+                optimizer_kwargs = dict(
 
-            )
+                )
         else:
             raise ValueError('Wrong optimizer')
 
-        # Q-function optimizers
-        self._u_qf1_optimizer = optimizer_class(
-            self._u_qf.parameters(),
-            lr=u_qf_lr,
-            weight_decay=u_q_weight_decay,
-            **optimizer_params
-        )
-        self._i_qf_optimizer = optimizer_class(
-            self._i_qf.parameters(),
-            lr=i_qf_lr,
-            weight_decay=i_q_weight_decay,
-            **optimizer_params
-        )
-        if self._u_qf2 is None:
-            self._u_qf2_optimizer = None
-        else:
-            self._u_qf2_optimizer = optimizer_class(
-                self._u_qf2.parameters(),
-                lr=u_qf2_lr,
-                weight_decay=u_q_weight_decay,
-                **optimizer_params
-            )
-        if self._i_qf2 is None:
-            self._i_qf2_optimizer = None
-        else:
-            self._i_qf2_optimizer = optimizer_class(
-                self._i_qf2.parameters(),
-                lr=i_qf2_lr,
-                weight_decay=i_q_weight_decay,
-                **optimizer_params
-            )
+        # Values optimizer
+        vals_params_list = [self._u_qf1.parameters(), self._i_qf1.parameters()]
+        if self._u_qf2 is not None:
+            vals_params_list.append(self._u_qf2.parameters())
+        if self._i_qf2 is not None:
+            vals_params_list.append(self._i_qf2.parameters())
+        if self._u_vf is not None:
+            vals_params_list.append(self._u_vf.parameters())
+        if self._i_vf is not None:
+            vals_params_list.append(self._i_vf.parameters())
+        vals_params = chain(*vals_params_list)
 
-        # V-function optimizers
-        self._u_vf_optimizer = optimizer_class(
-            self._u_vf.parameters(),
-            lr=u_vf_lr,
-            weight_decay=u_v_weight_decay,
-            **optimizer_params
-        )
-        self._i_vf_optimizer = optimizer_class(
-            self._i_vf.parameters(),
-            lr=i_vf_lr,
-            weight_decay=i_v_weight_decay,
-            **optimizer_params
+        self._values_optimizer = optimizer_class(
+            vals_params,
+            lr=qf_lr,
+            weight_decay=q_weight_decay,
+            **optimizer_kwargs
         )
 
         # Policy optimizer
-        # self._policy_optimizer = optimizer_class([
-        #     {'params': self._policy.shared_parameters(),
-        #      'lr': i_policy_lr},
-        #     {'params': self._policy.policies_parameters(),
-        #      'lr': i_policy_lr},
-        #     {'params': self._policy.mixing_parameters(),
-        #      'lr': i_policy_lr},
-        # ])
         self._policy_optimizer = optimizer_class(
             self._policy.parameters(),
-            lr=i_policy_lr,
-            weight_decay=i_policy_weight_decay,
-            **optimizer_params
+            lr=policy_lr,
+            weight_decay=policy_weight_decay,
+            **optimizer_kwargs
         )
-        # self._mixing_optimizer = optimizer_class(
-        #     chain(self._policy.shared_parameters(),
-        #           self._policy.mixing_parameters()),
-        #     lr=u_mixing_lr,
-        #     weight_decay=i_policy_weight_decay,
-        #     **optimizer_params
-        # )
-        # self._policies_optimizer = optimizer_class(
-        #     chain(self._policy.shared_parameters(),
-        #           self._policy.policies_parameters()),
-        #     lr=u_policies_lr,
-        #     weight_decay=u_policy_weight_decay,
-        #     **optimizer_params
-        # )
 
-        # Policy regularization coefficients (weights)
+        # Alpha optimizers
+        self._alphas_optimizer = optimizer_class(
+            [self._u_log_alphas, self._i_log_alpha],
+            lr=policy_lr,
+            **optimizer_kwargs
+        )
+
+        # Weights for policy regularization coefficients
         self._i_pol_mean_regu_weight = i_policy_mean_regu_weight
         self._i_pol_std_regu_weight = i_policy_std_regu_weight
         self._i_pol_pre_activ_weight = i_policy_pre_activation_weight
@@ -337,9 +322,18 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
             self._n_unintentional,
             self.env.action_dim,
         ))
+        self.log_data['Alphas'] = np.zeros((
+            self.num_train_steps_per_epoch,
+            self._n_unintentional + 1,
+        ))
 
+        # Tensorboard-like Logging
         self._log_tensorboard = log_tensorboard
-        self._summary_writer = SummaryWriter(log_dir=logger.get_snapshot_dir())
+        if log_tensorboard:
+            self._summary_writer = \
+                tensorboardX.SummaryWriter(log_dir=logger.get_snapshot_dir())
+        else:
+            self._summary_writer = None
 
     def pretrain(self, n_pretrain_samples):
         # We do not require any pretrain (I think...)
@@ -347,7 +341,7 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
         for ii in range(n_pretrain_samples):
             action = self.env.action_space.sample()
             # Interact with environment
-            next_ob, raw_reward, terminal, env_info = (
+            next_ob, reward, terminal, env_info = (
                 self.env.step(action)
             )
             agent_info = None
@@ -355,7 +349,7 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
             # Increase counter
             self._n_env_steps_total += 1
             # Create np.array of obtained terminal and reward
-            reward = raw_reward * self.reward_scale
+            reward = reward * self.reward_scale
             terminal = np.array([terminal])
             reward = np.array([reward])
             # Add to replay buffer
@@ -388,6 +382,48 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
         # Get the idx for logging
         step_idx = self._n_epoch_train_steps
 
+        # ####################### #
+        # Get All Obs Policy Info #
+        # ####################### #
+
+        # One pass for both s and s' instead of two
+        obs_combined = torch.cat((obs, next_obs), dim=0)
+        i_all_actions, policy_info = self._policy(
+            obs_combined,
+            deterministic=False,
+            return_log_prob=True,
+            pol_idx=None,
+            optimize_policies=False,
+        )
+        # Intentional policy info
+        i_new_actions = i_all_actions[:self.batch_size]
+        i_next_actions = i_all_actions[self.batch_size:].detach()
+
+        i_new_log_pi = policy_info['log_prob'][:self.batch_size]
+        i_next_log_pi = policy_info['log_prob'][self.batch_size:].detach()
+
+        i_new_policy_mean = policy_info['mean'][:self.batch_size]
+        i_new_policy_log_std = policy_info['log_std'][:self.batch_size]
+        i_new_pre_tanh_value = policy_info['pre_tanh_value'][:self.batch_size]
+        new_mixing_coeff = policy_info['mixing_coeff'][:self.batch_size]
+
+        # Unintentional policy info
+        u_new_actions = policy_info['pol_actions'][:self.batch_size]
+        u_new_log_pi = policy_info['pol_log_probs'][:self.batch_size]
+        u_new_policy_mean = policy_info['pol_means'][:self.batch_size]
+        u_new_policy_log_std = policy_info['pol_log_stds'][:self.batch_size]
+        u_new_pre_tanh_value = policy_info['pol_pre_tanh_values'][:self.batch_size]
+
+        u_next_actions = policy_info['pol_actions'][self.batch_size:].detach()
+        u_next_log_pi = policy_info['pol_log_probs'][self.batch_size:].detach()
+
+        # Alphas
+        ialpha = self._i_entropy_scale*torch.clamp(self._i_log_alpha,
+                                                   max=MAX_LOG_ALPHA).exp()
+        ualphas = (self._u_entropy_scale*torch.clamp(self._u_log_alphas,
+                                                     max=MAX_LOG_ALPHA).exp()
+                   ).unsqueeze(1)
+
         # ########################## #
         # Unintentional Critics Step #
         # ########################## #
@@ -395,46 +431,60 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
             (batch['reward_vectors'] * self._u_reward_scales).unsqueeze(-1)
         u_terminals = (batch['terminal_vectors']).unsqueeze(-1)
 
+        # Unintentional Q1(s', a')
+        u_next_q1 = torch.cat(
+            [
+             self._u_target_qf1(next_obs, u_next_actions[:, uu, :])[0][uu].unsqueeze(1)
+             for uu in range(self._n_unintentional)
+             ],
+            dim=1
+        )
+        if self._u_target_qf2 is not None:
+            # Unintentional Q2(s', a')
+            u_next_q2 = torch.cat(
+                [
+                 self._u_target_qf2(next_obs, u_next_actions[:, uu, :])[0][uu].unsqueeze(1)
+                 for uu in range(self._n_unintentional)
+                ],
+                dim=1
+            )
+            # Minimum Unintentional Double-Q
+            u_next_q = torch.min(u_next_q1, u_next_q2)
+        else:
+            u_next_q = u_next_q1
+
         # Unintentional Vtarget(s')
-        u_v_next = torch.cat([vv.unsqueeze(1)
-                              for vv in self._u_target_vf(next_obs)[0]],
-                             dim=1)
+        u_next_v = u_next_q - ualphas*u_next_log_pi
 
         # Calculate Bellman Backup for Unintentional Q-values
-        u_q_backup = u_rewards + (1. - u_terminals) * self.discount * u_v_next
+        u_q_backup = u_rewards + (1. - u_terminals) * self.discount * u_next_v
+        u_q_backup = u_q_backup.detach()
 
         # Unintentional Q1(s,a)
         u_q_pred = torch.cat([qq.unsqueeze(1)
-                              for qq in self._u_qf(obs, actions)[0]],
+                              for qq in self._u_qf1(obs, actions)[0]],
                              dim=1)
 
         # Unintentional QF1 Losses: Mean Squared Bellman Equation (MSBE)
-        u_qf1_loss = 0.5*torch.mean((u_q_pred - u_q_backup.detach())**2,
-                                    dim=0).squeeze(-1)
+        u_qf1_loss = \
+            0.5*torch.mean((u_q_pred - u_q_backup)**2, dim=0).squeeze(-1)
         # MSBE Q1-Loss for all unintentional policies.
-        total_u_qf_loss = torch.sum(u_qf1_loss)
+        total_u_qf1_loss = torch.sum(u_qf1_loss)
 
-        # Update Unintentional Q1-value functions
-        self._u_qf1_optimizer.zero_grad()
-        total_u_qf_loss.backward()
-        self._u_qf1_optimizer.step()
-
-        if self._i_qf2 is not None:
+        if self._u_qf2 is not None:
             # Unintentional Q2(s,a)
             u_q2_pred = torch.cat([qq.unsqueeze(1)
                                    for qq in self._u_qf2(obs, actions)[0]],
                                   dim=1)
 
             # Unintentional QF2 Losses: Mean Squared Bellman Equation (MSBE)
-            u_qf2_loss = 0.5*torch.mean((u_q2_pred - u_q_backup.detach())**2,
+            u_qf2_loss = 0.5*torch.mean((u_q2_pred - u_q_backup)**2,
                                         dim=0).squeeze(-1)
             # MSBE Q2-Loss for all unintentional policies.
             total_u_qf2_loss = torch.sum(u_qf2_loss)
-
-            # Update Unintentional Q2-value functions
-            self._u_qf2_optimizer.zero_grad()
-            total_u_qf2_loss.backward()
-            self._u_qf2_optimizer.step()
+        else:
+            u_qf2_loss = 0
+            total_u_qf2_loss = 0
 
         # ####################### #
         # Intentional Critic Step #
@@ -442,22 +492,29 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
         i_rewards = batch['rewards'] * self.reward_scale
         i_terminals = batch['terminals']
 
+        # Intentional Q1(s', a')
+        i_next_q1 = self._i_target_qf1(next_obs, i_next_actions)[0]
+
+        if self._i_target_qf2 is not None:
+            # Intentional Q2(s', a')
+            i_next_q2 = self._i_target_qf2(next_obs, i_next_actions)[0]
+
+            # Minimum Unintentional Double-Q
+            i_next_q = torch.min(i_next_q1, i_next_q2)
+        else:
+            i_next_q = i_next_q1
+
         # Intentional Vtarget(s')
-        i_v_next = self._i_target_vf(next_obs)[0]
+        i_next_v = i_next_q - ialpha*i_next_log_pi
 
         # Calculate Bellman Backup for Intentional Q-value
-        i_q_backup = i_rewards + (1. - i_terminals) * self.discount * i_v_next
+        i_q_backup = i_rewards + (1. - i_terminals) * self.discount * i_next_v
 
         # Intentional Q1(s,a)
-        i_q_pred = self._i_qf(obs, actions)[0]
+        i_q_pred = self._i_qf1(obs, actions)[0]
 
         # Intentional QF1 Loss: Mean Squared Bellman Equation (MSBE)
         i_qf1_loss = 0.5*torch.mean((i_q_backup.detach() - i_q_pred)**2)
-
-        # Update Intentional Q1-value function
-        self._i_qf_optimizer.zero_grad()
-        i_qf1_loss.backward()
-        self._i_qf_optimizer.step()
 
         if self._i_qf2 is not None:
             # Intentional Q2(s,a)
@@ -465,32 +522,8 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
 
             # Intentional QF2 Loss: Mean Squared Bellman Equation (MSBE)
             i_qf2_loss = 0.5*torch.mean((i_q_backup.detach() - i_q2_pred)**2)
-
-            # Update Intentional Q2-value function
-            self._i_qf2_optimizer.zero_grad()
-            i_qf2_loss.backward()
-            self._i_qf2_optimizer.step()
-
-        # ############### #
-        # Get Policy Info #
-        # ############### #
-        i_new_actions, policy_info = self._policy(obs, deterministic=False,
-                                                  return_log_prob=True,
-                                                  pol_idx=None,
-                                                  optimize_policies=False)
-        i_log_pi = policy_info['log_prob']
-        i_policy_mean = policy_info['mean']
-        i_policy_log_std = policy_info['log_std']
-        i_pre_tanh_value = policy_info['pre_tanh_value']
-        mixing_coeff = policy_info['mixing_coeff']
-
-        u_new_actions = policy_info['pol_actions']
-        u_log_pi = policy_info['pol_log_probs']
-        u_policy_mean = policy_info['pol_means']
-        u_policy_log_std = policy_info['pol_log_stds']
-        u_pre_tanh_value = policy_info['pol_pre_tanh_values']
-        ialpha = self._i_entropy_scale
-        ualphas = self._u_entropy_scale.unsqueeze(1)
+        else:
+            i_qf2_loss = 0
 
         # #################### #
         # Unintentional Actors #
@@ -500,92 +533,56 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
         else:
             u_policy_prior_log_probs = 0.0  # Uniform prior
 
-        # Unintentional V(s)
-        u_v_pred = torch.cat([vv.unsqueeze(1) for vv in self._u_vf(obs)[0]],
-                             dim=1)
-
         # Unintentional Q1(s, a)
-        u_q1_new_actions = [self._u_qf(obs, u_new_actions[:, uu, :])[0][uu]
-                            for uu in range(self._n_unintentional)]
-        u_q1_new_actions = torch.cat([qq.unsqueeze(1)
-                                      for qq in u_q1_new_actions],
-                                     dim=1)
+        u_q1_new_actions = torch.cat(
+            [self._u_qf1(obs, u_new_actions[:, uu, :])[0][uu].unsqueeze(1)
+             for uu in range(self._n_unintentional)
+             ],
+            dim=1
+        )
         if self._u_qf2 is not None:
             # Unintentional Q2(s, a)
-            u_q2_new_actions = [self._u_qf2(obs, u_new_actions[:, uu, :])[0][uu]
-                                for uu in range(self._n_unintentional)]
-            u_q2_new_actions = torch.cat([qq.unsqueeze(1)
-                                          for qq in u_q2_new_actions],
-                                         dim=1)
+            u_q2_new_actions = torch.cat(
+                [self._u_qf2(obs, u_new_actions[:, uu, :])[0][uu].unsqueeze(1)
+                 for uu in range(self._n_unintentional)
+                 ],
+                dim=1
+            )
             # Minimum Unintentional Double-Q
             u_q_new_actions = torch.min(u_q1_new_actions, u_q2_new_actions)
         else:
             u_q_new_actions = u_q1_new_actions
 
-        # Get Unintentional A(s, a)
-        u_advantage_new_actions = u_q_new_actions - u_v_pred.detach()
+        # # Get Unintentional A(s, a)
+        # u_advantage_new_actions = u_q_new_actions - u_v_pred.detach()
 
-        # Get Unintentional Policies KL loss: - (E_a[Q(s, a) - H(.)])
+        # Get Unintentional Policies KL loss: - (E_a[Q(s, a) + H(.)])
         if self._reparameterize:
-            u_policy_kl_loss = -torch.mean(u_q_new_actions - u_log_pi*ualphas,
-                                           dim=0).squeeze(-1)
+            u_policy_kl_loss = -torch.mean(
+                u_q_new_actions - ualphas*u_new_log_pi
+                + u_policy_prior_log_probs,
+                dim=0
+            ).squeeze(-1)
             # u_policy_kl_loss = -torch.mean(
             #     u_advantage_new_actions - u_log_pi*ualphas,
             #     dim=0).squeeze(-1)
         else:
-            u_policy_kl_loss = (u_log_pi*ualphas * (
-                    u_log_pi*ualphas
-                    - u_q_new_actions
-                    + u_v_pred
-                    - u_policy_prior_log_probs).detach()
-            ).mean(dim=0).squeeze(-1)
+            raise NotImplementedError
 
         # Get Unintentional Policies regularization loss
         u_mean_reg_loss = self._u_policy_mean_regu_weight * \
-            (u_policy_mean ** 2).mean(dim=0).mean(dim=-1)
+            (u_new_policy_mean ** 2).mean(dim=0).mean(dim=-1)
         u_std_reg_loss = self._u_policy_std_regu_weight * \
-            (u_policy_log_std ** 2).mean(dim=0).mean(dim=-1)
+            (u_new_policy_log_std ** 2).mean(dim=0).mean(dim=-1)
         u_pre_activation_reg_loss = \
             self._u_policy_pre_activ_weight * \
-            (u_pre_tanh_value**2).sum(dim=-1).mean(dim=0).mean(dim=-1)
+            (u_new_pre_tanh_value**2).sum(dim=-1).mean(dim=0).mean(dim=-1)
         u_policy_regu_loss = (u_mean_reg_loss + u_std_reg_loss
                               + u_pre_activation_reg_loss)
 
         # Get Unintentional Policies Total loss
         u_policy_loss = (u_policy_kl_loss + u_policy_regu_loss)
         total_u_policy_loss = torch.sum(u_policy_loss)
-
-        # # Update Unintentional Policies
-        # self._policy_optimizer.zero_grad()
-        # total_u_policy_loss.backward()
-        # total_u_policy_loss.backward(retain_graph=True)
-        # self._policy_optimizer.step()
-        # self._policies_optimizer.zero_grad()
-        # total_u_policy_loss.backward()
-        # self._policies_optimizer.step()
-
-        # ############################# #
-        # Unintentional V-function Step #
-        # ############################# #
-        # Calculate Bellman Backup for Unintentional V-value
-        u_v_target = u_q_new_actions - u_log_pi*ualphas + u_policy_prior_log_probs
-        # Calculate Unintentional Vf Loss
-        u_vf_loss = 0.5*torch.mean((u_v_pred - u_v_target.detach())**2,
-                                   dim=0).squeeze(-1)
-        total_u_vf_loss = torch.sum(u_vf_loss)
-
-        # Update Unintentional V-value functions
-        self._u_vf_optimizer.zero_grad()
-        total_u_vf_loss.backward()
-        self._u_vf_optimizer.step()
-
-        # Update Unintentional V-value Target Network
-        if self._n_train_steps_total % self._u_target_update_interval == 0:
-            ptu.soft_update_from_to(
-                source=self._u_vf,
-                target=self._u_target_vf,
-                tau=self._u_soft_target_tau
-            )
 
         # ################# #
         # Intentional Actor #
@@ -595,60 +592,52 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
         else:
             i_policy_prior_log_probs = 0.0  # Uniform prior
 
-        # Get Intentional V(s)
-        i_v_pred = self._i_vf(obs)[0]
-
         # Intentional Q1(s, a)
-        i_q1_new_actions = self._i_qf(obs, i_new_actions)[0]
+        i_q1_new_actions = self._i_qf1(obs, i_new_actions)[0]
 
         if self._i_qf2 is not None:
             # Intentional Q2(s, a)
             i_q2_new_actions = self._i_qf2(obs, i_new_actions)[0]
+
             # Minimum Intentional Double-Q
             i_q_new_actions = torch.min(i_q1_new_actions, i_q2_new_actions)
         else:
             i_q_new_actions = i_q1_new_actions
 
-        # Intentional A(s, a)
-        i_advantage_new_actions = i_q_new_actions - i_v_pred.detach()
+        # # Intentional A(s, a)
+        # i_advantage_new_actions = i_q_new_actions - i_v_pred.detach()
 
-        # Intentional policy KL loss: - (E_a[Q(s, a) - H(.)])
+        # Intentional policy KL loss: - (E_a[Q(s, a) + H(.)])
         if self._reparameterize:
-            i_policy_kl_loss = -torch.mean(i_q_new_actions - i_log_pi*ialpha)
-            # i_policy_kl_loss = -torch.mean(i_advantage_new_actions - i_log_pi*ialpha)
+            i_policy_kl_loss = -torch.mean(
+                i_q_new_actions - ialpha*i_new_log_pi
+                + i_policy_prior_log_probs
+            )
+            # i_policy_kl_loss = -torch.mean(
+            # i_advantage_new_actions - i_log_pi*ialpha
+            # )
         else:
-            i_policy_kl_loss = (
-                    i_log_pi*ialpha * (i_log_pi*ialpha - i_q_new_actions + i_v_pred
-                                - i_policy_prior_log_probs).detach()
-            ).mean()
+            # i_policy_kl_loss = (
+            #         i_log_pi*ialpha * (i_log_pi*ialpha - i_q_new_actions + i_v_pred
+            #                     - i_policy_prior_log_probs).detach()
+            # ).mean()
             raise ValueError("You should not select this.")
 
         # Intentional policy regularization loss
         i_mean_reg_loss = self._i_pol_mean_regu_weight * \
-                          (i_policy_mean ** 2).mean()
+            (i_new_policy_mean ** 2).mean()
         i_std_reg_loss = self._i_pol_std_regu_weight * \
-                         (i_policy_log_std ** 2).mean()
+            (i_new_policy_log_std ** 2).mean()
         i_pre_activation_reg_loss = \
             self._i_pol_pre_activ_weight * \
-            (i_pre_tanh_value**2).sum(dim=-1).mean()
-        # TODO: Check the mixing coeff loss:
-        # mixing_coeff_loss = self._i_pol_mixing_coeff_weight * \
-        #                     (mixing_coeff ** 2).sum(dim=-1).mean()
+            (i_new_pre_tanh_value**2).sum(dim=-1).mean()
         mixing_coeff_loss = self._i_pol_mixing_coeff_weight * \
-            0.5*((mixing_coeff - 1/self._n_unintentional)**2).mean()
+            0.5*((new_mixing_coeff - 1/self._n_unintentional)**2).mean()
         i_policy_regu_loss = (i_mean_reg_loss + i_std_reg_loss
                               + i_pre_activation_reg_loss + mixing_coeff_loss)
 
         # Intentional Policy Total loss
         i_policy_loss = (i_policy_kl_loss + i_policy_regu_loss)
-
-        # Update Intentional Policies
-        # self._policy_optimizer.zero_grad()
-        # i_policy_loss.backward()
-        # self._policy_optimizer.step()
-        # self._mixing_optimizer.zero_grad()
-        # i_policy_loss.backward()
-        # self._mixing_optimizer.step()
 
         # Update both Intentional and Unintentional Policies at the same time
         self._policy_optimizer.zero_grad()
@@ -656,44 +645,123 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
         total_iu_loss.backward()
         self._policy_optimizer.step()
 
-        # ########################### #
-        # Intentional V-function Step #
-        # ########################### #
-        # Calculate Bellman Backup for Intentional V-value
-        i_v_backup = i_q_new_actions - i_log_pi*ialpha + i_policy_prior_log_probs
-        # Calculate Intentional Vf Loss
-        i_vf_loss = 0.5*torch.mean((i_v_backup.detach() - i_v_pred)**2)
+        # ############### #
+        # V-function Step #
+        # ############### #
+        if self._u_vf is None:
+            u_v_pred = u_q_new_actions - ualphas*u_new_log_pi
+            u_vf_loss = 0
+            total_u_vf_loss = 0
+        else:
+            u_v_pred = torch.cat([vv.unsqueeze(1)
+                                  for vv in self._u_vf(obs)[0]],
+                                 dim=1)
 
-        # Update Intentional V-value function
-        self._i_vf_optimizer.zero_grad()
-        i_vf_loss.backward()
-        self._i_vf_optimizer.step()
+            # Calculate Bellman Backup for Unintentional V-values
+            u_v_backup = u_q_new_actions - ualphas*u_new_log_pi + u_policy_prior_log_probs
+            u_v_backup = u_v_backup.detach()
 
-        # Update Intentional V-value Target Network
+            u_vf_loss = \
+                0.5*torch.mean((u_v_backup - u_v_pred)**2, dim=0).squeeze(-1)
+            total_u_vf_loss = torch.sum(u_vf_loss)
+
+        if self._i_vf is None:
+            i_v_pred = i_q_new_actions - ialpha*i_new_log_pi
+            i_vf_loss = 0
+        else:
+            i_v_pred = self._i_vf(obs)[0]
+            # Calculate Bellman Backup for V-value
+            i_v_backup = i_q_new_actions - ialpha*i_new_log_pi + i_policy_prior_log_probs
+            i_v_backup = i_v_backup.detach()
+            # Calculate Intentional Vf Loss
+            i_vf_loss = 0.5*torch.mean((i_v_backup - i_v_pred)**2)
+
+        # Update both Intentional and Unintentional Values at the same time
+        self._values_optimizer.zero_grad()
+        values_loss = (total_u_qf1_loss + total_u_qf2_loss +
+                       i_qf1_loss + i_qf2_loss +
+                       total_u_vf_loss + i_vf_loss)
+        values_loss.backward()
+        self._values_optimizer.step()
+
+        # ###################### #
+        # Update Target Networks #
+        # ###################### #
+        if self._n_train_steps_total % self._u_target_update_interval == 0:
+            if self._u_target_vf is None:
+                ptu.soft_update_from_to(
+                    source=self._u_qf1,
+                    target=self._u_target_qf1,
+                    tau=self._u_soft_target_tau
+                )
+                if self._u_target_qf2 is not None:
+                    ptu.soft_update_from_to(
+                        source=self._u_qf2,
+                        target=self._u_target_qf2,
+                        tau=self._u_soft_target_tau
+                    )
+            else:
+                ptu.soft_update_from_to(
+                    source=self._u_vf,
+                    target=self._u_target_vf,
+                    tau=self._u_soft_target_tau
+                )
+
         if self._n_train_steps_total % self._i_target_update_interval == 0:
-            ptu.soft_update_from_to(
-                source=self._i_vf,
-                target=self._i_target_vf,
-                tau=self._i_soft_target_tau
-            )
+            if self._i_target_vf is None:
+                ptu.soft_update_from_to(
+                    source=self._i_qf1,
+                    target=self._i_target_qf1,
+                    tau=self._i_soft_target_tau
+                )
+                if self._i_target_qf2 is not None:
+                    ptu.soft_update_from_to(
+                        source=self._i_qf2,
+                        target=self._i_target_qf2,
+                        tau=self._i_soft_target_tau
+                    )
+            else:
+                ptu.soft_update_from_to(
+                    source=self._i_vf,
+                    target=self._i_target_vf,
+                    tau=self._i_soft_target_tau
+                )
+
+        # ################################## #
+        # Intentional & Unintentional Alphas #
+        # ################################## #
+        if self._auto_alphas:
+            u_log_alphas = self._u_log_alphas.clamp(max=MAX_LOG_ALPHA)
+            u_alpha_loss = -(u_log_alphas.unsqueeze(-1) *
+                             (u_new_log_pi + self._u_tgt_entros.unsqueeze(-1)
+                              ).detach()
+                             ).mean()
+
+            i_log_alpha = self._i_log_alpha.clamp(max=MAX_LOG_ALPHA)
+            i_alpha_loss = -(i_log_alpha * (
+                    i_new_log_pi + self._i_tgt_entro).detach()).mean()
+            self._alphas_optimizer.zero_grad()
+            total_alpha_loss = u_alpha_loss + i_alpha_loss
+            total_alpha_loss.backward()
+            self._alphas_optimizer.step()
 
         # ############### #
         # LOG Useful Data #
         # ############### #
         self.log_data['Policy Entropy'][step_idx, :-1] = \
-            ptu.get_numpy(-u_log_pi.mean(dim=0).squeeze(-1))
+            ptu.get_numpy(-u_new_log_pi.mean(dim=0).squeeze(-1))
         self.log_data['Policy Entropy'][step_idx, -1] = \
-            ptu.get_numpy(-i_log_pi.mean(dim=0))
+            ptu.get_numpy(-i_new_log_pi.mean(dim=0))
 
         self.log_data['Pol Log Std'][step_idx, :-1, :] = \
-            ptu.get_numpy(u_policy_log_std.mean(dim=0))
+            ptu.get_numpy(u_new_policy_log_std.mean(dim=0))
         self.log_data['Pol Log Std'][step_idx, -1, :] = \
-            ptu.get_numpy(i_policy_log_std.mean(dim=0))
+            ptu.get_numpy(i_new_policy_log_std.mean(dim=0))
 
         self.log_data['Policy Mean'][step_idx, :-1, :] = \
-            ptu.get_numpy(u_policy_mean.mean(dim=0))
+            ptu.get_numpy(u_new_policy_mean.mean(dim=0))
         self.log_data['Policy Mean'][step_idx, -1, :] = \
-            ptu.get_numpy(i_policy_mean.mean(dim=0))
+            ptu.get_numpy(i_new_policy_mean.mean(dim=0))
 
         self.log_data['Pol KL Loss'][step_idx, :-1] = \
             ptu.get_numpy(u_policy_kl_loss)
@@ -712,10 +780,12 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
             self.log_data['Qf2 Loss'][step_idx, -1] = \
                 ptu.get_numpy(i_qf2_loss)
 
-        self.log_data['Vf Loss'][step_idx, :-1] = \
-            ptu.get_numpy(u_vf_loss)
-        self.log_data['Vf Loss'][step_idx, -1] = \
-            ptu.get_numpy(i_vf_loss)
+        if self._u_vf is not None:
+            self.log_data['Vf Loss'][step_idx, :-1] = \
+                ptu.get_numpy(u_vf_loss)
+        if self._i_vf is not None:
+            self.log_data['Vf Loss'][step_idx, -1] = \
+                ptu.get_numpy(i_vf_loss)
 
         self.log_data['Rewards'][step_idx, :-1] = \
             ptu.get_numpy(u_rewards.mean(dim=0).squeeze(-1))
@@ -723,7 +793,12 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
             ptu.get_numpy(i_rewards.mean(dim=0).squeeze(-1))
 
         self.log_data['Mixing Weights'][step_idx, :, :] = \
-            ptu.get_numpy(mixing_coeff.mean(dim=0))
+            ptu.get_numpy(new_mixing_coeff.mean(dim=0))
+
+        self.log_data['Alphas'][step_idx, :-1] = \
+            ptu.get_numpy(ualphas.squeeze(-1))
+        self.log_data['Alphas'][step_idx, -1] = \
+            ptu.get_numpy(ialpha)
 
         if self._log_tensorboard:
             self._summary_writer.add_scalar(
@@ -738,20 +813,15 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
                     self._n_env_steps_total
                 )
             self._summary_writer.add_scalar(
-                'TrainingI/vf_loss',
-                ptu.get_numpy(i_vf_loss),
-                self._n_env_steps_total
-            )
-            self._summary_writer.add_scalar(
                 'TrainingI/avg_reward',
                 ptu.get_numpy(i_rewards.mean()),
                 self._n_env_steps_total
             )
-            self._summary_writer.add_scalar(
-                'TrainingI/avg_advantage',
-                ptu.get_numpy(i_advantage_new_actions.mean()),
-                self._n_env_steps_total
-            )
+            # self._summary_writer.add_scalar(
+            #     'TrainingI/avg_advantage',
+            #     ptu.get_numpy(i_advantage_new_actions.mean()),
+            #     self._n_env_steps_total
+            # )
             self._summary_writer.add_scalar(
                 'TrainingI/policy_loss',
                 ptu.get_numpy(i_policy_loss),
@@ -759,17 +829,17 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
             )
             self._summary_writer.add_scalar(
                 'TrainingI/policy_entropy',
-                ptu.get_numpy(-i_log_pi.mean()),
+                ptu.get_numpy(-i_new_log_pi.mean()),
                 self._n_env_steps_total
             )
             self._summary_writer.add_scalar(
                 'TrainingI/policy_mean',
-                ptu.get_numpy(i_policy_mean.mean()),
+                ptu.get_numpy(i_new_policy_mean.mean()),
                 self._n_env_steps_total
             )
             self._summary_writer.add_scalar(
                 'TrainingI/policy_std',
-                np.exp(ptu.get_numpy(i_policy_log_std.mean())),
+                np.exp(ptu.get_numpy(i_new_policy_log_std.mean())),
                 self._n_env_steps_total
             )
             self._summary_writer.add_scalar(
@@ -785,35 +855,31 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
     def torch_models(self):
         networks_list = [
             self._policy,
-            self._i_qf,
-            self._u_qf,
-            self._i_vf,
-            self._u_vf,
-            self._u_target_vf
+            self._i_qf1,
+            self._u_qf1,
         ]
-        if self._i_target_vf is not None:
-            networks_list.append(self._i_target_vf)
-
         if self._i_qf2 is not None:
             networks_list.append(self._i_qf2)
-
+        if self._i_vf is not None:
+            networks_list.append(self._i_vf)
+        if self._i_target_qf1 is not None:
+            networks_list.append(self._i_target_qf1)
+        if self._i_target_qf2 is not None:
+            networks_list.append(self._i_target_qf2)
+        if self._i_target_vf is not None:
+            networks_list.append(self._i_target_vf)
         if self._u_qf2 is not None:
             networks_list.append(self._u_qf2)
+        if self._u_vf is not None:
+            networks_list.append(self._u_vf)
+        if self._u_target_qf1 is not None:
+            networks_list.append(self._u_target_qf1)
+        if self._u_target_qf2 is not None:
+            networks_list.append(self._u_target_qf2)
+        if self._u_target_vf is not None:
+            networks_list.append(self._u_target_vf)
 
         return networks_list
-
-    @staticmethod
-    def compute_gae(next_value, rewards, masks, values, gamma=0.99,
-                    tau=0.95):
-        # FROM: https://github.com/higgsfield/RL-Adventure-2/blob/master/3.ppo.ipynb
-        values = values + [next_value]
-        gae = 0
-        returns = []
-        for step in reversed(range(len(rewards))):
-            delta = rewards[step] + gamma * values[step + 1] * masks[step] - values[step]
-            gae = delta + gamma * tau * masks[step] * gae
-            returns.insert(0, gae + values[step])
-        return returns
 
     def get_epoch_snapshot(self, epoch):
         """
@@ -828,17 +894,20 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
             self._epoch_plotter.draw()
             self._epoch_plotter.save_figure(epoch)
 
-        snapshot = TorchIncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
+        snapshot = IncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
 
         snapshot.update(
             policy=self._policy,
-            qf=self._i_qf,
+            qf=self._i_qf1,
             qf2=self._i_qf2,
+            target_qf=self._i_target_qf1,
             vf=self._i_vf,
             target_vf=self._i_target_vf,
-            u_qf=self._u_qf,
+            u_qf=self._u_qf1,
             u_qf2=self._u_qf2,
             u_vf=self._u_vf,
+            target_u_qf1=self._u_target_qf1,
+            target_u_qf2=self._u_target_qf2,
             target_u_vf=self._u_target_vf,
         )
 
@@ -897,6 +966,10 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
                 np.nan_to_num(np.mean(
                     self.log_data['Mixing Weights'][:max_step, uu]
                 ))
+            self.eval_statistics['[U-%02d] Alphas' % uu] = \
+                np.nan_to_num(np.mean(
+                    self.log_data['Alphas'][:max_step, uu]
+                ))
 
             for aa in range(self.env.action_dim):
                 self.eval_statistics['[U-%02d] Policy Std [%02d]' % (uu, aa)] = \
@@ -939,6 +1012,10 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
         self.eval_statistics['[I] Rewards'] = \
             np.nan_to_num(np.mean(
                 self.log_data['Rewards'][:max_step, -1]
+            ))
+        self.eval_statistics['[I] Alphas'] = \
+            np.nan_to_num(np.mean(
+                self.log_data['Alphas'][:max_step, -1]
             ))
         for aa in range(self.env.action_dim):
             self.eval_statistics['[I] Policy Std'] = \
@@ -1058,7 +1135,7 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
             batch['next_observations'] = \
                 self._obs_normalizer.normalize(batch['next_observations'])
 
-        return ptu.np_to_pytorch_batch(batch)
+        return batch
 
     def _handle_step(
             self,
@@ -1089,7 +1166,7 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
         if self._obs_normalizer is not None:
             self._obs_normalizer.update(np.array([observation]))
 
-        TorchIncrementalRLAlgorithm._handle_step(
+        IncrementalRLAlgorithm._handle_step(
             self,
             observation=observation,
             action=action,
@@ -1107,4 +1184,4 @@ class HIUSAC(TorchIncrementalRLAlgorithm):
 
         self.replay_buffer.terminate_episode()
 
-        TorchIncrementalRLAlgorithm._handle_rollout_ending(self)
+        IncrementalRLAlgorithm._handle_rollout_ending(self)

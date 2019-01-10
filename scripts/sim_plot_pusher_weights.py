@@ -167,23 +167,31 @@ def plot_weights(agent_infos, observations, obj_idxs, latex_plot=False, block=Fa
     lines = list()
     labels = list()
 
+    Ts = 1e-3
+    time = np.arange(T)*Ts
     for aa, ax in enumerate(axs):
         for uu in range(nUnint):
-            plot_w = ax.plot(range(T), all_data[:, uu, aa])[0]
+            plot_w = ax.plot(time, all_data[:, uu, aa])[0]
             if aa == 0:
                 lines.append(plot_w)
                 labels.append('Weight U-%02d' % uu)
 
-        ax.set_ylabel('Action %d' % aa)
+        ax.set_ylabel('Action %d' % (aa+1), fontsize=35)
 
-        ax.plot(range(T), touching)
-        legend = plt.legend(lines, labels, loc='lower right', ncol=1,
-                            labelspacing=0., prop={'size': 40})
+        plot_t = ax.plot(time, touching)[0]
+        if aa == 0:
+            lines.append(plot_t)
+            labels.append('Close to cylinder')
 
-    # legend = fig.legend(lines, labels, loc='lower right', ncol=1,
-    #                     labelspacing=0., prop={'size': 40})
+    axs[-1].set_xlabel('Time (s)', fontsize=35)
+
+    legend = fig.legend(lines, labels, loc='lower center', ncol=3,
+                        labelspacing=0., prop={'size': 30},
+                        fancybox=True, #bbox_to_anchor=(1, 1),
+                        )
     fig.set_size_inches(19, 11)  # 1920 x 1080
     fig.tight_layout()
+    fig.subplots_adjust(bottom=0.15)
     legend.draggable(True)
 
     plt.show(block=block)
