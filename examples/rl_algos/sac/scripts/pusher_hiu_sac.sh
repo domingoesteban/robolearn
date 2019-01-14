@@ -6,7 +6,7 @@
 expt_name='objective_test'
 env_name='pusher'
 algo_name='hiu_sac'
-dir_prefix=${algo_name}A
+dir_prefix=${algo_name}C
 
 python_script=${env_name}'_'${algo_name}
 log_dir_path='/home/desteban/logs/'${expt_name}'/'${env_name}'/'

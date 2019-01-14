@@ -28,7 +28,7 @@ BATCH_SIZE = 128
 SEED = 1010
 # NP_THREADS = 6
 
-SUBTASK = 1
+SUBTASK = None
 
 
 def load_policy(fpath, itr='last', deterministic=False):

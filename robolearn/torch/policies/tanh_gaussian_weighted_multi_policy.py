@@ -18,10 +18,10 @@ LOG_SIG_MIN = -20
 # SIG_MAX = 7.38905609893065
 # SIG_MIN = 0.049787068367863944
 
-LOG_MIX_COEFF_MIN = -10
-LOG_MIX_COEFF_MAX = -1e-6  #-4.5e-5
-LOG_MIX_COEFF_MIN = -1
-LOG_MIX_COEFF_MAX = 1  #-4.5e-5
+# LOG_MIX_COEFF_MIN = -10
+# LOG_MIX_COEFF_MAX = -1e-6  #-4.5e-5
+# LOG_MIX_COEFF_MIN = -1
+# LOG_MIX_COEFF_MAX = 1  #-4.5e-5
 
 # EPS = 1e-12
 EPS = 1e-8
@@ -154,7 +154,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                         layer=pfc,
                         option=hidden_w_init,
                         activation=hidden_activation,
-                        b=hidden_b_init_val
+                        b=hidden_b_init_val,
                     )
                     self.__setattr__("pfc{}_{}".format(pol_idx, ii), pfc)
                     self._pfcs[pol_idx].append(pfc)
@@ -179,7 +179,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 layer=last_pfc,
                 option=output_w_init,
                 activation=pol_output_activation,
-                b=output_b_init_val
+                b=output_b_init_val,
             )
             self.__setattr__("pfc{}_last".format(pol_idx), last_pfc)
             self._pfc_lasts.append(last_pfc)
@@ -197,7 +197,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                     layer=last_pfc_log_std,
                     option=output_w_init,
                     activation=pol_output_activation,
-                    b=output_b_init_val
+                    b=output_b_init_val,
                 )
                 self.__setattr__("pfc{}_log_std_last".format(pol_idx),
                                  last_pfc_log_std)
@@ -544,7 +544,7 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
             if return_log_prob:
                 # Log probability: Main Policy
-                log_prob = -((pre_tanh_value - mean) ** 2) / (2 * variance) \
+                log_prob = -((pre_tanh_value - mean) ** 2) / (2*variance) \
                            - log_std - math.log(math.sqrt(2*math.pi))
                 log_prob -= torch.log(
                     # torch.clamp(1. - action**2, 0, 1)
@@ -554,8 +554,8 @@ class TanhGaussianWeightedMultiPolicy(PyTorchModule, ExplorationPolicy):
                 log_prob = log_prob.sum(dim=-1, keepdim=True)
 
                 # Log probability: Sub-Policies
-                log_probs = -((pre_tanh_values - means) ** 2) / (2 * variances)\
-                            - log_stds - math.log(math.sqrt(2 * math.pi))
+                log_probs = -((pre_tanh_values - means) ** 2) / (2*variances)\
+                            - log_stds - math.log(math.sqrt(2*math.pi))
                 log_probs -= torch.log(
                     # torch.clamp(1. - actions**2, 0, 1)
                     clip_but_pass_gradient(1. - actions**2, 0, 1)

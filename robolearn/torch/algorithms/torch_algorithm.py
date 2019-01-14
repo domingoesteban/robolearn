@@ -2,7 +2,6 @@ import abc
 from typing import Iterable
 
 from robolearn.torch.core import PyTorchModule
-import robolearn.torch.utils.pytorch_util as ptu
 
 
 class TorchAlgorithm(object):

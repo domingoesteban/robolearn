@@ -132,7 +132,7 @@ class RLAlgorithm(object):
         self._n_rollouts_total = 0  # Accumulated rollouts
         self._epoch_start_time = None  # Wall time
         self._old_table_keys = None  # Previous table keys of the logger
-        self._current_path_builder = PathBuilder()  # Current path
+        self._current_path = PathBuilder()  # Current path
         self._exploration_paths = []  # All paths in current epoch
         self._print_log_header = None  # Print the header in log
 
@@ -144,7 +144,11 @@ class RLAlgorithm(object):
         self.render_eval_paths = render_eval_paths
 
     """
+    ############################
+    ############################
     Methods related to Training.
+    ############################
+    ############################
     """
     def pretrain(self, *args, **kwargs):
         """
@@ -216,7 +220,11 @@ class RLAlgorithm(object):
         pass
 
     """
+    ##############################
+    ##############################
     Methods related to Evaluation.
+    ##############################
+    ##############################
     """
     def _try_to_eval(self, epoch):
         """
@@ -465,7 +473,7 @@ class RLAlgorithm(object):
         :return:
         """
         # Add data to current path builder
-        self._current_path_builder.add_all(
+        self._current_path.add_all(
             observations=observation,
             actions=action,
             rewards=reward,
@@ -480,11 +488,11 @@ class RLAlgorithm(object):
         Implement anything that needs to happen after every rollout.
         """
         self._n_rollouts_total += 1
-        if len(self._current_path_builder) > 0:
+        if len(self._current_path) > 0:
             self._exploration_paths.append(
-                self._current_path_builder.get_all_stacked()
+                self._current_path.get_all_stacked()
             )
-            self._current_path_builder = PathBuilder()
+            self._current_path = PathBuilder()
 
     def get_extra_data_to_save(self, epoch):
         """

@@ -19,7 +19,7 @@ import json
 # SEEDS = [610, 1010]
 # SEEDS = [610, 710, 810, 1010]
 SEEDS = [610]
-MAX_ITER = 1700
+MAX_ITER = 250
 # STEPS_PER_ITER = 3e3
 STEPS_PER_ITER = None
 LOG_PREFIX = '/home/desteban/logs/objective_test/centauro_tray'
@@ -29,32 +29,32 @@ LOG_PREFIX = '/home/desteban/logs/objective_test/centauro_tray'
 
 
 hiu_performance_dict = dict()
-# Subtask 01
-hiu_performance_dict['Subtask 01'] = dict()
-hiu_performance_dict['Subtask 01']['SAC'] = dict(
-    dir='sub0',
-    prefix='sac_',
-    ius=[-1],
-    r_scales=[1.e-0],
-)
-hiu_performance_dict['Subtask 01']['SACX'] = dict(
-    dir='sub0',
-    prefix='sacX_',
-    ius=[-1],
-    r_scales=[1.e-0],
-)
-hiu_performance_dict['Subtask 01']['SAC-dis'] = dict(
-    dir='sub0',
-    prefix='sacX_dist_',
-    ius=[-1],
-    r_scales=[1.e-0],
-)
-hiu_performance_dict['Subtask 01']['HIU-A'] = dict(
-    dir='sub0',
-    prefix='hiu_sacA_0sha_elu_mix_1_',
-    ius=[0],
-    r_scales=[1.e-0],
-)
+# # Subtask 01
+# hiu_performance_dict['Subtask 01'] = dict()
+# hiu_performance_dict['Subtask 01']['SAC'] = dict(
+#     dir='sub0',
+#     prefix='sac_',
+#     ius=[-1],
+#     r_scales=[1.e-0],
+# )
+# hiu_performance_dict['Subtask 01']['SACX'] = dict(
+#     dir='sub0',
+#     prefix='sacX_',
+#     ius=[-1],
+#     r_scales=[1.e-0],
+# )
+# hiu_performance_dict['Subtask 01']['SAC-dis'] = dict(
+#     dir='sub0',
+#     prefix='sacX_dist_',
+#     ius=[-1],
+#     r_scales=[1.e-0],
+# )
+# hiu_performance_dict['Subtask 01']['HIU-A'] = dict(
+#     dir='sub0',
+#     prefix='hiu_sacA_0sha_elu_mix_1_',
+#     ius=[0],
+#     r_scales=[1.e-0],
+# )
 
 # # Subtask 02
 # hiu_performance_dict['Subtask 02'] = dict()
@@ -77,21 +77,21 @@ hiu_performance_dict['Subtask 01']['HIU-A'] = dict(
 #     r_scales=[1.e-0],
 # )
 
-#
-# # Maintask
-# hiu_performance_dict['Main Task'] = dict()
-# hiu_performance_dict['Main Task']['SAC'] = dict(
-#     dir='sub-1',
-#     prefix='sac_',
-#     ius=[-1],
-#     r_scales=[5.e-1],
-# )
-# hiu_performance_dict['Main Task']['SACX'] = dict(
-#     dir='sub-1',
-#     prefix='sacX_',
-#     ius=[-1],
-#     r_scales=[1.e-0],
-# )
+
+# Maintask
+hiu_performance_dict['Main Task'] = dict()
+hiu_performance_dict['Main Task']['SAC'] = dict(
+    dir='sub-1',
+    prefix='sacK_',
+    ius=[-1],
+    r_scales=[1.e-0],
+)
+hiu_performance_dict['Main Task']['HIU-SAC-W'] = dict(
+    dir='sub-1',
+    prefix='hiu_sacX_1_',
+    ius=[-1],
+    r_scales=[1.e-0],
+)
 
 
 def get_full_seed_paths(full_dict):

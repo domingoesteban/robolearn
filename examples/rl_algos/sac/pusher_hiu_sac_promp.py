@@ -20,7 +20,9 @@ from robolearn.torch.algorithms.rl_algos.sac.hiu_sac \
     import HIUSAC
 
 from robolearn.torch.models import NNQFunction
+from robolearn.torch.models import NNVFunction
 from robolearn.torch.models import NNMultiQFunction
+from robolearn.torch.models import NNMultiVFunction
 
 from robolearn.torch.policies import TanhGaussianPrompMultiPolicy
 
@@ -30,14 +32,14 @@ import joblib
 np.set_printoptions(suppress=True, precision=4)
 # np.seterr(all='raise')  # WARNING RAISE ERROR IN NUMPY
 
-Tend = 5.0  # Seconds
+Tend = 10.0  # Seconds
 
 SIM_TIMESTEP = 0.001
 FRAME_SKIP = 10
 DT = SIM_TIMESTEP * FRAME_SKIP
 
 PATH_LENGTH = int(np.ceil(Tend / DT))
-PATHS_PER_EPOCH = 3
+PATHS_PER_EPOCH = 1
 PATHS_PER_EVAL = 2
 PATHS_PER_HARD_UPDATE = 12
 BATCH_SIZE = 128
@@ -50,12 +52,13 @@ SUBTASK = None
 POLICY = TanhGaussianPrompMultiPolicy
 REPARAM_POLICY = True
 
+USE_Q2 = True
+EXPLICIT_VF = False
+
 SOFTMAX_WEIGHTS = True
 # SOFTMAX_WEIGHTS = False
 # INIT_AVG_MIXING = True
 INIT_AVG_MIXING = False
-
-USE_Q2 = False
 
 OPTIMIZER = 'adam'
 # OPTIMIZER = 'rmsprop'
@@ -69,7 +72,7 @@ expt_params = dict(
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=1000,  # n_epochs
+        num_epochs=500,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
@@ -77,21 +80,19 @@ expt_params = dict(
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
+        finite_horizon_eval=True,
         # SAC params
         reparameterize=REPARAM_POLICY,
         action_prior='uniform',
-        i_entropy_scale=1.0e-0,
-        u_entropy_scale=[1.0e-0, 1.0e-0],
-        auto_alphas=True,
-        i_tgt_entro=-2.0e-0,
-        u_tgt_entros=[-2.0e-0, -2.0e-0],
+        i_entropy_scale=2.0e-1,
+        u_entropy_scale=[2.0e-1, 2.0e-1],
+        auto_alphas=False,
+        i_tgt_entro=1.0e+0,
+        u_tgt_entros=[1.5e+0, 1.5e+0],
         # Learning rates
         optimizer=OPTIMIZER,
-        i_policy_lr=3.e-4,
-        u_policies_lr=3.e-4,
-        u_mixing_lr=3.e-4,
-        i_qf_lr=3.e-4,
-        u_qf_lr=3.e-4,
+        policy_lr=3.e-4,
+        qf_lr=3.e-4,
         # Soft target update
         i_soft_target_tau=5.e-3,
         u_soft_target_tau=5.e-3,
@@ -104,10 +105,8 @@ expt_params = dict(
         u_policy_std_regu_weight=[1.e-3, 1.e-3],
         u_policy_pre_activation_weight=[0.e-3, 0.e-3],
         # Weight decays
-        i_policy_weight_decay=1.e-5,
-        u_policy_weight_decay=1.e-5,
-        i_q_weight_decay=1e-5,
-        u_q_weight_decay=1e-5,
+        policy_weight_decay=0.e-5,
+        q_weight_decay=0e-5,
 
         discount=0.99,
         reward_scale=1.0e-0,
@@ -130,30 +129,37 @@ expt_params = dict(
     # mixture_layer_norm=True,
     # NN Activations
     # --------------
-    # hidden_activation='relu',
+    hidden_activation='relu',
     # hidden_activation='tanh',
-    hidden_activation='elu',
+    # hidden_activation='elu',
     # NN Initialization
     # -----------------
     # pol_hidden_w_init='xavier_normal',
     # pol_output_w_init='xavier_normal',
-    pol_hidden_w_init='uniform',
-    pol_output_w_init='uniform',
+    pol_hidden_w_init='xavier_uniform',
+    pol_output_w_init='xavier_uniform',
+    # pol_hidden_w_init='uniform',
+    # pol_output_w_init='uniform',
     # q_hidden_w_init='xavier_normal',
     # q_output_w_init='xavier_normal',
-    q_hidden_w_init='uniform',
-    q_output_w_init='uniform',
+    q_hidden_w_init='xavier_uniform',
+    q_output_w_init='xavier_uniform',
+    # q_hidden_w_init='uniform',
+    # q_output_w_init='uniform',
     # v_hidden_w_init='xavier_normal',
     # v_output_w_init='xavier_normal',
-    v_hidden_w_init='uniform',
-    v_output_w_init='uniform',
+    v_hidden_w_init='xavier_uniform',
+    v_output_w_init='xavier_uniform',
+    # v_hidden_w_init='uniform',
+    # v_output_w_init='uniform',
 )
 
 env_params = dict(
     is_render=False,
-    # obs_distances=False,  # If True obs contain 'distance' vectors instead poses
-    obs_distances=True,  # If True obs contain 'distance' vectors instead poses
+    # obs_distances=False,
+    obs_distances=True,
     obs_with_img=False,
+    # obs_with_ori=True,
     obs_with_ori=False,
     goal_pose=(0.65, 0.65),
     rdn_goal_pose=True,
@@ -162,8 +168,9 @@ env_params = dict(
     robot_config=None,
     rdn_robot_config=True,
     tgt_cost_weight=3.0,
-    goal_cost_weight=1.0,
+    goal_cost_weight=3.0,
     ctrl_cost_weight=1.0e-3,
+    no_task_weight=1.0,
     goal_tolerance=0.01,
     # max_time=PATH_LENGTH*DT,
     max_time=None,
@@ -171,7 +178,7 @@ env_params = dict(
     frame_skip=FRAME_SKIP,
     subtask=SUBTASK,
     seed=SEED,
-    sequential_reward=True,
+    sequential_reward=False,
 )
 
 
@@ -181,7 +188,7 @@ def experiment(variant):
 
     # Set seeds
     np.random.seed(variant['seed'])
-    ptu.set_gpu_mode(variant['gpu'])
+    ptu.set_gpu_mode(variant['gpu'], gpu_id=0)
     ptu.seed(variant['seed'])
     variant['env_params']['seed'] = variant['seed']
 
@@ -208,6 +215,8 @@ def experiment(variant):
         i_qf2 = data['qf2']
         u_qf = data['u_qf']
         u_qf2 = data['u_qf2']
+        i_vf = data['i_vf']
+        u_vf = data['u_vf']
         policy = data['policy']
         env._obs_mean = data['obs_mean']
         env._obs_var = data['obs_var']
@@ -235,24 +244,52 @@ def experiment(variant):
             hidden_w_init=variant['q_hidden_w_init'],
             output_w_init=variant['q_output_w_init'],
         )
-        u_qf2 = NNMultiQFunction(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            n_qs=n_unintentional,
-            hidden_activation=variant['hidden_activation'],
-            # shared_hidden_sizes=[net_size, net_size],
-            shared_hidden_sizes=[],
-            unshared_hidden_sizes=[net_size, net_size],
-            hidden_w_init=variant['q_hidden_w_init'],
-            output_w_init=variant['q_output_w_init'],
-        )
-        i_qf2 = NNQFunction(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            hidden_sizes=[net_size, net_size],
-            hidden_w_init=variant['q_hidden_w_init'],
-            output_w_init=variant['q_output_w_init'],
-        )
+
+        if USE_Q2:
+            u_qf2 = NNMultiQFunction(
+                obs_dim=obs_dim,
+                action_dim=action_dim,
+                n_qs=n_unintentional,
+                hidden_activation=variant['hidden_activation'],
+                # shared_hidden_sizes=[net_size, net_size],
+                shared_hidden_sizes=[net_size],
+                # shared_hidden_sizes=[],
+                unshared_hidden_sizes=[net_size, net_size],
+                hidden_w_init=variant['q_hidden_w_init'],
+                output_w_init=variant['q_output_w_init'],
+            )
+            i_qf2 = NNQFunction(
+                obs_dim=obs_dim,
+                action_dim=action_dim,
+                hidden_sizes=[net_size, net_size],
+                hidden_w_init=variant['q_hidden_w_init'],
+                output_w_init=variant['q_output_w_init'],
+            )
+        else:
+            u_qf2 = None
+            i_qf2 = None
+
+        if EXPLICIT_VF:
+            u_vf = NNMultiVFunction(
+                obs_dim=obs_dim,
+                n_vs=n_unintentional,
+                hidden_activation=variant['hidden_activation'],
+                # shared_hidden_sizes=[net_size, net_size],
+                shared_hidden_sizes=[net_size],
+                # shared_hidden_sizes=[],
+                unshared_hidden_sizes=[net_size, net_size],
+                hidden_w_init=variant['q_hidden_w_init'],
+                output_w_init=variant['q_output_w_init'],
+            )
+            i_vf = NNVFunction(
+                obs_dim=obs_dim,
+                hidden_sizes=[net_size, net_size],
+                hidden_w_init=variant['q_hidden_w_init'],
+                output_w_init=variant['q_output_w_init'],
+            )
+        else:
+            u_vf = None
+            i_vf = None
 
         policy = POLICY(
             obs_dim=obs_dim,
@@ -299,14 +336,16 @@ def experiment(variant):
         i_qf1=i_qf,
         u_qf2=u_qf2,
         i_qf2=i_qf2,
+        u_vf=u_vf,
+        i_vf=i_vf,
         eval_env=env,
         save_environment=False,
         **variant['algo_params']
     )
     if ptu.gpu_enabled():
-        algorithm.cuda()
+        algorithm.cuda(ptu.device)
 
-    # algorithm.pretrain(PATH_LENGTH*2)
+    algorithm.pretrain(10000)
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm

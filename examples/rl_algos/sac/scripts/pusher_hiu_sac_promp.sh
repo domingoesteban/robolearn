@@ -5,9 +5,8 @@
 # #### #
 expt_name='objective_test'
 env_name='pusher'
-algo_name='hiu_sac_new_mixture'
-dir_prefix=${algo_name}3
-#dir_prefix=${algo_name}
+algo_name='hiu_sac_promp'
+dir_prefix=${algo_name}B
 
 python_script=${env_name}'_'${algo_name}
 log_dir_path='/home/desteban/logs/'${expt_name}'/'${env_name}'/'
@@ -28,7 +27,7 @@ total_subtasks=${#subtasks[@]}
 
 # Mix weights
 #default_mix_weights=(1 5)
-default_mix_weights=(0)
+default_mix_weights=(1)
 mix_weights=("${@:-${default_mix_weights[@]}}")
 total_mix_weights=${#mix_weights[@]}
 

@@ -27,7 +27,7 @@ PATHS_PER_HARD_UPDATE = 12
 BATCH_SIZE = 256
 
 SEED = 610
-SUBTASK = 1
+SUBTASK = None
 
 EXP_NAME = 'prueba_reacher1_sac'
 

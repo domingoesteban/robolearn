@@ -64,7 +64,7 @@ expt_params = dict(
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=500,  # n_epochs
+        num_epochs=2000,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
@@ -76,10 +76,11 @@ expt_params = dict(
         # SAC params
         reparameterize=REPARAM_POLICY,
         action_prior='uniform',
-        entropy_scale=1.0e+0,
+        entropy_scale=1.0e-0,
         auto_alpha=True,
         tgt_entro=1e+0,
         # Learning rates
+        optimizer=OPTIMIZER,
         policy_lr=3e-4,
         qf_lr=3e-4,
         vf_lr=3e-4,
@@ -98,7 +99,7 @@ expt_params = dict(
         reward_scale=1.0e-0,
     ),
     replay_buffer_size=1e6,
-    net_size=128,
+    net_size=256,
     # NN Normalizations
     # -----------------
     shared_layer_norm=False,
@@ -111,16 +112,22 @@ expt_params = dict(
     # -----------------
     # pol_hidden_w_init='xavier_normal',
     # pol_output_w_init='xavier_normal',
-    pol_hidden_w_init='uniform',
-    pol_output_w_init='uniform',
+    pol_hidden_w_init='xavier_uniform',
+    pol_output_w_init='xavier_uniform',
+    # pol_hidden_w_init='uniform',
+    # pol_output_w_init='uniform',
     # q_hidden_w_init='xavier_normal',
     # q_output_w_init='xavier_normal',
-    q_hidden_w_init='uniform',
-    q_output_w_init='uniform',
+    q_hidden_w_init='xavier_uniform',
+    q_output_w_init='xavier_uniform',
+    # q_hidden_w_init='uniform',
+    # q_output_w_init='uniform',
     # v_hidden_w_init='xavier_normal',
     # v_output_w_init='xavier_normal',
-    v_hidden_w_init='uniform',
-    v_output_w_init='uniform',
+    v_hidden_w_init='xavier_uniform',
+    v_output_w_init='xavier_uniform',
+    # v_hidden_w_init='uniform',
+    # v_output_w_init='uniform',
 )
 
 env_params = dict(
@@ -252,9 +259,9 @@ def experiment(variant):
         **variant['algo_params']
     )
     if ptu.gpu_enabled():
-        algorithm.cuda()
+        algorithm.cuda(ptu.device)
 
-    # algorithm.pretrain(PATH_LENGTH*2)
+    # algorithm.pretrain(10000)
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm

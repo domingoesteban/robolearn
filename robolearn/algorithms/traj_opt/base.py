@@ -7,8 +7,9 @@ import abc
 from future.utils import with_metaclass
 
 
-class TrajOpt(with_metaclass(abc.ABCMeta, object)):
+class TrajOpt(object):
     """ Trajectory optimization superclass. """
+    __metaclass__ = abc.ABCMeta
 
     def __init__(self, hyperparams):
         self._hyperparams = hyperparams

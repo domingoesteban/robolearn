@@ -70,7 +70,7 @@ class IncrementalRLAlgorithm(RLAlgorithm):
                     env_info=env_info,
                 )
                 # Check it we need to start a new rollout
-                if terminal or (len(self._current_path_builder) >=
+                if terminal or (len(self._current_path) >=
                                 self.max_path_length) \
                         or ss == (epoch_steps - 1):
                     self._handle_rollout_ending()

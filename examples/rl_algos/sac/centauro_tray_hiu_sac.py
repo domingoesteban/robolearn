@@ -39,10 +39,10 @@ FRAME_SKIP = 1
 DT = SIM_TIMESTEP * FRAME_SKIP
 
 PATH_LENGTH = int(np.ceil(Tend / DT))
-PATHS_PER_EPOCH = 1
+PATHS_PER_EPOCH = 3
 PATHS_PER_EVAL = 2
 PATHS_PER_HARD_UPDATE = 12
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 
 SEED = 110
 # NP_THREADS = 6
@@ -72,7 +72,7 @@ expt_params = dict(
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=1000,  # n_epochs
+        num_epochs=2000,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
@@ -84,9 +84,9 @@ expt_params = dict(
         # SAC params
         reparameterize=REPARAM_POLICY,
         action_prior='uniform',
-        i_entropy_scale=2.0e-1,
-        u_entropy_scale=[2.0e-1, 2.0e-1],
-        auto_alphas=False,
+        i_entropy_scale=1.0e-0,
+        u_entropy_scale=[1.0e-0, 1.0e-0],
+        auto_alphas=True,
         i_tgt_entro=0.0e+0,
         u_tgt_entros=[1.0e+0, 1.0e+0],
         # Learning rates
@@ -105,8 +105,8 @@ expt_params = dict(
         u_policy_std_regu_weight=[1.e-3, 1.e-3],
         u_policy_pre_activation_weight=[0.e-3, 0.e-3],
         # Weight decays
-        policy_weight_decay=0.e-5,
-        q_weight_decay=0e-5,
+        policy_weight_decay=1.e-5,
+        q_weight_decay=1e-5,
 
         discount=0.99,
         reward_scale=1.0e-0,
@@ -115,7 +115,7 @@ expt_params = dict(
         normalize_obs=NORMALIZE_OBS,
     ),
     replay_buffer_size=1e6,
-    net_size=128,
+    net_size=256,
     softmax_weights=SOFTMAX_WEIGHTS,
     # NN Normalizations
     # -----------------
@@ -349,7 +349,7 @@ def experiment(variant):
     if ptu.gpu_enabled():
         algorithm.cuda(ptu.device)
 
-    algorithm.pretrain(10000)
+    # algorithm.pretrain(10000)
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm
