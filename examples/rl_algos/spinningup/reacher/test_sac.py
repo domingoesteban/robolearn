@@ -96,6 +96,25 @@ def main():
             logger_kwargs=logger_kwargs,
             save_freq=1
         )
+        # ppo(
+        #     env_fn,
+        #     actor_critic=mlp_actor_critic,
+        #     ac_kwargs=dict(hidden_sizes=(128, 128, 128)),
+        #     seed=SEED,
+        #     steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
+        #     epochs=10000,
+        #     gamma=0.99,  # Discount factor (0-1)
+        #     clip_ratio=0.2,  # clip pol objective (0.1-0.3)
+        #     pi_lr=3e-4,
+        #     vf_lr=1e-3,
+        #     train_pi_iters=80,  # Max grad steps in pol loss per epoch
+        #     train_v_iters=80,  # Max grad steps in val loss per epoch
+        #     lam=0.97,  # Lambda for GAE-Lambda (0-1)
+        #     max_ep_len=PATH_LENGTH,  # Max length for trajectory
+        #     target_kl=0.01,  # KLdiv between new and old policies
+        #     logger_kwargs=logger_kwargs,
+        #     save_freq=10,
+        # )
 
 
 if __name__ == '__main__':

@@ -14,7 +14,7 @@ from robolearn.algorithms.rl_algos import CostAction
 from robolearn.algorithms.rl_algos import RAMP_CONSTANT
 from robolearn.algorithms.rl_algos import RAMP_FINAL_ONLY
 
-from robolearn_gym_envs.utils.transformations_utils import create_quat_pose
+from robolearn_gym_envs.utils.transformations import create_quat_pose
 from robolearn.utils.launchers.launcher_util import setup_logger
 import robolearn.torch.utils.pytorch_util as ptu
 
@@ -74,8 +74,8 @@ env_params = dict(
     # is_render=False,
     obs_with_img=False,
     active_joints='RA',
-    control_type='tasktorque',
-    # _control_type='velocity',
+    control_mode='tasktorque',
+    # _control_mode='velocity',
     sim_timestep=SIM_TIMESTEP,
     frame_skip=FRAME_SKIP,
     obs_distances=True,

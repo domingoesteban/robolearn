@@ -52,7 +52,8 @@ class RLAlgorithm(object):
         """
         Base class for RL Algorithms
         :param env: Environment used for training.
-        :param exploration_policy: Policy used to explore during training.
+        :param exploration_policy: Policy used to explore during training
+        (Behavior policy).
         :param eval_env: Environment used for evaluation. By default, a
         copy of `env` will be made.
         :param num_epochs: Number of episodes.

@@ -21,9 +21,9 @@ def main():
     EndTime = 10.0
     env_with_img = False
     active_joints = 'LA'
-    control_type = 'torque'
+    control_mode = 'torque'
     env = CentauroBulletEnv(render=render, active_joints=active_joints,
-                            control_type=control_type)
+                            control_mode=control_mode)
     env.seed(0)
 
     ts = env.dt
