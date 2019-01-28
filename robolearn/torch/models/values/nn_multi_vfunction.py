@@ -1,7 +1,7 @@
 import numpy as np
 from robolearn.torch.core import PyTorchModule
 from robolearn.utils.serializable import Serializable
-from robolearn.torch.core import np_ify
+from robolearn.torch.utils.pytorch_util import np_ify
 import robolearn.torch.utils.pytorch_util as ptu
 import torch.nn as nn
 

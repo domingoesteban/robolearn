@@ -2,7 +2,6 @@ import torch
 import numpy as np
 
 from torch.autograd import Variable as TorchVariable
-from torch.nn import functional as F
 import torch.nn as nn
 
 
@@ -37,6 +36,130 @@ def fill(tensor, value):
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
+"""
+GPU wrappers
+"""
+_use_gpu = False
+device = None
+
+
+def set_gpu_mode(mode, gpu_id=0):
+    global _use_gpu
+    global device
+    global _gpu_id
+    _gpu_id = gpu_id
+    _use_gpu = mode
+    device = torch.device("cuda:" + str(gpu_id) if _use_gpu else "cpu")
+
+
+def gpu_enabled():
+    return _use_gpu
+
+
+def set_device(gpu_id):
+    torch.cuda.set_device(gpu_id)
+
+
+"""
+Torch Tensors
+"""
+
+
+# noinspection PyPep8Naming
+def FloatTensor(*args, **kwargs):
+    return torch.FloatTensor(*args, **kwargs).to(device)
+
+
+# noinspection PyPep8Naming
+def BinaryTensor(*args, **kwargs):
+    return torch.ByteTensor(*args, **kwargs).to(device)
+
+
+# noinspection PyPep8Naming
+def LongTensor(*args, **kwargs):
+    return torch.LongTensor(*args, **kwargs).to(device)
+
+
+# noinspection PyPep8Naming
+def IntTensor(*args, **kwargs):
+    return torch.IntTensor(*args, **kwargs).to(device)
+
+
+def Variable(tensor, **kwargs):
+    if _use_gpu and not tensor.is_cuda:
+        return TorchVariable(tensor.to(device), **kwargs)
+    else:
+        return TorchVariable(tensor, **kwargs)
+
+
+def zeros(*sizes, **kwargs):
+    return torch.zeros(*sizes, **kwargs).to(device)
+
+
+def ones(*sizes, **kwargs):
+    return torch.ones(*sizes, **kwargs).to(device)
+
+
+def zeros_like(*args, **kwargs):
+    return torch.zeros_like(*args, **kwargs).to(device)
+
+
+def ones_like(*args, **kwargs):
+    return torch.ones_like(*args, **kwargs).to(device)
+
+
+def eye(*sizes, **kwargs):
+    return torch.eye(*sizes, **kwargs).to(device)
+
+
+def rand(*args, **kwargs):
+    return torch.rand(*args, **kwargs).to(device)
+
+
+def randn(*args, **kwargs):
+    return torch.randn(*args, **kwargs).to(device)
+
+
+def arange(*args, **kwargs):
+    return torch.arange(*args, **kwargs).to(device)
+
+
+"""
+Torch-Numpy functions
+"""
+
+
+def from_numpy(ndarray, requires_grad=False):
+    return torch.from_numpy(ndarray).float().to(device).requires_grad_(requires_grad)
+
+
+def get_numpy(tensor):
+    if isinstance(tensor, torch.Tensor):
+        return tensor.to('cpu').detach().numpy()
+    else:
+        return np.array(tensor)
+
+
+def np_to_var(np_array, **kwargs):
+    if np_array.dtype == np.bool:
+        np_array = np_array.astype(int)
+    return Variable(from_numpy(np_array), **kwargs)
+
+
+def torch_ify(np_array_or_other):
+    if isinstance(np_array_or_other, np.ndarray):
+        return from_numpy(np_array_or_other, requires_grad=True)
+    else:
+        return np_array_or_other
+
+
+def np_ify(tensor_or_other):
+    if isinstance(tensor_or_other, TorchVariable):
+        return get_numpy(tensor_or_other)
+    else:
+        return tensor_or_other
 
 
 """
@@ -205,106 +328,6 @@ def get_activation(name):
         raise AttributeError("Pytorch does not have activation '%s'",
                              name)
     return activation
-
-
-"""
-GPU wrappers
-"""
-_use_gpu = False
-device = None
-
-
-def set_gpu_mode(mode, gpu_id=0):
-    global _use_gpu
-    global device
-    global _gpu_id
-    _gpu_id = gpu_id
-    _use_gpu = mode
-    device = torch.device("cuda:" + str(gpu_id) if _use_gpu else "cpu")
-
-
-def gpu_enabled():
-    return _use_gpu
-
-
-def set_device(gpu_id):
-    torch.cuda.set_device(gpu_id)
-
-
-# noinspection PyPep8Naming
-def FloatTensor(*args, **kwargs):
-    return torch.FloatTensor(*args, **kwargs).to(device)
-
-
-# noinspection PyPep8Naming
-def BinaryTensor(*args, **kwargs):
-    return torch.ByteTensor(*args, **kwargs).to(device)
-
-
-# noinspection PyPep8Naming
-def LongTensor(*args, **kwargs):
-    return torch.LongTensor(*args, **kwargs).to(device)
-
-
-# noinspection PyPep8Naming
-def IntTensor(*args, **kwargs):
-    return torch.IntTensor(*args, **kwargs).to(device)
-
-
-def Variable(tensor, **kwargs):
-    if _use_gpu and not tensor.is_cuda:
-        return TorchVariable(tensor.to(device), **kwargs)
-    else:
-        return TorchVariable(tensor, **kwargs)
-
-
-def from_numpy(*args, **kwargs):
-    return torch.from_numpy(*args, **kwargs).float().to(device)
-
-
-def get_numpy(tensor):
-    if isinstance(tensor, torch.Tensor):
-        return tensor.to('cpu').detach().numpy()
-    else:
-        return np.array(tensor)
-
-
-def np_to_var(np_array, **kwargs):
-    if np_array.dtype == np.bool:
-        np_array = np_array.astype(int)
-    return Variable(from_numpy(np_array), **kwargs)
-
-
-def zeros(*sizes, **kwargs):
-    return torch.zeros(*sizes, **kwargs).to(device)
-
-
-def ones(*sizes, **kwargs):
-    return torch.ones(*sizes, **kwargs).to(device)
-
-
-def zeros_like(*args, **kwargs):
-    return torch.zeros_like(*args, **kwargs).to(device)
-
-
-def ones_like(*args, **kwargs):
-    return torch.ones_like(*args, **kwargs).to(device)
-
-
-def eye(*sizes, **kwargs):
-    return torch.eye(*sizes, **kwargs).to(device)
-
-
-def rand(*args, **kwargs):
-    return torch.rand(*args, **kwargs).to(device)
-
-
-def randn(*args, **kwargs):
-    return torch.randn(*args, **kwargs).to(device)
-
-
-def arange(*args, **kwargs):
-    return torch.arange(*args, **kwargs).to(device)
 
 
 """

@@ -181,25 +181,26 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         if u_entropy_scale is None:
             u_entropy_scale = [i_entropy_scale
                                for _ in range(self._n_unintentional)]
-        self._u_entropy_scale = ptu.FloatTensor(u_entropy_scale)
+        self._u_entropy_scale = torch.tensor(u_entropy_scale, device=ptu.device)
 
         # Desired Alphas
         self._auto_alphas = auto_alphas
         if i_tgt_entro is None:
             i_tgt_entro = -env.action_dim
-        self._i_tgt_entro = ptu.FloatTensor([i_tgt_entro])
+        self._i_tgt_entro = ptu.tensor([i_tgt_entro], device=ptu.device)
         if u_tgt_entros is None:
             u_tgt_entros = [i_tgt_entro for _ in range(self._n_unintentional)]
-        self._u_tgt_entros = ptu.FloatTensor(u_tgt_entros)
-        self._u_log_alphas = ptu.zeros(2, requires_grad=True, device=ptu.device)
-        self._i_log_alpha = ptu.zeros(1, requires_grad=True, device=ptu.device)
+        self._u_tgt_entros = torch.tensor(u_tgt_entros, device=ptu.device)
+        self._u_log_alphas = torch.zeros(self._n_unintentional,
+                                         device=ptu.device, requires_grad=True)
+        self._i_log_alpha = torch.zeros(1, device=ptu.device, requires_grad=True)
 
         # Unintentional Reward Scales
         if u_reward_scales is None:
             reward_scale = kwargs['reward_scale']
             u_reward_scales = [reward_scale
                                for _ in range(self._n_unintentional)]
-        self._u_reward_scales = ptu.FloatTensor(u_reward_scales)
+        self._u_reward_scales = torch.tensor(u_reward_scales, device=ptu.device)
 
         # ########## #
         # Optimizers #

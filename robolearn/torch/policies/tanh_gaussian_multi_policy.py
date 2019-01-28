@@ -3,7 +3,7 @@ import torch
 from torch import nn as nn
 from torch.nn import functional as F
 from robolearn.torch.core import PyTorchModule
-from robolearn.torch.core import np_ify
+from robolearn.torch.utils.pytorch_util import np_ify
 from robolearn.torch.utils.nn import LayerNorm
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.models.policies import ExplorationPolicy

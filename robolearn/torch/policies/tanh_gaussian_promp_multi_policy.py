@@ -3,7 +3,7 @@ import torch
 from torch import nn as nn
 from torch.distributions import Normal
 from robolearn.torch.core import PyTorchModule
-from robolearn.torch.core import np_ify
+from robolearn.torch.utils.pytorch_util import np_ify
 from torch.nn.modules.normalization import LayerNorm
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.models.policies import ExplorationPolicy

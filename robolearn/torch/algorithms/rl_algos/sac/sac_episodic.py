@@ -28,6 +28,7 @@ MAX_LOG_ALPHA = 9.21034037  # Alpha=10000
 class SAC(IterativeRLAlgorithm, TorchAlgorithm):
     """
     Soft Actor Critic (SAC)
+    Iterative (Episodic) Version.
     """
     def __init__(
             self,
@@ -195,8 +196,8 @@ class SAC(IterativeRLAlgorithm, TorchAlgorithm):
         self._auto_alpha = auto_alpha
         if tgt_entro is None:
             tgt_entro = -env.action_dim
-        self._tgt_entro = ptu.FloatTensor([tgt_entro])
-        self._log_alpha = ptu.zeros(1, requires_grad=True, device=ptu.device)
+        self._tgt_entro = torch.tensor([float(tgt_entro)], device=ptu.device)
+        self._log_alpha = torch.zeros(1, device=ptu.device, requires_grad=True)
 
         # ########## #
         # Optimizers #
@@ -590,7 +591,7 @@ class SAC(IterativeRLAlgorithm, TorchAlgorithm):
             )
             self._summary_writer.add_scalar(
                 'Training/policy_std',
-                np.exp(ptu.get_numpy(policy_log_std.mean())),
+                ptu.get_numpy(policy_log_std.mean().exp()),
                 self._n_env_steps_total
             )
             self._summary_writer.add_scalar(

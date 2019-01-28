@@ -23,8 +23,8 @@ class MultiGoalReplayBuffer(ReplayBuffer):
         self._acts_buffer = np.zeros((max_size, action_dim), dtype=np.float32)
         self._rewards_buffer = np.zeros((max_size, 1), dtype=np.float32)
         self._terminals_buffer = np.zeros((max_size, 1), dtype='uint8')
-        self._rew_vect_buffer = np.zeros((max_size, multi_size))
-        self._term_vect_buffer = np.zeros((max_size, multi_size), dtype='uint8')
+        self._rew_vects_buffer = np.zeros((max_size, multi_size))
+        self._term_vects_buffer = np.zeros((max_size, multi_size), dtype='uint8')
 
         self._obs_dim = obs_dim
         self._action_dim = action_dim
@@ -39,9 +39,9 @@ class MultiGoalReplayBuffer(ReplayBuffer):
         self._rewards_buffer[self._top] = reward
         self._terminals_buffer[self._top] = terminal
         self._next_obs_buffer[self._top] = next_observation
-        self._rew_vect_buffer[self._top] = \
+        self._rew_vects_buffer[self._top] = \
             kwargs['env_info']['reward_multigoal']
-        self._term_vect_buffer[self._top] = \
+        self._term_vects_buffer[self._top] = \
             kwargs['env_info']['terminal_multigoal']
         self._advance()
 
@@ -58,7 +58,7 @@ class MultiGoalReplayBuffer(ReplayBuffer):
             raise AttributeError('Not enough samples to get. %d bigger than '
                                  'current %d!' % (batch_size, self._size))
 
-        indices = self.random_indices(0, self._size, batch_size)
+        indices = np.random.randint(0, self._size, batch_size)
         return dict(
             observations=self._obs_buffer[indices],
             actions=self._acts_buffer[indices],
@@ -71,7 +71,3 @@ class MultiGoalReplayBuffer(ReplayBuffer):
 
     def available_samples(self):
         return self._size
-
-    @staticmethod
-    def random_indices(low, high, size):
-        return np.random.randint(low, high, size)
