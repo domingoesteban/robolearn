@@ -48,7 +48,6 @@ class HIUSACEpisodic(IterativeRLAlgorithm, TorchAlgorithm):
 
             u_qf2=None,
             i_qf2=None,
-            reparameterize=True,
             action_prior='uniform',
 
             i_entropy_scale=1.,
@@ -143,8 +142,6 @@ class HIUSACEpisodic(IterativeRLAlgorithm, TorchAlgorithm):
         ]
 
         # Important algorithm hyperparameters
-        self._reparameterize = reparameterize
-        assert self._reparameterize == self._policy.reparameterize
         self._action_prior = action_prior
         self._i_entropy_scale = i_entropy_scale
         if u_entropy_scale is None:
@@ -494,16 +491,10 @@ class HIUSACEpisodic(IterativeRLAlgorithm, TorchAlgorithm):
         u_advantage_new_actions = u_q_new_actions - u_v_pred.detach()
 
         # Get Unintentional Policies KL loss: - (E_a[Q(s, a) - H(.)])
-        if self._reparameterize:
-            u_policy_kl_loss = -torch.mean(u_q_new_actions - u_log_pi,
-                                           dim=0).squeeze(-1)
-            # u_policy_kl_loss = -torch.mean(u_advantage_new_actions - u_log_pi,
-            #                                dim=0).squeeze(-1)
-        else:
-            u_policy_kl_loss = (
-                    u_log_pi * (u_log_pi - u_q_new_actions + u_v_pred
-                                - u_policy_prior_log_probs).detach()
-            ).mean(dim=0).squeeze(-1)
+        u_policy_kl_loss = -torch.mean(u_q_new_actions - u_log_pi,
+                                       dim=0).squeeze(-1)
+        # u_policy_kl_loss = -torch.mean(u_advantage_new_actions - u_log_pi,
+        #                                dim=0).squeeze(-1)
 
         # Get Unintentional Policies regularization loss
         u_mean_reg_loss = self._u_policy_mean_regu_weight * \
@@ -578,15 +569,8 @@ class HIUSACEpisodic(IterativeRLAlgorithm, TorchAlgorithm):
         i_advantage_new_actions = i_q_new_actions - i_v_pred.detach()
 
         # Intentional policy KL loss: - (E_a[Q(s, a) - H(.)])
-        if self._reparameterize:
-            i_policy_kl_loss = -torch.mean(i_q_new_actions - i_log_pi)
-            # i_policy_kl_loss = -torch.mean(i_advantage_new_actions - i_log_pi)
-        else:
-            i_policy_kl_loss = (
-                    i_log_pi * (i_log_pi - i_q_new_actions + i_v_pred
-                                - i_policy_prior_log_probs).detach()
-            ).mean()
-            raise ValueError("You should not select this.")
+        i_policy_kl_loss = -torch.mean(i_q_new_actions - i_log_pi)
+        # i_policy_kl_loss = -torch.mean(i_advantage_new_actions - i_log_pi)
 
         # Intentional policy regularization loss
         i_mean_reg_loss = self._i_pol_mean_regu_weight * \

@@ -16,7 +16,8 @@ class EnvReplayBuffer(SimpleReplayBuffer):
         self.env = env
         self._ob_space = env.observation_space
         self._action_space = env.action_space
-        super().__init__(
+        SimpleReplayBuffer.__init__(
+            self,
             max_replay_buffer_size=max_replay_buffer_size,
             obs_dim=get_dim(self._ob_space),
             action_dim=get_dim(self._action_space),

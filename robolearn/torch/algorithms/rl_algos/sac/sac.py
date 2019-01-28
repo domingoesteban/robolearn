@@ -6,7 +6,6 @@ https://github.com/vitchyr/rlkit
 import numpy as np
 import torch
 import torch.optim as optim
-from itertools import chain
 
 from collections import OrderedDict
 from itertools import chain
@@ -43,7 +42,6 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
 
             vf=None,
             qf2=None,
-            reparameterize=True,
             action_prior='uniform',
 
             entropy_scale=1.,
@@ -95,8 +93,6 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
             normalize_obs:
 
             eval_env:
-
-            reparameterize:
 
             action_prior:
 
@@ -192,8 +188,6 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
         self._target_update_interval = target_update_interval
 
         # Important algorithm hyperparameters
-        self._reparameterize = reparameterize
-        assert self._reparameterize == self._policy.reparameterize
         self._action_prior = action_prior
         self._entropy_scale = entropy_scale
 
@@ -445,19 +439,12 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
             q_new_actions = q1_new_actions
 
         # Policy KL loss
-        if self._reparameterize:
-            # policy_kl_losses = (
-            #     alpha*log_pi - q_new_actions - policy_prior_log_probs
-            # )
-            policy_kl_losses = -(
-                q_new_actions - alpha*log_pi + policy_prior_log_probs
-            )
-        else:
-            raise NotImplementedError
-            # policy_kl_losses = (
-            #         alpha*log_pi * (alpha*log_pi - q_new_actions + v_pred
-            #                         - policy_prior_log_probs).detach()
-            # )
+        # policy_kl_losses = (
+        #     alpha*log_pi - q_new_actions - policy_prior_log_probs
+        # )
+        policy_kl_losses = -(
+            q_new_actions - alpha*log_pi + policy_prior_log_probs
+        )
         policy_kl_loss = torch.mean(policy_kl_losses)
 
         # Policy regularization loss
@@ -541,132 +528,132 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
             alpha_loss.backward()
             self._alpha_optimizer.step()
 
-        # ############### #
-        # LOG Useful Data #
-        # ############### #
-        self.log_data['Pol Entropy'][step_idx] = \
-            ptu.get_numpy(-log_pi.mean(dim=0))
-        self.log_data['Pol Log Std'][step_idx] = \
-            ptu.get_numpy(policy_log_std.mean())
-        self.log_data['Policy Mean'][step_idx] = \
-            ptu.get_numpy(policy_mean.mean())
-        self.log_data['Pol KL Loss'][step_idx] = \
-            ptu.get_numpy(policy_kl_loss)
-        self.log_data['Qf Loss'][step_idx] = ptu.get_numpy(qf1_loss)
-        if self._qf2 is not None:
-            self.log_data['Qf2 Loss'][step_idx] = ptu.get_numpy(qf2_loss)
-        self.log_data['Vf Loss'][step_idx] = ptu.get_numpy(vf_loss)
-        self.log_data['Rewards'][step_idx] = ptu.get_numpy(rewards.mean(dim=0))
-        self.log_data['Alphas'][step_idx] = ptu.get_numpy(alpha)
-
-        if self._log_tensorboard:
-            self._summary_writer.add_scalar(
-                'Training/qf_loss',
-                ptu.get_numpy(qf1_loss),
-                self._n_env_steps_total
-            )
-            if self._qf2 is not None:
-                self._summary_writer.add_scalar(
-                    'Training/qf2_loss',
-                    ptu.get_numpy(qf2_loss),
-                    self._n_env_steps_total
-                )
-            self._summary_writer.add_scalar(
-                'Training/vf_loss',
-                ptu.get_numpy(vf_loss),
-                self._n_env_steps_total
-            )
-            self._summary_writer.add_scalar(
-                'Training/avg_reward',
-                ptu.get_numpy(rewards.mean()),
-                self._n_env_steps_total
-            )
-            self._summary_writer.add_scalar(
-                'Training/avg_advantage',
-                ptu.get_numpy(advantages_new_actions.mean()),
-                self._n_env_steps_total
-            )
-            self._summary_writer.add_scalar(
-                'Training/policy_loss',
-                ptu.get_numpy(policy_loss),
-                self._n_env_steps_total
-            )
-            self._summary_writer.add_scalar(
-                'Training/policy_entropy',
-                ptu.get_numpy(-log_pi.mean()),
-                self._n_env_steps_total
-            )
-            self._summary_writer.add_scalar(
-                'Training/policy_mean',
-                ptu.get_numpy(policy_mean.mean()),
-                self._n_env_steps_total
-            )
-            self._summary_writer.add_scalar(
-                'Training/policy_std',
-                np.exp(ptu.get_numpy(policy_log_std.mean())),
-                self._n_env_steps_total
-            )
-            self._summary_writer.add_scalar(
-                'Training/q_vals',
-                ptu.get_numpy(q_new_actions.mean()),
-                self._n_env_steps_total
-            )
-
-            if self._n_env_steps_total % 500 == 0:
-                for name, param in self._policy.named_parameters():
-                    self._summary_writer.add_histogram(
-                        'policy/'+name,
-                        param.data.cpu().numpy(),
-                        self._n_env_steps_total
-                    )
-                    self._summary_writer.add_histogram(
-                        'policy_grad/'+name,
-                        param.grad.data.cpu().numpy(),
-                        self._n_env_steps_total
-                    )
-
-                for name, param in self._qf.named_parameters():
-                    self._summary_writer.add_histogram(
-                        'qf/'+name,
-                        param.data.cpu().numpy(),
-                        self._n_env_steps_total
-                    )
-                    self._summary_writer.add_histogram(
-                        'qf_grad/'+name,
-                        param.grad.data.cpu().numpy(),
-                        self._n_env_steps_total
-                    )
-                if self._qf2 is not None:
-                    for name, param in self._qf2.named_parameters():
-                        self._summary_writer.add_histogram(
-                            'qf2/'+name,
-                            param.data.cpu().numpy(),
-                            self._n_env_steps_total
-                        )
-                        self._summary_writer.add_histogram(
-                            'qf2_grad/'+name,
-                            param.grad.data.cpu().numpy(),
-                            self._n_env_steps_total
-                        )
-
-                for name, param in self._vf.named_parameters():
-                    self._summary_writer.add_histogram(
-                        'vf/'+name,
-                        param.data.cpu().numpy(),
-                        self._n_env_steps_total
-                    )
-                    self._summary_writer.add_histogram(
-                        'vf_grad/'+name,
-                        param.grad.data.cpu().numpy(),
-                        self._n_env_steps_total
-                    )
-
-                for name, param in self._target_vf.named_parameters():
-                    self._summary_writer.add_histogram(
-                        'vf_target/'+name,
-                        param.cpu().data.numpy(),
-                        self._n_env_steps_total
-                    )
+        # # ############### #
+        # # LOG Useful Data #
+        # # ############### #
+        # self.log_data['Pol Entropy'][step_idx] = \
+        #     ptu.get_numpy(-log_pi.mean(dim=0))
+        # self.log_data['Pol Log Std'][step_idx] = \
+        #     ptu.get_numpy(policy_log_std.mean())
+        # self.log_data['Policy Mean'][step_idx] = \
+        #     ptu.get_numpy(policy_mean.mean())
+        # self.log_data['Pol KL Loss'][step_idx] = \
+        #     ptu.get_numpy(policy_kl_loss)
+        # self.log_data['Qf Loss'][step_idx] = ptu.get_numpy(qf1_loss)
+        # if self._qf2 is not None:
+        #     self.log_data['Qf2 Loss'][step_idx] = ptu.get_numpy(qf2_loss)
+        # self.log_data['Vf Loss'][step_idx] = ptu.get_numpy(vf_loss)
+        # self.log_data['Rewards'][step_idx] = ptu.get_numpy(rewards.mean(dim=0))
+        # self.log_data['Alphas'][step_idx] = ptu.get_numpy(alpha)
+        #
+        # if self._log_tensorboard:
+        #     self._summary_writer.add_scalar(
+        #         'Training/qf_loss',
+        #         ptu.get_numpy(qf1_loss),
+        #         self._n_env_steps_total
+        #     )
+        #     if self._qf2 is not None:
+        #         self._summary_writer.add_scalar(
+        #             'Training/qf2_loss',
+        #             ptu.get_numpy(qf2_loss),
+        #             self._n_env_steps_total
+        #         )
+        #     self._summary_writer.add_scalar(
+        #         'Training/vf_loss',
+        #         ptu.get_numpy(vf_loss),
+        #         self._n_env_steps_total
+        #     )
+        #     self._summary_writer.add_scalar(
+        #         'Training/avg_reward',
+        #         ptu.get_numpy(rewards.mean()),
+        #         self._n_env_steps_total
+        #     )
+        #     self._summary_writer.add_scalar(
+        #         'Training/avg_advantage',
+        #         ptu.get_numpy(advantages_new_actions.mean()),
+        #         self._n_env_steps_total
+        #     )
+        #     self._summary_writer.add_scalar(
+        #         'Training/policy_loss',
+        #         ptu.get_numpy(policy_loss),
+        #         self._n_env_steps_total
+        #     )
+        #     self._summary_writer.add_scalar(
+        #         'Training/policy_entropy',
+        #         ptu.get_numpy(-log_pi.mean()),
+        #         self._n_env_steps_total
+        #     )
+        #     self._summary_writer.add_scalar(
+        #         'Training/policy_mean',
+        #         ptu.get_numpy(policy_mean.mean()),
+        #         self._n_env_steps_total
+        #     )
+        #     self._summary_writer.add_scalar(
+        #         'Training/policy_std',
+        #         np.exp(ptu.get_numpy(policy_log_std.mean())),
+        #         self._n_env_steps_total
+        #     )
+        #     self._summary_writer.add_scalar(
+        #         'Training/q_vals',
+        #         ptu.get_numpy(q_new_actions.mean()),
+        #         self._n_env_steps_total
+        #     )
+        #
+        #     if self._n_env_steps_total % 500 == 0:
+        #         for name, param in self._policy.named_parameters():
+        #             self._summary_writer.add_histogram(
+        #                 'policy/'+name,
+        #                 param.data.cpu().numpy(),
+        #                 self._n_env_steps_total
+        #             )
+        #             self._summary_writer.add_histogram(
+        #                 'policy_grad/'+name,
+        #                 param.grad.data.cpu().numpy(),
+        #                 self._n_env_steps_total
+        #             )
+        #
+        #         for name, param in self._qf.named_parameters():
+        #             self._summary_writer.add_histogram(
+        #                 'qf/'+name,
+        #                 param.data.cpu().numpy(),
+        #                 self._n_env_steps_total
+        #             )
+        #             self._summary_writer.add_histogram(
+        #                 'qf_grad/'+name,
+        #                 param.grad.data.cpu().numpy(),
+        #                 self._n_env_steps_total
+        #             )
+        #         if self._qf2 is not None:
+        #             for name, param in self._qf2.named_parameters():
+        #                 self._summary_writer.add_histogram(
+        #                     'qf2/'+name,
+        #                     param.data.cpu().numpy(),
+        #                     self._n_env_steps_total
+        #                 )
+        #                 self._summary_writer.add_histogram(
+        #                     'qf2_grad/'+name,
+        #                     param.grad.data.cpu().numpy(),
+        #                     self._n_env_steps_total
+        #                 )
+        #
+        #         for name, param in self._vf.named_parameters():
+        #             self._summary_writer.add_histogram(
+        #                 'vf/'+name,
+        #                 param.data.cpu().numpy(),
+        #                 self._n_env_steps_total
+        #             )
+        #             self._summary_writer.add_histogram(
+        #                 'vf_grad/'+name,
+        #                 param.grad.data.cpu().numpy(),
+        #                 self._n_env_steps_total
+        #             )
+        #
+        #         for name, param in self._target_vf.named_parameters():
+        #             self._summary_writer.add_histogram(
+        #                 'vf_target/'+name,
+        #                 param.cpu().data.numpy(),
+        #                 self._n_env_steps_total
+        #             )
 
     def _do_not_training(self):
         return
@@ -845,7 +832,6 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
             batch['next_observations'] = \
                 self._obs_normalizer.normalize(batch['next_observations'])
 
-        # return ptu.np_to_pytorch_batch(batch)
         return batch
 
     def _handle_step(

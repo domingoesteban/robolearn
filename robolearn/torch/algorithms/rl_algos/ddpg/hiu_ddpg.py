@@ -23,7 +23,7 @@ from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
 from robolearn.torch.policies import WeightedMultiPolicySelector
 from robolearn.utils.data_management.normalizer import RunningNormalizer
 
-from tensorboardX import SummaryWriter
+import tensorboardX
 
 
 class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
@@ -40,12 +40,11 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
 
             replay_buffer,
             batch_size=1024,
-            normalize_obs=True,
-
-            i_qf=None,
+            normalize_obs=False,
             eval_env=None,
 
-            reparameterize=True,
+            i_qf=None,
+
             action_prior='uniform',
 
             i_policy_lr=1e-4,
@@ -64,10 +63,10 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
             i_q_weight_decay=0.,
             u_q_weight_decay=0.,
 
-            # optimizer='adam',
-            optimizer='rmsprop',
+            optimizer='adam',
+            # optimizer='rmsprop',
             # optimizer='sgd',
-            amsgrad=True,
+            optimizer_kwargs=None,
 
             i_soft_target_tau=1e-2,
             u_soft_target_tau=1e-2,
@@ -136,8 +135,6 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         ]
 
         # Important algorithm hyperparameters
-        self._reparameterize = reparameterize
-        assert self._reparameterize == self._policy.reparameterize
         self._action_prior = action_prior
 
         # Intentional (Main Task) Q-function
@@ -175,14 +172,17 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         # ########## #
         if optimizer.lower() == 'adam':
             optimizer_class = optim.Adam
-            optimizer_params = dict(
-                amsgrad=amsgrad,
-            )
+            if optimizer_kwargs is None:
+                optimizer_kwargs = dict(
+                    amsgrad=True,
+                    # amsgrad=False,
+                )
         elif optimizer.lower() == 'rmsprop':
             optimizer_class = optim.RMSprop
-            optimizer_params = dict(
+            if optimizer_kwargs is None:
+                optimizer_kwargs = dict(
 
-            )
+                )
         else:
             raise ValueError('Wrong optimizer')
 
@@ -195,13 +195,13 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
             self._u_qf.parameters(),
             lr=u_qf_lr,
             weight_decay=u_q_weight_decay,
-            **optimizer_params
+            **optimizer_kwargs
         )
         self._i_qf_optimizer = optimizer_class(
             self._i_qf.parameters(),
             lr=i_qf_lr,
             weight_decay=i_q_weight_decay,
-            **optimizer_params
+            **optimizer_kwargs
         )
 
         # Policy optimizer
@@ -209,7 +209,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
             self._policy.parameters(),
             lr=i_policy_lr,
             weight_decay=i_policy_weight_decay,
-            **optimizer_params
+            **optimizer_kwargs
         )
 
         # Policy regularization coefficients (weights)
@@ -253,8 +253,13 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
             self.env.action_dim,
         ))
 
+        # Tensorboard-like Logging
         self._log_tensorboard = log_tensorboard
-        self._summary_writer = SummaryWriter(log_dir=logger.get_snapshot_dir())
+        if log_tensorboard:
+            self._summary_writer = \
+                tensorboardX.SummaryWriter(log_dir=logger.get_snapshot_dir())
+        else:
+            self._summary_writer = None
 
     def pretrain(self, n_pretrain_samples):
         # We do not require any pretrain (I think...)
@@ -262,7 +267,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         for ii in range(n_pretrain_samples):
             action = self.env.action_space.sample()
             # Interact with environment
-            next_ob, raw_reward, terminal, env_info = (
+            next_ob, reward, terminal, env_info = (
                 self.env.step(action)
             )
             agent_info = None
@@ -270,7 +275,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
             # Increase counter
             self._n_env_steps_total += 1
             # Create np.array of obtained terminal and reward
-            reward = raw_reward * self.reward_scale
+            reward = reward * self.reward_scale
             terminal = np.array([terminal])
             reward = np.array([reward])
             # Add to replay buffer
@@ -776,7 +781,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
             batch['next_observations'] = \
                 self._obs_normalizer.normalize(batch['next_observations'])
 
-        return ptu.np_to_pytorch_batch(batch)
+        return batch
 
     def _handle_step(
             self,

@@ -41,7 +41,6 @@ class TanhWeightedMultiPolicy(PyTorchModule, Policy):
             shared_layer_norm=False,
             policies_layer_norm=False,
             mixture_layer_norm=False,
-            reparameterize=True,
             epsilon=1e-6,
             softmax_weights=False,
             mixing_temperature=1.,
@@ -208,8 +207,6 @@ class TanhWeightedMultiPolicy(PyTorchModule, Policy):
             self.mfc_softmax = nn.Softmax(dim=1)
         else:
             self.mfc_softmax = None
-
-        self._reparameterize = reparameterize
 
         self._pols_idxs = ptu.arange(self._n_subpolicies)
 
@@ -462,7 +459,3 @@ class TanhWeightedMultiPolicy(PyTorchModule, Policy):
 
     def add_mixing_module(self, name, module):
         ptu.add_module(self._mixing_modules, name, module)
-
-    @property
-    def reparameterize(self):
-        return self._reparameterize

@@ -47,7 +47,6 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             hidden_b_init_val=0,
             output_w_init='xavier_normal',
             output_b_init_val=0,
-            reparameterize=True,
             **kwargs
     ):
         """
@@ -61,8 +60,6 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             hidden_b_init_val:
             output_w_init:
             output_b_init_val:
-            reparameterize: If True, gradients will flow directly through
-                the action samples.
             **kwargs:
         """
         self.save_init_params(locals())
@@ -94,8 +91,6 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
         else:
             self.log_std = math.log(std)
             assert LOG_SIG_MIN <= self.log_std <= LOG_SIG_MAX
-
-        self._reparameterize = reparameterize
 
         self._normal_dist = Normal(loc=ptu.zeros(action_dim),
                                    scale=ptu.ones(action_dim))
@@ -172,15 +167,6 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
             # scale_trils = torch.stack([torch.diag(m) for m in std])
             # tanh_normal = TanhMultivariateNormal(mean, scale_tril=scale_trils)
 
-            if self._reparameterize:
-                action, pre_tanh_value = tanh_normal.rsample(
-                    return_pretanh_value=True
-                )
-            else:
-                action, pre_tanh_value = tanh_normal.sample(
-                    return_pretanh_value=True
-                )
-
             if return_log_prob:
                 log_prob = tanh_normal.log_prob(
                     action,
@@ -255,10 +241,6 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
         #
         # # z = (action - mean)/stds
         # # return -0.5 * torch.sum(torch.mul(z, z), dim=-1, keepdim=True)
-
-    @property
-    def reparameterize(self):
-        return self._reparameterize
 
 
 def clip_but_pass_gradient(x, l=-1., u=1.):

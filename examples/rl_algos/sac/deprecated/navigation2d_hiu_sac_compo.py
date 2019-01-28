@@ -38,7 +38,6 @@ np.set_printoptions(suppress=True, precision=4)
 PATH_LENGTH = 20  # time steps
 PATHS_PER_EPOCH = 5
 PATHS_PER_EVAL = 3
-PATHS_PER_HARD_UPDATE = 35
 BATCH_SIZE = 256
 
 SEED = 110
@@ -47,7 +46,6 @@ SEED = 110
 SUBTASK = None
 
 POLICY = TanhGaussianComposedMultiPolicy
-REPARAM_POLICY = True
 
 LATENT_DIM = 4
 # SOFTMAX_WEIGHTS = True
@@ -78,7 +76,6 @@ expt_params = dict(
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
         # SAC params
-        reparameterize=REPARAM_POLICY,
         action_prior='uniform',
         i_entropy_scale=2.0e-0,
         u_entropy_scale=[5.0e-1, 5.0e-1],
@@ -295,7 +292,6 @@ def experiment(variant):
             policies_layer_norm=variant['policies_layer_norm'],
             mixture_layer_norm=variant['mixture_layer_norm'],
             final_policy_layer_norm=variant['final_policy_layer_norm'],
-            reparameterize=REPARAM_POLICY,
             softmax_weights=variant['softmax_weights'],
             hidden_w_init=variant['pol_hidden_w_init'],
             output_w_init=variant['pol_output_w_init'],

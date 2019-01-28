@@ -50,7 +50,6 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
             i_qf2=None,
             i_vf=None,
             u_vf=None,
-            reparameterize=True,
             action_prior='uniform',
 
             i_entropy_scale=1.,
@@ -177,8 +176,6 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         self._u_target_update_interval = u_target_update_interval
 
         # Important algorithm hyperparameters
-        self._reparameterize = reparameterize
-        assert self._reparameterize == self._policy.reparameterize
         self._action_prior = action_prior
         self._i_entropy_scale = i_entropy_scale
         if u_entropy_scale is None:
@@ -557,17 +554,14 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         # u_advantage_new_actions = u_q_new_actions - u_v_pred.detach()
 
         # Get Unintentional Policies KL loss: - (E_a[Q(s, a) + H(.)])
-        if self._reparameterize:
-            u_policy_kl_loss = -torch.mean(
-                u_q_new_actions - ualphas*u_new_log_pi
-                + u_policy_prior_log_probs,
-                dim=0
-            ).squeeze(-1)
-            # u_policy_kl_loss = -torch.mean(
-            #     u_advantage_new_actions - u_log_pi*ualphas,
-            #     dim=0).squeeze(-1)
-        else:
-            raise NotImplementedError
+        u_policy_kl_loss = -torch.mean(
+            u_q_new_actions - ualphas*u_new_log_pi
+            + u_policy_prior_log_probs,
+            dim=0
+        ).squeeze(-1)
+        # u_policy_kl_loss = -torch.mean(
+        #     u_advantage_new_actions - u_log_pi*ualphas,
+        #     dim=0).squeeze(-1)
 
         # Get Unintentional Policies regularization loss
         u_mean_reg_loss = self._u_policy_mean_regu_weight * \
@@ -608,20 +602,13 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         # i_advantage_new_actions = i_q_new_actions - i_v_pred.detach()
 
         # Intentional policy KL loss: - (E_a[Q(s, a) + H(.)])
-        if self._reparameterize:
-            i_policy_kl_loss = -torch.mean(
-                i_q_new_actions - ialpha*i_new_log_pi
-                + i_policy_prior_log_probs
-            )
-            # i_policy_kl_loss = -torch.mean(
-            # i_advantage_new_actions - i_log_pi*ialpha
-            # )
-        else:
-            # i_policy_kl_loss = (
-            #         i_log_pi*ialpha * (i_log_pi*ialpha - i_q_new_actions + i_v_pred
-            #                     - i_policy_prior_log_probs).detach()
-            # ).mean()
-            raise ValueError("You should not select this.")
+        i_policy_kl_loss = -torch.mean(
+            i_q_new_actions - ialpha*i_new_log_pi
+            + i_policy_prior_log_probs
+        )
+        # i_policy_kl_loss = -torch.mean(
+        # i_advantage_new_actions - i_log_pi*ialpha
+        # )
 
         # Intentional policy regularization loss
         i_mean_reg_loss = self._i_pol_mean_regu_weight * \

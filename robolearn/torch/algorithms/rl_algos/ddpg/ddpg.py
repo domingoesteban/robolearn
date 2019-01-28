@@ -3,12 +3,12 @@ This has been adapted from Vitchyr Pong's Deep Deterministic Policy Gradient
 https://github.com/vitchyr/rlkit
 """
 
-from collections import OrderedDict
-
 import numpy as np
 import torch
 from torch import nn as nn
 import torch.optim as optim
+
+from collections import OrderedDict
 
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.eval_util import create_stats_ordered_dict
@@ -147,6 +147,7 @@ class DDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         )
 
     def _do_training(self):
+        # Get batch of samples
         batch = self.get_batch()
         rewards = batch['rewards']
         terminals = batch['terminals']
@@ -264,7 +265,16 @@ class DDPG(IncrementalRLAlgorithm, TorchAlgorithm):
                 ptu.copy_model_params_from_to(self.policy, self.target_policy)
 
     def get_epoch_snapshot(self, epoch):
-        snapshot = super(DDPG, self).get_epoch_snapshot(epoch)
+        """
+        Stuff to save in file.
+        Args:
+            epoch:
+
+        Returns:
+
+        """
+        snapshot = IncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
+
         snapshot.update(
             qf=self.qf,
             policy=self.eval_policy,
@@ -278,6 +288,7 @@ class DDPG(IncrementalRLAlgorithm, TorchAlgorithm):
             snapshot.update(
                 replay_buffer=self.replay_buffer,
             )
+
         return snapshot
 
     def _update_logging_data(self):
@@ -363,7 +374,7 @@ class DDPG(IncrementalRLAlgorithm, TorchAlgorithm):
     def get_batch(self):
         batch = self.replay_buffer.random_batch(self.batch_size)
 
-        return ptu.np_to_pytorch_batch(batch)
+        return batch
 
     def _handle_step(
             self,
@@ -400,6 +411,15 @@ class DDPG(IncrementalRLAlgorithm, TorchAlgorithm):
             agent_info=agent_info,
             env_info=env_info,
         )
+
+    def _handle_rollout_ending(self):
+        """
+        Implement anything that needs to happen after every rollout.
+        """
+
+        self.replay_buffer.terminate_episode()
+
+        IncrementalRLAlgorithm._handle_rollout_ending(self)
 
 
 def compute_normalization(paths):

@@ -39,7 +39,6 @@ DT = SIM_TIMESTEP * FRAME_SKIP
 PATH_LENGTH = int(np.ceil(Tend / DT))
 PATHS_PER_EPOCH = 3
 PATHS_PER_EVAL = 2
-PATHS_PER_HARD_UPDATE = 12
 BATCH_SIZE = 128
 
 SEED = 110
@@ -165,7 +164,7 @@ def experiment(variant):
         )
 
     replay_buffer = SimpleReplayBuffer(
-        max_replay_buffer_size=variant['replay_buffer_size'],
+        max_size=variant['replay_buffer_size'],
         obs_dim=obs_dim,
         action_dim=action_dim,
     )

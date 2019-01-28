@@ -45,7 +45,6 @@ class TanhGaussianMixtureMultiPolicy(PyTorchModule, ExplorationPolicy):
                  shared_layer_norm=False,
                  policies_layer_norm=False,
                  mixture_layer_norm=False,
-                 reparameterize=True,
                  epsilon=1e-6,
         ):
         self.save_init_params(locals())
@@ -231,8 +230,6 @@ class TanhGaussianMixtureMultiPolicy(PyTorchModule, ExplorationPolicy):
             self.mfc_softmax = nn.Softmax(dim=1)
         else:
             self.mfc_softmax = None
-
-        self._reparameterize = reparameterize
 
         self._normal_dist = Normal(loc=ptu.zeros(action_dim),
                                    scale=ptu.ones(action_dim))
@@ -618,7 +615,3 @@ class TanhGaussianMixtureMultiPolicy(PyTorchModule, ExplorationPolicy):
 
     def add_mixing_module(self, name, module):
         ptu.add_module(self._mixing_modules, name, module)
-
-    @property
-    def reparameterize(self):
-        return self._reparameterize

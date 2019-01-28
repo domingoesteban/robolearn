@@ -43,7 +43,6 @@ DT = SIM_TIMESTEP * FRAME_SKIP
 PATH_LENGTH = int(np.ceil(Tend / DT))
 PATHS_PER_EPOCH = 3
 PATHS_PER_EVAL = 2
-PATHS_PER_HARD_UPDATE = 12
 BATCH_SIZE = 512
 
 SEED = 110
@@ -53,7 +52,6 @@ SUBTASK = None
 
 # POLICY = MixtureTanhGaussianMultiPolicy
 POLICY = TanhGaussianWeightedMultiPolicy
-REPARAM_POLICY = True
 
 SOFTMAX_WEIGHTS = True
 # SOFTMAX_WEIGHTS = False
@@ -84,7 +82,6 @@ expt_params = dict(
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
         # SAC params
-        reparameterize=REPARAM_POLICY,
         action_prior='uniform',
         i_entropy_scale=1.0e-0,
         u_entropy_scale=[1.0e-0, 1.0e-0],
@@ -301,7 +298,6 @@ def experiment(variant):
             policies_layer_norm=variant['policies_layer_norm'],
             mixture_layer_norm=variant['mixture_layer_norm'],
             mixing_temperature=1.,
-            reparameterize=REPARAM_POLICY,
             softmax_weights=SOFTMAX_WEIGHTS,
             hidden_w_init=variant['pol_hidden_w_init'],
             output_w_init=variant['pol_output_w_init'],

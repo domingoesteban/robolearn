@@ -38,7 +38,6 @@ DT = SIM_TIMESTEP * FRAME_SKIP
 PATH_LENGTH = int(np.ceil(Tend / DT))
 PATHS_PER_EPOCH = 1
 PATHS_PER_EVAL = 2
-PATHS_PER_HARD_UPDATE = 12
 BATCH_SIZE = 256
 
 SEED = 110
@@ -47,7 +46,6 @@ SEED = 110
 SUBTASK = None
 
 POLICY = TanhGaussianPolicy
-REPARAM_POLICY = True
 
 USE_Q2 = True
 EXPLICIT_VF = True
@@ -75,7 +73,6 @@ expt_params = dict(
         render=False,
         finite_horizon_eval=True,
         # SAC params
-        reparameterize=REPARAM_POLICY,
         action_prior='uniform',
         entropy_scale=1.0e+0,
         auto_alpha=True,
@@ -227,7 +224,6 @@ def experiment(variant):
             action_dim=action_dim,
             hidden_activation=variant['hidden_activation'],
             hidden_sizes=[net_size, net_size, net_size],
-            reparameterize=REPARAM_POLICY,
             hidden_w_init=variant['pol_hidden_w_init'],
             output_w_init=variant['pol_output_w_init'],
         )

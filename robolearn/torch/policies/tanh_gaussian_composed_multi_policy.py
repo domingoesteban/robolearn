@@ -67,7 +67,6 @@ class TanhGaussianComposedMultiPolicy(PyTorchModule, ExplorationPolicy):
             policies_layer_norm=False,
             mixture_layer_norm=False,
             final_policy_layer_norm=False,
-            reparameterize=True,
             epsilon=1e-6,
             softmax_weights=False,
             **kwargs
@@ -296,8 +295,6 @@ class TanhGaussianComposedMultiPolicy(PyTorchModule, ExplorationPolicy):
         self.fpfc_last_log_std = fpfc_last_log_std
         # Add it to specific dictionaries
         self.add_final_policy_module("fpfc_last_log_std", fpfc_last_log_std)
-
-        self._reparameterize = reparameterize
 
         self._normal_dist = Normal(loc=ptu.zeros(action_dim),
                                    scale=ptu.ones(action_dim))
@@ -652,7 +649,3 @@ class TanhGaussianComposedMultiPolicy(PyTorchModule, ExplorationPolicy):
 
     def add_final_policy_module(self, name, module):
         ptu.add_module(self._final_policy_modules, name, module)
-
-    @property
-    def reparameterize(self):
-        return self._reparameterize

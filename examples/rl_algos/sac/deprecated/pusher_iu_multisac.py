@@ -37,7 +37,6 @@ PATH_LENGTH = int(np.ceil(Tend / DT))
 PATHS_PER_EPOCH = 5
 # PATHS_PER_LOCAL_POL = 2
 PATHS_PER_EVAL = 1
-PATHS_PER_HARD_UPDATE = 12
 
 
 def experiment(variant):
@@ -140,7 +139,6 @@ expt_params = dict(
         qf_lr=1e-4,
         vf_lr=1e-4,
         # use_hard_updates=False,  # Hard update for target Q-fcn
-        # hard_update_period=PATHS_PER_HARD_UPDATE*PATH_LENGTH,  # td_target_update_interval (steps)
         soft_target_tau=1e-2,  # Not used if use_hard_updates=True
         # TODO:kernel_fn
         policy_mean_reg_weight=1e-3,

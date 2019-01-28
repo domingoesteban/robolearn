@@ -17,5 +17,5 @@ class FakeReplayBuffer(ReplayBuffer):
     def random_batch(self, batch_size):
         pass
 
-    def num_steps_can_sample(self):
+    def available_samples(self):
         return -1

@@ -63,7 +63,6 @@ class TanhGaussianPrompMultiPolicy(PyTorchModule, ExplorationPolicy):
             shared_layer_norm=False,
             policies_layer_norm=False,
             mixture_layer_norm=False,
-            reparameterize=True,
             softmax_weights=False,
             mixing_temperature=1.,
             **kwargs
@@ -250,8 +249,6 @@ class TanhGaussianPrompMultiPolicy(PyTorchModule, ExplorationPolicy):
         self.add_mixing_module("mfc_last", mfc_last)
 
         self.mfc_sigmoid = nn.Sigmoid()
-
-        self._reparameterize = reparameterize
 
         self._normal_dist = Normal(loc=ptu.zeros(action_dim),
                                    scale=ptu.ones(action_dim))
@@ -499,15 +496,6 @@ class TanhGaussianPrompMultiPolicy(PyTorchModule, ExplorationPolicy):
             # # scale_trils = torch.stack([torch.diag(m) for m in std])
             # # tanh_normal = TanhMultivariateNormal(mean, scale_tril=scale_trils)
             #
-            # if self._reparameterize:
-            #     action, pre_tanh_value = tanh_normal.rsample(
-            #         return_pretanh_value=True
-            #     )
-            # else:
-            #     action, pre_tanh_value = tanh_normal.sample(
-            #         return_pretanh_value=True
-            #     )
-            #
             # if return_log_prob:
             #     log_prob = tanh_normal.log_prob(
             #         action,
@@ -664,10 +652,6 @@ class TanhGaussianPrompMultiPolicy(PyTorchModule, ExplorationPolicy):
 
     def add_mixing_module(self, name, module):
         ptu.add_module(self._mixing_modules, name, module)
-
-    @property
-    def reparameterize(self):
-        return self._reparameterize
 
 
 def clip_but_pass_gradient(x, l=-1., u=1.):

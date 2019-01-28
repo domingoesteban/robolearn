@@ -6,10 +6,9 @@ https://github.com/vitchyr/rlkit
 import numpy as np
 import torch
 import torch.optim as optim
-from itertools import chain
 
 from collections import OrderedDict
-
+from itertools import chain
 
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.logging import logger
@@ -43,7 +42,6 @@ class SAC(IterativeRLAlgorithm, TorchAlgorithm):
 
             vf=None,
             qf2=None,
-            reparameterize=True,
             action_prior='uniform',
 
             entropy_scale=1.,
@@ -95,8 +93,6 @@ class SAC(IterativeRLAlgorithm, TorchAlgorithm):
             normalize_obs:
 
             eval_env:
-
-            reparameterize:
 
             action_prior:
 
@@ -192,8 +188,6 @@ class SAC(IterativeRLAlgorithm, TorchAlgorithm):
         self._target_update_interval = target_update_interval
 
         # Important algorithm hyperparameters
-        self._reparameterize = reparameterize
-        assert self._reparameterize == self._policy.reparameterize
         self._action_prior = action_prior
         self._entropy_scale = entropy_scale
 
@@ -272,7 +266,6 @@ class SAC(IterativeRLAlgorithm, TorchAlgorithm):
         self._alpha_optimizer = optimizer_class(
             [self._log_alpha],
             lr=policy_lr,
-            weight_decay=policy_weight_decay,
             **optimizer_kwargs
         )
 
@@ -446,19 +439,12 @@ class SAC(IterativeRLAlgorithm, TorchAlgorithm):
             q_new_actions = q1_new_actions
 
         # Policy KL loss
-        if self._reparameterize:
-            # policy_kl_losses = (
-            #     alpha*log_pi - q_new_actions - policy_prior_log_probs
-            # )
-            policy_kl_losses = -(
-                q_new_actions - alpha*log_pi + policy_prior_log_probs
-            )
-        else:
-            raise NotImplementedError
-            # policy_kl_losses = (
-            #         alpha*log_pi * (alpha*log_pi - q_new_actions + v_pred
-            #                         - policy_prior_log_probs).detach()
-            # )
+        # policy_kl_losses = (
+        #     alpha*log_pi - q_new_actions - policy_prior_log_probs
+        # )
+        policy_kl_losses = -(
+            q_new_actions - alpha*log_pi + policy_prior_log_probs
+        )
         policy_kl_loss = torch.mean(policy_kl_losses)
 
         # Policy regularization loss
@@ -480,7 +466,7 @@ class SAC(IterativeRLAlgorithm, TorchAlgorithm):
         # V-function Step #
         # ############### #
         # V(s)
-        if self._target_vf is None:
+        if self._vf is None:
             v_pred = q_new_actions - alpha*log_pi
             vf_loss = 0
         else:
@@ -501,7 +487,6 @@ class SAC(IterativeRLAlgorithm, TorchAlgorithm):
         self._values_optimizer.zero_grad()
         values_loss.backward()
         self._values_optimizer.step()
-
 
         # ###################### #
         # Update Target Networks #
@@ -847,7 +832,6 @@ class SAC(IterativeRLAlgorithm, TorchAlgorithm):
             batch['next_observations'] = \
                 self._obs_normalizer.normalize(batch['next_observations'])
 
-        # return ptu.np_to_pytorch_batch(batch)
         return batch
 
     def _handle_step(
@@ -898,4 +882,3 @@ class SAC(IterativeRLAlgorithm, TorchAlgorithm):
         self.replay_buffer.terminate_episode()
 
         IterativeRLAlgorithm._handle_rollout_ending(self)
-

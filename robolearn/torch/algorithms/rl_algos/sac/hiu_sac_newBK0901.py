@@ -140,7 +140,6 @@ class HIUSACNEW(IncrementalRLAlgorithm, TorchAlgorithm):
 
         # Important algorithm hyperparameters
         self._reparameterize = reparameterize
-        assert self._reparameterize == self._policy.reparameterize
         self._action_prior = action_prior
         self._i_entropy_scale = i_entropy_scale
         if u_entropy_scale is None:

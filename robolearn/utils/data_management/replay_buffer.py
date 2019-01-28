@@ -1,12 +1,11 @@
 import abc
+from future.utils import with_metaclass
 
 
-class ReplayBuffer(object):
+class ReplayBuffer(with_metaclass(abc.ABCMeta, object)):
     """
     A class used to save and replay data.
     """
-    __metaclass__ = abc.ABCMeta
-
     @abc.abstractmethod
     def add_sample(self, observation, action, reward, next_observation,
                    terminal, **kwargs):
@@ -25,7 +24,7 @@ class ReplayBuffer(object):
         pass
 
     @abc.abstractmethod
-    def num_steps_can_sample(self, **kwargs):
+    def available_samples(self, **kwargs):
         """
         :return: # of unique items that can be sampled.
         """

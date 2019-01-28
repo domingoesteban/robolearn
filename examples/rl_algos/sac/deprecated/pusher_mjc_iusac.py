@@ -124,7 +124,6 @@ expt_params = dict(
         qf_lr=1e-3,
         vf_lr=1e-3,
         # use_hard_updates=False,  # Hard update for target Q-fcn
-        # hard_update_period=PATHS_PER_HARD_UPDATE*PATH_LENGTH,  # td_target_update_interval (steps)
         soft_target_tau=1e-2,  # Not used if use_hard_updates=True
         # TODO:kernel_fn
         policy_mean_reg_weight=1e-3,

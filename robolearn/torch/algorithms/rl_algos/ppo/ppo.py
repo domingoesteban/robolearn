@@ -3,12 +3,15 @@ Based on ...
 """
 
 import numpy as np
+import torch
 import torch.optim as optim
-from torch import nn as nn
 
 from collections import OrderedDict
+from itertools import chain
 
+import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.logging import logger
+from robolearn.utils import eval_util
 
 from robolearn.algorithms.rl_algos import IterativeRLAlgorithm
 from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
@@ -16,7 +19,7 @@ from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
 from robolearn.models.policies import MakeDeterministic
 from robolearn.utils.data_management.normalizer import RunningNormalizer
 
-from tensorboardX import SummaryWriter
+import tensorboardX
 
 
 class PPO(IterativeRLAlgorithm, TorchAlgorithm):
@@ -30,10 +33,10 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
             policy,
             qf,
 
+            replay_buffer,
             normalize_obs=False,
             eval_env=None,
 
-            reparameterize=True,
             action_prior='uniform',
 
             entropy_scale=1.,
@@ -50,14 +53,16 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
             policy_std_regu_weight=1e-3,
             policy_pre_activation_weight=0.,
 
-            optimizer_class=optim.Adam,
-            # optimizer_class=optim.SGD,
-            amsgrad=True,
+            optimizer='adam',
+            # optimizer='rmsprop',
+            # optimizer='sgd',
+            optimizer_kwargs=None,
 
             target_hard_update_period=1000,
             tau=1e-2,
             use_soft_update=False,
 
+            save_replay_buffer=False,
             eval_deterministic=True,
             log_tensorboard=False,
             **kwargs
@@ -93,8 +98,6 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
         )
 
         # Important algorithm hyperparameters
-        self._reparameterize = reparameterize
-        assert self._reparameterize == self._policy.reparameterize
         self._action_prior = action_prior
         self._entropy_scale = entropy_scale
 
@@ -104,23 +107,36 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
         # ########## #
         # Optimizers #
         # ########## #
-        # Q-function  Optimization Criteria
-        self._qf_criterion = nn.MSELoss()
+        if optimizer.lower() == 'adam':
+            optimizer_class = optim.Adam
+            if optimizer_kwargs is None:
+                optimizer_kwargs = dict(
+                    amsgrad=True,
+                    # amsgrad=False,
+                )
+        elif optimizer.lower() == 'rmsprop':
+            optimizer_class = optim.RMSprop
+            if optimizer_kwargs is None:
+                optimizer_kwargs = dict(
 
-        # Q-function optimizer
+                )
+        else:
+            raise ValueError('Wrong optimizer')
+
+        # Q-function(s) optimizer(s)
         self._qf_optimizer = optimizer_class(
             self._qf.parameters(),
             lr=qf_lr,
-            amsgrad=amsgrad,
-            weight_decay=qf_weight_decay
+            weight_decay=0,
+            **optimizer_kwargs
         )
 
         # Policy optimizer
         self._policy_optimizer = optimizer_class(
             self._policy.parameters(),
             lr=policy_lr,
-            amsgrad=amsgrad,
-            weight_decay=policy_weight_decay,
+            weight_decay=0,
+            **optimizer_kwargs
         )
 
         # Policy regularization coefficients (weights)
@@ -139,9 +155,9 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
                                              self.env.action_dim))
 
         self._log_tensorboard = log_tensorboard
-        self._summary_writer = SummaryWriter(log_dir=logger.get_snapshot_dir())
+        self._summary_writer = tensorboardX.SummaryWriter(log_dir=logger.get_snapshot_dir())
 
-    def pretrain(self):
+    def pretrain(self, n_pretrain_samples):
         # We do not require any pretrain (I think...)
         pass
 
@@ -166,6 +182,11 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
 
     def _do_not_training(self):
         return
+
+    @property
+    def torch_models(self):
+        networks_list = list()
+        return networks_list
 
     def get_epoch_snapshot(self, epoch):
         """
@@ -221,15 +242,6 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
 
     def get_batch(self):
         pass
-        # batch = self.replay_buffer.random_batch(self.batch_size)
-        #
-        # if self._obs_normalizer is not None:
-        #     batch['observations'] = \
-        #         self._obs_normalizer.normalize(batch['observations'])
-        #     batch['next_observations'] = \
-        #         self._obs_normalizer.normalize(batch['next_observations'])
-        #
-        # return ptu.np_to_pytorch_batch(batch)
 
     def _handle_step(
             self,

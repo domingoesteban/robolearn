@@ -35,7 +35,6 @@ DT = SIM_TIMESTEP * FRAME_SKIP
 PATH_LENGTH = int(np.ceil(Tend / DT))
 PATHS_PER_EPOCH = 5 #10
 PATHS_PER_EVAL = 3 #3
-PATHS_PER_HARD_UPDATE = 12
 BATCH_SIZE = 256
 
 # SEED = 10
@@ -43,7 +42,6 @@ SEED = 110
 # NP_THREADS = 6
 
 POLICY = TanhGaussianPolicy
-REPARAM_POLICY = True
 
 
 expt_params = dict(
@@ -63,7 +61,6 @@ expt_params = dict(
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
         # SAC params
-        reparameterize=REPARAM_POLICY,
         action_prior='uniform',
         entropy_scale=1.0e-0,
 
@@ -155,7 +152,6 @@ def experiment(variant):
             obs_dim=obs_dim,
             action_dim=action_dim,
             hidden_sizes=[net_size, net_size],
-            reparameterize=REPARAM_POLICY,
         )
 
         # Clamp model parameters
