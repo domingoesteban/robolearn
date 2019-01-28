@@ -1,3 +1,4 @@
+import numpy as np
 from gym import Env
 from robolearn.utils.serializable import Serializable
 
@@ -39,3 +40,11 @@ class ProxyEnv(Serializable, Env):
     def terminate(self):
         if hasattr(self.wrapped_env, "terminate"):
             self.wrapped_env.terminate()
+
+    @property
+    def action_dim(self):
+        return np.prod(self.action_space.shape)
+
+    @property
+    def obs_dim(self):
+        return np.prod(self.observation_space.shape)
