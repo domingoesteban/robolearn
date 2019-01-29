@@ -9,10 +9,11 @@ def exploration_rollout(env, exploration_policy, max_path_length=np.inf,
 
     Args:
         env:
-        agent:
+        exploration_policy:
         max_path_length:
         animated:
         deterministic:
+        condition:
 
     Returns:
         Rollout dictionary (dict)

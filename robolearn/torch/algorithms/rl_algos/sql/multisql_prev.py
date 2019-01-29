@@ -103,8 +103,8 @@ class MultiSQL(IncrementalRLAlgorithm, TorchAlgorithm):
         self.plotter = plotter
 
         # Env data
-        self._action_dim = self.env.action_space.low.size
-        self._obs_dim = self.env.observation_space.low.size
+        self._action_dim = self.explo_env.action_space.low.size
+        self._obs_dim = self.explo_env.observation_space.low.size
 
         # Optimize Q-fcn
         self.qf_optimizers = [optimizer_class(qf.parameters(), lr=qf_lr,)
@@ -144,7 +144,7 @@ class MultiSQL(IncrementalRLAlgorithm, TorchAlgorithm):
 
         # Update Networks
 
-        # print('n_step', self._n_train_steps_total)
+        # print('n_step', self._n_total_train_steps)
         for demon in range(self._n_demons):
             bellman_residual = self._update_q_fcn(batch, demon)
             surrogate_cost = self._update_policy(batch, demon)
@@ -184,7 +184,7 @@ class MultiSQL(IncrementalRLAlgorithm, TorchAlgorithm):
                                                    ptu.FloatTensor([1.0]))
         target_actions = uniform_dist.sample((self._value_n_particles,
                                               self._action_dim)).squeeze()
-        # target_actions = (-1 - 1) * ptu.Variable(torch.rand(self._value_n_particles,
+        # target_actions = (-1 - 1) * torch.tensor(torch.rand(self._value_n_particles,
         #                                        self._action_dim)) \
         #                  + 1
 
@@ -258,7 +258,7 @@ class MultiSQL(IncrementalRLAlgorithm, TorchAlgorithm):
         fixed_actions, updated_actions \
             = torch.split(actions, [n_fixed_actions, n_updated_actions], dim=1)
         # Equiv: fixed_actions = tf.stop_gradient(fixed_actions)
-        fixed_actions = ptu.Variable(fixed_actions.detach(), requires_grad=True)
+        fixed_actions = torch.tensor(fixed_actions.detach(), requires_grad=True)
         assert_shape(fixed_actions,
                      [n_batch, n_fixed_actions, self._action_dim])
         assert_shape(updated_actions,
@@ -321,8 +321,8 @@ class MultiSQL(IncrementalRLAlgorithm, TorchAlgorithm):
 
     def _update_target_q_fcn(self, demon):
         if self.use_hard_updates:
-            # print(self._n_train_steps_total, self.hard_update_period)
-            if self._n_train_steps_total % self.hard_update_period == 0:
+            # print(self._n_total_train_steps, self.hard_update_period)
+            if self._n_total_train_steps % self.hard_update_period == 0:
                 ptu.copy_model_params_from_to(self.qfs[demon],
                                               self.target_qfs[demon])
         else:
@@ -360,23 +360,17 @@ class MultiSQL(IncrementalRLAlgorithm, TorchAlgorithm):
             statistics.update(eval_util.get_generic_path_information(
                 test_paths[demon], stat_prefix="[%02d] Test" % demon,
             ))
-            average_returns = eval_util.get_average_returns(test_paths[demon])
-            statistics['[%02d] AverageReturn' % demon] = average_returns
 
         statistics.update(eval_util.get_generic_path_information(
             self._exploration_paths, stat_prefix="Exploration",
         ))
-        if hasattr(self.env, "log_diagnostics"):
+        if hasattr(self.explo_env, "log_diagnostics"):
             print('TODO: WE NEED LOG_DIAGNOSTICS IN ENV')
-            self.env.log_diagnostics(test_paths[demon])
+            self.explo_env.log_diagnostics(test_paths[demon])
 
         # Record the data
         for key, value in statistics.items():
             logger.record_tabular(key, value)
-
-        for demon in range(self._n_demons):
-            if self.render_eval_paths:
-                self.env.render_paths(test_paths[demon])
 
         if self.plotter is not None:
             self.plotter.draw()

@@ -22,7 +22,7 @@ def plot_multiple_process_iu_returns(
         fig_name_prefix=None,
 ):
     """
-    It plots the 'Test AverageReturn' label of the progress file.
+    It plots the 'Test Returns Mean' label of the progress file.
     If algorithm of experiment is HIU, the unintentional data is considered an
     independent experiment.
     The keys of the categories dict are used for the axis title.
@@ -68,7 +68,7 @@ def plot_multiple_process_iu_returns(
     Returns:
 
     """
-    labels_to_plot = ['Test AverageReturn']
+    labels_to_plot = ['Test Returns Mean']
     labels_y_axis = ['Average Return']
 
     if latex_plot:

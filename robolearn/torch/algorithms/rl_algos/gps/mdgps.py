@@ -11,7 +11,7 @@ import gtimer as gt
 
 from collections import OrderedDict
 
-from robolearn.algorithms.rl_algos import IterativeRLAlgorithm
+from robolearn.algorithms.rl_algos import RLAlgorithm
 from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
 
 from robolearn.utils import eval_util
@@ -30,7 +30,7 @@ def assert_shape(tensor, expected_shape):
     assert all([a == b for a, b in zip(tensor_shape, expected_shape)])
 
 
-class MDGPS(IterativeRLAlgorithm, TorchAlgorithm):
+class MDGPS(RLAlgorithm, TorchAlgorithm):
     """MDGPS Algorithm
 
     """
@@ -76,13 +76,13 @@ class MDGPS(IterativeRLAlgorithm, TorchAlgorithm):
         ):
             self._start_epoch(epoch)
 
-            n_policies = self.exploration_policy.n_policies
+            n_policies = self.explo_policy.n_policies
             for cond in self._train_cond_idxs:
                 for _ in range(int(self.rollouts_per_epoch/n_policies)):
                     self._current_path_builder = PathBuilder()
 
-                    path = exploration_rollout(self.env,
-                                               self.exploration_policy,
+                    path = exploration_rollout(self.explo_env,
+                                               self.explo_policy,
                                                max_path_length=self.max_path_length,
                                                animated=self._render,
                                                deterministic=None,
@@ -109,13 +109,13 @@ class MDGPS(IterativeRLAlgorithm, TorchAlgorithm):
 
         self._compute_samples_cost()
 
-        if self._n_train_steps_total == 0:
+        if self._n_total_train_steps == 0:
             print("Updating the policy for the first time")
             self._update_policy()
 
         self._update_policy_linearization()
 
-        if self._n_train_steps_total > 0:
+        if self._n_total_train_steps > 0:
             self._update_kl_step_size()
 
         # C-step
@@ -174,11 +174,9 @@ class MDGPS(IterativeRLAlgorithm, TorchAlgorithm):
         statistics.update(eval_util.get_generic_path_information(
             self._exploration_paths, stat_prefix="Exploration",
         ))
-        if hasattr(self.env, "log_diagnostics"):
-            self.env.log_diagnostics(test_paths)
+        if hasattr(self.explo_env, "log_diagnostics"):
+            self.explo_env.log_diagnostics(test_paths)
 
-        average_returns = eval_util.get_average_returns(test_paths)
-        statistics['AverageReturn'] = average_returns
         for key, value in statistics.items():
             logger.record_tabular(key, value)
 

@@ -1,12 +1,11 @@
 import abc
+from future.utils import with_metaclass
 from typing import Iterable
 
 from robolearn.torch.core import PyTorchModule
 
 
-class TorchAlgorithm(object):
-    __metaclass__ = abc.ABCMeta
-
+class TorchAlgorithm(with_metaclass(abc.ABCMeta, object)):
     @property
     @abc.abstractmethod
     def torch_models(self) -> Iterable[PyTorchModule]:

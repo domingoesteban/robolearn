@@ -293,8 +293,6 @@ def experiment(variant):
             shared_layer_norm=variant['shared_layer_norm'],
             policies_layer_norm=variant['policies_layer_norm'],
             mixture_layer_norm=variant['mixture_layer_norm'],
-            mixing_temperature=1.,
-            softmax_weights=variant['softmax_weights'],
             hidden_w_init=variant['pol_hidden_w_init'],
             output_w_init=variant['pol_output_w_init'],
         )

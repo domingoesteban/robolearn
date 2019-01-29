@@ -6,18 +6,17 @@ https://github.com/vitchyr/rlkit
 
 import numpy as np
 import torch
-import torch.optim as optim
 from torch import nn as nn
+import torch.optim as optim
 
 from collections import OrderedDict
-from itertools import chain
 
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.logging import logger
 from robolearn.utils import eval_util
 from robolearn.utils.samplers import InPlacePathSampler
 
-from robolearn.algorithms.rl_algos import IncrementalRLAlgorithm
+from robolearn.algorithms.rl_algos import RLAlgorithm
 from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
 
 from robolearn.torch.policies import WeightedMultiPolicySelector
@@ -26,16 +25,16 @@ from robolearn.utils.data_management.normalizer import RunningNormalizer
 import tensorboardX
 
 
-class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
+class HIUDDPG(RLAlgorithm, TorchAlgorithm):
     """
     Hierarchical Intentional-Unintentional Deep Deterministic Policy Gradient
-    (HIU-DDPG). Incremental Version.
+    (HIU-DDPG).
     """
     def __init__(
             self,
             env,
             policy,
-            exploration_policy,
+            explo_policy,
             u_qf,
 
             replay_buffer,
@@ -47,21 +46,15 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
 
             action_prior='uniform',
 
-            i_policy_lr=1e-4,
-            u_policies_lr=1e-4,
-            u_mixing_lr=1e-4,
-
-            i_qf_lr=1e-3,
-            u_qf_lr=1e-3,
+            policy_lr=3e-4,
+            qf_lr=1e-4,
 
             i_policy_pre_activation_weight=0.,
             i_policy_mixing_coeff_weight=1e-3,
             u_policy_pre_activation_weight=None,
 
-            i_policy_weight_decay=0.,
-            u_policy_weight_decay=0.,
-            i_q_weight_decay=0.,
-            u_q_weight_decay=0.,
+            policy_weight_decay=0.,
+            qf_weight_decay=0.,
 
             optimizer='adam',
             # optimizer='rmsprop',
@@ -73,6 +66,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
             i_target_update_interval=1,
             u_target_update_interval=1,
 
+            reward_scale=1.,
             u_reward_scales=None,
 
             min_q_value=-np.inf,
@@ -95,7 +89,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         self._target_policy = policy.copy()
 
         # Exploration Policy
-        self._exploration_policy = exploration_policy
+        self._exploration_policy = explo_policy
 
         # Evaluation Policy
         if eval_with_target_policy:
@@ -109,10 +103,10 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         else:
             self._obs_normalizer = None
 
-        IncrementalRLAlgorithm.__init__(
+        RLAlgorithm.__init__(
             self,
-            env=env,
-            exploration_policy=self._exploration_policy,
+            explo_env=env,
+            explo_policy=self._exploration_policy,
             eval_env=eval_env,
             eval_policy=eval_policy,
             obs_normalizer=self._obs_normalizer,
@@ -155,7 +149,8 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         self._i_target_update_interval = i_target_update_interval
         self._u_target_update_interval = u_target_update_interval
 
-        # Unintentional Reward Scales
+        # Reward Scales
+        self.reward_scale = reward_scale
         if u_reward_scales is None:
             reward_scale = kwargs['reward_scale']
             u_reward_scales = [reward_scale
@@ -185,30 +180,32 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
                 )
         else:
             raise ValueError('Wrong optimizer')
+        self._qf_lr = qf_lr
+        self._policy_lr = policy_lr
 
         # Q-function and V-function Optimization Criteria
         self._u_qf_criterion = nn.MSELoss()
         self._i_qf_criterion = nn.MSELoss()
 
-        # Q-function optimizers
+        # Q-function(s) optimizers(s)
         self._u_qf_optimizer = optimizer_class(
             self._u_qf.parameters(),
-            lr=u_qf_lr,
-            weight_decay=u_q_weight_decay,
+            lr=qf_lr,
+            weight_decay=qf_weight_decay,
             **optimizer_kwargs
         )
         self._i_qf_optimizer = optimizer_class(
             self._i_qf.parameters(),
-            lr=i_qf_lr,
-            weight_decay=i_q_weight_decay,
+            lr=qf_lr,
+            weight_decay=qf_weight_decay,
             **optimizer_kwargs
         )
 
         # Policy optimizer
         self._policy_optimizer = optimizer_class(
             self._policy.parameters(),
-            lr=i_policy_lr,
-            weight_decay=i_policy_weight_decay,
+            lr=policy_lr,
+            weight_decay=policy_weight_decay,
             **optimizer_kwargs
         )
 
@@ -245,12 +242,12 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         self.log_data['Policy Action'] = np.zeros((
             self.num_train_steps_per_epoch,
             self._n_unintentional + 1,
-            self.env.action_dim,
+            self.explo_env.action_dim,
         ))
         self.log_data['Mixing Weights'] = np.zeros((
             self.num_train_steps_per_epoch,
             self._n_unintentional,
-            self.env.action_dim,
+            self.explo_env.action_dim,
         ))
 
         # Tensorboard-like Logging
@@ -263,19 +260,18 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
 
     def pretrain(self, n_pretrain_samples):
         # We do not require any pretrain (I think...)
-        observation = self.env.reset()
+        observation = self.explo_env.reset()
         for ii in range(n_pretrain_samples):
-            action = self.env.action_space.sample()
+            action = self.explo_env.action_space.sample()
             # Interact with environment
             next_ob, reward, terminal, env_info = (
-                self.env.step(action)
+                self.explo_env.step(action)
             )
             agent_info = None
 
             # Increase counter
             self._n_env_steps_total += 1
             # Create np.array of obtained terminal and reward
-            reward = reward * self.reward_scale
             terminal = np.array([terminal])
             reward = np.array([reward])
             # Add to replay buffer
@@ -294,7 +290,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
                 self._obs_normalizer.update(np.array([observation]))
 
             if terminal:
-                self.env.reset()
+                self.explo_env.reset()
 
     def _do_training(self):
         # Get batch of samples
@@ -366,7 +362,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         # Intentional Critic Step #
         # ####################### #
         # Get Intentional rewards and terminals
-        i_rewards = batch['rewards']# * self.reward_scale
+        i_rewards = batch['rewards'] * self.reward_scale
         i_terminals = batch['terminals']
 
         # Intentional target Q Values: Q(s', a')
@@ -472,19 +468,19 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         # ###################### #
         # Update Target Networks #
         # ###################### #
-        if self._n_train_steps_total % self._u_target_update_interval == 0:
+        if self._n_total_train_steps % self._u_target_update_interval == 0:
             ptu.soft_update_from_to(
                 source=self._u_qf,
                 target=self._u_target_qf,
                 tau=self._u_soft_target_tau
             )
-        if self._n_train_steps_total % self._i_target_update_interval == 0:
+        if self._n_total_train_steps % self._i_target_update_interval == 0:
             ptu.soft_update_from_to(
                 source=self._i_qf,
                 target=self._i_target_qf,
                 tau=self._i_soft_target_tau
             )
-        if self._n_train_steps_total % self._i_target_update_interval == 0:
+        if self._n_total_train_steps % self._i_target_update_interval == 0:
             ptu.soft_update_from_to(
                 source=self._policy,
                 target=self._target_policy,
@@ -543,7 +539,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
                 self._n_env_steps_total
             )
 
-    def _do_not_training(self):
+    def _not_do_training(self):
         return
 
     @property
@@ -559,19 +555,6 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
 
         return networks_list
 
-    @staticmethod
-    def compute_gae(next_value, rewards, masks, values, gamma=0.99,
-                    tau=0.95):
-        # FROM: https://github.com/higgsfield/RL-Adventure-2/blob/master/3.ppo.ipynb
-        values = values + [next_value]
-        gae = 0
-        returns = []
-        for step in reversed(range(len(rewards))):
-            delta = rewards[step] + gamma * values[step + 1] * masks[step] - values[step]
-            gae = delta + gamma * tau * masks[step] * gae
-            returns.insert(0, gae + values[step])
-        return returns
-
     def get_epoch_snapshot(self, epoch):
         """
         Stuff to save in file.
@@ -585,7 +568,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
             self._epoch_plotter.draw()
             self._epoch_plotter.save_figure(epoch)
 
-        snapshot = IncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
+        snapshot = RLAlgorithm.get_epoch_snapshot(self, epoch)
 
         snapshot.update(
             policy=self._policy,
@@ -597,10 +580,10 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
             target_u_qf=self._u_target_qf,
         )
 
-        if self.env.online_normalization or self.env.normalize_obs:
+        if self.explo_env.online_normalization or self.explo_env.normalize_obs:
             snapshot.update(
-                obs_mean=self.env.obs_mean,
-                obs_var=self.env.obs_var,
+                obs_mean=self.explo_env.obs_mean,
+                obs_var=self.explo_env.obs_var,
             )
 
         # Observation Normalizer
@@ -620,10 +603,6 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         max_step = max(self._n_epoch_train_steps, 1)
 
         if self.eval_statistics is None:
-            """
-            Eval should set this to None.
-            This way, these statistics are only computed for one batch.
-            """
             self.eval_statistics = OrderedDict()
 
         # Unintentional info
@@ -649,7 +628,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
                     self.log_data['Mixing Weights'][:max_step, uu]
                 ))
 
-            for aa in range(self.env.action_dim):
+            for aa in range(self.explo_env.action_dim):
                 self.eval_statistics['[U-%02d] Policy Action [%02d]' % (uu, aa)] = \
                     np.nan_to_num(np.mean(
                         self.log_data['Policy Action'][:max_step, uu, aa]
@@ -690,30 +669,16 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
                 test_paths[unint_idx], stat_prefix="[U-%02d] Test" % unint_idx,
             ))
 
-            average_rewards = \
-                eval_util.get_average_multigoal_rewards(test_paths[unint_idx],
-                                                        unint_idx)
-            avg_txt = '[U-%02d] Test AverageReward' % unint_idx
-            statistics[avg_txt] = average_rewards * \
-                ptu.get_numpy(self._u_reward_scales[unint_idx])
-
-            average_returns = \
-                eval_util.get_average_multigoal_returns(test_paths[unint_idx],
-                                                        unint_idx)
-            avg_txt = '[U-%02d] Test AverageReturn' % unint_idx
-            statistics[avg_txt] = average_returns * \
-                ptu.get_numpy(self._u_reward_scales[unint_idx])
-
             if self._log_tensorboard:
                 self._summary_writer.add_scalar(
                     'EvaluationU%02d/avg_return' % unint_idx,
-                    statistics['[U-%02d] Test AverageReturn' % unint_idx],
+                    statistics['[U-%02d] Test Returns Mean' % unint_idx],
                     self._n_epochs
                 )
 
                 self._summary_writer.add_scalar(
                     'EvaluationU%02d/avg_reward' % unint_idx,
-                    statistics['[U-%02d] Test AverageReward' % unint_idx],
+                    statistics['[U-%02d] Test Rewards Mean' % unint_idx],
                     self._n_epochs
                 )
 
@@ -723,8 +688,6 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         statistics.update(eval_util.get_generic_path_information(
             i_test_paths, stat_prefix="[I] Test",
         ))
-        average_return = eval_util.get_average_returns(i_test_paths)
-        statistics['[I] Test AverageReturn'] = average_return * self.reward_scale
 
         if self._exploration_paths:
             statistics.update(eval_util.get_generic_path_information(
@@ -738,7 +701,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         if self._log_tensorboard:
             self._summary_writer.add_scalar(
                 'EvaluationI/avg_return',
-                statistics['[I] Test AverageReturn'],
+                statistics['[I] Test Returns Mean'],
                 self._n_epochs
             )
 
@@ -748,7 +711,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
                 self._n_epochs
             )
 
-        if hasattr(self.env, "log_diagnostics"):
+        if hasattr(self.explo_env, "log_diagnostics"):
             pass
             # # TODO: CHECK ENV LOG_DIAGNOSTICS
             # print('TODO: WE NEED LOG_DIAGNOSTICS IN ENV')
@@ -756,13 +719,6 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         # Record the data
         for key, value in statistics.items():
             logger.record_tabular(key, value)
-
-        for u_idx in range(self._n_unintentional):
-            if self.render_eval_paths:
-                # TODO: CHECK ENV RENDER_PATHS
-                print('TODO: RENDER_PATHS')
-                pass
-                # self.env.render_paths(test_paths[demon])
 
         # Epoch Plotter
         if self._epoch_plotter is not None:
@@ -812,7 +768,7 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
         if self._obs_normalizer is not None:
             self._obs_normalizer.update(np.array([observation]))
 
-        IncrementalRLAlgorithm._handle_step(
+        RLAlgorithm._handle_step(
             self,
             observation=observation,
             action=action,
@@ -823,11 +779,11 @@ class HIUDDPG(IncrementalRLAlgorithm, TorchAlgorithm):
             env_info=env_info,
         )
 
-    def _handle_rollout_ending(self):
+    def _end_rollout(self):
         """
         Implement anything that needs to happen after every rollout.
         """
 
         self.replay_buffer.terminate_episode()
 
-        IncrementalRLAlgorithm._handle_rollout_ending(self)
+        RLAlgorithm._end_rollout(self)

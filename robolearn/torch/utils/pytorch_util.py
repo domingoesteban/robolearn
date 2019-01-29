@@ -72,28 +72,6 @@ def FloatTensor(*args, **kwargs):
     return torch.FloatTensor(*args, **kwargs).to(device)
 
 
-# noinspection PyPep8Naming
-def BinaryTensor(*args, **kwargs):
-    return torch.ByteTensor(*args, **kwargs).to(device)
-
-
-# noinspection PyPep8Naming
-def LongTensor(*args, **kwargs):
-    return torch.LongTensor(*args, **kwargs).to(device)
-
-
-# noinspection PyPep8Naming
-def IntTensor(*args, **kwargs):
-    return torch.IntTensor(*args, **kwargs).to(device)
-
-
-def Variable(tensor, **kwargs):
-    if _use_gpu and not tensor.is_cuda:
-        return TorchVariable(tensor.to(device), **kwargs)
-    else:
-        return TorchVariable(tensor, **kwargs)
-
-
 def zeros(*sizes, **kwargs):
     return torch.zeros(*sizes, **kwargs).to(device)
 
@@ -140,12 +118,6 @@ def get_numpy(tensor):
         return tensor.to('cpu').detach().numpy()
     else:
         return np.array(tensor)
-
-
-def np_to_var(np_array, **kwargs):
-    if np_array.dtype == np.bool:
-        np_array = np_array.astype(int)
-    return Variable(from_numpy(np_array), **kwargs)
 
 
 def torch_ify(np_array_or_other):

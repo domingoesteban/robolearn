@@ -16,7 +16,7 @@ from robolearn.utils.logging import logger
 from robolearn.utils import eval_util
 from robolearn.utils.samplers import InPlacePathSampler
 
-from robolearn.algorithms.rl_algos import IncrementalRLAlgorithm
+from robolearn.algorithms.rl_algos import RLAlgorithm
 from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
 
 from robolearn.models.policies import MakeDeterministic
@@ -29,10 +29,9 @@ import tensorboardX
 MAX_LOG_ALPHA = 6.2146080984  # Alpha=500  From 09/07
 
 
-class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
+class HIUSAC(RLAlgorithm, TorchAlgorithm):
     """
     Hierarchical Intentional-Unintentional Soft Actor Critic (HIU-SAC).
-    Incremental Version.
     """
     def __init__(
             self,
@@ -54,7 +53,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
 
             i_entropy_scale=1.,
             u_entropy_scale=None,
-            auto_alphas=True,
+            auto_alpha=True,
             i_tgt_entro=None,
             u_tgt_entros=None,
 
@@ -83,6 +82,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
             i_target_update_interval=1,
             u_target_update_interval=1,
 
+            reward_scale=1.,
             u_reward_scales=None,
 
             save_replay_buffer=False,
@@ -110,10 +110,10 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         else:
             self._obs_normalizer = None
 
-        IncrementalRLAlgorithm.__init__(
+        RLAlgorithm.__init__(
             self,
-            env=env,
-            exploration_policy=self._policy,
+            explo_env=env,
+            explo_policy=self._policy,
             eval_env=eval_env,
             eval_policy=eval_policy,
             obs_normalizer=self._obs_normalizer,
@@ -181,26 +181,32 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         if u_entropy_scale is None:
             u_entropy_scale = [i_entropy_scale
                                for _ in range(self._n_unintentional)]
-        self._u_entropy_scale = torch.tensor(u_entropy_scale, device=ptu.device)
+        self._u_entropy_scale = torch.tensor(u_entropy_scale,
+                                             dtype=torch.float32,
+                                             device=ptu.device)
 
         # Desired Alphas
-        self._auto_alphas = auto_alphas
+        self._auto_alphas = auto_alpha
         if i_tgt_entro is None:
             i_tgt_entro = -env.action_dim
-        self._i_tgt_entro = ptu.tensor([i_tgt_entro], device=ptu.device)
+        self._i_tgt_entro = torch.tensor([i_tgt_entro], dtype=torch.float32,
+                                         device=ptu.device)
         if u_tgt_entros is None:
             u_tgt_entros = [i_tgt_entro for _ in range(self._n_unintentional)]
-        self._u_tgt_entros = torch.tensor(u_tgt_entros, device=ptu.device)
+        self._u_tgt_entros = torch.tensor(u_tgt_entros, dtype=torch.float32,
+                                          device=ptu.device)
         self._u_log_alphas = torch.zeros(self._n_unintentional,
                                          device=ptu.device, requires_grad=True)
         self._i_log_alpha = torch.zeros(1, device=ptu.device, requires_grad=True)
 
-        # Unintentional Reward Scales
+        # Reward Scales
+        self.reward_scale = reward_scale
         if u_reward_scales is None:
             reward_scale = kwargs['reward_scale']
             u_reward_scales = [reward_scale
                                for _ in range(self._n_unintentional)]
-        self._u_reward_scales = torch.tensor(u_reward_scales, device=ptu.device)
+        self._u_reward_scales = torch.tensor(u_reward_scales, dtype=torch.float32,
+                                             device=ptu.device)
 
         # ########## #
         # Optimizers #
@@ -265,19 +271,22 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
             u_policy_mean_regu_weight = [i_policy_mean_regu_weight
                                          for _ in range(self._n_unintentional)]
         self._u_policy_mean_regu_weight = \
-            ptu.FloatTensor(u_policy_mean_regu_weight)
+            torch.tensor(u_policy_mean_regu_weight, dtype=torch.float32,
+                         device=ptu.device)
         if u_policy_std_regu_weight is None:
             u_policy_std_regu_weight = [i_policy_std_regu_weight
                                         for _ in range(self._n_unintentional)]
         self._u_policy_std_regu_weight = \
-            ptu.FloatTensor(u_policy_std_regu_weight)
+            torch.tensor(u_policy_std_regu_weight, dtype=torch.float32,
+                         device=ptu.device)
         if u_policy_pre_activation_weight is None:
             u_policy_pre_activation_weight = [
                 i_policy_pre_activation_weight
                 for _ in range(self._n_unintentional)
             ]
         self._u_policy_pre_activ_weight = \
-            ptu.FloatTensor(u_policy_pre_activation_weight)
+            torch.tensor(u_policy_pre_activation_weight, dtype=torch.float32,
+                         device=ptu.device)
 
         # Useful Variables for logging
         self.log_data = dict()
@@ -308,17 +317,17 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         self.log_data['Policy Mean'] = np.zeros((
             self.num_train_steps_per_epoch,
             self._n_unintentional + 1,
-            self.env.action_dim,
+            self.explo_env.action_dim,
         ))
         self.log_data['Pol Log Std'] = np.zeros((
             self.num_train_steps_per_epoch,
             self._n_unintentional + 1,
-            self.env.action_dim,
+            self.explo_env.action_dim,
         ))
         self.log_data['Mixing Weights'] = np.zeros((
             self.num_train_steps_per_epoch,
             self._n_unintentional,
-            self.env.action_dim,
+            self.explo_env.action_dim,
         ))
         self.log_data['Alphas'] = np.zeros((
             self.num_train_steps_per_epoch,
@@ -335,19 +344,18 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
 
     def pretrain(self, n_pretrain_samples):
         # We do not require any pretrain (I think...)
-        observation = self.env.reset()
+        observation = self.explo_env.reset()
         for ii in range(n_pretrain_samples):
-            action = self.env.action_space.sample()
+            action = self.explo_env.action_space.sample()
             # Interact with environment
             next_ob, reward, terminal, env_info = (
-                self.env.step(action)
+                self.explo_env.step(action)
             )
             agent_info = None
 
             # Increase counter
             self._n_env_steps_total += 1
             # Create np.array of obtained terminal and reward
-            reward = reward * self.reward_scale
             terminal = np.array([terminal])
             reward = np.array([reward])
             # Add to replay buffer
@@ -366,7 +374,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
                 self._obs_normalizer.update(np.array([observation]))
 
             if terminal:
-                self.env.reset()
+                self.explo_env.reset()
 
     def _do_training(self):
         # Get batch of samples
@@ -376,9 +384,6 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         obs = batch['observations']
         actions = batch['actions']
         next_obs = batch['next_observations']
-
-        # Get the idx for logging
-        step_idx = self._n_epoch_train_steps
 
         # ####################### #
         # Get All Obs Policy Info #
@@ -675,7 +680,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         # ###################### #
         # Update Target Networks #
         # ###################### #
-        if self._n_train_steps_total % self._u_target_update_interval == 0:
+        if self._n_total_train_steps % self._u_target_update_interval == 0:
             if self._u_target_vf is None:
                 ptu.soft_update_from_to(
                     source=self._u_qf1,
@@ -695,7 +700,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
                     tau=self._u_soft_target_tau
                 )
 
-        if self._n_train_steps_total % self._i_target_update_interval == 0:
+        if self._n_total_train_steps % self._i_target_update_interval == 0:
             if self._i_target_vf is None:
                 ptu.soft_update_from_to(
                     source=self._i_qf1,
@@ -736,6 +741,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         # ############### #
         # LOG Useful Data #
         # ############### #
+        step_idx = self._n_epoch_train_steps
         self.log_data['Policy Entropy'][step_idx, :-1] = \
             ptu.get_numpy(-u_new_log_pi.mean(dim=0).squeeze(-1))
         self.log_data['Policy Entropy'][step_idx, -1] = \
@@ -827,7 +833,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
             )
             self._summary_writer.add_scalar(
                 'TrainingI/policy_std',
-                np.exp(ptu.get_numpy(i_new_policy_log_std.mean())),
+                ptu.get_numpy(i_new_policy_log_std.mean().exp()),
                 self._n_env_steps_total
             )
             self._summary_writer.add_scalar(
@@ -836,7 +842,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
                 self._n_env_steps_total
             )
 
-    def _do_not_training(self):
+    def _not_do_training(self):
         return
 
     @property
@@ -882,7 +888,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
             self._epoch_plotter.draw()
             self._epoch_plotter.save_figure(epoch)
 
-        snapshot = IncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
+        snapshot = RLAlgorithm.get_epoch_snapshot(self, epoch)
 
         snapshot.update(
             policy=self._policy,
@@ -899,10 +905,10 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
             target_u_vf=self._u_target_vf,
         )
 
-        if self.env.online_normalization or self.env.normalize_obs:
+        if self.explo_env.online_normalization or self.explo_env.normalize_obs:
             snapshot.update(
-                obs_mean=self.env.obs_mean,
-                obs_var=self.env.obs_var,
+                obs_mean=self.explo_env.obs_mean,
+                obs_var=self.explo_env.obs_var,
             )
 
         # Observation Normalizer
@@ -959,7 +965,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
                     self.log_data['Alphas'][:max_step, uu]
                 ))
 
-            for aa in range(self.env.action_dim):
+            for aa in range(self.explo_env.action_dim):
                 self.eval_statistics['[U-%02d] Policy Std [%02d]' % (uu, aa)] = \
                     np.nan_to_num(np.mean(
                         np.exp(self.log_data['Pol Log Std'][:max_step, uu, aa])
@@ -1005,7 +1011,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
             np.nan_to_num(np.mean(
                 self.log_data['Alphas'][:max_step, -1]
             ))
-        for aa in range(self.env.action_dim):
+        for aa in range(self.explo_env.action_dim):
             self.eval_statistics['[I] Policy Std'] = \
                 np.nan_to_num(np.mean(
                     np.exp(self.log_data['Pol Log Std'][:max_step, -1, aa])
@@ -1032,30 +1038,16 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
                 test_paths[unint_idx], stat_prefix="[U-%02d] Test" % unint_idx,
             ))
 
-            average_rewards = \
-                eval_util.get_average_multigoal_rewards(test_paths[unint_idx],
-                                                        unint_idx)
-            avg_txt = '[U-%02d] Test AverageReward' % unint_idx
-            statistics[avg_txt] = average_rewards * \
-                ptu.get_numpy(self._u_reward_scales[unint_idx])
-
-            average_returns = \
-                eval_util.get_average_multigoal_returns(test_paths[unint_idx],
-                                                        unint_idx)
-            avg_txt = '[U-%02d] Test AverageReturn' % unint_idx
-            statistics[avg_txt] = average_returns * \
-                ptu.get_numpy(self._u_reward_scales[unint_idx])
-
             if self._log_tensorboard:
                 self._summary_writer.add_scalar(
                     'EvaluationU%02d/avg_return' % unint_idx,
-                    statistics['[U-%02d] Test AverageReturn' % unint_idx],
+                    statistics['[U-%02d] Test Returns Mean' % unint_idx],
                     self._n_epochs
                 )
 
                 self._summary_writer.add_scalar(
                     'EvaluationU%02d/avg_reward' % unint_idx,
-                    statistics['[U-%02d] Test AverageReward' % unint_idx],
+                    statistics['[U-%02d] Test Rewards Mean' % unint_idx],
                     self._n_epochs
                 )
 
@@ -1065,8 +1057,6 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         statistics.update(eval_util.get_generic_path_information(
             i_test_paths, stat_prefix="[I] Test",
         ))
-        average_return = eval_util.get_average_returns(i_test_paths)
-        statistics['[I] Test AverageReturn'] = average_return * self.reward_scale
 
         if self._exploration_paths:
             statistics.update(eval_util.get_generic_path_information(
@@ -1080,7 +1070,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         if self._log_tensorboard:
             self._summary_writer.add_scalar(
                 'EvaluationI/avg_return',
-                statistics['[I] Test AverageReturn'],
+                statistics['[I] Test Returns Mean'],
                 self._n_epochs
             )
 
@@ -1090,7 +1080,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
                 self._n_epochs
             )
 
-        if hasattr(self.env, "log_diagnostics"):
+        if hasattr(self.explo_env, "log_diagnostics"):
             pass
             # # TODO: CHECK ENV LOG_DIAGNOSTICS
             # print('TODO: WE NEED LOG_DIAGNOSTICS IN ENV')
@@ -1098,13 +1088,6 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         # Record the data
         for key, value in statistics.items():
             logger.record_tabular(key, value)
-
-        for u_idx in range(self._n_unintentional):
-            if self.render_eval_paths:
-                # TODO: CHECK ENV RENDER_PATHS
-                print('TODO: RENDER_PATHS')
-                pass
-                # self.env.render_paths(test_paths[demon])
 
         # Epoch Plotter
         if self._epoch_plotter is not None:
@@ -1154,7 +1137,7 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
         if self._obs_normalizer is not None:
             self._obs_normalizer.update(np.array([observation]))
 
-        IncrementalRLAlgorithm._handle_step(
+        RLAlgorithm._handle_step(
             self,
             observation=observation,
             action=action,
@@ -1165,11 +1148,11 @@ class HIUSAC(IncrementalRLAlgorithm, TorchAlgorithm):
             env_info=env_info,
         )
 
-    def _handle_rollout_ending(self):
+    def _end_rollout(self):
         """
         Implement anything that needs to happen after every rollout.
         """
 
         self.replay_buffer.terminate_episode()
 
-        IncrementalRLAlgorithm._handle_rollout_ending(self)
+        RLAlgorithm._end_rollout(self)

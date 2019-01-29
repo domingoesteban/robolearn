@@ -11,11 +11,12 @@ import numpy as np
 import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
-from robolearn.utils.data_management import SimpleReplayBuffer
+from robolearn.torch.utils.data_management import SimpleReplayBuffer
 
 from robolearn_gym_envs.pybullet import Reacher2D3DofGoalCompoEnv
 
-from robolearn.torch.algorithms.rl_algos.ddpg import DDPG
+from robolearn.torch.algorithms.rl_algos.ddpg \
+    import DDPG
 
 from robolearn.torch.models import NNQFunction
 
@@ -48,32 +49,59 @@ SUBTASK = None
 
 POLICY = TanhMlpPolicy
 
+EPOCHS = 500
+
+OPTIMIZER = 'adam'
+# OPTIMIZER = 'rmsprop'
+
+NORMALIZE_OBS = False
+
 expt_params = dict(
     algo_name=DDPG.__name__,
     policy_name=POLICY.__name__,
     path_length=PATH_LENGTH,
+    steps_pretrain=max(100, BATCH_SIZE),
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=500,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
-        min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
         min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
+        finite_horizon_eval=True,
         # DDPG params
-        policy_learning_rate=3e-4,
-        qf_learning_rate=3e-4,
+        # Learning rates
+        optimizer=OPTIMIZER,
+        policy_lr=3.e-4,
+        qf_lr=3.e-4,
+        # Soft target update
         use_soft_update=True,
         tau=1e-2,
+        # Weight decays
+        policy_weight_decay=1.e-5,
+        qf_weight_decay=1.e-5,
 
         discount=0.99,
-        reward_scale=1.0,
+        reward_scale=1.0e-0,
     ),
     replay_buffer_size=1e6,
     net_size=128,
+    # NN Initialization
+    # -----------------
+    # pol_hidden_w_init='xavier_normal',
+    # pol_output_w_init='xavier_normal',
+    pol_hidden_w_init='xavier_uniform',
+    pol_output_w_init='xavier_uniform',
+    # pol_hidden_w_init='uniform',
+    # pol_output_w_init='uniform',
+    # q_hidden_w_init='xavier_normal',
+    # q_output_w_init='xavier_normal',
+    q_hidden_w_init='xavier_uniform',
+    q_output_w_init='xavier_uniform',
+    # q_hidden_w_init='uniform',
+    # q_output_w_init='uniform',
 )
 
 
@@ -135,6 +163,7 @@ def experiment(variant):
     if variant['load_dir']:
         params_file = os.path.join(variant['log_dir'], 'params.pkl')
         data = joblib.load(params_file)
+        start_epoch = data['epoch']
         raise NotImplementedError
     else:
         start_epoch = 0
@@ -143,12 +172,19 @@ def experiment(variant):
         qf = NNQFunction(
             obs_dim=obs_dim,
             action_dim=action_dim,
-            hidden_sizes=[net_size, net_size]
+            hidden_activation=variant['hidden_activation'],
+            hidden_sizes=[net_size, net_size, net_size],
+            hidden_w_init=variant['q_hidden_w_init'],
+            output_w_init=variant['q_output_w_init'],
         )
+
         policy = POLICY(
             obs_dim=obs_dim,
             action_dim=action_dim,
-            hidden_sizes=[net_size, net_size],
+            hidden_activation=variant['hidden_activation'],
+            hidden_sizes=[net_size, net_size, net_size],
+            hidden_w_init=variant['pol_hidden_w_init'],
+            output_w_init=variant['pol_output_w_init'],
         )
         es = OUStrategy(
             action_space=env.action_space,
@@ -170,9 +206,9 @@ def experiment(variant):
     )
 
     algorithm = DDPG(
-        env=env,
+        explo_env=env,
         policy=policy,
-        exploration_policy=exploration_policy,
+        explo_policy=exploration_policy,
         qf=qf,
         replay_buffer=replay_buffer,
         batch_size=BATCH_SIZE,
@@ -181,8 +217,9 @@ def experiment(variant):
         **variant['algo_params']
     )
     if ptu.gpu_enabled():
-        algorithm.cuda()
-    # algorithm.pretrain(PATH_LENGTH*2)
+        algorithm.cuda(ptu.device)
+
+    algorithm.pretrain(variant['steps_pretrain'])
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm

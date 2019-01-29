@@ -4,7 +4,7 @@ from future.utils import with_metaclass
 
 class QFunction(with_metaclass(abc.ABCMeta, object)):
     """
-    General state-action value function (Q-function) interface.
+    Base state-action value function (Q-function) interface.
     :math:`Q(s_t,a_t)`
     """
     def __init__(self, obs_dim, action_dim):

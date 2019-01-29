@@ -39,7 +39,7 @@ def experiment(variant):
         action_dim=action_dim,
     )
     algorithm = SAC(
-        env=env,
+        explo_env=env,
         policy=policy,
         qf=qf,
         vf=vf,

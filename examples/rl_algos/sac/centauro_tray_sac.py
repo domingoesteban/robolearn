@@ -80,7 +80,6 @@ expt_params = dict(
         optimizer=OPTIMIZER,
         policy_lr=3e-4,
         qf_lr=3e-4,
-        vf_lr=3e-4,
         # Soft target update
         soft_target_tau=5.e-3,
         # Regularization terms
@@ -237,13 +236,13 @@ def experiment(variant):
         )
 
     replay_buffer = SimpleReplayBuffer(
-        max_replay_buffer_size=variant['replay_buffer_size'],
+        max_size=variant['replay_buffer_size'],
         obs_dim=obs_dim,
         action_dim=action_dim,
     )
 
     algorithm = SAC(
-        env=env,
+        explo_env=env,
         policy=policy,
         qf=qf,
         vf=vf,

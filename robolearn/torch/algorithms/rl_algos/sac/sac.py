@@ -14,7 +14,7 @@ import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.logging import logger
 from robolearn.utils import eval_util
 
-from robolearn.algorithms.rl_algos import IncrementalRLAlgorithm
+from robolearn.algorithms.rl_algos import RLAlgorithm
 from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
 
 from robolearn.models.policies import MakeDeterministic
@@ -22,16 +22,17 @@ from robolearn.utils.data_management.normalizer import RunningNormalizer
 
 import tensorboardX
 
-MAX_LOG_ALPHA = 9.21034037  # Alpha=10000
+# MAX_LOG_ALPHA = 9.21034037  # Alpha=10000  Before 01/07
+MAX_LOG_ALPHA = 6.2146080984  # Alpha=500  From 09/07
 
 
-class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
+class SAC(RLAlgorithm, TorchAlgorithm):
     """
     Soft Actor Critic (SAC)
     """
     def __init__(
             self,
-            env,
+            explo_env,
             policy,
             qf,
 
@@ -50,7 +51,6 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
 
             policy_lr=3e-4,
             qf_lr=3e-4,
-            vf_lr=3e-4,
 
             policy_mean_regu_weight=1e-3,
             policy_std_regu_weight=1e-3,
@@ -58,7 +58,6 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
 
             policy_weight_decay=0.,
             q_weight_decay=0.,
-            v_weight_decay=0.,
 
             optimizer='adam',
             # optimizer='rmsprop',
@@ -68,71 +67,13 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
             soft_target_tau=5e-3,
             target_update_interval=1,
 
+            reward_scale=1.,
+
             save_replay_buffer=False,
             eval_deterministic=True,
             log_tensorboard=False,
             **kwargs
     ):
-        """
-
-        Args:
-            env:
-
-            policy:
-
-            qf:
-
-            qf2:
-
-            vf:
-
-            replay_buffer:
-
-            batch_size:
-
-            normalize_obs:
-
-            eval_env:
-
-            action_prior:
-
-            entropy_scale:
-
-            policy_lr:
-
-            qf_lr:
-
-            vf_lr:
-
-            policy_mean_regu_weight:
-
-            policy_std_regu_weight:
-
-            policy_pre_activation_weight:
-
-            policy_weight_decay:
-
-            q_weight_decay:
-
-            v_weight_decay:
-
-            optimizer (string): Optimizer name
-
-            optimizer_kwargs: Optimizer parameters
-
-            soft_target_tau: Interpolation factor in polyak averaging for
-                target networks.
-
-            target_update_interval:
-
-            save_replay_buffer:
-
-            eval_deterministic:
-
-            log_tensorboard:
-
-            **kwargs:
-        """
 
         # ###### #
         # Models #
@@ -149,14 +90,14 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
 
         # Observation Normalizer
         if normalize_obs:
-            self._obs_normalizer = RunningNormalizer(shape=env.obs_dim)
+            self._obs_normalizer = RunningNormalizer(shape=explo_env.obs_dim)
         else:
             self._obs_normalizer = None
 
-        IncrementalRLAlgorithm.__init__(
+        RLAlgorithm.__init__(
             self,
-            env=env,
-            exploration_policy=self._policy,
+            explo_env=explo_env,
+            explo_policy=self._policy,
             eval_env=eval_env,
             eval_policy=eval_policy,
             obs_normalizer=self._obs_normalizer,
@@ -194,9 +135,12 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
         # Desired Alpha
         self._auto_alpha = auto_alpha
         if tgt_entro is None:
-            tgt_entro = -env.action_dim
+            tgt_entro = -explo_env.action_dim
         self._tgt_entro = torch.tensor([float(tgt_entro)], device=ptu.device)
         self._log_alpha = torch.zeros(1, device=ptu.device, requires_grad=True)
+
+        # Reward Scale
+        self.reward_scale = reward_scale
 
         # ########## #
         # Optimizers #
@@ -216,6 +160,8 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
                 )
         else:
             raise ValueError('Wrong optimizer')
+        self.qf_lr = qf_lr
+        self.policy_lr = policy_lr
 
         # Q-function(s) optimizer(s)
         self._qf1_optimizer = optimizer_class(
@@ -242,8 +188,8 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
         else:
             self._vf_optimizer = optimizer_class(
                 self._vf.parameters(),
-                lr=vf_lr,
-                weight_decay=v_weight_decay,
+                lr=qf_lr,
+                weight_decay=q_weight_decay,
                 **optimizer_kwargs
             )
             values_parameters = chain(values_parameters, self._vf.parameters())
@@ -286,11 +232,11 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
         )
         self.log_data['Pol Log Std'] = np.zeros((
             self.num_train_steps_per_epoch,
-            self.env.action_dim,
+            self.explo_env.action_dim,
         ))
         self.log_data['Policy Mean'] = np.zeros((
             self.num_train_steps_per_epoch,
-            self.env.action_dim,
+            self.explo_env.action_dim,
         ))
         self.log_data['Alphas'] = np.zeros(self.num_train_steps_per_epoch)
 
@@ -304,19 +250,18 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
 
     def pretrain(self, n_pretrain_samples):
         # We do not require any pretrain (I think...)
-        observation = self.env.reset()
+        observation = self.explo_env.reset()
         for ii in range(n_pretrain_samples):
-            action = self.env.action_space.sample()
+            action = self.explo_env.action_space.sample()
             # Interact with environment
             next_ob, reward, terminal, env_info = (
-                self.env.step(action)
+                self.explo_env.step(action)
             )
             agent_info = None
 
             # Increase counter
             self._n_env_steps_total += 1
             # Create np.array of obtained terminal and reward
-            reward = reward * self.reward_scale
             terminal = np.array([terminal])
             reward = np.array([reward])
             # Add to replay buffer
@@ -335,7 +280,7 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
                 self._obs_normalizer.update(np.array([observation]))
 
             if terminal:
-                self.env.reset()
+                self.explo_env.reset()
 
     def _do_training(self):
         # Get batch of samples
@@ -346,9 +291,6 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
         actions = batch['actions']
         next_obs = batch['next_observations']
 
-        # Get the idx for logging
-        step_idx = self._n_epoch_train_steps
-
         # Alpha (Entropy weight in Maximum Entropy objective)
         alpha = self._entropy_scale*torch.clamp(self._log_alpha,
                                                 max=MAX_LOG_ALPHA).exp()
@@ -356,7 +298,7 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
         # ############ #
         # Critics Step #
         # ############ #
-        rewards = batch['rewards']
+        rewards = batch['rewards'] * self.reward_scale
         terminals = batch['terminals']
 
         if self._target_vf is None:
@@ -491,8 +433,7 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
         # ###################### #
         # Update Target Networks #
         # ###################### #
-
-        if self._n_train_steps_total % self._target_update_interval == 0:
+        if self._n_total_train_steps % self._target_update_interval == 0:
             if self._target_vf is None:
                 # Update Q-value Target Network(s)
                 ptu.soft_update_from_to(
@@ -531,6 +472,7 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
         # ############### #
         # LOG Useful Data #
         # ############### #
+        step_idx = self._n_epoch_train_steps
         self.log_data['Pol Entropy'][step_idx] = \
             ptu.get_numpy(-log_pi.mean(dim=0))
         self.log_data['Pol Log Std'][step_idx] = \
@@ -655,7 +597,7 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
                         self._n_env_steps_total
                     )
 
-    def _do_not_training(self):
+    def _not_do_training(self):
         return
 
     @property
@@ -690,7 +632,7 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
             self._epoch_plotter.draw()
             self._epoch_plotter.save_figure(epoch)
 
-        snapshot = IncrementalRLAlgorithm.get_epoch_snapshot(self, epoch)
+        snapshot = RLAlgorithm.get_epoch_snapshot(self, epoch)
 
         snapshot.update(
             policy=self._policy,
@@ -702,10 +644,10 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
             target_qf2=self._target_qf2,
         )
 
-        if self.env.online_normalization or self.env.normalize_obs:
+        if self.explo_env.online_normalization or self.explo_env.normalize_obs:
             snapshot.update(
-                obs_mean=self.env.obs_mean,
-                obs_var=self.env.obs_var,
+                obs_mean=self.explo_env.obs_mean,
+                obs_var=self.explo_env.obs_var,
             )
 
         # Observation Normalizer
@@ -725,10 +667,6 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
         max_step = max(self._n_epoch_train_steps, 1)
 
         if self.eval_statistics is None:
-            """
-            Eval should set this to None.
-            This way, these statistics are only computed for one batch.
-            """
             self.eval_statistics = OrderedDict()
 
         # Intentional info
@@ -781,8 +719,6 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
         statistics.update(eval_util.get_generic_path_information(
             test_paths, stat_prefix="[I] Test",
         ))
-        average_return = eval_util.get_average_returns(test_paths)
-        statistics['[I] Test AverageReturn'] = average_return * self.reward_scale
 
         if self._exploration_paths:
             statistics.update(eval_util.get_generic_path_information(
@@ -796,17 +732,17 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
         if self._log_tensorboard:
             self._summary_writer.add_scalar(
                 'Evaluation/avg_return',
-                statistics['[I] Test AverageReturn'],
+                statistics['[I] Test Returns Mean'],
                 self._n_epochs
             )
 
             self._summary_writer.add_scalar(
                 'Evaluation/avg_reward',
-                statistics['[I] Test Rewards Mean'] * self.reward_scale,
+                statistics['[I] Test Rewards Mean'],
                 self._n_epochs
             )
 
-        if hasattr(self.env, "log_diagnostics"):
+        if hasattr(self.explo_env, "log_diagnostics"):
             pass
             # # TODO: CHECK ENV LOG_DIAGNOSTICS
             # print('TODO: WE NEED LOG_DIAGNOSTICS IN ENV')
@@ -863,7 +799,7 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
         if self._obs_normalizer is not None:
             self._obs_normalizer.update(np.array([observation]))
 
-        IncrementalRLAlgorithm._handle_step(
+        RLAlgorithm._handle_step(
             self,
             observation=observation,
             action=action,
@@ -874,11 +810,11 @@ class SAC(IncrementalRLAlgorithm, TorchAlgorithm):
             env_info=env_info,
         )
 
-    def _handle_rollout_ending(self):
+    def _end_rollout(self):
         """
         Implement anything that needs to happen after every rollout.
         """
 
         self.replay_buffer.terminate_episode()
 
-        IncrementalRLAlgorithm._handle_rollout_ending(self)
+        RLAlgorithm._end_rollout(self)

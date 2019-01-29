@@ -13,7 +13,7 @@ import robolearn.torch.utils.pytorch_util as ptu
 from robolearn.utils.logging import logger
 from robolearn.utils import eval_util
 
-from robolearn.algorithms.rl_algos import IterativeRLAlgorithm
+from robolearn.algorithms.rl_algos import RLAlgorithm
 from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
 
 from robolearn.models.policies import MakeDeterministic
@@ -22,7 +22,7 @@ from robolearn.utils.data_management.normalizer import RunningNormalizer
 import tensorboardX
 
 
-class PPO(IterativeRLAlgorithm, TorchAlgorithm):
+class PPO(RLAlgorithm, TorchAlgorithm):
     """
     Proximal Policy Optimization
     """
@@ -87,7 +87,7 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
         else:
             self._obs_normalizer = None
 
-        IterativeRLAlgorithm.__init__(
+        RLAlgorithm.__init__(
             self,
             env=env,
             exploration_policy=self._policy,
@@ -150,9 +150,9 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
         self.logging_rewards = np.zeros(self.num_train_steps_per_epoch)
         self.logging_policy_entropy = np.zeros(self.num_train_steps_per_epoch)
         self.logging_policy_log_std = np.zeros((self.num_train_steps_per_epoch,
-                                                self.env.action_dim))
+                                                self.explo_env.action_dim))
         self.logging_policy_mean = np.zeros((self.num_train_steps_per_epoch,
-                                             self.env.action_dim))
+                                             self.explo_env.action_dim))
 
         self._log_tensorboard = log_tensorboard
         self._summary_writer = tensorboardX.SummaryWriter(log_dir=logger.get_snapshot_dir())
@@ -180,7 +180,7 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
         if self._log_tensorboard:
             pass
 
-    def _do_not_training(self):
+    def _not_do_training(self):
         return
 
     @property
@@ -201,17 +201,17 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
             self._epoch_plotter.draw()
             self._epoch_plotter.save_figure(epoch)
 
-        snapshot = IterativeRLAlgorithm.get_epoch_snapshot(self, epoch)
+        snapshot = RLAlgorithm.get_epoch_snapshot(self, epoch)
 
         snapshot.update(
             policy=self._policy,
             qf=self._qf,
         )
 
-        if self.env.online_normalization or self.env.normalize_obs:
+        if self.explo_env.online_normalization or self.explo_env.normalize_obs:
             snapshot.update(
-                obs_mean=self.env.obs_mean,
-                obs_var=self.env.obs_var,
+                obs_mean=self.explo_env.obs_mean,
+                obs_var=self.explo_env.obs_var,
             )
 
         # Observation Normalizer
@@ -238,7 +238,7 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
             self.eval_statistics = OrderedDict()
 
     def evaluate(self, epoch):
-        IterativeRLAlgorithm.evaluate(self, epoch)
+        RLAlgorithm.evaluate(self, epoch)
 
     def get_batch(self):
         pass
@@ -272,7 +272,7 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
         if self._obs_normalizer is not None:
             self._obs_normalizer.update(np.array([observation]))
 
-        IterativeRLAlgorithm._handle_step(
+        RLAlgorithm._handle_step(
             self,
             observation=observation,
             action=action,
@@ -283,12 +283,12 @@ class PPO(IterativeRLAlgorithm, TorchAlgorithm):
             env_info=env_info,
         )
 
-    def _handle_rollout_ending(self):
+    def _end_rollout(self):
         """
         Implement anything that needs to happen after every rollout.
         """
 
         # self.replay_buffer.terminate_episode()
 
-        IterativeRLAlgorithm._handle_rollout_ending(self)
+        RLAlgorithm._end_rollout(self)
 

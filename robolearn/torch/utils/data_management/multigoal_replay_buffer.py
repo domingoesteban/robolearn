@@ -52,12 +52,13 @@ class MultiGoalReplayBuffer(ReplayBuffer):
         self._obs_buffer[self._top] = torch.as_tensor(observation)
         self._acts_buffer[self._top] = torch.as_tensor(action)
         self._rewards_buffer[self._top] = torch.as_tensor(reward)
-        self._terms_buffer[self._top] = torch.as_tensor(terminal.astype(float))
+        self._terminals_buffer[self._top] = torch.as_tensor(terminal.astype(float))
         self._next_obs_buffer[self._top] = torch.as_tensor(next_observation)
         self._rew_vects_buffer[self._top] = \
             torch.as_tensor(kwargs['env_info']['reward_multigoal'])
         self._term_vects_buffer[self._top] = \
-            torch.as_tensor(kwargs['env_info']['terminal_multigoal'].astype(float))
+            torch.as_tensor([term.astype(float)
+                             for term in kwargs['env_info']['terminal_multigoal']])
         self._advance()
 
     def terminate_episode(self):
@@ -73,16 +74,21 @@ class MultiGoalReplayBuffer(ReplayBuffer):
             raise AttributeError('Not enough samples to get. %d bigger than '
                                  'current %d!' % (batch_size, self._size))
 
-        indices = torch.randint(0, self._size, (batch_size,))
+        indices = torch.randint(0, self._size, (batch_size,), dtype=torch.long,
+                                device=ptu.device)
         return dict(
-            observations=self._obs_buffer[indices],
-            actions=self._acts_buffer[indices],
-            rewards=self._rewards_buffer[indices],
-            terminals=self._terminals_buffer[indices],
-            next_observations=self._next_obs_buffer[indices],
-            reward_vectors=self._rew_vects_buffer[indices],
-            terminal_vectors=self._term_vects_buffer[indices],
+            observations=self.buffer_index(self._obs_buffer, indices),
+            actions=self.buffer_index(self._acts_buffer, indices),
+            rewards=self.buffer_index(self._rewards_buffer, indices),
+            terminals=self.buffer_index(self._terminals_buffer, indices),
+            next_observations=self.buffer_index(self._next_obs_buffer, indices),
+            reward_vectors=self.buffer_index(self._rew_vects_buffer, indices),
+            terminal_vectors=self.buffer_index(self._term_vects_buffer, indices),
         )
 
     def available_samples(self):
         return self._size
+
+    @staticmethod
+    def buffer_index(buffer, indices):
+        return torch.index_select(buffer, dim=0, index=indices)

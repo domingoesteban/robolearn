@@ -68,11 +68,11 @@ def experiment(variant):
     # variant['algo_params']['epoch_plotter'] = None
 
     algorithm = DDPG(
-        env=env,
+        explo_env=env,
         # training_env=env,
         save_environment=False,
         policy=policy,
-        exploration_policy=exploration_policy,
+        explo_policy=exploration_policy,
         qf=qf,
         **variant['algo_params']
     )

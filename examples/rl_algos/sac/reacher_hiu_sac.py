@@ -67,6 +67,7 @@ expt_params = dict(
     algo_name=HIUSAC.__name__,
     policy_name=POLICY.__name__,
     path_length=PATH_LENGTH,
+    steps_pretrain=10000,
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
@@ -343,7 +344,7 @@ def experiment(variant):
     if ptu.gpu_enabled():
         algorithm.cuda(ptu.device)
 
-    algorithm.pretrain(10000)
+    algorithm.pretrain(variant['steps_pretrain'])
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm

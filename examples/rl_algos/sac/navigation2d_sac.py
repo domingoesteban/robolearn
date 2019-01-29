@@ -40,10 +40,12 @@ SEED = 110
 
 SUBTASK = None
 
-
 POLICY = TanhGaussianPolicy
 
-USE_Q2 = False
+EPOCHS = 100
+
+USE_Q2 = True
+EXPLICIT_VF = False
 
 OPTIMIZER = 'adam'
 # OPTIMIZER = 'rmsprop'
@@ -54,35 +56,37 @@ expt_params = dict(
     algo_name=SAC.__name__,
     policy_name=POLICY.__name__,
     path_length=PATH_LENGTH,
+    steps_pretrain=max(100, BATCH_SIZE),
     algo_params=dict(
         # Common RL algorithm params
+        algo_mode='online',
+        num_epochs=EPOCHS,  # n_epochs
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=500,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
-        min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
         min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
+        finite_horizon_eval=True,
         # SAC params
         action_prior='uniform',
-        entropy_scale=2.0e-0,
+        entropy_scale=1.0e-0,
+        auto_alpha=True,
+        tgt_entro=5e-1,
         # Learning rates
         optimizer=OPTIMIZER,
-        policy_lr=1e-4,
-        qf_lr=1e-4,
-        vf_lr=1e-4,
+        policy_lr=3.e-4,
+        qf_lr=3.e-4,
         # Soft target update
-        soft_target_tau=1.e-3,
+        soft_target_tau=5.e-3,
         # Regularization terms
         policy_mean_regu_weight=1.e-3,
         policy_std_regu_weight=1.e-3,
         policy_pre_activation_weight=0.e-3,
         # Weight decays
-        policy_weight_decay=0.e-5,
-        q_weight_decay=0.e-5,
-        v_weight_decay=0.e-5,
+        policy_weight_decay=1.e-5,
+        q_weight_decay=1.e-5,
 
         discount=0.99,
         reward_scale=1.0e-0,
@@ -94,23 +98,29 @@ expt_params = dict(
     shared_layer_norm=False,
     # NN Activations
     # --------------
-    # hidden_activation='relu',
+    hidden_activation='relu',
     # hidden_activation='tanh',
-    hidden_activation='elu',
+    # hidden_activation='elu',
     # NN Initialization
     # -----------------
     # pol_hidden_w_init='xavier_normal',
     # pol_output_w_init='xavier_normal',
-    pol_hidden_w_init='uniform',
-    pol_output_w_init='uniform',
+    pol_hidden_w_init='xavier_uniform',
+    pol_output_w_init='xavier_uniform',
+    # pol_hidden_w_init='uniform',
+    # pol_output_w_init='uniform',
     # q_hidden_w_init='xavier_normal',
     # q_output_w_init='xavier_normal',
-    q_hidden_w_init='uniform',
-    q_output_w_init='uniform',
+    q_hidden_w_init='xavier_uniform',
+    q_output_w_init='xavier_uniform',
+    # q_hidden_w_init='uniform',
+    # q_output_w_init='uniform',
     # v_hidden_w_init='xavier_normal',
     # v_output_w_init='xavier_normal',
-    v_hidden_w_init='uniform',
-    v_output_w_init='uniform',
+    v_hidden_w_init='xavier_uniform',
+    v_output_w_init='xavier_uniform',
+    # v_hidden_w_init='uniform',
+    # v_output_w_init='uniform',
 )
 
 env_params = dict(
@@ -176,7 +186,7 @@ def experiment(variant):
             obs_dim=obs_dim,
             action_dim=action_dim,
             hidden_activation=variant['hidden_activation'],
-            hidden_sizes=[net_size, net_size],
+            hidden_sizes=[net_size, net_size, net_size],
             hidden_w_init=variant['q_hidden_w_init'],
             output_w_init=variant['q_output_w_init'],
         )
@@ -185,46 +195,45 @@ def experiment(variant):
                 obs_dim=obs_dim,
                 action_dim=action_dim,
                 hidden_activation=variant['hidden_activation'],
-                hidden_sizes=[net_size, net_size],
+                hidden_sizes=[net_size, net_size, net_size],
                 hidden_w_init=variant['q_hidden_w_init'],
                 output_w_init=variant['q_output_w_init'],
             )
         else:
             qf2 = None
 
-        vf = NNVFunction(
-            obs_dim=obs_dim,
-            hidden_activation=variant['hidden_activation'],
-            hidden_sizes=[net_size, net_size],
-            hidden_w_init=variant['v_hidden_w_init'],
-            output_w_init=variant['v_output_w_init'],
-        )
+        if EXPLICIT_VF:
+            vf = NNVFunction(
+                obs_dim=obs_dim,
+                hidden_activation=variant['hidden_activation'],
+                hidden_sizes=[net_size, net_size, net_size],
+                hidden_w_init=variant['v_hidden_w_init'],
+                output_w_init=variant['v_output_w_init'],
+            )
+        else:
+            vf = None
 
         policy = POLICY(
             obs_dim=obs_dim,
             action_dim=action_dim,
             hidden_activation=variant['hidden_activation'],
-            hidden_sizes=[net_size, net_size],
+            hidden_sizes=[net_size, net_size, net_size],
             hidden_w_init=variant['pol_hidden_w_init'],
             output_w_init=variant['pol_output_w_init'],
         )
 
     replay_buffer = SimpleReplayBuffer(
-        max_replay_buffer_size=variant['replay_buffer_size'],
+        max_size=variant['replay_buffer_size'],
         obs_dim=obs_dim,
         action_dim=action_dim,
     )
 
-    # render_q = variant['render_q']
-    # date_now = time.strftime("%Y_%m_%d_%H_%M_%S")
-    # save_q_path = '/home/desteban/logs/goalcompo_q_plots/goalcompo_'+date_now
-
     algorithm = SAC(
-        env=env,
+        explo_env=env,
         policy=policy,
         qf=qf,
-        vf=vf,
         qf2=qf2,
+        vf=vf,
         replay_buffer=replay_buffer,
         batch_size=BATCH_SIZE,
         eval_env=env,
@@ -232,9 +241,9 @@ def experiment(variant):
         **variant['algo_params']
     )
     if ptu.gpu_enabled():
-        algorithm.cuda()
+        algorithm.cuda(ptu.device)
 
-    # algorithm.pretrain(PATH_LENGTH*2)
+    algorithm.pretrain(variant['steps_pretrain'])
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm

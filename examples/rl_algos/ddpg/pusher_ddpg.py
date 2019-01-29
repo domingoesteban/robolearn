@@ -165,9 +165,9 @@ def experiment(variant):
     )
 
     algorithm = DDPG(
-        env=env,
+        explo_env=env,
         policy=policy,
-        exploration_policy=exploration_policy,
+        explo_policy=exploration_policy,
         qf=qf,
         replay_buffer=replay_buffer,
         batch_size=BATCH_SIZE,

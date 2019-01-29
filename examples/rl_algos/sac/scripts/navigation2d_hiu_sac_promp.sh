@@ -5,8 +5,8 @@
 # #### #
 expt_name='objective_test'
 env_name='navigation2d'
-algo_name='hiu_sac_new_promp'
-dir_prefix=${algo_name}2
+algo_name='hiu_sac_promp'
+dir_prefix=${algo_name}X
 
 python_script=${env_name}'_'${algo_name}
 log_dir_path='/home/desteban/logs/'${expt_name}'/'${env_name}'/'

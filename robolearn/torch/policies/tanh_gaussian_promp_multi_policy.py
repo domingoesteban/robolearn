@@ -64,7 +64,6 @@ class TanhGaussianPrompMultiPolicy(PyTorchModule, ExplorationPolicy):
             policies_layer_norm=False,
             mixture_layer_norm=False,
             softmax_weights=False,
-            mixing_temperature=1.,
             **kwargs
     ):
         self.save_init_params(locals())
@@ -92,7 +91,6 @@ class TanhGaussianPrompMultiPolicy(PyTorchModule, ExplorationPolicy):
         self._norm_mfcs = []  # Norm. Mixing Layers
         # self.mfc_last = None  # Below is instantiated
 
-        self._mixing_temperature = mixing_temperature  # Hyperparameter for exp.
         self._softmax_weights = softmax_weights
 
         # Initial size = Obs size

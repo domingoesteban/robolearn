@@ -150,8 +150,8 @@ class QFPolicyPlotter:
                 qf = self._u_qfs[dd-1]
 
             obs = obs.astype(np.float32)
-            obs_torch = ptu.Variable(torch.from_numpy(obs).unsqueeze(0).expand(N, 2))
-            actions_torch = ptu.Variable(torch.from_numpy(actions))
+            obs_torch = torch.tensor(torch.from_numpy(obs).unsqueeze(0).expand(N, 2))
+            actions_torch = torch.tensor(torch.from_numpy(actions))
 
             # if ptu.gpu_enabled():
             #     qs = ptu.get_numpy(_i_qf(obs_torch, actions_torch).squeeze())#.data.cpu().numpy()

@@ -346,7 +346,8 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
                 self._main_marker = self._robot_marker(self._main_ax,
                                                        self._observation[0],
                                                        self._observation[1],
-                                                       color='black')
+                                                       color='black',
+                                                       zoom=0.03)
 
                 if not self._dynamic_goals_lines:
                     n_cols = 2
@@ -384,8 +385,10 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
                         self._subgoal_markers[aa].remove()
                     self._subgoal_markers[aa] = \
                         self._robot_marker(ax, self._observation[0],
-                                           self._observation[1], color='black',
-                                           zoom=0.015)
+                                           self._observation[1],
+                                           color='black',
+                                           zoom=0.03)
+                                           # zoom=0.015)
 
             self._main_fig.canvas.draw()
             # self._subgoals_fig.canvas.draw()
@@ -405,7 +408,8 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
         if self._dynamic_goals_lines:
             for ll in self._dynamic_goals_lines:
                 ll.remove()
-            self._subgoals_fig.canvas.draw()
+            if self._subgoals_fig:
+                self._subgoals_fig.canvas.draw()
             plt_pause(0.01)
             self._dynamic_goals_lines = list()
 
@@ -608,7 +612,6 @@ class Navigation2dGoalCompoEnv(gym.Env, Serializable):
 
     @staticmethod
     def _robot_marker(axis, x, y, color='red', zoom=0.03):
-        zoom = 0.03
 
         image = plt.imread(os.path.join(os.path.dirname(__file__), 'figures',
                                         'robotio.png'))

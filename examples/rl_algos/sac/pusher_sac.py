@@ -58,6 +58,7 @@ expt_params = dict(
     algo_name=SAC.__name__,
     policy_name=POLICY.__name__,
     path_length=PATH_LENGTH,
+    steps_pretrain=10000,
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
@@ -74,11 +75,13 @@ expt_params = dict(
         entropy_scale=1.0e-1,
         policy_lr=1e-4,
         qf_lr=1e-4,
-        vf_lr=1e-4,
+        # Soft target update
         soft_target_tau=1.e-3,
+        # Regularization terms
         policy_mean_regu_weight=1.e-3,
         policy_std_regu_weight=1.e-3,
         policy_pre_activation_weight=0.e-3,
+        # Weight decays
         policy_weight_decay=0.e-5,
         q_weight_decay=0.e-5,
         v_weight_decay=0.e-5,
@@ -142,7 +145,7 @@ def experiment(variant):
 
     # Set seeds
     np.random.seed(variant['seed'])
-    ptu.set_gpu_mode(variant['gpu'])
+    ptu.set_gpu_mode(variant['gpu'], gpu_id=0)
     ptu.seed(variant['seed'])
     variant['env_params']['seed'] = variant['seed']
 
@@ -208,13 +211,13 @@ def experiment(variant):
         #     qf2.clamp_all_params(min=-0.003, max=0.003)
 
     replay_buffer = SimpleReplayBuffer(
-        max_replay_buffer_size=variant['replay_buffer_size'],
+        max_size=variant['replay_buffer_size'],
         obs_dim=obs_dim,
         action_dim=action_dim,
     )
 
     algorithm = SAC(
-        env=env,
+        explo_env=env,
         policy=policy,
         qf=qf,
         vf=vf,
@@ -228,7 +231,7 @@ def experiment(variant):
     if ptu.gpu_enabled():
         algorithm.cuda()
 
-    # algorithm.pretrain(PATH_LENGTH*2)
+    algorithm.pretrain(variant['steps_pretrain'])
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm

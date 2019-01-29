@@ -16,8 +16,8 @@ import json
 # LOG_PREFIX = '/home/desteban/logs/objective_test/navigation2d'
 
 # SEEDS = [610, 710, 810, 1010]
-SEEDS = [610, 710, 810, 910]#, 1010]
-MAX_ITER = 500
+SEEDS = [610]
+MAX_ITER = 100
 # STEPS_PER_ITER = 3e3
 STEPS_PER_ITER = None
 LOG_PREFIX = '/home/desteban/logs/objective_test/navigation2d'
@@ -33,8 +33,20 @@ hiu_performance_dict = dict()
 # Subtask 01
 hiu_performance_dict['Subtask 01'] = dict()
 hiu_performance_dict['Subtask 01']['SAC'] = dict(
+    dir='sub0',
+    prefix='sacX_',
+    ius=[-1],
+    r_scales=[1.e-0],
+)
+hiu_performance_dict['Subtask 01']['HIU-SAC-W'] = dict(
     dir='sub-1',
-    prefix='sac_',
+    prefix='hiu_sacX_',
+    ius=[0],
+    r_scales=[1.e-0],
+)
+hiu_performance_dict['Subtask 01']['HIU-SAC-W2'] = dict(
+    dir='sub-1',
+    prefix='hiu_sacY_',
     ius=[0],
     r_scales=[1.e-0],
 )
@@ -44,8 +56,20 @@ hiu_performance_dict['Subtask 01']['SAC'] = dict(
 # Subtask 02
 hiu_performance_dict['Subtask 02'] = dict()
 hiu_performance_dict['Subtask 02']['SAC'] = dict(
+    dir='sub1',
+    prefix='sacX_',
+    ius=[-1],
+    r_scales=[1.e-0],
+)
+hiu_performance_dict['Subtask 02']['HIU-SAC-W'] = dict(
     dir='sub-1',
-    prefix='sac_',
+    prefix='hiu_sacX_',
+    ius=[1],
+    r_scales=[1.e-0],
+)
+hiu_performance_dict['Subtask 02']['HIU-SAC-W2'] = dict(
+    dir='sub-1',
+    prefix='hiu_sacY_',
     ius=[1],
     r_scales=[1.e-0],
 )
@@ -55,32 +79,31 @@ hiu_performance_dict['Subtask 02']['SAC'] = dict(
 hiu_performance_dict['Main Task'] = dict()
 hiu_performance_dict['Main Task']['SAC'] = dict(
     dir='sub-1',
-    prefix='sac_',
+    prefix='sacX_',
     ius=[-1],
     r_scales=[1.e-0],
 )
 hiu_performance_dict['Main Task']['HIU-SAC-W'] = dict(
     dir='sub-1',
-    prefix='hiu_sac_new_',
+    prefix='hiu_sacX_',
     ius=[-1],
     r_scales=[1.e-0],
 )
-hiu_performance_dict['Main Task']['HIU-SAC-E'] = dict(
+hiu_performance_dict['Main Task']['HIU-SAC-W2'] = dict(
     dir='sub-1',
-    prefix='hiu_sac_new_promp_',
+    prefix='hiu_sacY_',
     ius=[-1],
     r_scales=[1.e-0],
 )
-hiu_performance_dict['Main Task']['HIU-SAC-M'] = dict(
-    dir='sub-1',
-    prefix='hiu_sac_new_mixture_',
-    ius=[-1],
-    r_scales=[1.e-0],
-)
-# # DDPG
-# hiu_performance_dict['Main Task']['HIU-DDP-W'] = dict(
+# hiu_performance_dict['Main Task']['HIU-SAC-E'] = dict(
 #     dir='sub-1',
-#     prefix='hiu_ddpg_',
+#     prefix='hiu_sac_new_promp_',
+#     ius=[-1],
+#     r_scales=[1.e-0],
+# )
+# hiu_performance_dict['Main Task']['HIU-SAC-M'] = dict(
+#     dir='sub-1',
+#     prefix='hiu_sac_new_mixture_',
 #     ius=[-1],
 #     r_scales=[1.e-0],
 # )

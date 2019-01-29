@@ -45,6 +45,8 @@ SUBTASK = None
 
 POLICY = TanhGaussianWeightedMultiPolicy
 
+EPOCHS = 100
+
 USE_Q2 = True
 EXPLICIT_VF = False
 
@@ -62,14 +64,14 @@ expt_params = dict(
     algo_name=HIUSAC.__name__,
     policy_name=POLICY.__name__,
     path_length=PATH_LENGTH,
-    steps_pretrain=100,
+    steps_pretrain=max(100, BATCH_SIZE),
     algo_params=dict(
         # Common RL algorithm params
+        algo_mode='online',
+        num_epochs=EPOCHS,  # n_epochs
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=300,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
-        min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
         min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
@@ -80,8 +82,8 @@ expt_params = dict(
         i_entropy_scale=1.0e-0,
         u_entropy_scale=[1.0e-0, 1.0e-0],
         auto_alphas=True,
-        i_tgt_entro=4.0e-1,
-        u_tgt_entros=[4.0e-1, 4.0e-1],
+        i_tgt_entro=1.0e-2,
+        u_tgt_entros=[5.0e-1, 5.0e-1],
         # Learning rates
         optimizer=OPTIMIZER,
         policy_lr=3.e-4,
@@ -98,8 +100,8 @@ expt_params = dict(
         u_policy_std_regu_weight=[1.e-3, 1.e-3],
         u_policy_pre_activation_weight=[0.e-3, 0.e-3],
         # Weight decays
-        policy_weight_decay=0.e-5,
-        q_weight_decay=0e-5,
+        policy_weight_decay=1.e-5,
+        q_weight_decay=1.e-5,
 
         discount=0.99,
         reward_scale=1.0e-0,

@@ -1,4 +1,5 @@
 import abc
+from future.utils import with_metaclass
 import pickle
 import time
 
@@ -14,31 +15,32 @@ from collections import OrderedDict
 from robolearn.utils import eval_util
 
 
-class RLAlgorithm(object):
-    __metaclass__ = abc.ABCMeta
+class RLAlgorithm(with_metaclass(abc.ABCMeta, object)):
+    """
+    Base Reinforcement Learning algorithm interface.
+    """
 
     def __init__(
             self,
-            env,
-            exploration_policy,
+            explo_env,
+            explo_policy,
             eval_env=None,
             eval_policy=None,
-            eval_sampler=None,
-            obs_normalizer=None,
             finite_horizon_eval=False,
+            obs_normalizer=None,
 
+            algo_mode='online',
             num_epochs=100,
             num_steps_per_epoch=10000,
             num_steps_per_eval=1000,
             max_path_length=1000,
 
-            min_steps_start_train=10,
-            min_start_eval=10,
+            min_steps_start_train=0,
+            min_start_eval=0,
 
             num_updates_per_train_call=1,
 
             discount=0.99,
-            reward_scale=1,
 
             render=False,
 
@@ -46,17 +48,17 @@ class RLAlgorithm(object):
             save_environment=True,
 
             epoch_plotter=None,
-            render_eval_paths=False,
     ):
         # type: # (gym.Env, ExplorationPolicy) -> None
         """
         Base class for RL Algorithms
-        :param env: Environment used for training.
-        :param exploration_policy: Policy used to explore during training
+        :param explo_env: Environment used for training.
+        :param explo_policy: Policy used to explore during training
         (Behavior policy).
         :param eval_env: Environment used for evaluation. By default, a
         copy of `env` will be made.
-        :param num_epochs: Number of episodes.
+        :param eval_policy: Policy to evaluate with.
+        :param num_epochs: Number of training episodes.
         :param num_steps_per_epoch: Number of timesteps per epoch.
         :param num_steps_per_eval: Number of timesteps per evaluation
         :param num_updates_per_train_call: Used by online training mode.
@@ -65,44 +67,39 @@ class RLAlgorithm(object):
         :param min_steps_start_train: Min steps to start training.
         :param min_start_eval: Min steps to start evaluating.
         :param discount: discount factor (gamma).
-        :param reward_scale: Value to scale environment reward.
         :param render: Visualize or not the environment.
         :param save_algorithm: Save or not the algorithm  after iterations.
         :param save_environment: Save or not the environment after iterations
-        :param eval_sampler: External sampler for evaluation.
-        :param eval_policy: Policy to evaluate with.
         """
         # Training environment, policy and state-action spaces
-        self.env = env
-        self.action_space = env.action_space
-        self.obs_space = env.observation_space
-        self.exploration_policy = exploration_policy
+        self.explo_env = explo_env
+        self.explo_policy = explo_policy
+        self.action_space = explo_env.action_space
+        self.obs_space = explo_env.observation_space
         self._obs_normalizer = obs_normalizer
 
         # Evaluation environment, policy and sampler
-        self.eval_env = eval_env or pickle.loads(pickle.dumps(env))
+        self.eval_env = eval_env or pickle.loads(pickle.dumps(explo_env))
         if eval_policy is None:
-            eval_policy = exploration_policy
+            eval_policy = explo_policy
         self.eval_policy = eval_policy
 
-        if eval_sampler is None:
-            if finite_horizon_eval:
-                eval_sampler = FinitePathSampler(
-                    env=eval_env,
-                    policy=eval_policy,
-                    total_paths=int(num_steps_per_eval/max_path_length),
-                    max_path_length=max_path_length,
-                    obs_normalizer=self._obs_normalizer,
-                )
-            else:
-                eval_sampler = InPlacePathSampler(
-                    env=eval_env,
-                    policy=eval_policy,
-                    total_samples=num_steps_per_eval,
-                    max_path_length=max_path_length,
-                    obs_normalizer=self._obs_normalizer,
-                )
-        self.eval_sampler = eval_sampler
+        if finite_horizon_eval:
+            self.eval_sampler = FinitePathSampler(
+                env=eval_env,
+                policy=eval_policy,
+                total_paths=int(num_steps_per_eval/max_path_length),
+                max_path_length=max_path_length,
+                obs_normalizer=self._obs_normalizer,
+            )
+        else:
+            self.eval_sampler = InPlacePathSampler(
+                env=eval_env,
+                policy=eval_policy,
+                total_samples=num_steps_per_eval,
+                max_path_length=max_path_length,
+                obs_normalizer=self._obs_normalizer,
+            )
 
         # RL algorithm hyperparameters
         self.num_epochs = num_epochs
@@ -116,7 +113,6 @@ class RLAlgorithm(object):
 
         # Reward related
         self.discount = discount
-        self.reward_scale = reward_scale
 
         # Flag to render while sampling
         self._render = render
@@ -128,21 +124,22 @@ class RLAlgorithm(object):
         # Internal variables
         self._n_epochs = 0
         self._n_env_steps_total = 0  # Accumulated interactions with the env
-        self._n_train_steps_total = 0  # Accumulated training steps
+        self._n_total_train_steps = 0  # Accumulated total training steps
         self._n_epoch_train_steps = 0  # Accumulated epoch's training steps
         self._n_rollouts_total = 0  # Accumulated rollouts
         self._epoch_start_time = None  # Wall time
-        self._old_table_keys = None  # Previous table keys of the logger
         self._current_path = PathBuilder()  # Current path
         self._exploration_paths = []  # All paths in current epoch
-        self._print_log_header = None  # Print the header in log
+        self.post_epoch_funcs = []  # Fcns to call at the end of episode
 
-        # ########### #
-        # Other Stuff
-        # ########### #
-        self.eval_statistics = None
+        if algo_mode not in ['online', 'episode']:
+            raise TypeError("Invalid algo_mode: %s" % self.algo_mode)
+        self._algo_mode = algo_mode
+
+        # Logger variables
+        self.eval_statistics = None  # Dict of stats from evaluation
+        self._old_table_keys = None  # Previous table keys of the logger
         self._epoch_plotter = epoch_plotter
-        self.render_eval_paths = render_eval_paths
 
     """
     ############################
@@ -153,19 +150,93 @@ class RLAlgorithm(object):
     """
     def pretrain(self, *args, **kwargs):
         """
-        Do anything before the main training phase.
+        Do anything before the training phase.
         """
         pass
 
-    @abc.abstractmethod
     def train(self, start_epoch=0):
+        # Get snapshot of initial algo state
+        if start_epoch == 0:
+            self._log_initial_data()
+
+        self.training_mode(False)
+        self._n_env_steps_total = start_epoch * self.num_train_steps_per_epoch
+
+        gt.reset()
+        gt.set_def_unique(False)
+
+        self._current_path = PathBuilder()
+        for epoch in gt.timed_for(
+                range(start_epoch, self.num_epochs),
+                save_itrs=True,
+        ):
+            self._start_epoch(epoch)
+            obs = self._start_new_rollout()
+            for ss in range(self.num_train_steps_per_epoch):
+                obs = self._take_step_in_env(obs)
+                gt.stamp('sample')
+
+                if self._algo_mode == 'online':
+                    self._try_to_train()
+                    gt.stamp('train')
+
+            if self._algo_mode == 'episode':
+                self._try_to_train()
+                gt.stamp('train')
+
+            self._try_to_eval(epoch)
+            gt.stamp('eval')
+            self._end_epoch(epoch)
+
+    def training_mode(self, mode):
         """
-        Main function of the algorithm. It should run the algorithm for some
-        epochs.
-        Args:
-            start_epoch (int): Epoch the algorithm starts with
+        Set training mode to `mode`.
+        :param mode: If True, training will happen (e.g. set the dropout
+        probabilities to not all ones).
         """
         pass
+
+    def _take_step_in_env(self, observation):
+        # Get policy action
+        if self._obs_normalizer is None:
+            policy_input = observation
+        else:
+            policy_input = self._obs_normalizer.normalize(observation)
+        action, pol_info = self.explo_policy.get_action(
+            policy_input,
+        )
+
+        if self._render:
+            self.explo_env.render()
+
+        # Interact with environment
+        next_obs, reward, terminal, env_info = (
+            self.explo_env.step(action)
+        )
+
+        # Increase counter
+        self._n_env_steps_total += 1
+
+        terminal = np.array([terminal])
+        reward = np.array([reward])
+
+        self._handle_step(
+            observation,
+            action,
+            reward,
+            next_obs,
+            terminal,
+            agent_info=pol_info,
+            env_info=env_info,
+        )
+
+        # Check it we need to start a new rollout
+        if terminal or (len(self._current_path) >=
+                        self.max_path_length):
+            self._end_rollout()
+            next_obs = self._start_new_rollout()
+
+        return next_obs
 
     def _try_to_train(self):
         """
@@ -176,12 +247,13 @@ class RLAlgorithm(object):
         if self._can_train():
             self.training_mode(True)
             for i in range(self.num_updates_per_train_call):
+                # Call algorithm-specific training method
                 self._do_training()
                 self._n_epoch_train_steps += 1
-                self._n_train_steps_total += 1
+                self._n_total_train_steps += 1
             self.training_mode(False)
         else:
-            self._do_not_training()
+            self._not_do_training()
 
     def _can_train(self):
         """
@@ -196,29 +268,129 @@ class RLAlgorithm(object):
         return self._n_env_steps_total > self._min_steps_start_train
 
     @abc.abstractmethod
-    def training_mode(self, mode):
-        """
-        Set training mode to `mode`.
-        :param mode: If True, training will happen (e.g. set the dropout
-        probabilities to not all ones).
-        """
-        pass
-
-    @abc.abstractmethod
     def _do_training(self):
         """
-        Perform some update, e.g. perform one gradient step.
+        Perform some computations, e.g. perform one gradient step.
         :return:
         """
         pass
 
     @abc.abstractmethod
-    def _do_not_training(self):
+    def _not_do_training(self):
         """
-        Perform some stuff when it is not possible to do training.
+        Perform something when it is not possible to do training.
         :return:
         """
         pass
+
+    def _start_epoch(self, epoch):
+        """
+        Computations at the beginning of an epoch.
+        Args:
+            epoch:
+
+        Returns:
+
+        """
+        self._epoch_start_time = time.time()
+        self._exploration_paths = []
+        self._n_epochs = epoch + 1
+        self._n_epoch_train_steps = 0
+        logger.push_prefix('Iteration #%d | ' % epoch)
+
+    def _end_epoch(self, epoch):
+        """
+        Computations at the end of an epoch.
+        Returns:
+
+        """
+        logger.log("Epoch Duration: {0}".format(
+            time.time() - self._epoch_start_time
+        ))
+        logger.log("Started Training: {0}".format(self._can_train()))
+        logger.pop_prefix()
+
+        for post_epoch_func in self.post_epoch_funcs:
+            post_epoch_func(self, epoch)
+
+    def _start_new_rollout(self):
+        """
+        Computations at the beginning of every rollout.
+        Returns:
+
+        """
+        self.explo_policy.reset()
+        return self.explo_env.reset()
+
+    def _end_rollout(self):
+        """
+        Computations at the end of every rollout.
+        """
+        self._n_rollouts_total += 1
+        if len(self._current_path) > 0:
+            self._exploration_paths.append(
+                self._current_path.get_all_stacked()
+            )
+            self._current_path = PathBuilder()
+
+    def _handle_path(self, path):
+        """
+        Computations for a path.
+        :param path:
+        :return:
+        """
+        for (
+                ob,
+                action,
+                reward,
+                next_ob,
+                terminal,
+                agent_info,
+                env_info
+        ) in zip(
+            path["observations"],
+            path["actions"],
+            path["rewards"],
+            path["next_observations"],
+            path["terminals"],
+            path["agent_infos"],
+            path["env_infos"],
+        ):
+            self._handle_step(
+                ob,
+                action,
+                reward,
+                next_ob,
+                terminal,
+                agent_info=agent_info,
+                env_info=env_info,
+            )
+        self._end_rollout()
+
+    def _handle_step(
+            self,
+            observation,
+            action,
+            reward,
+            next_observation,
+            terminal,
+            agent_info,
+            env_info,
+    ):
+        """
+        Computations at every step.
+        :return:
+        """
+        # Add data to current path builder
+        self._current_path.add_all(
+            observations=observation,
+            actions=action,
+            rewards=reward,
+            next_observations=next_observation,
+            terminals=terminal,
+            agent_infos=agent_info,
+            env_infos=env_info,
+        )
 
     """
     ##############################
@@ -227,9 +399,9 @@ class RLAlgorithm(object):
     ##############################
     ##############################
     """
-    def _try_to_eval(self, epoch):
+    def _try_to_eval(self, epoch, eval_paths=None):
         """
-
+        Check if the requirements are fulfilled to start or not an evaluation.
         Args:
             epoch (int): Epoch
 
@@ -241,68 +413,7 @@ class RLAlgorithm(object):
             # Call algorithm-specific evaluate method
             self.evaluate(epoch)
 
-            # Update logger parameters with algorithm-specific variables
-            params = self.get_epoch_snapshot(epoch)
-            logger.save_itr_params(epoch, params)
-
-            # Check that logger parameters (table keys) did not change.
-            table_keys = logger.get_table_key_set()
-            if self._old_table_keys is not None:
-                if not table_keys == self._old_table_keys:
-                    error_text = "Table keys cannot change from iteration " \
-                                 "to iteration.\n"
-                    error_text += 'table_keys: '
-                    error_text += str(table_keys)
-                    error_text += '\n'
-                    error_text += 'old_table_keys: '
-                    error_text += str(self._old_table_keys)
-                    error_text += 'not in new: '
-                    error_text += str(np.setdiff1d(list(table_keys),
-                                                   list(self._old_table_keys))
-                                      )
-                    error_text += 'not in old:'
-                    error_text += str(np.setdiff1d(list(self._old_table_keys),
-                                                   list(table_keys))
-                                      )
-                    raise AttributeError(error_text)
-            self._old_table_keys = table_keys
-
-            # Add the number of steps to the logger
-            logger.record_tabular(
-                "Number of train steps total",
-                self._n_train_steps_total,
-            )
-            logger.record_tabular(
-                "Number of env steps total",
-                self._n_env_steps_total,
-            )
-            logger.record_tabular(
-                "Number of rollouts total",
-                self._n_rollouts_total,
-            )
-
-            # Get useful times
-            times_itrs = gt.get_times().stamps.itrs
-            train_time = times_itrs['train'][-1]
-            sample_time = times_itrs['sample'][-1]
-            # eval_time = times_itrs['eval'][-1] if epoch > 0 else 0
-            eval_time = times_itrs['eval'][-1] if 'eval' in times_itrs else 0
-            epoch_time = train_time + sample_time + eval_time
-            total_time = gt.get_times().total
-
-            # Add the previous times to the logger
-            logger.record_tabular('Train Time (s)', train_time)
-            logger.record_tabular('(Previous) Eval Time (s)', eval_time)
-            logger.record_tabular('Sample Time (s)', sample_time)
-            logger.record_tabular('Epoch Time (s)', epoch_time)
-            logger.record_tabular('Total Train Time (s)', total_time)
-
-            # Add the number of epoch to the logger
-            logger.record_tabular("Epoch", epoch)
-
-            # Dump the logger data
-            logger.dump_tabular(with_prefix=False, with_timestamp=False,
-                                write_header=self._print_log_header)
+            self._log_data(epoch)
         else:
             logger.log("Skipping eval for now.")
 
@@ -317,10 +428,6 @@ class RLAlgorithm(object):
         One annoying thing about the logger table is that the keys at each
         iteration need to be the exact same. So unless you can compute
         everything, skip evaluation.
-
-        A common example for why you might want to skip evaluation is that at
-        the beginning of training, you may not have enough data for a
-        validation and training set.
 
         :return:
         """
@@ -358,16 +465,11 @@ class RLAlgorithm(object):
                 test_paths, stat_prefix="Exploration",
             ))
 
-        if hasattr(self.env, "log_diagnostics"):
-            self.env.log_diagnostics(test_paths)
+        if hasattr(self.explo_env, "log_diagnostics"):
+            self.explo_env.log_diagnostics(test_paths)
 
-        average_returns = eval_util.get_average_returns(test_paths)
-        statistics['AverageReturn'] = average_returns
         for key, value in statistics.items():
             logger.record_tabular(key, value)
-
-        if self.render_eval_paths:
-            self.env.render_paths(test_paths)
 
         if self._epoch_plotter is not None:
             self._epoch_plotter.draw()
@@ -375,125 +477,19 @@ class RLAlgorithm(object):
 
     def get_epoch_snapshot(self, epoch):
         """
-        Stuff to save in file.
+        Data to save in file.
         :param epoch:
         :return:
         """
         data_to_save = dict(
             epoch=epoch,
-            exploration_policy=self.exploration_policy,
+            exploration_policy=self.explo_policy,
         )
 
         if self.save_environment:
-            data_to_save['env'] = self.env
+            data_to_save['env'] = self.explo_env
 
         return data_to_save
-
-    def _start_epoch(self, epoch):
-        """
-
-        Args:
-            epoch:
-
-        Returns:
-
-        """
-        self._epoch_start_time = time.time()
-        self._exploration_paths = []
-        self._n_epoch_train_steps = 0
-        self._n_epochs = epoch + 1
-        logger.push_prefix('Iteration #%d | ' % epoch)
-
-    def _end_epoch(self):
-        """
-
-        Returns:
-
-        """
-        logger.log("Epoch Duration: {0}".format(
-            time.time() - self._epoch_start_time
-        ))
-        logger.log("Started Training: {0}".format(self._can_train()))
-        logger.pop_prefix()
-
-    def _start_new_rollout(self):
-        """
-
-        Returns:
-
-        """
-        self.exploration_policy.reset()
-        return self.env.reset()
-
-    def _handle_path(self, path):
-        """
-        Naive implementation: just loop through each transition.
-        :param path:
-        :return:
-        """
-        for (
-            ob,
-            action,
-            reward,
-            next_ob,
-            terminal,
-            agent_info,
-            env_info
-        ) in zip(
-            path["observations"],
-            path["actions"],
-            path["rewards"],
-            path["next_observations"],
-            path["terminals"],
-            path["agent_infos"],
-            path["env_infos"],
-        ):
-            self._handle_step(
-                ob,
-                action,
-                reward,
-                next_ob,
-                terminal,
-                agent_info=agent_info,
-                env_info=env_info,
-            )
-        self._handle_rollout_ending()
-
-    def _handle_step(
-            self,
-            observation,
-            action,
-            reward,
-            next_observation,
-            terminal,
-            agent_info,
-            env_info,
-    ):
-        """
-        Implement anything that needs to happen after every step
-        :return:
-        """
-        # Add data to current path builder
-        self._current_path.add_all(
-            observations=observation,
-            actions=action,
-            rewards=reward,
-            next_observations=next_observation,
-            terminals=terminal,
-            agent_infos=agent_info,
-            env_infos=env_info,
-        )
-
-    def _handle_rollout_ending(self):
-        """
-        Implement anything that needs to happen after every rollout.
-        """
-        self._n_rollouts_total += 1
-        if len(self._current_path) > 0:
-            self._exploration_paths.append(
-                self._current_path.get_all_stacked()
-            )
-            self._current_path = PathBuilder()
 
     def get_extra_data_to_save(self, epoch):
         """
@@ -502,24 +498,96 @@ class RLAlgorithm(object):
         :param epoch:
         :return:
         """
-        if self._render:
-            self.env.render()
         data_to_save = dict(
             epoch=epoch,
         )
         if self.save_environment:
-            data_to_save['env'] = self.env
+            data_to_save['env'] = self.explo_env
         if self.save_algorithm:
             data_to_save['algorithm'] = self
         return data_to_save
 
-    def _get_action_and_info(self, observation):
-        """
-        Get an action from an exploration policy to take in the environment.
-        :param observation:
-        :return:
-        """
-        # self.exploration_policy.set_num_steps_total(self._n_env_steps_total)
-        return self.exploration_policy.get_action(
-            observation,
+    def _log_initial_data(self):
+        self.training_mode(False)
+
+        params = self.get_epoch_snapshot(-1)
+        logger.save_itr_params(-1, params)
+
+        self.evaluate(-1)
+        logger.record_tabular("Number of train steps total", 0)
+        logger.record_tabular("Number of env steps total", 0)
+        logger.record_tabular("Number of rollouts total", 0)
+        logger.record_tabular('Train Time (s)', 0)
+        logger.record_tabular('(Previous) Eval Time (s)', 0)
+        logger.record_tabular('Sample Time (s)', 0)
+        logger.record_tabular('Epoch Time (s)', 0)
+        logger.record_tabular('Total Train Time (s)', 0)
+        logger.record_tabular("Epoch", 0)
+
+        logger.dump_tabular(with_prefix=False, with_timestamp=False,
+                            write_header=True)
+
+    def _log_data(self, epoch, write_header=False):
+        # Update logger parameters with algorithm-specific variables
+        params = self.get_epoch_snapshot(epoch)
+        logger.save_itr_params(epoch, params)
+
+        # Check that logger parameters (table keys) did not change.
+        table_keys = logger.get_table_key_set()
+        if self._old_table_keys is not None:
+            if not table_keys == self._old_table_keys:
+                error_text = "Table keys cannot change from iteration " \
+                             "to iteration.\n"
+                error_text += 'table_keys: '
+                error_text += str(table_keys)
+                error_text += '\n'
+                error_text += 'old_table_keys: '
+                error_text += str(self._old_table_keys)
+                error_text += 'not in new: '
+                error_text += str(np.setdiff1d(list(table_keys),
+                                               list(self._old_table_keys))
+                                  )
+                error_text += 'not in old:'
+                error_text += str(np.setdiff1d(list(self._old_table_keys),
+                                               list(table_keys))
+                                  )
+                raise AttributeError(error_text)
+        self._old_table_keys = table_keys
+
+        # Add the number of steps to the logger
+        logger.record_tabular(
+            "Number of train steps total",
+            self._n_total_train_steps,
         )
+        logger.record_tabular(
+            "Number of env steps total",
+            self._n_env_steps_total,
+        )
+        logger.record_tabular(
+            "Number of rollouts total",
+            self._n_rollouts_total,
+        )
+
+        # Get useful times
+        times_itrs = gt.get_times().stamps.itrs
+        train_time = times_itrs['train'][-1]
+        sample_time = times_itrs['sample'][-1]
+        # eval_time = times_itrs['eval'][-1] if epoch > 0 else 0
+        eval_time = times_itrs['eval'][-1] if 'eval' in times_itrs else 0
+        epoch_time = train_time + sample_time + eval_time
+        total_time = gt.get_times().total
+
+        # Add the previous times to the logger
+        logger.record_tabular('Train Time (s)', train_time)
+        logger.record_tabular('(Previous) Eval Time (s)', eval_time)
+        logger.record_tabular('Sample Time (s)', sample_time)
+        logger.record_tabular('Epoch Time (s)', epoch_time)
+        logger.record_tabular('Total Train Time (s)', total_time)
+
+        # Add the number of epoch to the logger
+        logger.record_tabular("Epoch", epoch)
+
+        # Dump the logger data
+        logger.dump_tabular(with_prefix=False, with_timestamp=False,
+                            write_header=write_header)
+

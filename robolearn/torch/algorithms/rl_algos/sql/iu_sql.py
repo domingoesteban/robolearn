@@ -121,8 +121,8 @@ class IUSQL(IncrementalRLAlgorithm, TorchAlgorithm):
         self._epoch_plotter = plotter
 
         # Env data
-        self._action_dim = self.env.action_space.low.size
-        self._obs_dim = self.env.observation_space.low.size
+        self._action_dim = self.explo_env.action_space.low.size
+        self._obs_dim = self.explo_env.observation_space.low.size
 
         # Optimize Q-fcn
         self._u_qf_optimizers = [optimizer_class(qf.parameters(), lr=qf_lr, )
@@ -329,7 +329,7 @@ class IUSQL(IncrementalRLAlgorithm, TorchAlgorithm):
         fixed_actions, updated_actions \
             = torch.split(actions, [n_fixed_actions, n_updated_actions], dim=1)
         # Equiv: fixed_actions = tf.stop_gradient(fixed_actions)
-        fixed_actions = ptu.Variable(fixed_actions.detach(), requires_grad=True)
+        fixed_actions = torch.tensor(fixed_actions.detach(), requires_grad=True)
         assert_shape(fixed_actions,
                      [n_batch, n_fixed_actions, self._action_dim])
         assert_shape(updated_actions,
@@ -409,8 +409,8 @@ class IUSQL(IncrementalRLAlgorithm, TorchAlgorithm):
             q_fcn = self._u_qfs[unint_idx]
 
         if self.use_hard_updates:
-            # print(self._n_train_steps_total, self.hard_update_period)
-            if self._n_train_steps_total % self.hard_update_period == 0:
+            # print(self._n_total_train_steps, self.hard_update_period)
+            if self._n_total_train_steps % self.hard_update_period == 0:
                 ptu.copy_model_params_from_to(q_fcn,
                                               target_q_fcn)
         else:
@@ -465,13 +465,11 @@ class IUSQL(IncrementalRLAlgorithm, TorchAlgorithm):
         statistics.update(eval_util.get_generic_path_information(
             i_test_path, stat_prefix="[I] Test",
         ))
-        average_return = eval_util.get_average_returns(i_test_path)
-        statistics['[I] AverageReturn'] = average_return
 
         statistics.update(eval_util.get_generic_path_information(
             self._exploration_paths, stat_prefix="Exploration",
         ))
-        if hasattr(self.env, "log_diagnostics"):
+        if hasattr(self.explo_env, "log_diagnostics"):
             # TODO: CHECK ENV LOG_DIAGNOSTICS
             print('TODO: WE NEED LOG_DIAGNOSTICS IN ENV')
             # self.env.log_diagnostics(test_paths[demon])
@@ -485,7 +483,6 @@ class IUSQL(IncrementalRLAlgorithm, TorchAlgorithm):
                 # TODO: CHECK ENV RENDER_PATHS
                 print('TODO: RENDER_PATHS')
                 pass
-                # self.env.render_paths(test_paths[demon])
 
         if self._epoch_plotter is not None:
             self._epoch_plotter.draw()

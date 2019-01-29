@@ -13,7 +13,7 @@ from collections import OrderedDict
 
 import robolearn.torch.utils.pytorch_util as ptu
 
-from robolearn.algorithms.rl_algos import IterativeRLAlgorithm
+from robolearn.algorithms.rl_algos import RLAlgorithm
 from robolearn.torch.algorithms.torch_algorithm import TorchAlgorithm
 
 from robolearn.utils import eval_util
@@ -29,7 +29,7 @@ def assert_shape(tensor, expected_shape):
     assert all([a == b for a, b in zip(tensor_shape, expected_shape)])
 
 
-class Reinforce(IterativeRLAlgorithm, TorchAlgorithm):
+class Reinforce(RLAlgorithm, TorchAlgorithm):
     """Reinforce Algorithm
 
     """
@@ -74,8 +74,8 @@ class Reinforce(IterativeRLAlgorithm, TorchAlgorithm):
         self.plotter = plotter
 
         # Env data
-        self._action_dim = self.env.action_space.low.size
-        self._obs_dim = self.env.observation_space.low.size
+        self._action_dim = self.explo_env.action_space.low.size
+        self._obs_dim = self.explo_env.observation_space.low.size
 
         # Optimize Policy
         self.policy_optimizer = optimizer_class(
@@ -97,7 +97,7 @@ class Reinforce(IterativeRLAlgorithm, TorchAlgorithm):
 
         # Update Networks
 
-        # print('n_step', self._n_train_steps_total)
+        # print('n_step', self._n_total_train_steps)
         # bellman_residual = self._update_softq_fcn(paths)
         surrogate_cost = self._update_policy(paths)
         # self._update_target_softq_fcn()
@@ -185,8 +185,8 @@ class Reinforce(IterativeRLAlgorithm, TorchAlgorithm):
         # Implement for AC version
         pass
         # if self.use_hard_updates:
-        #     # print(self._n_train_steps_total, self.hard_update_period)
-        #     if self._n_train_steps_total % self.hard_update_period == 0:
+        #     # print(self._n_total_train_steps, self.hard_update_period)
+        #     if self._n_total_train_steps % self.hard_update_period == 0:
         #         ptu.copy_model_params_from_to(self._i_qf, self.target_qf)
         # else:
         #     ptu.soft_update_from_to(self._i_qf, self.target_qf,
@@ -251,9 +251,9 @@ class Reinforce(IterativeRLAlgorithm, TorchAlgorithm):
         statistics.update(eval_util.get_generic_path_information(
             self._exploration_paths, stat_prefix="Exploration",
         ))
-        if hasattr(self.env, "log_diagnostics"):
+        if hasattr(self.explo_env, "log_diagnostics"):
             print('TODO: WE NEED LOG_DIAGNOSTICS IN ENV')
-            self.env.log_diagnostics(test_paths)
+            self.explo_env.log_diagnostics(test_paths)
 
         average_returns = eval_util.get_average_returns(test_paths)
         statistics['Average Test Return'] = average_returns
@@ -261,9 +261,6 @@ class Reinforce(IterativeRLAlgorithm, TorchAlgorithm):
         # Record the data
         for key, value in statistics.items():
             logger.record_tabular(key, value)
-
-        if self.render_eval_paths:
-            self.env.render_paths(test_paths)
 
         if self.plotter is not None:
             self.plotter.draw()

@@ -277,7 +277,7 @@ def experiment(variant):
     algorithm = HIUDDPG(
         env=env,
         policy=policy,
-        exploration_policy=exploration_policy,
+        explo_policy=exploration_policy,
         u_qf=u_qf,
         replay_buffer=replay_buffer,
         batch_size=BATCH_SIZE,

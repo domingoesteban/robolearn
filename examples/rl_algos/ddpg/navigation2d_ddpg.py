@@ -1,5 +1,5 @@
 """
-Run PyTorch SAC on Reacher2D3DofEnv.
+Run PyTorch DDPG on Navigation2dGoalCompoEnv.
 
 NOTE: You need PyTorch 0.4
 """
@@ -13,15 +13,17 @@ from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.torch.utils.data_management import SimpleReplayBuffer
 
-from robolearn_gym_envs.pybullet import Reacher2D3DofGoalCompoEnv
+from robolearn.envs.simple_envs.navigation2d import Navigation2dGoalCompoEnv
 
-from robolearn.torch.algorithms.rl_algos.sac.sac_episodic \
-    import SAC
+from robolearn.torch.algorithms.rl_algos.ddpg \
+    import DDPG
 
 from robolearn.torch.models import NNQFunction
-from robolearn.torch.models import NNVFunction
 
-from robolearn.torch.policies import TanhGaussianPolicy
+from robolearn.torch.policies import TanhMlpPolicy
+
+from robolearn.utils.exploration_strategies import OUStrategy
+from robolearn.utils.exploration_strategies import PolicyWrappedWithExplorationStrategy
 
 import argparse
 import joblib
@@ -29,15 +31,10 @@ import joblib
 np.set_printoptions(suppress=True, precision=4)
 # np.seterr(all='raise')  # WARNING RAISE ERROR IN NUMPY
 
-Tend = 10.0  # Seconds
 
-SIM_TIMESTEP = 0.001
-FRAME_SKIP = 10
-DT = SIM_TIMESTEP * FRAME_SKIP
-
-PATH_LENGTH = int(np.ceil(Tend / DT))
-PATHS_PER_EPOCH = 1
-PATHS_PER_EVAL = 2
+PATH_LENGTH = 20  # time steps
+PATHS_PER_EPOCH = 5
+PATHS_PER_EVAL = 3
 BATCH_SIZE = 256
 
 SEED = 110
@@ -45,10 +42,9 @@ SEED = 110
 
 SUBTASK = None
 
-POLICY = TanhGaussianPolicy
+POLICY = TanhMlpPolicy
 
-USE_Q2 = True
-EXPLICIT_VF = True
+EPOCHS = 100
 
 OPTIMIZER = 'adam'
 # OPTIMIZER = 'rmsprop'
@@ -56,96 +52,84 @@ OPTIMIZER = 'adam'
 NORMALIZE_OBS = False
 
 expt_params = dict(
-    algo_name=SAC.__name__,
+    algo_name=DDPG.__name__,
     policy_name=POLICY.__name__,
     path_length=PATH_LENGTH,
+    steps_pretrain=max(100, BATCH_SIZE),
     algo_params=dict(
         # Common RL algorithm params
-        rollouts_per_epoch=PATHS_PER_EPOCH,
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=500,  # n_epochs
-        num_updates_per_train_call=PATHS_PER_EPOCH * PATH_LENGTH,  # How to many run algorithm train fcn
+        num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
-        min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
-        min_start_eval=1,  # Min nsteps to start to eval
+        min_start_eval=PATHS_PER_EPOCH * PATH_LENGTH,  # Min nsteps to start to eval
         # EnvSampler params
         max_path_length=PATH_LENGTH,  # max_path_length
         render=False,
         finite_horizon_eval=True,
-        # SAC params
-        action_prior='uniform',
-        entropy_scale=1.0e+0,
-        auto_alpha=True,
-        tgt_entro=1e+0,
+        # DDPG params
         # Learning rates
-        policy_lr=3e-4,
-        qf_lr=3e-4,
-        vf_lr=3e-4,
+        optimizer=OPTIMIZER,
+        policy_lr=3.e-4,
+        qf_lr=3.e-4,
         # Soft target update
-        soft_target_tau=5.e-3,
-        # Regularization terms
-        policy_mean_regu_weight=1e-3,
-        policy_std_regu_weight=1e-3,
-        policy_pre_activation_weight=0.e-3,
+        use_soft_update=True,
+        tau=1e-2,
         # Weight decays
         policy_weight_decay=1.e-5,
-        q_weight_decay=1.e-5,
-        v_weight_decay=1.e-5,
+        qf_weight_decay=1.e-5,
 
         discount=0.99,
         reward_scale=1.0e-0,
     ),
-    replay_buffer_size=1e6,
-    net_size=128,
+    replay_buffer_size=1e3,
+    net_size=32,
     # NN Normalizations
     # -----------------
     shared_layer_norm=False,
     # NN Activations
     # --------------
-    # hidden_activation='relu',
+    hidden_activation='relu',
     # hidden_activation='tanh',
-    hidden_activation='elu',
+    # hidden_activation='elu',
     # NN Initialization
     # -----------------
     # pol_hidden_w_init='xavier_normal',
     # pol_output_w_init='xavier_normal',
-    pol_hidden_w_init='uniform',
-    pol_output_w_init='uniform',
+    pol_hidden_w_init='xavier_uniform',
+    pol_output_w_init='xavier_uniform',
+    # pol_hidden_w_init='uniform',
+    # pol_output_w_init='uniform',
     # q_hidden_w_init='xavier_normal',
     # q_output_w_init='xavier_normal',
-    q_hidden_w_init='uniform',
-    q_output_w_init='uniform',
+    q_hidden_w_init='xavier_uniform',
+    q_output_w_init='xavier_uniform',
+    # q_hidden_w_init='uniform',
+    # q_output_w_init='uniform',
     # v_hidden_w_init='xavier_normal',
     # v_output_w_init='xavier_normal',
-    v_hidden_w_init='uniform',
-    v_output_w_init='uniform',
+    v_hidden_w_init='xavier_uniform',
+    v_output_w_init='xavier_uniform',
+    # v_hidden_w_init='uniform',
+    # v_output_w_init='uniform',
 )
 
 env_params = dict(
-    is_render=False,
-    # obs_distances=False,
-    obs_distances=True,
-    obs_with_img=False,
-    # obs_with_ori=True,
-    obs_with_ori=False,
-    obs_with_goal=True,
-    # obs_with_goal=False,
-    # goal_pose=(0.65, 0.65),
-    goal_pose=(0.65, 0.35),
-    # rdn_goal_pos=True,
-    rdn_goal_pos=False,
-    robot_config=None,
-    rdn_robot_config=True,
-    goal_cost_weight=4.0e0,
-    ctrl_cost_weight=5.0e-1,
-    goal_tolerance=0.01,
-    use_log_distances=True,
-    log_alpha=1e-6,
-    # max_time=PATH_LENGTH*DT,
-    max_time=None,
-    sim_timestep=SIM_TIMESTEP,
-    frame_skip=FRAME_SKIP,
-    half_env=True,
+    goal_reward=0,
+    actuation_cost_coeff=5.0e+0,
+    distance_cost_coeff=1.0e+0,
+    log_distance_cost_coeff=2.0e+0,
+    alpha=1e-1,
+    # Initial Condition
+    init_position=(4., 4.),
+    init_sigma=1.00,
+    # Goal
+    goal_position=(-2.0, -2.0),  # TODO: Make this a script param
+    goal_threshold=0.10,
+    # Others
+    dynamics_sigma=0.1,
+    # dynamics_sigma=0.0,
+    # horizon=PATH_LENGTH,
+    horizon=None,
     subtask=SUBTASK,
     seed=SEED,
 )
@@ -162,7 +146,7 @@ def experiment(variant):
     variant['env_params']['seed'] = variant['seed']
 
     env = NormalizedBoxEnv(
-        Reacher2D3DofGoalCompoEnv(**variant['env_params']),
+        Navigation2dGoalCompoEnv(**variant['env_params']),
         # normalize_obs=True,
         normalize_obs=False,
         online_normalization=False,
@@ -178,12 +162,7 @@ def experiment(variant):
         params_file = os.path.join(variant['log_dir'], 'params.pkl')
         data = joblib.load(params_file)
         start_epoch = data['epoch']
-        qf = data['qf']
-        qf2 = data['qf2']
-        vf = data['vf']
-        policy = data['policy']
-        env._obs_mean = data['obs_mean']
-        env._obs_var = data['obs_var']
+        raise NotImplementedError
     else:
         start_epoch = 0
         net_size = variant['net_size']
@@ -196,28 +175,6 @@ def experiment(variant):
             hidden_w_init=variant['q_hidden_w_init'],
             output_w_init=variant['q_output_w_init'],
         )
-        if USE_Q2:
-            qf2 = NNQFunction(
-                obs_dim=obs_dim,
-                action_dim=action_dim,
-                hidden_activation=variant['hidden_activation'],
-                hidden_sizes=[net_size, net_size, net_size],
-                hidden_w_init=variant['q_hidden_w_init'],
-                output_w_init=variant['q_output_w_init'],
-            )
-        else:
-            qf2 = None
-
-        if EXPLICIT_VF:
-            vf = NNVFunction(
-                obs_dim=obs_dim,
-                hidden_activation=variant['hidden_activation'],
-                hidden_sizes=[net_size, net_size, net_size],
-                hidden_w_init=variant['v_hidden_w_init'],
-                output_w_init=variant['v_output_w_init'],
-            )
-        else:
-            vf = None
 
         policy = POLICY(
             obs_dim=obs_dim,
@@ -227,19 +184,30 @@ def experiment(variant):
             hidden_w_init=variant['pol_hidden_w_init'],
             output_w_init=variant['pol_output_w_init'],
         )
+        es = OUStrategy(
+            action_space=env.action_space,
+            mu=0,
+            theta=0.15,
+            max_sigma=0.3,
+            min_sigma=0.3,
+            decay_period=100000,
+        )
+        exploration_policy = PolicyWrappedWithExplorationStrategy(
+            exploration_strategy=es,
+            policy=policy,
+        )
 
     replay_buffer = SimpleReplayBuffer(
-        max_replay_buffer_size=variant['replay_buffer_size'],
+        max_size=variant['replay_buffer_size'],
         obs_dim=obs_dim,
         action_dim=action_dim,
     )
 
-    algorithm = SAC(
-        env=env,
+    algorithm = DDPG(
+        explo_env=env,
         policy=policy,
+        explo_policy=exploration_policy,
         qf=qf,
-        vf=vf,
-        qf2=qf2,
         replay_buffer=replay_buffer,
         batch_size=BATCH_SIZE,
         eval_env=env,
@@ -247,9 +215,9 @@ def experiment(variant):
         **variant['algo_params']
     )
     if ptu.gpu_enabled():
-        algorithm.cuda()
+        algorithm.cuda(ptu.device)
 
-    # algorithm.pretrain(PATH_LENGTH*2)
+    algorithm.pretrain(variant['steps_pretrain'])
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm
@@ -271,6 +239,7 @@ def parse_args():
     parser.add_argument('--gpu', action="store_true")
     # Other arguments
     parser.add_argument('--render', action="store_true")
+    parser.add_argument('--render_q', action="store_true")
     args = parser.parse_args()
 
     return args
@@ -281,7 +250,7 @@ if __name__ == "__main__":
 
     # Experiment name
     if args.expt_name is None:
-        expt_name = 'reacher'
+        expt_name = 'navigation2d'
     else:
         expt_name = args.expt_name
 
@@ -290,7 +259,6 @@ if __name__ == "__main__":
 
     # Default environment parameters
     expt_variant['env_params'] = env_params
-    expt_variant['env_params']['is_render'] = args.render
 
     # Custom parameters
     if args.subtask >= 0:
@@ -306,6 +274,8 @@ if __name__ == "__main__":
     expt_variant['gpu'] = args.gpu
 
     expt_variant['seed'] = args.seed
+
+    expt_variant['render_q'] = args.render_q
 
     # Algo params
     expt_variant['algo_params']['render'] = args.render

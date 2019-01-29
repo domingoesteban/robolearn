@@ -39,8 +39,8 @@ class Normalizer(Module):
             self.synchronize()
         if clip_range is None:
             clip_range = self.default_clip_range
-        mean = ptu.np_to_var(self.mean, requires_grad=False)
-        std = ptu.np_to_var(self.std, requires_grad=False)
+        mean = torch.tensor(self.mean, requires_grad=False)
+        std = torch.tensor(self.std, requires_grad=False)
         if v.dim() == 2:
             # Unsqueeze along the batch use automatic broadcasting
             mean = mean.unsqueeze(0)
@@ -50,8 +50,8 @@ class Normalizer(Module):
     def denormalize(self, v):
         if not self.synchronized:
             self.synchronize()
-        mean = ptu.np_to_var(self.mean, requires_grad=False)
-        std = ptu.np_to_var(self.std, requires_grad=False)
+        mean = torch.tensor(self.mean, requires_grad=False)
+        std = torch.tensor(self.std, requires_grad=False)
         if v.dim() == 2:
             mean = mean.unsqueeze(0)
             std = std.unsqueeze(0)

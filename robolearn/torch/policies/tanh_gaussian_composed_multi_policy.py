@@ -301,7 +301,9 @@ class TanhGaussianComposedMultiPolicy(PyTorchModule, ExplorationPolicy):
         self._epsilon = epsilon
 
         self._pols_idxs = ptu.arange(self._n_subpolicies)
-        self._compo_pol_idx = ptu.LongTensor([self._n_subpolicies])
+        self._compo_pol_idx = torch.tensor([self._n_subpolicies],
+                                           dtype=torch.int64,
+                                           device=ptu.device)
 
     def get_action(self, obs_np, **kwargs):
         actions, info_dict = self.get_actions(obs_np[None], **kwargs)

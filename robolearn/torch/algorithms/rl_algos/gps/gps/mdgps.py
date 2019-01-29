@@ -6,7 +6,7 @@ import math
 import copy
 import logging
 
-from robolearn.algorithms.rl_algos.iterative_rl_algorithm import IterativeRLAlgorithm
+from robolearn.algorithms.rl_algos import RLAlgorithm
 from robolearn.utils.logging import logger
 import robolearn.torch.utils.pytorch_util as ptu
 
@@ -28,7 +28,7 @@ from robolearn.algorithms.rl_algos import DynamicsPriorGMM
 from robolearn.algorithms.rl_algos import TrajOptLQR
 
 
-class MDGPS(IterativeRLAlgorithm):
+class MDGPS(RLAlgorithm):
     def __init__(self,
                  env,
                  local_policies,
@@ -90,7 +90,7 @@ class MDGPS(IterativeRLAlgorithm):
 
         exploration_policy = global_policy
 
-        IterativeRLAlgorithm.__init__(
+        RLAlgorithm.__init__(
             self,
             env=env,
             exploration_policy=exploration_policy,
@@ -430,7 +430,7 @@ class MDGPS(IterativeRLAlgorithm):
             self.cur[m].pol_info = copy.deepcopy(self.prev[m].pol_info)
         self.new_traj_distr = None
 
-        IterativeRLAlgorithm._end_epoch(self)
+        RLAlgorithm._end_epoch(self)
 
     def _update_dynamic_model(self):
         """
@@ -622,8 +622,8 @@ class MDGPS(IterativeRLAlgorithm):
         if not hasattr(self.global_policy, 'scale') or not hasattr(self.global_policy, 'bias'):
             # 1e-3 to avoid infs if some state dimensions don't change in the
             # first batch of samples
-            self.global_policy.scale = ptu.zeros(self.env.obs_dim)
-            self.global_policy.bias = ptu.zeros(self.env.obs_dim)
+            self.global_policy.scale = ptu.zeros(self.explo_env.obs_dim)
+            self.global_policy.bias = ptu.zeros(self.explo_env.obs_dim)
 
         m = self._global_samples_counter
         n = m + N*T
@@ -984,7 +984,7 @@ class MDGPS(IterativeRLAlgorithm):
                 agent_infos = []
                 env_infos = []
 
-                o = self.env.reset(condition=cond)
+                o = self.explo_env.reset(condition=cond)
                 next_o = None
                 for t in range(self.T):
                     a, agent_info = \
@@ -996,7 +996,7 @@ class MDGPS(IterativeRLAlgorithm):
                         print("\e[31mERROR ACTION: NAN!!!!!")
                     a[nan_number] = 0
 
-                    next_o, r, d, env_info = self.env.step(a)
+                    next_o, r, d, env_info = self.explo_env.step(a)
 
                     observations.append(o)
                     rewards.append(r)
@@ -1054,7 +1054,7 @@ class MDGPS(IterativeRLAlgorithm):
                 agent_infos = []
                 env_infos = []
 
-                o = self.env.reset(condition=cond)
+                o = self.explo_env.reset(condition=cond)
                 next_o = None
 
                 for t in range(self.T):
@@ -1091,7 +1091,7 @@ class MDGPS(IterativeRLAlgorithm):
                         print("\e[31mERROR ACTION: NAN!!!!!")
                     a[nan_number] = 0
 
-                    next_o, r, d, env_info = self.env.step(a)
+                    next_o, r, d, env_info = self.explo_env.step(a)
 
                     observations.append(o)
                     rewards.append(r)

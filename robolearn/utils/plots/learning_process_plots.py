@@ -6,7 +6,7 @@ from builtins import input
 
 
 def plot_process_iu_returns(csv_file, n_unintentional=None, block=False):
-    labels_to_plot = ['Test AverageReturn']
+    labels_to_plot = ['Test Returns Mean']
 
     if n_unintentional is None:
         n_unintentional = 0
