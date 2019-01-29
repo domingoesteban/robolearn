@@ -1,5 +1,5 @@
 """
-Run PyTorch HIU-SAC on Reacher2D3DofEnv.
+Run PyTorch HIU-SAC-NEW on Navigation2dGoalCompoEnv.
 
 NOTE: You need PyTorch 0.4
 """
@@ -14,15 +14,17 @@ from robolearn.envs.normalized_box_env import NormalizedBoxEnv
 from robolearn.utils.launchers.launcher_util import setup_logger
 from robolearn.torch.utils.data_management import MultiGoalReplayBuffer
 
-from robolearn_gym_envs.pybullet import Reacher2D3DofGoalCompoEnv
+from robolearn.envs.simple_envs.navigation2d import Navigation2dGoalCompoEnv
 
 from robolearn.torch.algorithms.rl_algos.sac.hiu_sac \
     import HIUSAC
 
 from robolearn.torch.models import NNQFunction
+from robolearn.torch.models import NNVFunction
 from robolearn.torch.models import NNMultiQFunction
+from robolearn.torch.models import NNMultiVFunction
 
-from robolearn.torch.policies import TanhGaussianPrompMultiPolicy
+from robolearn.torch.policies import TanhGaussianWeightedMultiPolicy
 
 import argparse
 import joblib
@@ -30,15 +32,10 @@ import joblib
 np.set_printoptions(suppress=True, precision=4)
 # np.seterr(all='raise')  # WARNING RAISE ERROR IN NUMPY
 
-Tend = 10.0  # Seconds
 
-SIM_TIMESTEP = 0.001
-FRAME_SKIP = 10
-DT = SIM_TIMESTEP * FRAME_SKIP
-
-PATH_LENGTH = int(np.ceil(Tend / DT))
-PATHS_PER_EPOCH = 1
-PATHS_PER_EVAL = 2
+PATH_LENGTH = 20  # time steps
+PATHS_PER_EPOCH = 5
+PATHS_PER_EVAL = 3
 BATCH_SIZE = 256
 
 SEED = 110
@@ -46,7 +43,10 @@ SEED = 110
 
 SUBTASK = None
 
-POLICY = TanhGaussianPrompMultiPolicy
+POLICY = TanhGaussianWeightedMultiPolicy
+
+USE_Q2 = True
+EXPLICIT_VF = False
 
 SOFTMAX_WEIGHTS = True
 # SOFTMAX_WEIGHTS = False
@@ -62,10 +62,11 @@ expt_params = dict(
     algo_name=HIUSAC.__name__,
     policy_name=POLICY.__name__,
     path_length=PATH_LENGTH,
+    steps_pretrain=100,
     algo_params=dict(
         # Common RL algorithm params
         num_steps_per_epoch=PATHS_PER_EPOCH * PATH_LENGTH,
-        num_epochs=500,  # n_epochs
+        num_epochs=300,  # n_epochs
         num_updates_per_train_call=1,  # How to many run algorithm train fcn
         num_steps_per_eval=PATHS_PER_EVAL * PATH_LENGTH,
         min_steps_start_train=BATCH_SIZE,  # Min nsteps to start to train (or batch_size)
@@ -76,18 +77,15 @@ expt_params = dict(
         finite_horizon_eval=True,
         # SAC params
         action_prior='uniform',
-        i_entropy_scale=1.0e+0,
-        u_entropy_scale=[1.0e+0, 1.0e+0],
+        i_entropy_scale=1.0e-0,
+        u_entropy_scale=[1.0e-0, 1.0e-0],
         auto_alphas=True,
-        i_tgt_entro=0.0e-0,
-        u_tgt_entros=[1.0e-0, 1.0e-0],
+        i_tgt_entro=4.0e-1,
+        u_tgt_entros=[4.0e-1, 4.0e-1],
         # Learning rates
         optimizer=OPTIMIZER,
-        i_policy_lr=3.e-4,
-        u_policies_lr=3.e-4,
-        u_mixing_lr=3.e-4,
-        i_qf_lr=3.e-4,
-        u_qf_lr=3.e-4,
+        policy_lr=3.e-4,
+        qf_lr=3.e-4,
         # Soft target update
         i_soft_target_tau=5.e-3,
         u_soft_target_tau=5.e-3,
@@ -100,10 +98,8 @@ expt_params = dict(
         u_policy_std_regu_weight=[1.e-3, 1.e-3],
         u_policy_pre_activation_weight=[0.e-3, 0.e-3],
         # Weight decays
-        i_policy_weight_decay=1.e-5,
-        u_policy_weight_decay=1.e-5,
-        i_q_weight_decay=1e-5,
-        u_q_weight_decay=1e-5,
+        policy_weight_decay=0.e-5,
+        q_weight_decay=0e-5,
 
         discount=0.99,
         reward_scale=1.0e-0,
@@ -111,8 +107,8 @@ expt_params = dict(
 
         normalize_obs=NORMALIZE_OBS,
     ),
-    replay_buffer_size=1e6,
-    net_size=128,
+    replay_buffer_size=1e3,
+    net_size=32,
     softmax_weights=SOFTMAX_WEIGHTS,
     # NN Normalizations
     # -----------------
@@ -126,50 +122,48 @@ expt_params = dict(
     # mixture_layer_norm=True,
     # NN Activations
     # --------------
-    # hidden_activation='relu',
+    hidden_activation='relu',
     # hidden_activation='tanh',
-    hidden_activation='elu',
+    # hidden_activation='elu',
     # NN Initialization
     # -----------------
     # pol_hidden_w_init='xavier_normal',
     # pol_output_w_init='xavier_normal',
-    pol_hidden_w_init='uniform',
-    pol_output_w_init='uniform',
+    pol_hidden_w_init='xavier_uniform',
+    pol_output_w_init='xavier_uniform',
+    # pol_hidden_w_init='uniform',
+    # pol_output_w_init='uniform',
     # q_hidden_w_init='xavier_normal',
     # q_output_w_init='xavier_normal',
-    q_hidden_w_init='uniform',
-    q_output_w_init='uniform',
+    q_hidden_w_init='xavier_uniform',
+    q_output_w_init='xavier_uniform',
+    # q_hidden_w_init='uniform',
+    # q_output_w_init='uniform',
     # v_hidden_w_init='xavier_normal',
     # v_output_w_init='xavier_normal',
-    v_hidden_w_init='uniform',
-    v_output_w_init='uniform',
+    v_hidden_w_init='xavier_uniform',
+    v_output_w_init='xavier_uniform',
+    # v_hidden_w_init='uniform',
+    # v_output_w_init='uniform',
 )
 
 env_params = dict(
-    is_render=False,
-    # obs_distances=False,
-    obs_distances=True,
-    obs_with_img=False,
-    # obs_with_ori=True,
-    obs_with_ori=False,
-    obs_with_goal=True,
-    # obs_with_goal=False,
-    # goal_pose=(0.65, 0.65),
-    goal_pose=(0.65, 0.35),
-    # rdn_goal_pos=True,
-    rdn_goal_pos=False,
-    robot_config=None,
-    rdn_robot_config=True,
-    goal_cost_weight=4.0e0,
-    ctrl_cost_weight=5.0e-1,
-    goal_tolerance=0.01,
-    use_log_distances=True,
-    log_alpha=1e-6,
-    # max_time=PATH_LENGTH*DT,
-    max_time=None,
-    sim_timestep=SIM_TIMESTEP,
-    frame_skip=FRAME_SKIP,
-    half_env=True,
+    goal_reward=0,
+    actuation_cost_coeff=5.0e+0,
+    distance_cost_coeff=1.0e+0,
+    log_distance_cost_coeff=2.0e+0,
+    alpha=1e-1,
+    # Initial Condition
+    init_position=(4., 4.),
+    init_sigma=1.00,
+    # Goal
+    goal_position=(-2.0, -2.0),  # TODO: Make this a script param
+    goal_threshold=0.10,
+    # Others
+    dynamics_sigma=0.1,
+    # dynamics_sigma=0.0,
+    # horizon=PATH_LENGTH,
+    horizon=None,
     subtask=SUBTASK,
     seed=SEED,
 )
@@ -186,7 +180,7 @@ def experiment(variant):
     variant['env_params']['seed'] = variant['seed']
 
     env = NormalizedBoxEnv(
-        Reacher2D3DofGoalCompoEnv(**variant['env_params']),
+        Navigation2dGoalCompoEnv(**variant['env_params']),
         # normalize_obs=True,
         normalize_obs=False,
         online_normalization=False,
@@ -208,6 +202,8 @@ def experiment(variant):
         i_qf2 = data['qf2']
         u_qf = data['u_qf']
         u_qf2 = data['u_qf2']
+        i_vf = data['i_vf']
+        u_vf = data['u_vf']
         policy = data['policy']
         env._obs_mean = data['obs_mean']
         env._obs_var = data['obs_var']
@@ -235,25 +231,52 @@ def experiment(variant):
             hidden_w_init=variant['q_hidden_w_init'],
             output_w_init=variant['q_output_w_init'],
         )
-        u_qf2 = NNMultiQFunction(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            n_qs=n_unintentional,
-            hidden_activation=variant['hidden_activation'],
-            # shared_hidden_sizes=[net_size, net_size],
-            shared_hidden_sizes=[net_size],
-            # shared_hidden_sizes=[],
-            unshared_hidden_sizes=[net_size, net_size],
-            hidden_w_init=variant['q_hidden_w_init'],
-            output_w_init=variant['q_output_w_init'],
-        )
-        i_qf2 = NNQFunction(
-            obs_dim=obs_dim,
-            action_dim=action_dim,
-            hidden_sizes=[net_size, net_size],
-            hidden_w_init=variant['q_hidden_w_init'],
-            output_w_init=variant['q_output_w_init'],
-        )
+
+        if USE_Q2:
+            u_qf2 = NNMultiQFunction(
+                obs_dim=obs_dim,
+                action_dim=action_dim,
+                n_qs=n_unintentional,
+                hidden_activation=variant['hidden_activation'],
+                # shared_hidden_sizes=[net_size, net_size],
+                shared_hidden_sizes=[net_size],
+                # shared_hidden_sizes=[],
+                unshared_hidden_sizes=[net_size, net_size],
+                hidden_w_init=variant['q_hidden_w_init'],
+                output_w_init=variant['q_output_w_init'],
+            )
+            i_qf2 = NNQFunction(
+                obs_dim=obs_dim,
+                action_dim=action_dim,
+                hidden_sizes=[net_size, net_size],
+                hidden_w_init=variant['q_hidden_w_init'],
+                output_w_init=variant['q_output_w_init'],
+            )
+        else:
+            u_qf2 = None
+            i_qf2 = None
+
+        if EXPLICIT_VF:
+            u_vf = NNMultiVFunction(
+                obs_dim=obs_dim,
+                n_vs=n_unintentional,
+                hidden_activation=variant['hidden_activation'],
+                # shared_hidden_sizes=[net_size, net_size],
+                shared_hidden_sizes=[net_size],
+                # shared_hidden_sizes=[],
+                unshared_hidden_sizes=[net_size, net_size],
+                hidden_w_init=variant['q_hidden_w_init'],
+                output_w_init=variant['q_output_w_init'],
+            )
+            i_vf = NNVFunction(
+                obs_dim=obs_dim,
+                hidden_sizes=[net_size, net_size],
+                hidden_w_init=variant['q_hidden_w_init'],
+                output_w_init=variant['q_output_w_init'],
+            )
+        else:
+            u_vf = None
+            i_vf = None
 
         policy = POLICY(
             obs_dim=obs_dim,
@@ -299,6 +322,8 @@ def experiment(variant):
         i_qf1=i_qf,
         u_qf2=u_qf2,
         i_qf2=i_qf2,
+        u_vf=u_vf,
+        i_vf=i_vf,
         eval_env=env,
         save_environment=False,
         **variant['algo_params']
@@ -306,7 +331,7 @@ def experiment(variant):
     if ptu.gpu_enabled():
         algorithm.cuda(ptu.device)
 
-    # algorithm.pretrain(PATH_LENGTH*2)
+    algorithm.pretrain(variant['steps_pretrain'])
     algorithm.train(start_epoch=start_epoch)
 
     return algorithm
@@ -349,6 +374,7 @@ def parse_args():
     parser.add_argument('--gpu', action="store_true")
     # Other arguments
     parser.add_argument('--render', action="store_true")
+    parser.add_argument('--render_q', action="store_true")
     # Algo arguments
     parser.add_argument('--mix_weight', type=float, default=1.e+1)
     args = parser.parse_args()
@@ -361,7 +387,7 @@ if __name__ == "__main__":
 
     # Experiment name
     if args.expt_name is None:
-        expt_name = 'reacher'
+        expt_name = 'navigation2d'
     else:
         expt_name = args.expt_name
 
@@ -370,7 +396,6 @@ if __name__ == "__main__":
 
     # Default environment parameters
     expt_variant['env_params'] = env_params
-    expt_variant['env_params']['is_render'] = args.render
 
     # Custom parameters
     if args.subtask >= 0:
@@ -386,6 +411,8 @@ if __name__ == "__main__":
     expt_variant['gpu'] = args.gpu
 
     expt_variant['seed'] = args.seed
+
+    expt_variant['render_q'] = args.render_q
 
     # Algo params
     expt_variant['algo_params']['render'] = args.render
