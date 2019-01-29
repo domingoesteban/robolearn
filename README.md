@@ -8,44 +8,10 @@
 **Robolearn** is a python package, mainly focused on learning control, that defines common interfaces
 between robot learning algorithms and real/simulated robots.
 
-**This package is gradually becoming public**, so the public version is still in 
-development. Sorry for any inconvenience.
+**This package is ongoing**, so this version is still in development. Sorry for any inconvenience.
 
 ![robolearn diagram](robolearn_diagram.png)
 
-
-## Algorithms
-- Reinforcement Learning
-    - Model-Based RL
-        - Guided Policy Search
-            - [ ] MDGPS
-            - [ ] DMDGPS
-    - Model-Free RL
-        - Value-based
-            - [ ] Deep Q-Learning (DQL)
-            - [ ] Soft Q-Learning (SQL)
-        - Policy-based
-            - [ ] REINFORCE
-            - [ ] PPO
-        - Actor-Critic
-            - [ ] Deep Deterministic Policy Gradients (DDPG)
-            - [ ] Soft Actor Critic (SAC)
-
-- Inverse Reinforcement Learning
-
-- Imitation Learning
-
-- Trajectory Optimization
-    - Indirect Methods
-        - iLQR
-    - [ ] Direct Methods
-
-
-## Robot Interfaces
-- [ ] Simulation
-    - [ ] PyBullet
-    - [ ] GAZEBO
-- [ ] Real
 
 # Installation
 
@@ -56,8 +22,8 @@ pip install -e .
 ```
 
 # Citation
-If you use this code or it was useful for something else,
-we would appreciate that you can cite:
+If you use this code or it gave you some ideas or it was useful for something else for your research,
+I would appreciate that you can cite:
 
     @misc{robolearn,
       author = {Esteban, Domingo},
